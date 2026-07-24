@@ -4044,10 +4044,45 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const handleFileListKeyDown = (e) => {
     if (operationInProgressRef.current) return;
     if (renamingItem) return;
+    const eventTarget = e.target;
+    const isEditableTarget = eventTarget instanceof HTMLElement
+      && (
+        eventTarget.tagName === 'INPUT'
+        || eventTarget.tagName === 'TEXTAREA'
+        || eventTarget.isContentEditable
+      );
+    if (isEditableTarget) return;
+    if (fileListRef.current && document.activeElement !== fileListRef.current) return;
+    if (e.target !== e.currentTarget) return;
+    if (e.defaultPrevented) return;
     const isCtrl = e.ctrlKey || e.metaKey;
     if (e.key === 'Delete' || e.key === 'Del') {
       e.preventDefault();
       void handleDeleteItems();
+      return;
+    }
+    if (e.key === 'Backspace') {
+      if (currentPath === '/') return;
+      e.preventDefault();
+      const parent = currentPath.substring(0, currentPath.lastIndexOf('/')) || '/';
+      void loadDir(parent, {
+        preserveView: false,
+        trackDiff: false,
+        showLoading: false,
+        transitionMode: 'directory',
+        transitionDirection: 'backward',
+      });
+      return;
+    }
+    if (e.key === 'F2') {
+      if (selectedPaths.length !== 1) return;
+      e.preventDefault();
+      const targetPath = selectedPaths[0];
+      const targetItem = sortedItems.find((item) => (
+        !isDeletedPlaceholderItem(item) && joinPath(currentPath, item.name) === targetPath
+      ));
+      if (!targetItem) return;
+      startRename(targetItem);
       return;
     }
     if (isCtrl && e.key === 'a') {
