@@ -1120,6 +1120,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [showFileManagerTabIcons, setShowFileManagerTabIcons] = useState(() => shouldShowFileManagerTabIcons());
   const [hideFileManagerTabCloseButton, setHideFileManagerTabCloseButton] = useState(() => shouldHideFileManagerTabCloseButton());
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
+  const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
   useEffect(() => {
     const handleChange = (e) => setShowFileManagerTabIcons(e.detail !== false);
     window.addEventListener('file-manager-show-tab-icons-changed', handleChange);
@@ -1136,6 +1137,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       .then((settings) => {
         if (cancelled || !settings) return;
         setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);
+        setFileManagerSmartUncompressConflictStrategy(
+          settings.smartUncompressConflictStrategy === 'overwrite' || settings.smartUncompressConflictStrategy === 'prompt'
+            ? settings.smartUncompressConflictStrategy
+            : 'auto_rename'
+        );
       })
       .catch(() => {});
     return () => {
@@ -1143,9 +1149,16 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     };
   }, []);
   useEffect(() => {
-    const handleChange = (e) => setFileManagerDoubleClickUncompressArchive(e.detail === true);
-    window.addEventListener('file-manager-double-click-uncompress-archive-changed', handleChange);
-    return () => window.removeEventListener('file-manager-double-click-uncompress-archive-changed', handleChange);
+    const handleDoubleClickChange = (e) => setFileManagerDoubleClickUncompressArchive(e.detail === true);
+    const handleStrategyChange = (e) => setFileManagerSmartUncompressConflictStrategy(
+      e.detail === 'overwrite' || e.detail === 'prompt' ? e.detail : 'auto_rename'
+    );
+    window.addEventListener('file-manager-double-click-uncompress-archive-changed', handleDoubleClickChange);
+    window.addEventListener('file-manager-smart-uncompress-conflict-strategy-changed', handleStrategyChange);
+    return () => {
+      window.removeEventListener('file-manager-double-click-uncompress-archive-changed', handleDoubleClickChange);
+      window.removeEventListener('file-manager-smart-uncompress-conflict-strategy-changed', handleStrategyChange);
+    };
   }, []);
   useEffect(() => {
     if (!sessionId || !currentPathHydratedRef.current || !isActive) return;
@@ -4353,8 +4366,36 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const basePath = typeof options === 'string' ? options : (options.basePath || currentPath);
     const remotePath = joinPath(basePath, item.name);
     try {
+      const previewSmartUncompressItem = window?.go?.main?.App?.PreviewSmartUncompressItem;
+      const uncompressItemWithStrategy = window?.go?.main?.App?.UncompressItemWithStrategy;
+      let requestedStrategy = fileManagerSmartUncompressConflictStrategy;
+      if (requestedStrategy === 'prompt' && typeof previewSmartUncompressItem === 'function') {
+        const preview = await previewSmartUncompressItem(sessionId, remotePath);
+        if (preview?.mode === 'folder' && preview?.targetExists === true) {
+          const targetName = String(preview?.targetName || item.name || '').trim() || t('文件夹');
+          const targetKind = preview?.targetKind === 'file' ? t('文件') : t('文件夹');
+          const choice = await window.luminDialog?.choice?.(
+            `${t('准备解压到“{name}”', { name: targetName })}\n${t('但当前目录里已经有同名{kind}', { kind: targetKind })}\n\n${t('请选择这次怎么处理')}`,
+            t('智能解压遇到同名'),
+            [
+              { label: t('覆盖'), value: 'overwrite', primary: true },
+              { label: t('自动重命名'), value: 'auto_rename' },
+              { label: t('取消'), value: 'cancel', secondary: true },
+            ]
+          );
+          const selectedValue = typeof choice === 'object' && choice !== null ? choice.value : choice;
+          if (!selectedValue || selectedValue === 'cancel') {
+            return;
+          }
+          requestedStrategy = selectedValue === 'overwrite' ? 'overwrite' : 'auto_rename';
+        }
+      }
       addToast(`${t('正在解压')} ${item.name}...`, 'info');
-      await AppGo.UncompressItem(sessionId, remotePath);
+      if (typeof uncompressItemWithStrategy === 'function') {
+        await uncompressItemWithStrategy(sessionId, remotePath, requestedStrategy);
+      } else {
+        await AppGo.UncompressItem(sessionId, remotePath);
+      }
       addToast(t('解压成功'), 'success');
       if (basePath === currentPathRef.current) {
         await loadDir(currentPathRef.current, { preserveView: true, showLoading: false });

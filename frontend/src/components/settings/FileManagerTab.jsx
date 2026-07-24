@@ -27,6 +27,8 @@ export default function FileManagerTab({
   onToggleFileManagerChmodAutoApplyLastSettings,
   fileManagerDoubleClickUncompressArchive,
   onToggleFileManagerDoubleClickUncompressArchive,
+  fileManagerSmartUncompressConflictStrategy,
+  onFileManagerSmartUncompressConflictStrategyChange,
   fileManagerDefaultOpenMode = 'builtin',
   onFileManagerDefaultOpenModeChange,
   fileManagerPreferredExternalApp = '',
@@ -96,9 +98,34 @@ export default function FileManagerTab({
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
             title={$t('双击解压压缩包')}
-            description={$t('开启后,双击压缩包时会直接在当前目录解压,右键“解压”不受影响')}
+            description={$t('开启后,双击压缩包会直接解压;右键“解压”也会使用同样的智能解压规则')}
             action={<ToggleSwitch checked={fileManagerDoubleClickUncompressArchive} onChange={onToggleFileManagerDoubleClickUncompressArchive} />}
           />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('智能解压遇到同名文件夹时')}</div>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('如果准备解压到“压缩包同名文件夹”,但这个文件夹已经存在,就按这里处理')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+              <RadioOption
+                selected={fileManagerSmartUncompressConflictStrategy === 'overwrite'}
+                label={$t('覆盖')}
+                description={$t('继续解压到现有同名文件夹,里面同名文件会被替换')}
+                onClick={() => onFileManagerSmartUncompressConflictStrategyChange?.('overwrite')}
+              />
+              <RadioOption
+                selected={fileManagerSmartUncompressConflictStrategy === 'auto_rename'}
+                label={$t('自动重命名')}
+                description={$t('保留已有文件夹,自动新建“压缩包名 (2)”这类文件夹')}
+                onClick={() => onFileManagerSmartUncompressConflictStrategyChange?.('auto_rename')}
+              />
+              <RadioOption
+                selected={fileManagerSmartUncompressConflictStrategy === 'prompt'}
+                label={$t('每次都询问我')}
+                description={$t('每次遇到同名文件夹时都弹窗让我选')}
+                onClick={() => onFileManagerSmartUncompressConflictStrategyChange?.('prompt')}
+              />
+            </div>
+          </div>
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('打开文件默认方式')}</div>
