@@ -26,7 +26,7 @@ import {
   FileArchive, Settings, ClipboardList, Wrench, Image, Code, Globe, House,
   Palette, Database, Terminal, Film, Music, Archive, HardDrive, BookOpen,
   Pencil, PenLine, Download, Upload, Trash2, RefreshCw, Lock, FolderUp, SquarePen, Copy,
-  Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight,
+  Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight, Scissors,
 } from 'lucide-react';
 
 // 格式化文件大小
@@ -871,7 +871,7 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
 }
 
 // Context menu component
-function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, onClose, onDownload, onEdit, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
+function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, onClose, onDownload, onEdit, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
   const ref = useRef(null);
   const [adjusted, setAdjusted] = useState({ left: pos.x, top: pos.y });
   const isTabMenu = mode === 'tab';
@@ -919,6 +919,21 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
       {item && (
         <div className="context-menu-item" onClick={onCopyPath}>
           <Copy size={14} /> {t('复制路径')}
+        </div>
+      )}
+      {item && !isTabMenu && (
+        <div className="context-menu-item" onClick={onCopyItem}>
+          <Copy size={14} /> {t('复制')}{clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}
+        </div>
+      )}
+      {item && !isTabMenu && (
+        <div className="context-menu-item" onClick={onCutItem}>
+          <Scissors size={14} /> {t('剪切')}{clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}
+        </div>
+      )}
+      {!isTabMenu && canPaste && (
+        <div className="context-menu-item" onClick={onPaste}>
+          <ClipboardPaste size={14} /> {t('粘贴')}
         </div>
       )}
       {item && !item.isDirectory && isEditable(item.name) && (
@@ -1104,6 +1119,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [sessionId]);
   const [showFileManagerTabIcons, setShowFileManagerTabIcons] = useState(() => shouldShowFileManagerTabIcons());
   const [hideFileManagerTabCloseButton, setHideFileManagerTabCloseButton] = useState(() => shouldHideFileManagerTabCloseButton());
+  const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   useEffect(() => {
     const handleChange = (e) => setShowFileManagerTabIcons(e.detail !== false);
     window.addEventListener('file-manager-show-tab-icons-changed', handleChange);
@@ -1113,6 +1129,23 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const handleChange = (e) => setHideFileManagerTabCloseButton(e.detail === true);
     window.addEventListener('file-manager-hide-tab-close-button-changed', handleChange);
     return () => window.removeEventListener('file-manager-hide-tab-close-button-changed', handleChange);
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve(window?.go?.main?.App?.GetFileManagerSettings?.())
+      .then((settings) => {
+        if (cancelled || !settings) return;
+        setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    const handleChange = (e) => setFileManagerDoubleClickUncompressArchive(e.detail === true);
+    window.addEventListener('file-manager-double-click-uncompress-archive-changed', handleChange);
+    return () => window.removeEventListener('file-manager-double-click-uncompress-archive-changed', handleChange);
   }, []);
   useEffect(() => {
     if (!sessionId || !currentPathHydratedRef.current || !isActive) return;
@@ -3112,6 +3145,36 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     });
   };
 
+  const handleClipboardCopy = useCallback((paths, sourceDir = currentPathRef.current || currentPath) => {
+    const normalizedPaths = Array.isArray(paths)
+      ? paths.map((path) => String(path || '').trim()).filter(Boolean)
+      : [];
+    if (normalizedPaths.length === 0) {
+      return;
+    }
+    updateClipboard({
+      paths: normalizedPaths,
+      mode: 'copy',
+      srcDir: normalizePath(sourceDir) || '/',
+    });
+    addToast(t('已复制'), 'info');
+  }, [addToast, currentPath, normalizePath, t]);
+
+  const handleClipboardCut = useCallback((paths, sourceDir = currentPathRef.current || currentPath) => {
+    const normalizedPaths = Array.isArray(paths)
+      ? paths.map((path) => String(path || '').trim()).filter(Boolean)
+      : [];
+    if (normalizedPaths.length === 0) {
+      return;
+    }
+    updateClipboard({
+      paths: normalizedPaths,
+      mode: 'cut',
+      srcDir: normalizePath(sourceDir) || '/',
+    });
+    addToast(t('已剪切'), 'info');
+  }, [addToast, currentPath, normalizePath, t]);
+
   const handleDownload = useCallback(async (item, options = {}) => {
     const basePath = typeof options === 'string' ? options : (options.basePath || currentPath);
     const remotePath = joinPath(basePath, item.name);
@@ -3921,31 +3984,24 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       fileListRef.current?.focus();
       if (!ok) { operationInProgressRef.current = false; return; }
     }
-    let successCount = 0;
-    let failCount = 0;
-    const removedPaths = [];
     const total = selectedPaths.length;
+    let removedPaths = [];
     setOperationProgress({ message: t('正在删除中...'), current: 0, total });
     try {
-      for (let i = 0; i < total; i++) {
-        const path = selectedPaths[i];
-        const name = path.split('/').pop();
-        setOperationProgress({ message: `${t('正在删除')} ${name}`, current: i + 1, total });
-        try {
-          await AppGo.DeleteItemShell(sessionId, path);
-          successCount++;
-          removedPaths.push(path);
-        } catch (err) {
-          failCount++;
-          console.error('delete item failed:', path, err);
-        }
-      }
+      await AppGo.BatchDeleteItemShell(sessionId, selectedPaths);
+      removedPaths = [...selectedPaths];
+    } catch (err) {
+      console.error('batch delete failed:', err);
+      addToast(`${t('删除失败')}: ${err?.message || err}`, 'error');
     } finally {
       setOperationProgress(null);
       operationInProgressRef.current = false;
     }
-    if (successCount > 0) addToast(`${t('已删除')} ${successCount} ${t('项')}`, 'success');
-    if (failCount > 0) addToast(`${t('删除失败')}: ${failCount} ${t('项')}`, 'error');
+    if (removedPaths.length === 0) {
+      fileListRef.current?.focus();
+      return;
+    }
+    addToast(`${t('已删除')} ${removedPaths.length} ${t('项')}`, 'success');
     const deletedPlaceholders = new Map(removedPaths.map((path) => {
       const existingItem = items.find((entry) => joinPath(currentPath, entry.name) === path);
       const fallbackName = path.split('/').pop() || '';
@@ -3989,15 +4045,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (isCtrl && e.key === 'c') {
       e.preventDefault();
       if (selectedPaths.length === 0) return;
-      updateClipboard({ paths: [...selectedPaths], mode: 'copy', srcDir: currentPath });
-      addToast(t('已复制'), 'info');
+      handleClipboardCopy(selectedPaths, currentPath);
       return;
     }
     if (isCtrl && e.key === 'x') {
       e.preventDefault();
       if (selectedPaths.length === 0) return;
-      updateClipboard({ paths: [...selectedPaths], mode: 'cut', srcDir: currentPath });
-      addToast(t('已剪切'), 'info');
+      handleClipboardCut(selectedPaths, currentPath);
       return;
     }
     if (isCtrl && e.key === 'v') {
@@ -4008,31 +4062,43 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
   };
 
-  const handlePaste = async () => {
+  const handlePaste = async (targetDirPath = currentPathRef.current || currentPath) => {
     if (operationInProgressRef.current) return;
     if (!clipboard || clipboard.paths.length === 0) return;
-    if (clipboard.srcDir === currentPath && clipboard.mode === 'cut') {
+    const normalizedTargetPath = normalizePath(targetDirPath) || '/';
+    const isCurrentTargetPath = normalizedTargetPath === (normalizePath(currentPathRef.current || currentPath) || '/');
+    if (clipboard.srcDir === normalizedTargetPath && clipboard.mode === 'cut') {
       addToast(t('源目录与目标目录相同，无需移动'), 'warning');
       return;
     }
     operationInProgressRef.current = true;
     let count = 0;
+    let targetItems = isCurrentTargetPath ? items : [];
+    try {
+      if (!isCurrentTargetPath) {
+        targetItems = await AppGo.ListDir(sessionId, normalizedTargetPath);
+      }
+    } catch (err) {
+      operationInProgressRef.current = false;
+      addToast(`${t('读取目录失败')}: ${err}`, 'error');
+      return;
+    }
     // 注意：existing 在循环内会被更新，反映本次粘贴已产生的文件名，避免同批同名互覆盖
-    const existing = new Set(items.map(i => i.name));
+    const existing = new Set((Array.isArray(targetItems) ? targetItems : []).map((item) => item.name));
     const localPatchedItems = [];
-    let shouldFallbackRefresh = false;
+    let shouldFallbackRefresh = !isCurrentTargetPath;
     const total = clipboard.paths.length;
     setOperationProgress({ message: t('正在粘贴中...'), current: 0, total });
     try {
       for (let i = 0; i < total; i++) {
         const srcPath = clipboard.paths[i];
         const name = srcPath.split('/').pop();
-        const sourceItem = clipboard.srcDir === currentPath
+        const sourceItem = clipboard.srcDir === normalizedTargetPath && isCurrentTargetPath
           ? items.find((entry) => entry.name === name)
           : null;
-        let destPath = joinPath(currentPath, name);
+        let destPath = joinPath(normalizedTargetPath, name);
         let destName = name;
-        if (clipboard.mode === 'copy' && clipboard.srcDir === currentPath) {
+        if (clipboard.mode === 'copy' && clipboard.srcDir === normalizedTargetPath) {
           const base = name.replace(/(\.[^.]+)$/, '');
           const ext = name !== base ? name.slice(base.length) : '';
           let copyName = `${base}_copy${ext}`;
@@ -4042,10 +4108,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             copyName = `${base}_copy${idx}${ext}`;
           }
           destName = copyName;
-          destPath = joinPath(currentPath, copyName);
+          destPath = joinPath(normalizedTargetPath, copyName);
         } else {
           if (existing.has(name)) {
-            // 确认对话框缺失时显式报错并跳过，避免静默吞掉覆盖操作
             if (typeof window.luminDialog?.confirm !== 'function') {
               addToast(`${t('无法确认覆盖操作，已跳过')} ${name}`, 'error');
               continue;
@@ -4057,7 +4122,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           }
         }
 
-        // Only update progress and show the copy/move text after confirmation passes
         setOperationProgress({
           message: `${clipboard.mode === 'copy' ? t('正在复制') : t('正在移动')} ${name}`,
           current: i + 1,
@@ -4069,10 +4133,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           } else {
             await AppGo.MoveItem(sessionId, srcPath, destPath);
           }
-          // 把刚产生的目标名加入 existing，让同批后续迭代可见
           existing.add(destName);
           count++;
-          if (clipboard.mode === 'copy' && sourceItem) {
+          if (clipboard.mode === 'copy' && sourceItem && isCurrentTargetPath) {
             localPatchedItems.push(createLocalItemShell(destName, sourceItem.isDirectory, {
               ...sourceItem,
               name: destName,
@@ -4090,13 +4153,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
     if (count > 0) {
       addToast(`${t('操作完成')}: ${count} ${t('项')}`, 'success');
-      // cut 成功移动后清空剪贴板，避免对已移动的源再次粘贴（标准文件管理器行为）
       if (clipboard.mode === 'cut') {
         updateClipboard(null);
       }
       if (!shouldFallbackRefresh && localPatchedItems.length === count) {
         localPatchedItems.forEach((localItem) => {
-          const logicalPath = joinPath(currentPath, localItem.name);
+          const logicalPath = joinPath(normalizedTargetPath, localItem.name);
           queueRowEffect(logicalPath, logicalPath, 'added');
         });
         updateItemsPreservingView((prev) => localPatchedItems.reduce(
@@ -4104,7 +4166,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           prev,
         ));
       } else {
-        await loadDir(currentPath, { preserveView: true, showLoading: false });
+        await refreshDirectoryAfterTransfer(normalizedTargetPath);
       }
     }
   };
@@ -5175,6 +5237,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                     lastClickedPathRef.current = itemPath;
                     if (item.isDirectory) {
                       navigate(item);
+                    } else if (isArchive(item.name) && fileManagerDoubleClickUncompressArchive) {
+                      void handleUncompress(item);
                     } else if (isEditable(item.name)) {
                       handleEdit(item);
                     }
@@ -5185,6 +5249,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                     e.stopPropagation();
                     const currentSelectedPaths = selectedPathsRef.current;
                     const useSelectedPathsDelete = currentSelectedPaths.length > 1 && currentSelectedPaths.includes(itemPath);
+                    const useSelectedPathsClipboard = currentSelectedPaths.length > 1 && currentSelectedPaths.includes(itemPath);
                     setContextMenu({
                       pos: { x: e.clientX, y: e.clientY },
                       item,
@@ -5194,6 +5259,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                       showCreateActions: false,
                       deleteUsesSelectedPaths: useSelectedPathsDelete,
                       deleteItemCount: useSelectedPathsDelete ? currentSelectedPaths.length : 1,
+                      clipboardUsesSelectedPaths: useSelectedPathsClipboard,
+                      clipboardItemCount: useSelectedPathsClipboard ? currentSelectedPaths.length : 1,
                     });
                   }}
                 >
@@ -5295,6 +5362,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           canCloseTab={contextMenu.mode === 'tab' && contextMenu.tabPinned !== true && fileManagerWorkspace.tabs.length > 1 && !hideFileManagerTabCloseButton}
           showCreateActions={Boolean(contextMenu.showCreateActions)}
           deleteItemCount={Number.isFinite(Number(contextMenu.deleteItemCount)) ? Number(contextMenu.deleteItemCount) : 1}
+          clipboardItemCount={Number.isFinite(Number(contextMenu.clipboardItemCount)) ? Number(contextMenu.clipboardItemCount) : 1}
+          canPaste={Boolean(clipboard && Array.isArray(clipboard.paths) && clipboard.paths.length > 0)}
           t={t}
           onClose={closeContextMenu}
           onTogglePinned={() => {
@@ -5313,6 +5382,31 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             if (contextMenu.item) {
               handleCopyPath(contextMenu.item, contextMenu.itemBasePath || currentPath);
             }
+            closeContextMenu();
+          }}
+          onCopyItem={() => {
+            if (contextMenu.item) {
+              const clipboardPaths = contextMenu.clipboardUsesSelectedPaths
+                ? [...selectedPathsRef.current]
+                : [joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)];
+              handleClipboardCopy(clipboardPaths, contextMenu.itemBasePath || currentPath);
+            }
+            closeContextMenu();
+          }}
+          onCutItem={() => {
+            if (contextMenu.item) {
+              const clipboardPaths = contextMenu.clipboardUsesSelectedPaths
+                ? [...selectedPathsRef.current]
+                : [joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)];
+              handleClipboardCut(clipboardPaths, contextMenu.itemBasePath || currentPath);
+            }
+            closeContextMenu();
+          }}
+          onPaste={() => {
+            const pasteTargetPath = contextMenu.item && contextMenu.item.isDirectory
+              ? joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)
+              : (contextMenu.createBasePath || contextMenu.itemBasePath || currentPath);
+            void handlePaste(pasteTargetPath);
             closeContextMenu();
           }}
           onDownload={() => {

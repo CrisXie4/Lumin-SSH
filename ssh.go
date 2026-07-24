@@ -2978,6 +2978,40 @@ func (m *SSHManager) DeleteItemShellContext(ctx context.Context, sessionId strin
 	return err
 }
 
+func batchRmRfCmd(paths []string) string {
+	parts := make([]string, 0, len(paths)+2)
+	parts = append(parts, "rm", "-rf")
+	for _, p := range paths {
+		parts = append(parts, shellQuotePath(p))
+	}
+	return strings.Join(parts, " ")
+}
+
+func (m *SSHManager) BatchDeleteItemShell(sessionId string, paths []string) error {
+	return m.BatchDeleteItemShellContext(context.Background(), sessionId, paths)
+}
+
+func (m *SSHManager) BatchDeleteItemShellContext(ctx context.Context, sessionId string, paths []string) error {
+	if err := ensureContextActive(ctx); err != nil {
+		return err
+	}
+	safePaths := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if !isDangerousPath(p) {
+			safePaths = append(safePaths, p)
+		}
+	}
+	if len(safePaths) == 0 {
+		return nil
+	}
+	client, _, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return err
+	}
+	_, err = m.executeCmdWithClientContext(ctx, client, batchRmRfCmd(safePaths))
+	return err
+}
+
 func (m *SSHManager) Mkdir(sessionId string, path string) error {
 	return m.MkdirContext(context.Background(), sessionId, path)
 }

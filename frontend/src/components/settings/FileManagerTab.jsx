@@ -25,6 +25,8 @@ export default function FileManagerTab({
   onToggleFileManagerHideTabCloseButton,
   fileManagerChmodAutoApplyLastSettings,
   onToggleFileManagerChmodAutoApplyLastSettings,
+  fileManagerDoubleClickUncompressArchive,
+  onToggleFileManagerDoubleClickUncompressArchive,
   fileManagerDefaultOpenMode = 'builtin',
   onFileManagerDefaultOpenModeChange,
   fileManagerPreferredExternalApp = '',
@@ -90,6 +92,12 @@ export default function FileManagerTab({
             title={$t('默认应用上次权限设置')}
             description={$t('开启后,修改权限弹窗会默认套用上次保存的权限模式和包含子目录选项')}
             action={<ToggleSwitch checked={fileManagerChmodAutoApplyLastSettings} onChange={onToggleFileManagerChmodAutoApplyLastSettings} />}
+          />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <SettingRow
+            title={$t('双击解压压缩包')}
+            description={$t('开启后,双击压缩包时会直接在当前目录解压,右键“解压”不受影响')}
+            action={<ToggleSwitch checked={fileManagerDoubleClickUncompressArchive} onChange={onToggleFileManagerDoubleClickUncompressArchive} />}
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
