@@ -11,6 +11,9 @@ var cwdMarkerStart = []byte("\x1fLUMIN_CWD\x1f")
 
 const historyMarkerEnd byte = 0x1e
 
+// historyMarkerPayloadMax 限制 marker 未闭合时 payload 缓存上限，防止异常输出撑爆内存。
+const historyMarkerPayloadMax = 64 * 1024
+
 const (
 	markerKindNone byte = iota
 	markerKindCommand
@@ -24,6 +27,12 @@ type commandHistoryStream struct {
 	markerKind   byte
 	lastCommand  string
 	lastCwd      string
+}
+
+func (s *commandHistoryStream) resetMarkerState() {
+	s.payloadCarry = s.payloadCarry[:0]
+	s.inMarker = false
+	s.markerKind = markerKindNone
 }
 
 func newCommandHistoryStream() *commandHistoryStream {
@@ -51,11 +60,23 @@ func (s *commandHistoryStream) Process(chunk []byte) ([]byte, []string, string, 
 		if s.inMarker {
 			relEnd := bytes.IndexByte(data[i:], historyMarkerEnd)
 			if relEnd == -1 {
-				s.payloadCarry = append(s.payloadCarry, data[i:]...)
+				remaining := data[i:]
+				if len(s.payloadCarry)+len(remaining) > historyMarkerPayloadMax {
+					// 异常未闭合 marker：丢弃缓存，剩余字节按普通输出透传
+					s.resetMarkerState()
+					out = append(out, remaining...)
+					return out, commands, cwd, promptSeen
+				}
+				s.payloadCarry = append(s.payloadCarry, remaining...)
 				return out, commands, cwd, promptSeen
 			}
 
 			end := i + relEnd
+			if len(s.payloadCarry)+relEnd > historyMarkerPayloadMax {
+				s.resetMarkerState()
+				i = end + 1
+				continue
+			}
 			s.payloadCarry = append(s.payloadCarry, data[i:end]...)
 			promptSeen = true
 			if s.markerKind == markerKindCommand {
@@ -71,9 +92,7 @@ func (s *commandHistoryStream) Process(chunk []byte) ([]byte, []string, string, 
 					s.lastCwd = nextCwd
 				}
 			}
-			s.payloadCarry = s.payloadCarry[:0]
-			s.inMarker = false
-			s.markerKind = markerKindNone
+			s.resetMarkerState()
 			i = end + 1
 			continue
 		}

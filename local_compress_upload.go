@@ -156,7 +156,6 @@ type compressedUploadSessionLimiter struct {
 var compressedUploadTasks sync.Map // uploadId -> *compressedUploadTask
 var compressedUploadSlots sync.Map // sessionId -> *compressedUploadSessionLimiter
 
-
 func clampPercent(value float64) float64 {
 	if value < 0 {
 		return 0
@@ -223,9 +222,14 @@ func acquireCompressedUploadSlot(sessionId string, limit int, ctx context.Contex
 	if limit < 1 {
 		limit = 1
 	}
-	limiter := getCompressedUploadSessionLimiter(sessionId)
 	for {
+		// 每轮从 map 取 limiter：release 空闲删除后，避免继续占用已摘除的旧实例
+		limiter := getCompressedUploadSessionLimiter(sessionId)
 		limiter.mu.Lock()
+		if current, ok := compressedUploadSlots.Load(sessionId); !ok || current != limiter {
+			limiter.mu.Unlock()
+			continue
+		}
 		if limiter.active < limit {
 			limiter.active++
 			limiter.mu.Unlock()
@@ -241,13 +245,19 @@ func acquireCompressedUploadSlot(sessionId string, limit int, ctx context.Contex
 	}
 }
 
-func releaseCompressedUploadSlot(limiter *compressedUploadSessionLimiter) {
+func releaseCompressedUploadSlot(sessionId string, limiter *compressedUploadSessionLimiter) {
 	if limiter == nil {
 		return
 	}
 	limiter.mu.Lock()
 	if limiter.active > 0 {
 		limiter.active--
+	}
+	// active==0 时摘除 map 条目，避免 session 维度只增不删
+	if limiter.active == 0 && sessionId != "" {
+		if current, ok := compressedUploadSlots.Load(sessionId); ok && current == limiter {
+			compressedUploadSlots.Delete(sessionId)
+		}
 	}
 	limiter.mu.Unlock()
 }
@@ -1480,7 +1490,7 @@ func (m *SSHManager) UploadLocalPathsCompressed(sessionId string, uploadID strin
 	if err != nil {
 		return err
 	}
-	defer releaseCompressedUploadSlot(limiter)
+	defer releaseCompressedUploadSlot(sessionId, limiter)
 
 	sshClient, _, err := m.getClientEntry(sessionId)
 	if err != nil {

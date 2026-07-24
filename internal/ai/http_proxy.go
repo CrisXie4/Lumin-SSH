@@ -107,6 +107,12 @@ func buildAISOCKS5DialContext(node AIProxyNode) (func(context.Context, string, s
 		}()
 		select {
 		case <-ctx.Done():
+			// Dial 可能在取消后才成功：异步收结果并关闭，避免 fd 泄漏
+			go func() {
+				if result := <-resultCh; result.conn != nil {
+					_ = result.conn.Close()
+				}
+			}()
 			return nil, ctx.Err()
 		case result := <-resultCh:
 			return result.conn, result.err
