@@ -3013,8 +3013,9 @@ func (m *SSHManager) CopyItem(sessionId string, srcPath string, dstPath string) 
 }
 
 // CopyItemContext 在同一台服务器内复制文件或目录。
-// 直接在服务器上执行 cp -a：数据只在服务器本地磁盘流动，不走网络，
+// 优先走 shell：直接在服务器执行 cp -a，数据只在远端本地磁盘流动，不走网络，
 // 远快于 SFTP 逐块读写。-a 保留权限/属主/时间戳，递归复制目录，并保留符号链接（不跟随）。
+// 无 shell 会话时（未来纯 SFTP 连接）进入 SFTP 预留分支：SFTP 无原生递归复制，当前版本尚未实现，返回错误占位。
 func (m *SSHManager) CopyItemContext(ctx context.Context, sessionId string, srcPath string, dstPath string) error {
 	if err := ensureContextActive(ctx); err != nil {
 		return err
@@ -3022,7 +3023,14 @@ func (m *SSHManager) CopyItemContext(ctx context.Context, sessionId string, srcP
 	if isDangerousPath(srcPath) || isDangerousPath(dstPath) {
 		return fmt.Errorf("refusing to copy dangerous path")
 	}
-	return m.execRemoteCmdLong(ctx, sessionId, fmt.Sprintf("cp -a %s %s", shellQuotePath(srcPath), shellQuotePath(dstPath)))
+	client, _, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return err
+	}
+	if client != nil {
+		return m.execRemoteCmdLong(ctx, sessionId, fmt.Sprintf("cp -a %s %s", shellQuotePath(srcPath), shellQuotePath(dstPath)))
+	}
+	return fmt.Errorf("当前连接暂不支持复制操作(无可用 shell 会话)")
 }
 
 func (m *SSHManager) MoveItem(sessionId string, srcPath string, dstPath string) error {
@@ -3030,8 +3038,9 @@ func (m *SSHManager) MoveItem(sessionId string, srcPath string, dstPath string) 
 }
 
 // MoveItemContext 在同一台服务器内移动文件或目录。
-// 直接在服务器上执行 mv：同文件系统上仅改 inode 引用（瞬时），跨文件系统时
-// 由 mv 自动完成 cp + rm，数据只在服务器本地流动。
+// 优先走 shell：直接在服务器执行 mv，同文件系统上仅改 inode 引用（瞬时），跨文件系统时
+// 由 mv 自动完成 cp + rm，数据只在远端本地流动。
+// 无 shell 会话时（未来纯 SFTP 连接）进入 SFTP 预留分支：可用 sftpClient.Rename 兜底同文件系统移动，当前版本尚未实现，返回错误占位。
 func (m *SSHManager) MoveItemContext(ctx context.Context, sessionId string, srcPath string, dstPath string) error {
 	if err := ensureContextActive(ctx); err != nil {
 		return err
@@ -3039,7 +3048,14 @@ func (m *SSHManager) MoveItemContext(ctx context.Context, sessionId string, srcP
 	if isDangerousPath(srcPath) || isDangerousPath(dstPath) {
 		return fmt.Errorf("refusing to move dangerous path")
 	}
-	return m.execRemoteCmdLong(ctx, sessionId, fmt.Sprintf("mv %s %s", shellQuotePath(srcPath), shellQuotePath(dstPath)))
+	client, _, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return err
+	}
+	if client != nil {
+		return m.execRemoteCmdLong(ctx, sessionId, fmt.Sprintf("mv %s %s", shellQuotePath(srcPath), shellQuotePath(dstPath)))
+	}
+	return fmt.Errorf("当前连接暂不支持移动操作(无可用 shell 会话)")
 }
 
 // progressReader wraps an io.Reader and emits progress events via Wails.
