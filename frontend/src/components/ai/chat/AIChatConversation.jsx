@@ -56,6 +56,7 @@ function renderGroupedEntry(entry, handlers, entryMeta = {}) {
           onRetry={handlers.onRetryAssistantMessage}
           onSendUserMessage={handlers.onSendUserMessage}
           onPreviewRestore={handlers.onPreviewRestore}
+          onPreviewDiffFetch={handlers.onPreviewDiffFetch}
           onApplyRestore={handlers.onApplyRestore}
           followupInteractionLocked={Boolean(handlers.followupInteractionLocked)}
           messageActionBarAtBottom={Boolean(handlers.messageActionBarAtBottom)}
@@ -67,7 +68,7 @@ function renderGroupedEntry(entry, handlers, entryMeta = {}) {
     case 'context-condense':
       return <AIChatContextCondenseCard message={entry.message} />
     case 'tool-session':
-      return <AIChatToolSessionPane items={entry.tools} onSendUserMessage={handlers.onSendUserMessage} onPreviewRestore={handlers.onPreviewRestore} onApplyRestore={handlers.onApplyRestore} followupInteractionLocked={Boolean(handlers.followupInteractionLocked)} />
+      return <AIChatToolSessionPane items={entry.tools} onSendUserMessage={handlers.onSendUserMessage} onPreviewRestore={handlers.onPreviewRestore} onPreviewDiffFetch={handlers.onPreviewDiffFetch} onApplyRestore={handlers.onApplyRestore} followupInteractionLocked={Boolean(handlers.followupInteractionLocked)} />
     default:
       return null
   }
@@ -166,7 +167,7 @@ function getTouchClientY(event) {
   return Number.isFinite(value) ? value : null
 }
 
-export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null }) {
+export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null }) {
   const { t } = useTranslation()
   const containerRef = useRef(null)
   const virtuosoRef = useRef(null)
@@ -500,6 +501,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
                 onEditUserMessage,
                 onDeleteMessage,
                 onPreviewRestore,
+                onPreviewDiffFetch,
                 onApplyRestore,
                 followupInteractionLocked,
                 messageActionBarAtBottom,

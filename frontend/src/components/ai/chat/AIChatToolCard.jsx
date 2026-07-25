@@ -8,12 +8,134 @@ function normalizeAIMessageStatus(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export default function AIChatToolCard({ restoreArtifactPath = '', copyContent = '', actionLabel, title, summary, code, result = '', status, remainingFileEdits = 0, extra = {}, isLast = false, hasSubsequentAssistantMessage = false, onPreviewRestore, onApplyRestore }) {
+function normalizeCompactDiffText(value) {
+  return typeof value === 'string' ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : ''
+}
+
+function buildCompactDiffRows(rawDiff, maxVisibleLines = 18) {
+  const lines = normalizeCompactDiffText(rawDiff).split('\n')
+  if (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop()
+  }
+  if (lines.length <= maxVisibleLines) {
+    return lines.map((text, index) => ({ type: 'line', text, key: `line-${index}` }))
+  }
+  const headCount = Math.min(12, Math.max(8, maxVisibleLines - 4))
+  const tailCount = Math.max(4, maxVisibleLines - headCount)
+  const hiddenCount = Math.max(lines.length - headCount - tailCount, 0)
+  return [
+    ...lines.slice(0, headCount).map((text, index) => ({ type: 'line', text, key: `head-${index}` })),
+    ...(hiddenCount > 0 ? [{ type: 'hidden', count: hiddenCount, key: 'hidden' }] : []),
+    ...lines.slice(lines.length - tailCount).map((text, index) => ({ type: 'line', text, key: `tail-${index}` })),
+  ]
+}
+
+function resolveCompactDiffRowPalette(text) {
+  if (typeof text !== 'string') {
+    return { color: 'var(--text-secondary)', background: 'transparent' }
+  }
+  if (text.startsWith('@@')) {
+    return { color: 'var(--accent)', background: 'rgba(var(--accent-rgb), 0.08)' }
+  }
+  if (text.startsWith('+') && !text.startsWith('+++')) {
+    return { color: 'var(--success)', background: 'rgba(var(--success-rgb), 0.10)' }
+  }
+  if (text.startsWith('-') && !text.startsWith('---')) {
+    return { color: 'var(--danger)', background: 'rgba(var(--danger-rgb), 0.10)' }
+  }
+  if (text.startsWith('diff --git') || text.startsWith('index ') || text.startsWith('---') || text.startsWith('+++')) {
+    return { color: 'var(--text-secondary)', background: 'rgba(var(--accent-rgb), 0.05)' }
+  }
+  return { color: 'var(--text-primary)', background: 'transparent' }
+}
+
+function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
+  const normalizedRawDiff = typeof rawDiff === 'string' ? rawDiff.trim() : ''
+  const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff), [normalizedRawDiff])
+  if (loading) {
+    return (
+      <div style={{ padding: '10px 12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12 }}>
+        {t('加载中...')}
+      </div>
+    )
+  }
+  if (!normalizedRawDiff) {
+    return (
+      <div style={{ padding: '10px 12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12 }}>
+        {t('暂无可预览差异')}
+      </div>
+    )
+  }
+  return (
+    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', overflow: 'hidden' }}>
+      <div style={{ maxHeight: 220, overflow: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '18px' }}>
+        {rows.map((row, index) => {
+          if (row.type === 'hidden') {
+            return (
+              <div
+                key={row.key}
+                style={{
+                  padding: '6px 12px',
+                  borderTop: '1px solid var(--border-subtle)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  color: 'var(--text-tertiary)',
+                  background: 'rgba(var(--accent-rgb), 0.04)',
+                  textAlign: 'center',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                {`··· ${row.count} ···`}
+              </div>
+            )
+          }
+          const palette = resolveCompactDiffRowPalette(row.text)
+          return (
+            <div
+              key={row.key}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '40px minmax(0, 1fr)',
+                minWidth: 0,
+                background: palette.background,
+                borderTop: index === 0 ? 'none' : '1px solid rgba(255,255,255,0.02)',
+              }}>
+              <div
+                style={{
+                  padding: '0 8px 0 10px',
+                  color: 'var(--text-tertiary)',
+                  textAlign: 'right',
+                  borderRight: '1px solid var(--border-subtle)',
+                  userSelect: 'none',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                {index + 1}
+              </div>
+              <div
+                style={{
+                  padding: '0 10px',
+                  color: palette.color,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                  minWidth: 0,
+                }}>
+                {row.text || ' '}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default function AIChatToolCard({ restoreArtifactPath = '', copyContent = '', actionLabel, title, summary, code, result = '', status, remainingFileEdits = 0, extra = {}, isLast = false, hasSubsequentAssistantMessage = false, onPreviewRestore, onPreviewDiffFetch, onApplyRestore }) {
   const { t } = useTranslation()
   const [isAutoExpanded, setIsAutoExpanded] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [restored, setRestored] = useState(false)
+  const [inlineDiffReview, setInlineDiffReview] = useState(null)
+  const [inlineDiffLoading, setInlineDiffLoading] = useState(false)
 
   useEffect(() => {
     if (isLast) {
@@ -34,6 +156,41 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
     const timer = window.setTimeout(() => setRestored(false), 1200)
     return () => window.clearTimeout(timer)
   }, [restored])
+
+  const normalizedRestoreArtifactPath = typeof restoreArtifactPath === 'string' ? restoreArtifactPath.trim() : ''
+  const showRevertTitleButton = ['apply_diff', 'write_to_file', 'search_replace', 'edit_file', 'apply_patch'].includes(String(actionLabel || '').trim())
+  const showInlineDiffPreview = showRevertTitleButton && extra?.conversationDiffHasPreview === true && Boolean(normalizedRestoreArtifactPath) && typeof onPreviewDiffFetch === 'function'
+
+  useEffect(() => {
+    let cancelled = false
+    if (!showInlineDiffPreview) {
+      setInlineDiffReview(null)
+      setInlineDiffLoading(false)
+      return undefined
+    }
+    setInlineDiffLoading(true)
+    onPreviewDiffFetch(normalizedRestoreArtifactPath)
+      .then((review) => {
+        if (cancelled) {
+          return
+        }
+        setInlineDiffReview(review && typeof review === 'object' ? review : null)
+      })
+      .catch(() => {
+        if (cancelled) {
+          return
+        }
+        setInlineDiffReview(null)
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setInlineDiffLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [normalizedRestoreArtifactPath, onPreviewDiffFetch, showInlineDiffPreview])
 
   const normalizedStatus = useMemo(() => normalizeAIMessageStatus(status), [status])
   const expanded = isExpanded || ((isAutoExpanded && !hasSubsequentAssistantMessage) || ((normalizedStatus === '错误' || normalizedStatus === '已终止') && Boolean(result)))
@@ -74,8 +231,8 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
   const normalizedCopyContent = typeof copyContent === 'string' ? copyContent.trim() : ''
   const copyCharacterCount = normalizedCopyContent ? normalizedCopyContent.length : 0
   const showCopyCharacterCount = copyCharacterCount > 0
-  const showRevertTitleButton = ['apply_diff', 'write_to_file', 'search_replace', 'edit_file', 'apply_patch'].includes(String(actionLabel || '').trim())
   const resultTokenEstimateDisplay = typeof extra?.resultTokenEstimateDisplay === 'string' ? extra.resultTokenEstimateDisplay.trim() : ''
+  const inlineDiffRaw = typeof inlineDiffReview?.rawDiff === 'string' ? inlineDiffReview.rawDiff : ''
 
   const handleToggleExpand = () => {
     setIsAutoExpanded(false)
@@ -83,17 +240,17 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
   }
 
   const handlePreviewRestore = () => {
-    if (!restoreArtifactPath) {
+    if (!normalizedRestoreArtifactPath) {
       return
     }
-    void onPreviewRestore?.(restoreArtifactPath)
+    void onPreviewRestore?.(normalizedRestoreArtifactPath)
   }
 
   const handleApplyRestore = async () => {
-    if (!restoreArtifactPath) {
+    if (!normalizedRestoreArtifactPath) {
       return
     }
-    const applied = await onApplyRestore?.(restoreArtifactPath)
+    const applied = await onApplyRestore?.(normalizedRestoreArtifactPath)
     if (applied === true) {
       setRestored(true)
     }
@@ -219,7 +376,7 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
         <div
           style={{
             padding: '10px 12px',
-            borderBottom: expanded ? '1px solid var(--border-subtle)' : 'none',
+            borderBottom: expanded || showInlineDiffPreview ? '1px solid var(--border-subtle)' : 'none',
             background: 'var(--surface-overlay)',
             display: 'grid',
             gap: 4,
@@ -250,8 +407,13 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
             <AIChatMarkdown text={summary} enableQuoteContextMenu={true} />
           </div>
         </div>
+        {showInlineDiffPreview ? (
+          <div style={{ padding: '12px' }}>
+            <CompactDiffPreview rawDiff={inlineDiffRaw} loading={inlineDiffLoading} t={t} />
+          </div>
+        ) : null}
         {expanded ? (
-          <div style={{ display: 'grid', gap: 10, padding: '12px' }}>
+          <div style={{ display: 'grid', gap: 10, padding: '12px', borderTop: showInlineDiffPreview ? '1px solid var(--border-subtle)' : 'none' }}>
             <pre style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto' }}>{code}</pre>
             {result ? (
               <div style={{ display: 'grid', gap: 6 }}>

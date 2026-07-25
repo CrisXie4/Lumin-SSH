@@ -105,6 +105,14 @@ export async function previewAIChatToolRestore(reviewId, sessionId) {
   return bridge.PreviewAIChatToolRestore(reviewId, sessionId)
 }
 
+export async function previewAIChatToolDiff(reviewId, sessionId) {
+  const bridge = getAppBridge()
+  if (!bridge?.PreviewAIChatToolDiff) {
+    throw new Error(t('差异预览能力未就绪'))
+  }
+  return bridge.PreviewAIChatToolDiff(reviewId, sessionId)
+}
+
 export async function restoreAIChatTool(reviewId, sessionId) {
   const bridge = getAppBridge()
   if (!bridge?.RestoreAIChatTool) {

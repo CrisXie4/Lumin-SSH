@@ -2251,6 +2251,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     const terminalId = typeof options?.terminalId === 'string' ? options.terminalId.trim() : '';
     const providedItems = Array.isArray(options?.items) ? options.items : [];
     const shouldLocate = options?.locate === true;
+    const shouldSetActive = options?.setActive !== false;
     const panelKey = buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
     if (!artifactPath || !panelKey) {
       return;
@@ -2267,10 +2268,13 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         [panelKey]: {
           ...currentPanel,
           items: Array.isArray(currentPanel.items) && currentPanel.items.length > 0 ? currentPanel.items : providedItems,
-          selectedMessageId: messageId,
-          selectedArtifactPath: artifactPath,
-          review: null,
-          loading: true,
+          selectedMessageId: shouldSetActive ? messageId : (currentPanel.selectedMessageId || messageId),
+          selectedArtifactPath: shouldSetActive ? artifactPath : (currentPanel.selectedArtifactPath || artifactPath),
+          reviewByArtifactPath: currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {},
+          loadingByArtifactPath: {
+            ...(currentPanel.loadingByArtifactPath && typeof currentPanel.loadingByArtifactPath === 'object' ? currentPanel.loadingByArtifactPath : {}),
+            [artifactPath]: true,
+          },
         },
       };
     });
@@ -2288,10 +2292,18 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           [panelKey]: {
             ...currentPanel,
             items: Array.isArray(currentPanel.items) && currentPanel.items.length > 0 ? currentPanel.items : providedItems,
-            selectedMessageId: messageId,
-            selectedArtifactPath: artifactPath,
-            review,
-            loading: false,
+            selectedMessageId: shouldSetActive ? messageId : (currentPanel.selectedMessageId || messageId),
+            selectedArtifactPath: shouldSetActive ? artifactPath : (currentPanel.selectedArtifactPath || artifactPath),
+            reviewByArtifactPath: review && typeof review === 'object'
+              ? {
+                  ...(currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {}),
+                  [artifactPath]: review,
+                }
+              : (currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {}),
+            loadingByArtifactPath: {
+              ...(currentPanel.loadingByArtifactPath && typeof currentPanel.loadingByArtifactPath === 'object' ? currentPanel.loadingByArtifactPath : {}),
+              [artifactPath]: false,
+            },
           },
         };
       });
@@ -2318,13 +2330,19 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           [panelKey]: {
             ...currentPanel,
             items: Array.isArray(currentPanel.items) && currentPanel.items.length > 0 ? currentPanel.items : providedItems,
-            selectedMessageId: messageId,
-            selectedArtifactPath: artifactPath,
-            loading: false,
+            selectedMessageId: shouldSetActive ? messageId : (currentPanel.selectedMessageId || messageId),
+            selectedArtifactPath: shouldSetActive ? artifactPath : (currentPanel.selectedArtifactPath || artifactPath),
+            reviewByArtifactPath: currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {},
+            loadingByArtifactPath: {
+              ...(currentPanel.loadingByArtifactPath && typeof currentPanel.loadingByArtifactPath === 'object' ? currentPanel.loadingByArtifactPath : {}),
+              [artifactPath]: false,
+            },
           },
         };
       });
-      addToast(error instanceof Error ? t(error.message) : t('差异预览失败'), 'error', 3200);
+      if (shouldSetActive) {
+        addToast(error instanceof Error ? t(error.message) : t('差异预览失败'), 'error', 3200);
+      }
     }
   }, [addToast, previewConversationDiffArtifact]);
 
@@ -2370,13 +2388,16 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
             items,
             selectedMessageId: firstItem?.messageId || '',
             selectedArtifactPath: firstItem?.artifactPath || '',
-            review: null,
-            loading: true,
+            reviewByArtifactPath: {},
+            loadingByArtifactPath: {},
           },
         };
       });
       if (shouldOpen && firstItem) {
-        void handleSelectConversationDiffItem(firstItem, { sessionId, terminalId, locate: false, items });
+        void handleSelectConversationDiffItem(firstItem, { sessionId, terminalId, locate: false, items, setActive: true });
+        items.slice(1).forEach((nextItem) => {
+          void handleSelectConversationDiffItem(nextItem, { sessionId, terminalId, locate: false, items, setActive: false });
+        });
       }
     };
 
@@ -6588,8 +6609,8 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                     || activeConversationDiffPanel.sessionId
                   }
                   items={activeConversationDiffPanel.items || []}
-                  review={activeConversationDiffPanel.review || null}
-                  loading={activeConversationDiffPanel.loading === true}
+                  reviewByArtifactPath={activeConversationDiffPanel.reviewByArtifactPath || {}}
+                  loadingByArtifactPath={activeConversationDiffPanel.loadingByArtifactPath || {}}
                   selectedMessageId={activeConversationDiffPanel.selectedMessageId || ''}
                   onSelectItem={(item) => void handleSelectConversationDiffItem(item, {
                     sessionId: activeConversationDiffPanel.sessionId,

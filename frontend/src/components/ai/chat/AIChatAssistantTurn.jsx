@@ -7,7 +7,7 @@ import AIChatToolSessionPane from './AIChatToolSessionPane.jsx'
 
 const assistantTitleKey = 'AI'
 
-export default function AIChatAssistantTurn({ assistant, reasoning = [], tools = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onDelete, onRetry, onSendUserMessage, onPreviewRestore, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, perfMetricsText = '' }) {
+export default function AIChatAssistantTurn({ assistant, reasoning = [], tools = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onDelete, onRetry, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, perfMetricsText = '' }) {
   const title = assistant?.title || assistantTitleKey
   const time = assistant?.time || ''
   const assistantText = typeof assistant?.text === 'string' ? assistant.text.trim() : ''
@@ -89,7 +89,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
         ) : null}
         {hasTools ? (
           <div style={{ paddingTop: hasSectionBeforeTools ? 10 : 0, borderTop: hasSectionBeforeTools ? '1px solid var(--border-subtle)' : 'none' }}>
-            <AIChatToolSessionPane items={tools} isLastAssistantTurn={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onSendUserMessage={onSendUserMessage} onPreviewRestore={onPreviewRestore} onApplyRestore={onApplyRestore} followupInteractionLocked={followupInteractionLocked} />
+            <AIChatToolSessionPane items={tools} isLastAssistantTurn={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onSendUserMessage={onSendUserMessage} onPreviewRestore={onPreviewRestore} onPreviewDiffFetch={onPreviewDiffFetch} onApplyRestore={onApplyRestore} followupInteractionLocked={followupInteractionLocked} />
           </div>
         ) : null}
         <div style={{ display: messageActionBarAtBottom ? 'block' : 'none', padding: messageActionBarAtBottom ? '0 12px' : 0, margin: messageActionBarAtBottom ? '0 -12px' : 0, borderTop: hasSectionBeforeActionBar ? '1px solid var(--border-subtle)' : 'none' }}>
