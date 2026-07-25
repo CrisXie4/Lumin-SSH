@@ -134,28 +134,6 @@ func isAIConversationBackupExcludedRelativePath(rootDir string, relativePath str
 	return false
 }
 
-func collectAIConversationBackupPreservedDirs(rootDir string) map[string]struct{} {
-	preserved := make(map[string]struct{})
-	for _, item := range aiConversationBackupExcludedRelativePaths {
-		excluded := normalizeAIConversationBackupRelativePath(item)
-		if excluded == "" {
-			continue
-		}
-		parts := strings.Split(excluded, "/")
-		limit := len(parts)
-		if !isAIConversationBackupExcludedDirectory(rootDir, item) {
-			limit--
-		}
-		for index := 1; index <= limit; index++ {
-			dirPath := strings.Join(parts[:index], "/")
-			if dirPath != "" {
-				preserved[dirPath] = struct{}{}
-			}
-		}
-	}
-	return preserved
-}
-
 func (c *ConfigManager) aiConversationBackupRootDir(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), aiConversationBackupDirName)
 }
@@ -249,48 +227,6 @@ func copyAIConversationBackupDir(sourceDir string, targetDir string) error {
 		}
 		return copyAIConversationFile(currentPath, targetPath, info.Mode())
 	})
-}
-
-func clearAIConversationDirForRestore(conversationDir string) error {
-	preservedDirs := collectAIConversationBackupPreservedDirs(conversationDir)
-	targets := make([]string, 0)
-	err := filepath.Walk(conversationDir, func(currentPath string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		relativePath, err := filepath.Rel(conversationDir, currentPath)
-		if err != nil {
-			return err
-		}
-		if relativePath == "." {
-			return nil
-		}
-		normalizedRelativePath := normalizeAIConversationBackupRelativePath(relativePath)
-		if info.IsDir() {
-			if _, exists := preservedDirs[normalizedRelativePath]; exists {
-				return nil
-			}
-			targets = append(targets, currentPath)
-			return filepath.SkipDir
-		}
-		if isAIConversationBackupExcludedRelativePath(conversationDir, relativePath) {
-			return nil
-		}
-		targets = append(targets, currentPath)
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	sort.Slice(targets, func(left int, right int) bool {
-		return len(targets[left]) > len(targets[right])
-	})
-	for _, target := range targets {
-		if err := os.RemoveAll(target); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
 }
 
 func readAIConversationBackupAPIMessagesFromDir(backupDir string) []AIConversationAPIMessage {
@@ -523,9 +459,6 @@ func (c *ConfigManager) RestoreAIConversationBackup(conversationID string, backu
 	}
 	conversationDir := c.aiConversationDir(trimmedConversationID)
 	if err := os.MkdirAll(conversationDir, 0700); err != nil {
-		return AIConversationSnapshot{}, err
-	}
-	if err := clearAIConversationDirForRestore(conversationDir); err != nil {
 		return AIConversationSnapshot{}, err
 	}
 	if err := copyAIConversationBackupDir(backupDir, conversationDir); err != nil {

@@ -7,7 +7,7 @@ import AIPanelHeader from './ai/AIPanelHeader.jsx'
 import AIConversationBackupSettings from './ai/AIConversationBackupSettings.jsx'
 import AIPanelSettingsOverlay from './ai/AIPanelSettingsOverlay.jsx'
 import AIComposer from './ai/AIComposer.jsx'
-import { approveAIChatTools, assignAIChatToolTerminal, cancelAIChat, continueAIChatTool, disableAIChatCollaboration, listAIChatCommandTerminalCandidates, previewAIChatToolRestore, rejectAIChatTools, rejectAIChatToolsForQueuedSubmission, resolveAIChatFollowup, restoreAIChatTool, setAIChatSkipNextAutomaticRequest, startAIChat, startAIChatCollaboration, terminateAIChatTool } from './ai/aiChatBridge.js'
+import { approveAIChatTools, assignAIChatToolTerminal, cancelAIChat, continueAIChatTool, disableAIChatCollaboration, listAIChatCommandTerminalCandidates, previewAIChatToolDiff, previewAIChatToolRestore, rejectAIChatTools, rejectAIChatToolsForQueuedSubmission, resolveAIChatFollowup, restoreAIChatTool, setAIChatSkipNextAutomaticRequest, startAIChat, startAIChatCollaboration, terminateAIChatTool } from './ai/aiChatBridge.js'
 import { buildAIConversationTokenLedger, condenseAIConversationContext, countAIConversationAPIMessageRawTokens, createAIConversation, deleteAIConversation, getAIAssistantFirstReply, getAIConversation, listAIConversations, normalizeAIConversationMessageSearchResult, normalizeAIConversationSnapshot, normalizeAIConversationTaskSettings, openAIConversationFolder, preprocessAIConversationLongText, readAIConversationWrappedFile, saveAIConversation, searchAIConversationMessages, subscribeAIConversationChanges } from './ai/aiConversationBridge.js'
 import { buildExecutionContextDetails, getExecutionContextSnapshot } from './ai/aiExecutionContext.js'
 import { getAIGlobalSettings, normalizeAIGlobalSettings, saveAIGlobalSettings } from './ai/aiGlobalSettingsBridge.js'
@@ -4190,6 +4190,15 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
   }, [showAlert, terminalId])
 
+  const handlePreviewDiff = useCallback(async (restoreArtifactPath) => {
+    try {
+      const review = await previewAIChatToolDiff(restoreArtifactPath, terminalId)
+      return review && typeof review === 'object' ? review : null
+    } catch {
+      return null
+    }
+  }, [terminalId])
+
   const handleApplyRestore = useCallback(async (restoreArtifactPath) => {
     try {
       await restoreAIChatTool(restoreArtifactPath, terminalId)
@@ -4791,6 +4800,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                 onEditUserMessage={handleEditUserMessage}
                 onDeleteMessage={handleDeleteMessage}
                 onPreviewRestore={handlePreviewRestore}
+                onPreviewDiffFetch={handlePreviewDiff}
                 onApplyRestore={handleApplyRestore}
                 followupInteractionLocked={collaborationFollowupInteractionLocked}
                 messageActionBarAtBottom={messageActionBarAtBottom}
