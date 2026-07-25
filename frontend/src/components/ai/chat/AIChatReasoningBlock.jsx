@@ -12,7 +12,6 @@ function parseDurationSeconds(duration) {
 }
 
 const reasoningBodyMaxHeight = 360
-const collapseTransitionMs = 200
 
 export default function AIChatReasoningBlock({ text, duration = '', isStreaming = false, isLast = false }) {
   const { t } = useTranslation()
@@ -25,10 +24,10 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
   const scrollFrameRef = useRef(0)
   const programmaticScrollRef = useRef(false)
   const programmaticScrollResetRef = useRef(0)
+  const streamingFollowTimerRef = useRef(0)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [isCollapsed, setIsCollapsed] = useState(!isLast)
   const [contentHeight, setContentHeight] = useState(0)
-  // 只在用户点折叠/展开时开过渡；内容增高绝不能带 max-height 动画
   const [isAnimating, setIsAnimating] = useState(false)
 
   useEffect(() => {
@@ -37,13 +36,14 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
       setIsCollapsed(false)
       return
     }
-    // 已是折叠态时别空跑动画（首屏非最后一条初始就是折叠）
-    setIsCollapsed((previous) => {
-      if (!previous) {
-        setIsAnimating(true)
-      }
-      return true
-    })
+    setIsCollapsed(true)
+  }, [isLast])
+
+  useEffect(() => {
+    if (!isLast) {
+      setIsAnimating(true)
+      setIsCollapsed(true)
+    }
   }, [isLast])
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
     updateElapsed()
     const timer = window.setInterval(updateElapsed, 1000)
     return () => window.clearInterval(timer)
-  }, [isStreaming])
+  }, [isStreaming, content])
 
   const cancelScheduledScrollToBottom = () => {
     if (scrollFrameRef.current) {
@@ -69,6 +69,13 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
     if (programmaticScrollResetRef.current) {
       window.clearTimeout(programmaticScrollResetRef.current)
       programmaticScrollResetRef.current = 0
+    }
+  }
+
+  const clearStreamingFollowTimer = () => {
+    if (streamingFollowTimerRef.current) {
+      window.clearInterval(streamingFollowTimerRef.current)
+      streamingFollowTimerRef.current = 0
     }
   }
 
@@ -83,13 +90,22 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
     }, 180)
   }
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (trackProgrammatic = true) => {
     const container = scrollContainerRef.current
     if (!container || !shouldAutoFollowRef.current || isCollapsed) {
       return
     }
-    markProgrammaticScroll()
+    if (trackProgrammatic) {
+      markProgrammaticScroll()
+    }
     container.scrollTop = Math.max(container.scrollHeight - container.clientHeight, 0)
+    window.requestAnimationFrame(() => {
+      const nextContainer = scrollContainerRef.current
+      if (!nextContainer) {
+        return
+      }
+      nextContainer.scrollTop = Math.max(nextContainer.scrollHeight - nextContainer.clientHeight, 0)
+    })
   }
 
   const scheduleScrollToBottom = () => {
@@ -102,10 +118,26 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
     })
   }
 
+  useEffect(() => {
+    clearStreamingFollowTimer()
+    if (!isStreaming || isCollapsed) {
+      return undefined
+    }
+    streamingFollowTimerRef.current = window.setInterval(() => {
+      if (!shouldAutoFollowRef.current || isCollapsed) {
+        return
+      }
+      scrollToBottom(false)
+    }, 48)
+    return () => {
+      clearStreamingFollowTimer()
+    }
+  }, [isCollapsed, isStreaming])
+
   useLayoutEffect(() => {
     const element = contentRef.current
     if (!element) {
-      return undefined
+      return
     }
     const updateHeight = () => setContentHeight(element.scrollHeight)
     updateHeight()
@@ -113,7 +145,7 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
       scheduleScrollToBottom()
     }
     if (typeof ResizeObserver === 'undefined') {
-      return undefined
+      return
     }
     const observer = new ResizeObserver(() => {
       updateHeight()
@@ -129,13 +161,22 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
     if (!isAnimating) {
       return undefined
     }
-    const timer = window.setTimeout(() => setIsAnimating(false), collapseTransitionMs)
+    const timer = window.setTimeout(() => setIsAnimating(false), 2666)
     return () => window.clearTimeout(timer)
   }, [isAnimating, isCollapsed])
+
+  useLayoutEffect(() => {
+    if (!content || isCollapsed || !isStreaming) {
+      return undefined
+    }
+    scheduleScrollToBottom()
+    return undefined
+  }, [content, isCollapsed, isStreaming])
 
   useEffect(() => {
     return () => {
       cancelScheduledScrollToBottom()
+      clearStreamingFollowTimer()
     }
   }, [])
 
@@ -146,9 +187,8 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
   const liveDurationLabel = isStreaming ? `${Math.max(0, Math.floor(elapsedMs / 1000))}s` : ''
   const finalDurationLabel = !isStreaming && durationLabel ? `${parseDurationSeconds(durationLabel).toFixed(1)}s` : ''
   const displayDurationLabel = liveDurationLabel || finalDurationLabel
+  const visibleContentHeight = Math.min(contentHeight + 8, reasoningBodyMaxHeight + 8)
   const contentCanScroll = contentHeight > reasoningBodyMaxHeight
-  // 折叠动画用固定上限；展开稳态不绑 contentHeight，避免流式每字改 maxHeight
-  const collapseAnimHeight = reasoningBodyMaxHeight + 8
 
   const handleToggle = () => {
     setIsAnimating(true)
@@ -196,19 +236,15 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <Lightbulb size={14} color="var(--text-secondary)" />
           <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 12 }}>{t('思考链')}</span>
-          {displayDurationLabel ? (
-            <span style={{ color: 'var(--text-tertiary)', fontSize: 11, fontVariantNumeric: 'tabular-nums' }}>
-              {displayDurationLabel}
-            </span>
-          ) : null}
+          {displayDurationLabel ? <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{displayDurationLabel}</span> : null}
         </span>
         <ChevronUp
           size={14}
           color="var(--text-tertiary)"
           style={{
             opacity: 0.88,
-            transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: isAnimating ? `transform ${collapseTransitionMs}ms ease` : 'none',
+            transform: isCollapsed ? 'rotate(180deg) scale(0.9)' : 'rotate(0deg) scale(1)',
+            transition: 'transform 2666ms cubic-bezier(0.12,0,0.08,1), opacity 240ms ease',
           }}
         />
       </button>
@@ -216,13 +252,14 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
         <div
           style={{
             overflow: 'hidden',
+            willChange: 'max-height, opacity, transform, clip-path',
             opacity: isCollapsed ? 0 : 1,
-            // 展开用固定上限，不绑 contentHeight：流式增高不再改 maxHeight
-            // 折叠/展开才能从固定值过渡，避免 maxHeight:auto→0 动画失效
-            maxHeight: isCollapsed ? 0 : collapseAnimHeight,
-            transition: isAnimating
-              ? `max-height ${collapseTransitionMs}ms ease, opacity ${collapseTransitionMs}ms ease`
-              : 'none',
+            transform: isCollapsed ? 'translateY(-24px) scale(0.955)' : 'translateY(0) scale(1)',
+            maxHeight: isCollapsed ? 0 : visibleContentHeight,
+            clipPath: isCollapsed ? 'inset(0 0 100% 0)' : 'inset(0 0 0% 0)',
+            transitionProperty: 'max-height, opacity, transform, clip-path',
+            transitionDuration: '2666ms',
+            transitionTimingFunction: 'cubic-bezier(0.12, 0, 0.08, 1)',
           }}>
           <div
             ref={scrollContainerRef}
@@ -230,7 +267,6 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
             style={{
               maxHeight: reasoningBodyMaxHeight,
               overflowY: contentCanScroll ? 'auto' : 'visible',
-              overflowAnchor: 'none',
               paddingRight: contentCanScroll ? 4 : 0,
               scrollbarGutter: contentCanScroll ? 'stable both-edges' : 'auto',
             }}>
@@ -243,10 +279,10 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
                 fontSize: 12,
                 lineHeight: 1.7,
                 wordBreak: 'break-word',
-                whiteSpace: isStreaming ? 'pre-wrap' : undefined,
+                transform: isCollapsed ? 'translateX(-12px)' : 'translateX(0)',
+                transition: 'transform 2666ms cubic-bezier(0.12, 0, 0.08, 1)',
               }}>
-              {/* 流式用纯文本，避免半成品 Markdown 反复重排把气泡撑抖 */}
-              {isStreaming ? content : <AIChatMarkdown text={content} />}
+              <AIChatMarkdown text={content} />
             </div>
           </div>
         </div>
