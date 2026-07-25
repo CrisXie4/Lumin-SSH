@@ -23,6 +23,8 @@ export default function FileManagerTab({
   onToggleFileManagerShowTabIcons,
   fileManagerHideTabCloseButton,
   onToggleFileManagerHideTabCloseButton,
+  fileManagerLayoutMode = 'classic',
+  onFileManagerLayoutModeChange,
   fileManagerChmodAutoApplyLastSettings,
   onToggleFileManagerChmodAutoApplyLastSettings,
   fileManagerDoubleClickUncompressArchive,
@@ -89,6 +91,25 @@ export default function FileManagerTab({
             description={$t('开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭')}
             action={<ToggleSwitch checked={fileManagerHideTabCloseButton} onChange={onToggleFileManagerHideTabCloseButton} />}
           />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('文件资源管理器视图')}</div>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('选择顶部标签单栏,或左侧标签双面板视图')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+              <RadioOption
+                selected={fileManagerLayoutMode === 'classic'}
+                label={$t('经典顶部标签')}
+                description={$t('保留当前顶部横向标签栏与单内容区')}
+                onClick={() => onFileManagerLayoutModeChange?.('classic')}
+              />
+              <RadioOption
+                selected={fileManagerLayoutMode === 'sidebar_dual'}
+                label={$t('左侧标签双面板')}
+                description={$t('左侧显示历史标签,主内容区同时显示左右两个文件列表')}
+                onClick={() => onFileManagerLayoutModeChange?.('sidebar_dual')}
+              />
+            </div>
+          </div>
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
             title={$t('默认应用上次权限设置')}

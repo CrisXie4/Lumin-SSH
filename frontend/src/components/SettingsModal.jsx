@@ -810,6 +810,7 @@ export default function SettingsModal({
   const [fileManagerAutoOpenTransferQueue, setFileManagerAutoOpenTransferQueue] = useState(localStorage.getItem('fileManagerAutoOpenTransferQueue') !== 'false');
   const [fileManagerShowTabIcons, setFileManagerShowTabIcons] = useState(localStorage.getItem('fileManagerShowTabIcons') !== 'false');
   const [fileManagerHideTabCloseButton, setFileManagerHideTabCloseButton] = useState(localStorage.getItem('fileManagerHideTabCloseButton') === 'true');
+  const [fileManagerLayoutMode, setFileManagerLayoutMode] = useState(localStorage.getItem('fileManagerLayoutMode') === 'sidebar_dual' ? 'sidebar_dual' : 'classic');
   const [fileManagerInitialPathMode, setFileManagerInitialPathMode] = useState(localStorage.getItem('fileManagerInitialPathMode') || 'session_initial_path');
   const [fileManagerNewTabPathMode, setFileManagerNewTabPathMode] = useState(localStorage.getItem('fileManagerNewTabPathMode') || 'inherit_current');
   const [fileManagerAskDownloadEveryTime, setFileManagerAskDownloadEveryTime] = useState(localStorage.getItem('fileManagerAskDownloadEveryTime') === 'true');
@@ -931,6 +932,13 @@ export default function SettingsModal({
     if (next) localStorage.setItem('fileManagerHideTabCloseButton', 'true');
     else localStorage.removeItem('fileManagerHideTabCloseButton');
     window.dispatchEvent(new CustomEvent('file-manager-hide-tab-close-button-changed', { detail: next }));
+  };
+  const handleFileManagerLayoutModeChange = (value) => {
+    const next = value === 'sidebar_dual' ? 'sidebar_dual' : 'classic';
+    setFileManagerLayoutMode(next);
+    if (next === 'classic') localStorage.removeItem('fileManagerLayoutMode');
+    else localStorage.setItem('fileManagerLayoutMode', next);
+    window.dispatchEvent(new CustomEvent('file-manager-layout-mode-changed', { detail: next }));
   };
   const handleFileManagerInitialPathModeChange = (value) => {
     setFileManagerInitialPathMode(value);
@@ -1808,6 +1816,8 @@ export default function SettingsModal({
                 onToggleFileManagerShowTabIcons={handleToggleFileManagerShowTabIcons}
                 fileManagerHideTabCloseButton={fileManagerHideTabCloseButton}
                 onToggleFileManagerHideTabCloseButton={handleToggleFileManagerHideTabCloseButton}
+                fileManagerLayoutMode={fileManagerLayoutMode}
+                onFileManagerLayoutModeChange={handleFileManagerLayoutModeChange}
                 fileManagerChmodAutoApplyLastSettings={fileManagerChmodAutoApplyLastSettings}
                 onToggleFileManagerChmodAutoApplyLastSettings={handleToggleFileManagerChmodAutoApplyLastSettings}
                 fileManagerDoubleClickUncompressArchive={fileManagerDoubleClickUncompressArchive}

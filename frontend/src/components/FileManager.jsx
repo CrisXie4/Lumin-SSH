@@ -170,6 +170,8 @@ const FILE_MANAGER_NEW_TAB_PATH_MODE_SESSION_INITIAL_PATH = 'session_initial_pat
 const FILE_MANAGER_NEW_TAB_PATH_MODE_TERMINAL_CWD = 'terminal_cwd';
 const FILE_MANAGER_SYSTEM_TAB_KIND_HOME = 'home';
 const FILE_MANAGER_SYSTEM_TAB_KIND_CWD = 'cwd';
+const FILE_MANAGER_LAYOUT_MODE_CLASSIC = 'classic';
+const FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL = 'sidebar_dual';
 
 function getFileManagerSystemTabType(tab) {
   if (String(tab?.systemPinnedType || '').trim() === FILE_MANAGER_SYSTEM_TAB_KIND_CWD) {
@@ -241,6 +243,12 @@ function shouldShowFileManagerTabIcons() {
 
 function shouldHideFileManagerTabCloseButton() {
   return localStorage.getItem('fileManagerHideTabCloseButton') === 'true';
+}
+
+function getFileManagerLayoutMode() {
+  return localStorage.getItem('fileManagerLayoutMode') === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL
+    ? FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL
+    : FILE_MANAGER_LAYOUT_MODE_CLASSIC;
 }
 
 function createFileManagerTab(path = '', options = {}) {
@@ -320,6 +328,21 @@ function buildDirectoryItemFromPath(path) {
     modifyTime: 0,
     size: 0,
   };
+}
+
+function sortFileManagerItems(items, sortField = 'name', sortDir = 'asc') {
+  return [...(Array.isArray(items) ? items : [])].sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+    let cmp = 0;
+    switch (sortField) {
+      case 'name': cmp = a.name.localeCompare(b.name); break;
+      case 'size': cmp = (a.size || 0) - (b.size || 0); break;
+      case 'permissions': cmp = formatPermissionDisplay(a.permission || '-').localeCompare(formatPermissionDisplay(b.permission || '-')); break;
+      case 'modified': cmp = new Date(a.modifyTime || 0) - new Date(b.modifyTime || 0); break;
+      default: cmp = 0;
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 }
 
 // Check if a file name is a hidden/system file that should be skipped
@@ -871,7 +894,7 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
 }
 
 // Context menu component
-function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, onClose, onDownload, onEdit, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
+function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, clipboardActionArrow = '', onClose, onDownload, onEdit, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
   const ref = useRef(null);
   const [adjusted, setAdjusted] = useState({ left: pos.x, top: pos.y });
   const isTabMenu = mode === 'tab';
@@ -923,12 +946,12 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
       )}
       {item && !isTabMenu && (
         <div className="context-menu-item" onClick={onCopyItem}>
-          <Copy size={14} /> {t('复制')}{clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}
+          <Copy size={14} /> {clipboardActionArrow === '<-' ? `${clipboardActionArrow} ${t('复制')}` : `${t('复制')}${clipboardActionArrow ? ` ${clipboardActionArrow}` : ''}`}{clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}
         </div>
       )}
       {item && !isTabMenu && (
         <div className="context-menu-item" onClick={onCutItem}>
-          <Scissors size={14} /> {t('剪切')}{clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}
+          <Scissors size={14} /> {clipboardActionArrow === '<-' ? `${clipboardActionArrow} ${t('剪切')}` : `${t('剪切')}${clipboardActionArrow ? ` ${clipboardActionArrow}` : ''}`}{clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}
         </div>
       )}
       {!isTabMenu && canPaste && (
@@ -1020,6 +1043,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const activeTabId = typeof fileManagerWorkspace?.activeTabId === 'string' ? fileManagerWorkspace.activeTabId : '';
     return tabs.find((tab) => tab.id === activeTabId) || tabs[0] || null;
   }, [fileManagerWorkspace]);
+  const activePaneKey = fileManagerWorkspace?.activePane === 'right' ? 'right' : 'left';
   const activeFileManagerTabIdRef = useRef(activeFileManagerTab?.id || '');
   const displayedTabIdRef = useRef(activeFileManagerTab?.id || '');
   const [cwdSystemTabHighlight, setCwdSystemTabHighlight] = useState({ tabId: '', token: 0 });
@@ -1119,6 +1143,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [sessionId]);
   const [showFileManagerTabIcons, setShowFileManagerTabIcons] = useState(() => shouldShowFileManagerTabIcons());
   const [hideFileManagerTabCloseButton, setHideFileManagerTabCloseButton] = useState(() => shouldHideFileManagerTabCloseButton());
+  const [fileManagerLayoutMode, setFileManagerLayoutMode] = useState(() => getFileManagerLayoutMode());
+  const [fileManagerSidebarOpen, setFileManagerSidebarOpen] = useState(false);
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
   useEffect(() => {
@@ -1131,6 +1157,20 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     window.addEventListener('file-manager-hide-tab-close-button-changed', handleChange);
     return () => window.removeEventListener('file-manager-hide-tab-close-button-changed', handleChange);
   }, []);
+  useEffect(() => {
+    const handleChange = (e) => setFileManagerLayoutMode(
+      e.detail === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL
+        ? FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL
+        : FILE_MANAGER_LAYOUT_MODE_CLASSIC
+    );
+    window.addEventListener('file-manager-layout-mode-changed', handleChange);
+    return () => window.removeEventListener('file-manager-layout-mode-changed', handleChange);
+  }, []);
+  useEffect(() => {
+    if (fileManagerLayoutMode !== FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL) {
+      setFileManagerSidebarOpen(false);
+    }
+  }, [fileManagerLayoutMode]);
   useEffect(() => {
     let cancelled = false;
     Promise.resolve(window?.go?.main?.App?.GetFileManagerSettings?.())
@@ -1172,13 +1212,35 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [items, setItems] = useState([]);
   const [sortField, setSortField] = useState('name');  // name, size, permissions, modified
   const [sortDir, setSortDir] = useState('asc');  // asc, desc
+  const dualPaneColumnMeasureItems = useMemo(() => {
+    if (fileManagerLayoutMode !== FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL) {
+      return items;
+    }
+    const collectPaneItems = (paneKey) => {
+      const normalizedPaneKey = paneKey === 'right' ? 'right' : 'left';
+      if (normalizedPaneKey === activePaneKey) {
+        return Array.isArray(items) ? items : [];
+      }
+      const paneSnapshot = fileManagerWorkspace?.panes?.[normalizedPaneKey] || {};
+      const panePath = normalizePath(paneSnapshot.path) || '/';
+      return getSessionCachedFileManagerPathItems(sessionId, panePath) || [];
+    };
+    return [
+      ...collectPaneItems('left'),
+      ...collectPaneItems('right'),
+    ];
+  }, [activePaneKey, fileManagerLayoutMode, fileManagerWorkspace, items, normalizePath, sessionId]);
+
   const fileListColumnWidths = useMemo(() => {
     const headerFont = '600 12px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     const cellFont = '12px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     const monoFont = '12px "JetBrains Mono", "Fira Code", "Cascadia Code", monospace';
-    const sizeTexts = [t('大小'), ...items.map((item) => (item.isDirectory ? '-' : fmtSize(item.size)))];
-    const permissionTexts = [t('权限'), ...items.map((item) => formatPermissionDisplay(item.permission || '-'))];
-    const modifiedTexts = [t('修改时间'), ...items.map((item) => fmtDate(item.modifyTime))];
+    const isDual = fileManagerLayoutMode === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL;
+    const actionsColumnWidth = isDual ? 0 : FILE_LIST_ACTIONS_COLUMN_WIDTH;
+    const measureItems = Array.isArray(dualPaneColumnMeasureItems) ? dualPaneColumnMeasureItems : [];
+    const sizeTexts = [t('大小'), ...measureItems.map((item) => (item.isDirectory ? '-' : fmtSize(item.size)))];
+    const permissionTexts = [t('权限'), ...measureItems.map((item) => formatPermissionDisplay(item.permission || '-'))];
+    const modifiedTexts = [t('修改时间'), ...measureItems.map((item) => fmtDate(item.modifyTime))];
     const sizeWidth = clampFileListColumnWidth(
       Math.max(
         ...sizeTexts.map((text, index) => measureFileListTextWidth(text, index === 0 ? headerFont : monoFont))
@@ -1204,24 +1266,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       size: sizeWidth,
       permission: permissionWidth,
       modified: modifiedWidth,
-      minWidth: `${FILE_LIST_NAME_MIN_WIDTH + sizeWidth + permissionWidth + modifiedWidth + FILE_LIST_ACTIONS_COLUMN_WIDTH}px`,
+      actions: actionsColumnWidth,
+      minWidth: `${FILE_LIST_NAME_MIN_WIDTH + sizeWidth + permissionWidth + modifiedWidth + actionsColumnWidth}px`,
     };
-  }, [items, t]);
+  }, [dualPaneColumnMeasureItems, fileManagerLayoutMode, t]);
 
-  // 排序后的列表（目录在前）
-  const sortedItems = useMemo(() => [...items].sort((a, b) => {
-    // 目录始终在前
-    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-    let cmp = 0;
-    switch (sortField) {
-      case 'name': cmp = a.name.localeCompare(b.name); break;
-      case 'size': cmp = (a.size || 0) - (b.size || 0); break;
-      case 'permissions': cmp = formatPermissionDisplay(a.permission || '-').localeCompare(formatPermissionDisplay(b.permission || '-')); break;
-      case 'modified': cmp = new Date(a.modifyTime || 0) - new Date(b.modifyTime || 0); break;
-      default: cmp = 0;
-    }
-    return sortDir === 'asc' ? cmp : -cmp;
-  }), [items, sortField, sortDir]);
+  const sortedItems = useMemo(() => sortFileManagerItems(items, sortField, sortDir), [items, sortField, sortDir]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -1446,25 +1496,49 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const displayedTabId = String(displayedTabIdRef.current || '').trim();
     const activeTabId = String(activeFileManagerTabIdRef.current || '').trim();
     const workspaceTabId = displayedTabId || activeTabId;
-    if (!sessionId || !workspaceTabId) {
+    if (!sessionId) {
       return null;
     }
     const hasExplicitPath = Object.prototype.hasOwnProperty.call(overrides, 'path');
     return commitFileManagerWorkspace((currentWorkspace) => {
-      if (!Array.isArray(currentWorkspace?.tabs) || currentWorkspace.tabs.length === 0) {
-        return currentWorkspace;
+      const currentPanes = currentWorkspace?.panes && typeof currentWorkspace.panes === 'object'
+        ? currentWorkspace.panes
+        : {};
+      const currentPane = currentPanes[activePaneKey] && typeof currentPanes[activePaneKey] === 'object'
+        ? currentPanes[activePaneKey]
+        : {};
+      const nextPath = hasExplicitPath
+        ? (overrides.path ?? currentPathRef.current)
+        : currentPathRef.current;
+      const normalizedNextPath = normalizePath(nextPath) || '/';
+      const nextPane = {
+        ...currentPane,
+        tabId: workspaceTabId || String(currentPane.tabId || currentWorkspace?.activeTabId || '').trim(),
+        path: normalizedNextPath,
+        sortField: overrides.sortField ?? sortFieldRef.current,
+        sortDir: overrides.sortDir ?? sortDirRef.current,
+        selectedPaths: Array.isArray(overrides.selectedPaths) ? overrides.selectedPaths : selectedPathsRef.current,
+        scrollTop: Number.isFinite(Number(overrides.scrollTop)) ? Number(overrides.scrollTop) : (fileListRef.current?.scrollTop || 0),
+      };
+      const baseWorkspace = {
+        ...currentWorkspace,
+        activePane: activePaneKey,
+        activeTabId: String(nextPane.tabId || currentWorkspace?.activeTabId || '').trim(),
+        panes: {
+          ...currentPanes,
+          [activePaneKey]: nextPane,
+        },
+      };
+      if (fileManagerLayoutMode === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL || !workspaceTabId || !Array.isArray(currentWorkspace?.tabs) || currentWorkspace.tabs.length === 0) {
+        return baseWorkspace;
       }
       return {
-        activeTabId: currentWorkspace.activeTabId || activeTabId || workspaceTabId,
+        ...baseWorkspace,
         tabs: currentWorkspace.tabs.map((tab) => {
           if (tab.id !== workspaceTabId) {
             return tab;
           }
-          const nextPath = hasExplicitPath
-            ? (overrides.path ?? currentPathRef.current)
-            : (currentPathHydratedRef.current && !preserveWorkspacePathRef.current ? currentPathRef.current : tab.path);
           const normalizedTabPath = normalizePath(tab.path) || '/';
-          const normalizedNextPath = normalizePath(nextPath) || '/';
           return {
             ...tab,
             path: tab.pinned === true && normalizedNextPath !== normalizedTabPath ? tab.path : normalizedNextPath,
@@ -1476,7 +1550,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         }),
       };
     });
-  }, [commitFileManagerWorkspace, normalizePath, sessionId]);
+  }, [activePaneKey, commitFileManagerWorkspace, fileManagerLayoutMode, normalizePath, sessionId]);
   const restoreTabItemsFromCache = useCallback((tab, path) => {
     const resolvedTabId = String(tab?.id || '').trim();
     const resolvedPath = normalizePath(path ?? tab?.path) || '/';
@@ -2385,11 +2459,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         if (!existingTab) {
           return;
         }
-        setSortField(existingTab.sortField || 'name');
-        setSortDir(existingTab.sortDir === 'desc' ? 'desc' : 'asc');
-        const nextSelectedPaths = Array.isArray(existingTab.selectedPaths) ? existingTab.selectedPaths : [];
-        const tabPath = normalizePath(existingTab.path) || '/';
-        const targetPath = tabPath;
+        const existingPane = resolvedWorkspace?.panes?.[resolvedWorkspace.activePane === 'right' ? 'right' : 'left'] || {};
+        const nextSortField = typeof existingPane.sortField === 'string' ? existingPane.sortField : (existingTab.sortField || 'name');
+        const nextSortDir = existingPane.sortDir === 'desc' ? 'desc' : (existingTab.sortDir === 'desc' ? 'desc' : 'asc');
+        const nextSelectedPaths = Array.isArray(existingPane.selectedPaths)
+          ? existingPane.selectedPaths
+          : (Array.isArray(existingTab.selectedPaths) ? existingTab.selectedPaths : []);
+        const targetPath = normalizePath(existingPane.path || existingTab.path) || '/';
+        setSortField(nextSortField);
+        setSortDir(nextSortDir);
         if (targetPath === currentPathRef.current) {
           displayedTabIdRef.current = existingTab.id;
           setSelectedPaths(nextSelectedPaths);
@@ -2400,7 +2478,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             lastClickedPath: nextSelectedPaths[nextSelectedPaths.length - 1] || null,
           };
         }
-        pendingViewRestoreRef.current = { scrollTop: Number(existingTab.scrollTop) || 0 };
+        pendingViewRestoreRef.current = { scrollTop: Number(existingPane.scrollTop ?? existingTab.scrollTop) || 0 };
         let ok = await loadDir(targetPath, {
           tabId: existingTab.id,
           silent: true,
@@ -3188,6 +3266,144 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     addToast(t('已剪切'), 'info');
   }, [addToast, currentPath, normalizePath, t]);
 
+  const getInactiveFileManagerPaneState = useCallback(() => {
+    const inactivePaneKey = activePaneKey === 'right' ? 'left' : 'right';
+    const inactivePaneSnapshot = fileManagerWorkspaceRef.current?.panes?.[inactivePaneKey] || {};
+    return {
+      key: inactivePaneKey,
+      path: normalizePath(inactivePaneSnapshot.path) || '/',
+      tabId: String(inactivePaneSnapshot.tabId || '').trim(),
+    };
+  }, [activePaneKey, normalizePath]);
+
+  const transferFileManagerItems = useCallback(async ({
+    paths,
+    mode,
+    sourceDir,
+    targetDirPath,
+    clearClipboardOnSuccess = false,
+  }) => {
+    if (operationInProgressRef.current) return false;
+    const normalizedPaths = Array.isArray(paths)
+      ? paths.map((path) => String(path || '').trim()).filter(Boolean)
+      : [];
+    if (normalizedPaths.length === 0) return false;
+    const normalizedSourcePath = normalizePath(sourceDir) || '/';
+    const normalizedTargetPath = normalizePath(targetDirPath) || '/';
+    const visibleCurrentPath = normalizePath(currentPathRef.current || currentPath) || '/';
+    const isCurrentTargetPath = normalizedTargetPath === visibleCurrentPath;
+    const isCurrentSourcePath = normalizedSourcePath === visibleCurrentPath;
+    if (normalizedSourcePath === normalizedTargetPath && mode === 'cut') {
+      addToast(t('源目录与目标目录相同，无需移动'), 'warning');
+      return false;
+    }
+    operationInProgressRef.current = true;
+    let count = 0;
+    let targetItems = isCurrentTargetPath ? items : [];
+    try {
+      if (!isCurrentTargetPath) {
+        targetItems = await AppGo.ListDir(sessionId, normalizedTargetPath);
+      }
+    } catch (err) {
+      operationInProgressRef.current = false;
+      addToast(`${t('读取目录失败')}: ${err}`, 'error');
+      return false;
+    }
+    const existing = new Set((Array.isArray(targetItems) ? targetItems : []).map((item) => item.name));
+    const localPatchedItems = [];
+    let shouldFallbackRefresh = !isCurrentTargetPath;
+    const total = normalizedPaths.length;
+    setOperationProgress({ message: t('正在粘贴中...'), current: 0, total });
+    try {
+      for (let i = 0; i < total; i++) {
+        const srcPath = normalizedPaths[i];
+        const name = srcPath.split('/').pop();
+        const sourceItem = normalizedSourcePath === normalizedTargetPath && isCurrentTargetPath
+          ? items.find((entry) => entry.name === name)
+          : null;
+        let destPath = joinPath(normalizedTargetPath, name);
+        let destName = name;
+        if (mode === 'copy' && normalizedSourcePath === normalizedTargetPath) {
+          const base = name.replace(/(\.[^.]+)$/, '');
+          const ext = name !== base ? name.slice(base.length) : '';
+          let copyName = `${base}_copy${ext}`;
+          let idx = 1;
+          while (existing.has(copyName)) {
+            idx++;
+            copyName = `${base}_copy${idx}${ext}`;
+          }
+          destName = copyName;
+          destPath = joinPath(normalizedTargetPath, copyName);
+        } else if (existing.has(name)) {
+          if (typeof window.luminDialog?.confirm !== 'function') {
+            addToast(`${t('无法确认覆盖操作，已跳过')} ${name}`, 'error');
+            continue;
+          }
+          const ok = await window.luminDialog.confirm(
+            `${t('目标已存在同名项目')} "${name}"${t('，是否覆盖？')}`
+          );
+          if (!ok) continue;
+        }
+        setOperationProgress({
+          message: `${mode === 'copy' ? t('正在复制') : t('正在移动')} ${name}`,
+          current: i + 1,
+          total,
+        });
+        try {
+          if (mode === 'copy') {
+            await AppGo.CopyItem(sessionId, srcPath, destPath);
+          } else {
+            await AppGo.MoveItem(sessionId, srcPath, destPath);
+          }
+          existing.add(destName);
+          count++;
+          if (mode === 'copy' && sourceItem && isCurrentTargetPath) {
+            localPatchedItems.push(createLocalItemShell(destName, sourceItem.isDirectory, {
+              ...sourceItem,
+              name: destName,
+            }));
+          } else {
+            shouldFallbackRefresh = true;
+          }
+        } catch (err) {
+          addToast(`${t('操作失败')}: ${name} - ${err}`, 'error');
+        }
+      }
+    } finally {
+      setOperationProgress(null);
+      operationInProgressRef.current = false;
+    }
+    if (count > 0) {
+      addToast(`${t('操作完成')}: ${count} ${t('项')}`, 'success');
+      if (clearClipboardOnSuccess && mode === 'cut') {
+        updateClipboard(null);
+      }
+      if (!shouldFallbackRefresh && localPatchedItems.length === count) {
+        localPatchedItems.forEach((localItem) => {
+          const logicalPath = joinPath(normalizedTargetPath, localItem.name);
+          queueRowEffect(logicalPath, logicalPath, 'added');
+        });
+        updateItemsPreservingView((prev) => localPatchedItems.reduce(
+          (next, localItem) => upsertLocalItem(next, localItem),
+          prev,
+        ));
+      } else {
+        await refreshDirectoryAfterTransfer(normalizedTargetPath);
+      }
+      if (mode === 'cut' && normalizedSourcePath !== normalizedTargetPath) {
+        if (isCurrentSourcePath) {
+          setSelectedPaths((currentSelectedPaths) => currentSelectedPaths.filter((path) => !normalizedPaths.includes(path)));
+          if (normalizedPaths.includes(lastClickedPathRef.current)) {
+            lastClickedPathRef.current = null;
+          }
+        }
+        await refreshDirectoryAfterTransfer(normalizedSourcePath);
+      }
+      return true;
+    }
+    return false;
+  }, [addToast, currentPath, items, normalizePath, queueRowEffect, refreshDirectoryAfterTransfer, sessionId, t, updateItemsPreservingView]);
+
   const handleDownload = useCallback(async (item, options = {}) => {
     const basePath = typeof options === 'string' ? options : (options.basePath || currentPath);
     const remotePath = joinPath(basePath, item.name);
@@ -3529,7 +3745,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   };
 
   const activateFileManagerTab = useCallback(async (tabId) => {
-    if (!tabId || tabId === activeFileManagerTabIdRef.current) {
+    const isDualPane = fileManagerLayoutMode === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL;
+    if (!tabId) {
+      return;
+    }
+    if (!isDualPane && tabId === activeFileManagerTabIdRef.current) {
       return;
     }
     cancelFileListSwitch();
@@ -3538,11 +3758,46 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (!targetTab) {
       return;
     }
-    commitFileManagerWorkspace((current) => ({ ...current, activeTabId: tabId }));
+    const targetPath = normalizePath(targetTab.path) || '/';
+    const currentPanes = currentWorkspace?.panes && typeof currentWorkspace.panes === 'object' ? currentWorkspace.panes : {};
+    const currentPane = currentPanes[activePaneKey] && typeof currentPanes[activePaneKey] === 'object' ? currentPanes[activePaneKey] : {};
+    commitFileManagerWorkspace({
+      activePane: activePaneKey,
+      activeTabId: tabId,
+      panes: {
+        ...currentPanes,
+        [activePaneKey]: {
+          ...currentPane,
+          tabId,
+          path: targetPath,
+          selectedPaths: [],
+          scrollTop: 0,
+        },
+      },
+    });
+    if (isDualPane) {
+      pendingTabSelectionRestoreRef.current = { selectedPaths: [], lastClickedPath: null };
+      pendingViewRestoreRef.current = { scrollTop: 0 };
+      const cachedItems = getCachedPathItems(targetPath) || getCachedTabItems(tabId, targetPath);
+      if (cachedItems) {
+        applyAnimatedFileListSnapshot(targetPath, cachedItems, {
+          tabId,
+          preserveView: false,
+        });
+      }
+      await loadDir(targetPath, {
+        tabId,
+        silent: true,
+        preserveView: false,
+        trackDiff: false,
+        showLoading: false,
+        preferPathCache: true,
+      });
+      return;
+    }
     setSortField(targetTab.sortField || 'name');
     setSortDir(targetTab.sortDir === 'desc' ? 'desc' : 'asc');
     const nextSelectedPaths = Array.isArray(targetTab.selectedPaths) ? targetTab.selectedPaths : [];
-    const targetPath = normalizePath(targetTab.path) || '/';
     const cachedItems = getCachedTabItems(tabId, targetPath);
     const restoreSelectionAndScroll = () => {
       setSelectedPaths(nextSelectedPaths);
@@ -3636,7 +3891,88 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         )),
       }));
     }
-  }, [commitFileManagerWorkspace, fileManagerWorkspace, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace, applyAnimatedFileListSnapshot, cancelFileListSwitch]);
+  }, [activePaneKey, applyAnimatedFileListSnapshot, cancelFileListSwitch, commitFileManagerWorkspace, fileManagerLayoutMode, fileManagerWorkspace, getCachedPathItems, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace]);
+
+  const activateFileManagerPane = useCallback(async (paneKey) => {
+    const nextPaneKey = paneKey === 'right' ? 'right' : 'left';
+    if (nextPaneKey === activePaneKey) {
+      return;
+    }
+    cancelFileListSwitch();
+    const currentWorkspace = syncCurrentTabToWorkspace({ scrollTop: fileListRef.current?.scrollTop || 0 }) || fileManagerWorkspaceRef.current;
+    const targetPane = currentWorkspace?.panes?.[nextPaneKey] || {};
+    const targetTabId = String(targetPane.tabId || currentWorkspace?.activeTabId || '').trim();
+    const targetPath = normalizePath(targetPane.path) || '/';
+    const nextSelectedPaths = Array.isArray(targetPane.selectedPaths) ? targetPane.selectedPaths : [];
+    commitFileManagerWorkspace({ activePane: nextPaneKey, activeTabId: targetTabId });
+    const targetSortField = typeof targetPane.sortField === 'string' ? targetPane.sortField : 'name';
+    const targetSortDir = targetPane.sortDir === 'desc' ? 'desc' : 'asc';
+    setSortField(targetSortField);
+    setSortDir(targetSortDir);
+    requestAnimationFrame(() => {
+      fileListRef.current?.focus();
+    });
+    const cachedItems = getCachedTabItems(targetTabId, targetPath) || getCachedPathItems(targetPath);
+    const restoreSelectionAndScroll = () => {
+      setSelectedPaths(nextSelectedPaths);
+      lastClickedPathRef.current = nextSelectedPaths[nextSelectedPaths.length - 1] || null;
+      requestAnimationFrame(() => {
+        if (fileListRef.current) {
+          fileListRef.current.scrollTop = Number(targetPane.scrollTop) || 0;
+        }
+      });
+    };
+    if (cachedItems) {
+      if (targetPath !== currentPathRef.current) {
+        pendingTabSelectionRestoreRef.current = {
+          selectedPaths: nextSelectedPaths,
+          lastClickedPath: nextSelectedPaths[nextSelectedPaths.length - 1] || null,
+        };
+        pendingViewRestoreRef.current = { scrollTop: Number(targetPane.scrollTop) || 0 };
+      }
+      applyAnimatedFileListSnapshot(targetPath, cachedItems, {
+        tabId: targetTabId,
+        preserveView: targetPath !== currentPathRef.current,
+      });
+      if (targetPath === currentPathRef.current) {
+        restoreSelectionAndScroll();
+      }
+      await loadDir(targetPath, {
+        tabId: targetTabId,
+        silent: true,
+        preserveView: true,
+        trackDiff: true,
+        showLoading: false,
+        preferPathCache: true,
+      });
+      return;
+    }
+    if (targetPath === currentPathRef.current) {
+      displayedTabIdRef.current = targetTabId;
+      restoreSelectionAndScroll();
+      await loadDir(targetPath, {
+        tabId: targetTabId,
+        silent: true,
+        preserveView: true,
+        trackDiff: true,
+        showLoading: false,
+      });
+      return;
+    }
+    pendingTabSelectionRestoreRef.current = {
+      selectedPaths: nextSelectedPaths,
+      lastClickedPath: nextSelectedPaths[nextSelectedPaths.length - 1] || null,
+    };
+    pendingViewRestoreRef.current = { scrollTop: Number(targetPane.scrollTop) || 0 };
+    await loadDir(targetPath, {
+      tabId: targetTabId,
+      silent: true,
+      preserveView: false,
+      trackDiff: false,
+      showLoading: false,
+      preferPathCache: true,
+    });
+  }, [activePaneKey, applyAnimatedFileListSnapshot, cancelFileListSwitch, commitFileManagerWorkspace, getCachedPathItems, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace]);
 
   const resolveNewFileManagerTabPath = useCallback(async () => {
     const mode = getFileManagerNewTabPathMode();
@@ -4110,114 +4446,16 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
   };
 
-  const handlePaste = async (targetDirPath = currentPathRef.current || currentPath) => {
-    if (operationInProgressRef.current) return;
-    if (!clipboard || clipboard.paths.length === 0) return;
-    const normalizedTargetPath = normalizePath(targetDirPath) || '/';
-    const isCurrentTargetPath = normalizedTargetPath === (normalizePath(currentPathRef.current || currentPath) || '/');
-    if (clipboard.srcDir === normalizedTargetPath && clipboard.mode === 'cut') {
-      addToast(t('源目录与目标目录相同，无需移动'), 'warning');
-      return;
-    }
-    operationInProgressRef.current = true;
-    let count = 0;
-    let targetItems = isCurrentTargetPath ? items : [];
-    try {
-      if (!isCurrentTargetPath) {
-        targetItems = await AppGo.ListDir(sessionId, normalizedTargetPath);
-      }
-    } catch (err) {
-      operationInProgressRef.current = false;
-      addToast(`${t('读取目录失败')}: ${err}`, 'error');
-      return;
-    }
-    // 注意：existing 在循环内会被更新，反映本次粘贴已产生的文件名，避免同批同名互覆盖
-    const existing = new Set((Array.isArray(targetItems) ? targetItems : []).map((item) => item.name));
-    const localPatchedItems = [];
-    let shouldFallbackRefresh = !isCurrentTargetPath;
-    const total = clipboard.paths.length;
-    setOperationProgress({ message: t('正在粘贴中...'), current: 0, total });
-    try {
-      for (let i = 0; i < total; i++) {
-        const srcPath = clipboard.paths[i];
-        const name = srcPath.split('/').pop();
-        const sourceItem = clipboard.srcDir === normalizedTargetPath && isCurrentTargetPath
-          ? items.find((entry) => entry.name === name)
-          : null;
-        let destPath = joinPath(normalizedTargetPath, name);
-        let destName = name;
-        if (clipboard.mode === 'copy' && clipboard.srcDir === normalizedTargetPath) {
-          const base = name.replace(/(\.[^.]+)$/, '');
-          const ext = name !== base ? name.slice(base.length) : '';
-          let copyName = `${base}_copy${ext}`;
-          let idx = 1;
-          while (existing.has(copyName)) {
-            idx++;
-            copyName = `${base}_copy${idx}${ext}`;
-          }
-          destName = copyName;
-          destPath = joinPath(normalizedTargetPath, copyName);
-        } else {
-          if (existing.has(name)) {
-            if (typeof window.luminDialog?.confirm !== 'function') {
-              addToast(`${t('无法确认覆盖操作，已跳过')} ${name}`, 'error');
-              continue;
-            }
-            const ok = await window.luminDialog.confirm(
-              `${t('目标已存在同名项目')} "${name}"${t('，是否覆盖？')}`
-            );
-            if (!ok) continue;
-          }
-        }
-
-        setOperationProgress({
-          message: `${clipboard.mode === 'copy' ? t('正在复制') : t('正在移动')} ${name}`,
-          current: i + 1,
-          total
-        });
-        try {
-          if (clipboard.mode === 'copy') {
-            await AppGo.CopyItem(sessionId, srcPath, destPath);
-          } else {
-            await AppGo.MoveItem(sessionId, srcPath, destPath);
-          }
-          existing.add(destName);
-          count++;
-          if (clipboard.mode === 'copy' && sourceItem && isCurrentTargetPath) {
-            localPatchedItems.push(createLocalItemShell(destName, sourceItem.isDirectory, {
-              ...sourceItem,
-              name: destName,
-            }));
-          } else {
-            shouldFallbackRefresh = true;
-          }
-        } catch (err) {
-          addToast(`${t('操作失败')}: ${name} - ${err}`, 'error');
-        }
-      }
-    } finally {
-      setOperationProgress(null);
-      operationInProgressRef.current = false;
-    }
-    if (count > 0) {
-      addToast(`${t('操作完成')}: ${count} ${t('项')}`, 'success');
-      if (clipboard.mode === 'cut') {
-        updateClipboard(null);
-      }
-      if (!shouldFallbackRefresh && localPatchedItems.length === count) {
-        localPatchedItems.forEach((localItem) => {
-          const logicalPath = joinPath(normalizedTargetPath, localItem.name);
-          queueRowEffect(logicalPath, logicalPath, 'added');
-        });
-        updateItemsPreservingView((prev) => localPatchedItems.reduce(
-          (next, localItem) => upsertLocalItem(next, localItem),
-          prev,
-        ));
-      } else {
-        await refreshDirectoryAfterTransfer(normalizedTargetPath);
-      }
-    }
-  };
+  const handlePaste = useCallback(async (targetDirPath = currentPathRef.current || currentPath) => {
+    if (!clipboard || clipboard.paths.length === 0) return false;
+    return transferFileManagerItems({
+      paths: clipboard.paths,
+      mode: clipboard.mode,
+      sourceDir: clipboard.srcDir,
+      targetDirPath,
+      clearClipboardOnSuccess: true,
+    });
+  }, [clipboard, currentPath, transferFileManagerItems]);
 
   // Create directory
   const handleMkdir = async (targetDirPath = currentPath) => {
@@ -4483,6 +4721,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   };
 
   const closeContextMenu = () => setContextMenu(null);
+  const contextMenuTargetPath = contextMenu?.mode === 'item' && contextMenu?.item
+    ? joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)
+    : '';
 
   const openChmodTarget = useCallback(async (itemPath, item) => {
     let rememberedMode = '';
@@ -4718,6 +4959,156 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     await uploadEntries(Array.from(entryMap.values()));
   };
 
+  const isDualPaneLayout = fileManagerLayoutMode === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL;
+  const currentPaneTabId = useMemo(() => {
+    const paneTabId = String(fileManagerWorkspace?.panes?.[activePaneKey]?.tabId || '').trim();
+    if (paneTabId && Array.isArray(fileManagerWorkspace?.tabs) && fileManagerWorkspace.tabs.some((tab) => tab.id === paneTabId)) {
+      return paneTabId;
+    }
+    return String(activeFileManagerTab?.id || '').trim();
+  }, [activeFileManagerTab?.id, activePaneKey, fileManagerWorkspace]);
+  const activePaneLabel = activePaneKey === 'right' ? t('右侧') : t('左侧');
+  const buildFileManagerPaneState = useCallback((paneKey) => {
+    const normalizedPaneKey = paneKey === 'right' ? 'right' : 'left';
+    const paneSnapshot = fileManagerWorkspace?.panes?.[normalizedPaneKey] || {};
+    const panePath = normalizedPaneKey === activePaneKey
+      ? currentPath
+      : (normalizePath(paneSnapshot.path) || '/');
+    const paneTabId = normalizedPaneKey === activePaneKey
+      ? String(activeFileManagerTab?.id || paneSnapshot.tabId || '').trim()
+      : String(paneSnapshot.tabId || '').trim();
+    const paneSortField = normalizedPaneKey === activePaneKey
+      ? sortField
+      : (typeof paneSnapshot.sortField === 'string' ? paneSnapshot.sortField : 'name');
+    const paneSortDir = normalizedPaneKey === activePaneKey
+      ? sortDir
+      : (paneSnapshot.sortDir === 'desc' ? 'desc' : 'asc');
+    const paneItems = normalizedPaneKey === activePaneKey
+      ? items
+      : (getCachedTabItems(paneTabId, panePath) || getCachedPathItems(panePath) || []);
+    return {
+      key: normalizedPaneKey,
+      label: normalizedPaneKey === 'right' ? t('右侧') : t('左侧'),
+      path: panePath || '/',
+      tabId: paneTabId,
+      sortField: paneSortField,
+      sortDir: paneSortDir,
+      scrollTop: normalizedPaneKey === activePaneKey
+        ? (fileListRef.current?.scrollTop || Number(paneSnapshot.scrollTop) || 0)
+        : (Number(paneSnapshot.scrollTop) || 0),
+      selectedPaths: normalizedPaneKey === activePaneKey
+        ? selectedPaths
+        : (Array.isArray(paneSnapshot.selectedPaths) ? paneSnapshot.selectedPaths : []),
+      items: sortFileManagerItems(paneItems, paneSortField, paneSortDir),
+    };
+  }, [activeFileManagerTab, activePaneKey, currentPath, fileManagerWorkspace, getCachedPathItems, getCachedTabItems, items, normalizePath, selectedPaths, sortDir, sortField, t]);
+  const leftFileManagerPane = useMemo(() => buildFileManagerPaneState('left'), [buildFileManagerPaneState]);
+  const rightFileManagerPane = useMemo(() => buildFileManagerPaneState('right'), [buildFileManagerPaneState]);
+  const renderInactiveFileManagerPane = useCallback((paneState) => {
+    const previewItems = paneState.items.filter((item) => !isDeletedPlaceholderItem(item));
+    return (
+      <div
+        key={`inactive-pane-${paneState.key}`}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          borderRight: paneState.key === 'left' ? '1px solid var(--border)' : 'none',
+          overflow: 'hidden',
+          background: 'var(--surface-raised)',
+          position: 'relative',
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          closeContextMenu();
+          void activateFileManagerPane(paneState.key);
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderTop: '2px solid transparent', borderBottom: '1px solid var(--border)', background: 'var(--surface-base)' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{paneState.label}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{paneState.path || '/'}</span>
+        </div>
+        <div
+          className="file-list"
+          style={{ flex: 1, minWidth: 0 }}
+          ref={(node) => {
+            if (!node) return;
+            const nextScrollTop = Number(paneState.scrollTop) || 0;
+            if (Math.abs(node.scrollTop - nextScrollTop) > 1) {
+              node.scrollTop = nextScrollTop;
+            }
+          }}
+        >
+          <div className="file-list-header">
+            <span className="file-col-name">{t('名称')} {paneState.sortField === 'name' ? (paneState.sortDir === 'asc' ? '↑' : '↓') : ''}</span>
+            <span className="file-col-size">{t('大小')} {paneState.sortField === 'size' ? (paneState.sortDir === 'asc' ? '↑' : '↓') : ''}</span>
+            <span className="file-col-permission">{t('权限')} {paneState.sortField === 'permissions' ? (paneState.sortDir === 'asc' ? '↑' : '↓') : ''}</span>
+            <span className="file-col-modified">{t('修改时间')} {paneState.sortField === 'modified' ? (paneState.sortDir === 'asc' ? '↑' : '↓') : ''}</span>
+            <span className="file-col-actions"></span>
+          </div>
+          <div className="file-list-viewport">
+            <div className="file-list-body">
+              {paneState.path !== '/' && (
+                <div className="file-item" data-file-row-key={`__inactive_parent__:${paneState.key}`}>
+                  <div className="file-name-cell">
+                    <span className="file-icon"><FolderUp size={16} /></span>
+                    <span className="file-name is-dir">..</span>
+                  </div>
+                  <span className="file-col-size" />
+                  <span className="file-col-permission" />
+                  <span className="file-col-modified" />
+                  <span className="file-col-actions" />
+                </div>
+              )}
+              {!previewItems.length && (
+                <div className="empty-state">
+                  <div className="empty-state-icon"><FolderOpen size={48} strokeWidth={1.5} /></div>
+                  <div className="empty-state-text">{t('目录为空')}</div>
+                </div>
+              )}
+              {previewItems.map((item) => {
+                const itemPath = paneState.path === '/' ? `/${item.name}` : `${paneState.path}/${item.name}`;
+                const permissionDisplay = formatPermissionDisplay(item.permission || '-');
+                return (
+                  <div key={`${paneState.key}:${itemPath}`} className={`file-item${paneState.selectedPaths.includes(itemPath) ? ' selected' : ''}`}>
+                    <div className="file-name-cell">
+                      <span className="file-icon">{fileIcon(item.name, item.isDirectory)}</span>
+                      <span className={`file-name ${item.isDirectory ? 'is-dir' : ''}`}>{item.name}</span>
+                    </div>
+                    <span className="file-size file-col-size">{item.isDirectory ? '-' : fmtSize(item.size)}</span>
+                    <span className="file-permission file-col-permission" title={permissionDisplay}>{permissionDisplay}</span>
+                    <span className="file-date file-col-modified">{fmtDate(item.modifyTime)}</span>
+                    <span className="file-col-actions" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label={t('点击以聚焦此窗口')}
+          onMouseDown={(event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeContextMenu();
+            void activateFileManagerPane(paneState.key);
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            closeContextMenu();
+            void activateFileManagerPane(paneState.key);
+          }}
+          style={{ position: 'absolute', inset: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+        />
+      </div>
+    );
+  }, [activateFileManagerPane, isDeletedPlaceholderItem, t]);
+
   const uploadPanelTarget = isActive && workbenchState.uploadOpen
     ? (
       workbenchState.editorSplitOpen
@@ -4729,7 +5120,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   return (
     <div
       ref={fileManagerRootRef}
-      className="file-manager"
+      className={`file-manager${isDualPaneLayout ? ' file-manager-dual' : ''}${contextMenu ? ' file-manager-context-menu-open' : ''}`}
       style={{
         position: 'relative',
         '--wails-drop-target': 'drop',
@@ -4737,7 +5128,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         '--file-col-size': `${fileListColumnWidths.size}px`,
         '--file-col-permission': `${fileListColumnWidths.permission}px`,
         '--file-col-modified': `${fileListColumnWidths.modified}px`,
-        '--file-col-actions': `${FILE_LIST_ACTIONS_COLUMN_WIDTH}px`,
+        '--file-col-actions': `${fileListColumnWidths.actions ?? FILE_LIST_ACTIONS_COLUMN_WIDTH}px`,
         '--file-list-min-width': fileListColumnWidths.minWidth,
       }}
       onContextMenu={(e) => {
@@ -4942,6 +5333,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         </div>
       </div>
 
+      {!isDualPaneLayout && (
       <div className="terminal-sub-tab-bar">
         {fileManagerTabOverflow && (
           <button
@@ -5198,11 +5590,115 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           </button>
         </div>
       </div>
+      )}
 
       {/* Content area: file list + optional split editor */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* File List */}
-        <div className={`file-list${fileListSwitchStage !== 'idle' ? ` is-switching is-switch-${fileListSwitchDirection}` : ''}`} ref={fileListRef} tabIndex={0} onKeyDown={handleFileListKeyDown} onScroll={handleFileListScroll} style={{ flex: 1, minWidth: 0 }} aria-busy={loading || fileListSwitchStage !== 'idle'}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 0 }}>
+        {isDualPaneLayout && (
+          <div style={{ display: 'flex', flexShrink: 0, alignItems: 'stretch', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-icon"
+                aria-label={fileManagerSidebarOpen ? t('收起标签侧栏') : t('展开标签侧栏')}
+                title={fileManagerSidebarOpen ? t('收起标签侧栏') : t('展开标签侧栏')}
+                onClick={() => setFileManagerSidebarOpen((current) => !current)}
+              >
+                {fileManagerSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-icon"
+                aria-label={t('新建标签')}
+                title={t('新建标签')}
+                onClick={() => { void handleCreateFileManagerTab(); }}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            {fileManagerSidebarOpen && (
+              <div style={{ width: 220, minWidth: 220, border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--surface-raised)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('历史标签')}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8, overflowY: 'auto' }}>
+                  {fileManagerWorkspace.tabs.map((tab) => {
+                    const isSidebarActive = tab.id === currentPaneTabId;
+                    const isPinnedTab = tab.pinned === true;
+                    const isSystemPinnedTab = tab.systemPinned === true;
+                    return (
+                      <button
+                        key={`sidebar-tab-${tab.id}`}
+                        type="button"
+                        onClick={() => { void activateFileManagerTab(tab.id); }}
+                        onDoubleClick={(event) => { void handleCloseFileManagerTab(tab.id, event); }}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          void activateFileManagerTab(tab.id);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          width: '100%',
+                          padding: '8px 10px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid',
+                          borderColor: isSidebarActive ? 'var(--accent)' : 'var(--border)',
+                          background: isSidebarActive ? 'var(--surface-overlay)' : 'transparent',
+                          color: isSidebarActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        {showFileManagerTabIcons && !isSystemPinnedTab && <Folder size={12} />}
+                        {isPinnedTab && !isSystemPinnedTab && <Pin size={11} style={{ opacity: 0.8 }} />}
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{renderFileManagerTabTitle(tab, t)}</span>
+                        {!hideFileManagerTabCloseButton && fileManagerWorkspace.tabs.length > 1 && !isPinnedTab && (
+                          <span
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleCloseFileManagerTab(tab.id, event);
+                            }}
+                            style={{ display: 'inline-flex', alignItems: 'center' }}
+                          >
+                            <X size={11} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {isDualPaneLayout && activePaneKey === 'right' && renderInactiveFileManagerPane(leftFileManagerPane)}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            border: 'none',
+            borderRight: isDualPaneLayout && activePaneKey === 'left' ? '1px solid var(--border)' : 'none',
+            borderRadius: 0,
+            overflow: 'hidden',
+            background: isDualPaneLayout ? 'var(--surface-raised)' : 'transparent',
+          }}
+          onMouseDown={(event) => {
+            if (!isDualPaneLayout || event.button !== 0) {
+              return;
+            }
+            void activateFileManagerPane(activePaneKey);
+          }}
+        >
+          {isDualPaneLayout && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderTop: '2px solid var(--accent)', borderBottom: '1px solid var(--border)', background: 'var(--surface-base)' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{activePaneLabel}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentPath || '/'}</span>
+            </div>
+          )}
+          <div className={`file-list${fileListSwitchStage !== 'idle' ? ` is-switching is-switch-${fileListSwitchDirection}` : ''}`} ref={fileListRef} tabIndex={0} onKeyDown={handleFileListKeyDown} onScroll={handleFileListScroll} style={{ flex: 1, minWidth: 0 }} aria-busy={loading || fileListSwitchStage !== 'idle'}>
           <div className="file-list-header">
             <span className="file-col-name" onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
               {t('名称')} {sortField === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
@@ -5272,6 +5768,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               const rowKey = item.__rowKey || itemPath;
               const isDeletedPlaceholder = isDeletedPlaceholderItem(item);
               const isSelected = selectedPaths.includes(itemPath);
+              const isContextMenuAnchor = contextMenuTargetPath === itemPath;
               const clipboardMode = isDeletedPlaceholder ? '' : (clipboard?.paths?.includes(itemPath) ? clipboard.mode : '');
               const rowEffect = activeRowEffects[rowKey] || '';
               const permissionDisplay = formatPermissionDisplay(item.permission || '-');
@@ -5304,7 +5801,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                 <div
                   key={rowKey}
                   data-file-row-key={rowKey}
-                  className={`file-item${isSelected ? ' selected' : ''}${clipboardMode === 'copy' ? ' clipboard-copy' : ''}${clipboardMode === 'cut' ? ' clipboard-cut' : ''}${isDeletedPlaceholder ? ' deleted-placeholder' : ''}${rowEffect ? ` visual-effect visual-effect-${rowEffect}` : ''}`}
+                  className={`file-item${isSelected ? ' selected' : ''}${isContextMenuAnchor ? ' context-menu-anchor' : ''}${clipboardMode === 'copy' ? ' clipboard-copy' : ''}${clipboardMode === 'cut' ? ' clipboard-cut' : ''}${isDeletedPlaceholder ? ' deleted-placeholder' : ''}${rowEffect ? ` visual-effect visual-effect-${rowEffect}` : ''}`}
                   style={isDeletedPlaceholder ? { '--file-row-height': `${item.__rowHeight || 36}px` } : undefined}
                   onClick={handleItemClick}
                   onDoubleClick={() => {
@@ -5415,8 +5912,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             })}
             </div>
           </div>
+          </div>
         </div>
-
+        {isDualPaneLayout && activePaneKey === 'left' && renderInactiveFileManagerPane(rightFileManagerPane)}
       </div>
 
       {/* Context Menu */}
@@ -5440,6 +5938,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           deleteItemCount={Number.isFinite(Number(contextMenu.deleteItemCount)) ? Number(contextMenu.deleteItemCount) : 1}
           clipboardItemCount={Number.isFinite(Number(contextMenu.clipboardItemCount)) ? Number(contextMenu.clipboardItemCount) : 1}
           canPaste={Boolean(clipboard && Array.isArray(clipboard.paths) && clipboard.paths.length > 0)}
+          clipboardActionArrow={isDualPaneLayout ? (activePaneKey === 'right' ? '<-' : '->') : ''}
           t={t}
           onClose={closeContextMenu}
           onTogglePinned={() => {
@@ -5465,7 +5964,17 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               const clipboardPaths = contextMenu.clipboardUsesSelectedPaths
                 ? [...selectedPathsRef.current]
                 : [joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)];
-              handleClipboardCopy(clipboardPaths, contextMenu.itemBasePath || currentPath);
+              if (isDualPaneLayout) {
+                const inactivePane = getInactiveFileManagerPaneState();
+                void transferFileManagerItems({
+                  paths: clipboardPaths,
+                  mode: 'copy',
+                  sourceDir: contextMenu.itemBasePath || currentPath,
+                  targetDirPath: inactivePane.path,
+                });
+              } else {
+                handleClipboardCopy(clipboardPaths, contextMenu.itemBasePath || currentPath);
+              }
             }
             closeContextMenu();
           }}
@@ -5474,7 +5983,17 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               const clipboardPaths = contextMenu.clipboardUsesSelectedPaths
                 ? [...selectedPathsRef.current]
                 : [joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)];
-              handleClipboardCut(clipboardPaths, contextMenu.itemBasePath || currentPath);
+              if (isDualPaneLayout) {
+                const inactivePane = getInactiveFileManagerPaneState();
+                void transferFileManagerItems({
+                  paths: clipboardPaths,
+                  mode: 'cut',
+                  sourceDir: contextMenu.itemBasePath || currentPath,
+                  targetDirPath: inactivePane.path,
+                });
+              } else {
+                handleClipboardCut(clipboardPaths, contextMenu.itemBasePath || currentPath);
+              }
             }
             closeContextMenu();
           }}

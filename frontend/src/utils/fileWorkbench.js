@@ -108,6 +108,26 @@ function sortFileManagerTabs(tabs) {
   return [...homeSystemPinnedTabs, ...pinnedTabs, ...normalTabs];
 }
 
+function normalizeFileManagerPaneState(state, tabs, fallbackTabId = '', fallbackPath = '/') {
+  const source = state && typeof state === 'object' ? state : {};
+  const resolvedTabs = Array.isArray(tabs) ? tabs : [];
+  const fallbackTab = resolvedTabs.find((tab) => tab.id === fallbackTabId) || resolvedTabs[0] || null;
+  const requestedTabId = typeof source.tabId === 'string' ? source.tabId.trim() : '';
+  const matchedTab = resolvedTabs.find((tab) => tab.id === requestedTabId) || fallbackTab;
+  return {
+    tabId: matchedTab?.id || '',
+    path: normalizeFileManagerTabPath(source.path) || normalizeFileManagerTabPath(matchedTab?.path) || normalizeFileManagerTabPath(fallbackPath) || '/',
+    sortField: typeof source.sortField === 'string' ? source.sortField : (matchedTab?.sortField || 'name'),
+    sortDir: source.sortDir === 'desc' ? 'desc' : (matchedTab?.sortDir === 'desc' ? 'desc' : 'asc'),
+    selectedPaths: Array.isArray(source.selectedPaths)
+      ? source.selectedPaths.filter((item) => typeof item === 'string')
+      : (Array.isArray(matchedTab?.selectedPaths) ? matchedTab.selectedPaths.filter((item) => typeof item === 'string') : []),
+    scrollTop: Number.isFinite(Number(source.scrollTop))
+      ? Number(source.scrollTop)
+      : (Number.isFinite(Number(matchedTab?.scrollTop)) ? Number(matchedTab.scrollTop) : 0),
+  };
+}
+
 function normalizeFileManagerWorkspaceState(state) {
   const source = state && typeof state === 'object' ? state : {};
   const tabs = Array.isArray(source.tabs)
@@ -135,9 +155,31 @@ function normalizeFileManagerWorkspaceState(state) {
         .filter(Boolean)
     )
     : [];
-  const activeTabId = typeof source.activeTabId === 'string' ? source.activeTabId.trim() : '';
+  const requestedActiveTabId = typeof source.activeTabId === 'string' ? source.activeTabId.trim() : '';
+  const defaultTabId = tabs[0]?.id || '';
+  const activePane = source.activePane === 'right' ? 'right' : 'left';
+  const leftPane = normalizeFileManagerPaneState(
+    source.panes?.left,
+    tabs,
+    requestedActiveTabId || defaultTabId,
+    tabs.find((tab) => tab.id === requestedActiveTabId)?.path || tabs[0]?.path || '/',
+  );
+  const rightPane = normalizeFileManagerPaneState(
+    source.panes?.right,
+    tabs,
+    leftPane.tabId || requestedActiveTabId || defaultTabId,
+    leftPane.path || '/',
+  );
+  const activeTabId = activePane === 'right'
+    ? (rightPane.tabId || leftPane.tabId || requestedActiveTabId || defaultTabId)
+    : (leftPane.tabId || rightPane.tabId || requestedActiveTabId || defaultTabId);
   return {
-    activeTabId: tabs.some((tab) => tab.id === activeTabId) ? activeTabId : (tabs[0]?.id || ''),
+    activeTabId,
+    activePane,
+    panes: {
+      left: leftPane,
+      right: rightPane,
+    },
     tabs,
   };
 }
@@ -239,7 +281,16 @@ export function setSessionFileManagerWorkspace(sessionId, patch) {
   const key = normalizeSessionGroupId(sessionId);
   const current = getSessionFileManagerWorkspace(key);
   const nextPatch = typeof patch === 'function' ? patch(current) : patch;
-  const next = normalizeFileManagerWorkspaceState(nextPatch);
+  const nextSource = nextPatch && typeof nextPatch === 'object'
+    ? {...current,
+      ...nextPatch,
+      panes: {
+        ...(current.panes && typeof current.panes === 'object' ? current.panes : {}),
+        ...(nextPatch.panes && typeof nextPatch.panes === 'object' ? nextPatch.panes : {}),
+      },
+    }
+    : current;
+  const next = normalizeFileManagerWorkspaceState(nextSource);
   store[key] = next;
   root.dispatchEvent(new CustomEvent(fileManagerWorkspaceEventName(key), { detail: next }));
   root.dispatchEvent(new CustomEvent(FILE_MANAGER_WORKSPACE_CHANGED_EVENT, {
