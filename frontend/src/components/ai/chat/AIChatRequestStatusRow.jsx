@@ -135,9 +135,10 @@ export default function AIChatRequestStatusRow({ assistant, reasoning = [] }) {
       return undefined
     }
     setNowMs(Date.now())
+    // 0.1s 精度用 250ms 刷新足够；100ms 会带着整条消息栏高频重绘
     const timer = window.setInterval(() => {
       setNowMs(Date.now())
-    }, 100)
+    }, 250)
     return () => window.clearInterval(timer)
   }, [isLive])
 
@@ -209,11 +210,12 @@ export default function AIChatRequestStatusRow({ assistant, reasoning = [] }) {
         fontSize: 11,
         fontWeight: 700,
         whiteSpace: 'nowrap',
+        // 等宽数字，避免 9.9s→10.0s / tok/s 变位时挤动消息栏宽度引发列表抖
+        fontVariantNumeric: 'tabular-nums',
         boxShadow: isLive ? '0 0 14px rgba(var(--accent-rgb), 0.12)' : 'none',
-        transition: 'var(--transition)',
       }}>
       {metricItems.map((item) => (
-        <span key={item.key} style={{ color: item.color, transition: 'color 180ms ease' }}>{item.label}</span>
+        <span key={item.key} style={{ color: item.color }}>{item.label}</span>
       ))}
     </span>
   )

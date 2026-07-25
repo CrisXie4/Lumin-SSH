@@ -4571,10 +4571,16 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           return (
             <div
               key={`ai-panel-${s.id}-${t.id}`}
+              aria-hidden={!isPanelActive}
               style={{
                 position: 'absolute',
                 inset: 0,
-                display: isPanelActive ? 'flex' : 'none',
+                // 必须保持 flex 布局：display:none 会把高度压成 0，
+                // Virtuoso 再显示时长气泡重测，同一 scrollTop 会往下漂。
+                display: 'flex',
+                visibility: isPanelActive ? 'visible' : 'hidden',
+                pointerEvents: isPanelActive ? 'auto' : 'none',
+                zIndex: isPanelActive ? 1 : 0,
               }}
             >
               <AIPanel
