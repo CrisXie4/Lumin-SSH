@@ -232,6 +232,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const groupedMessages = useMemo(() => groupConversationMessages(messages), [messages])
   const lastAssistantTurnIndex = useMemo(() => getLastAssistantTurnIndex(groupedMessages), [groupedMessages])
   const lastEntryIndex = Math.max(groupedMessages.length - 1, 0)
+  // 内容多半会超过一屏时，首屏才落到最新；短对话必须从顶部开始
+  const preferBottomOnOpen = groupedMessages.length >= 6
   const conversationScrollKey = getConversationScrollMemoryKey(sessionId, terminalId, conversationId)
 
   const cancelPinBottomLoop = useCallback(() => {
@@ -598,6 +600,16 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         return
       }
       followIntentRef.current = true
+      // 短对话不足一屏：保持顶部，不要 pin 到“假底部”
+      if (!preferBottomOnOpen) {
+        const scroller = scrollerElementRef.current
+        if (scroller instanceof HTMLElement) {
+          markProgrammaticScroll()
+          scroller.scrollTop = 0
+        }
+        scheduleRememberScrollPosition()
+        return
+      }
       startPinBottomUntilStable(56, 'hydrate_open')
       window.requestAnimationFrame(() => {
         if (followIntentRef.current) {
@@ -609,7 +621,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     return () => {
       window.clearTimeout(timer)
     }
-  }, [conversationId, conversationScrollKey, groupedMessages.length, pinScrollerToTrueBottom, restoreRememberedScroll, scheduleRememberScrollPosition, scrollerVersion, sessionId, startPinBottomUntilStable, terminalId])
+  }, [conversationId, conversationScrollKey, groupedMessages.length, markProgrammaticScroll, pinScrollerToTrueBottom, preferBottomOnOpen, restoreRememberedScroll, scheduleRememberScrollPosition, scrollerVersion, sessionId, startPinBottomUntilStable, terminalId])
 
   useEffect(() => {
     if (!scrollToBottomSignal || groupedMessages.length === 0) {
@@ -944,11 +956,14 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         style={{ height: '100%' }}
         data={groupedMessages}
         increaseViewportBy={{ top: 600, bottom: 900 }}
-        initialTopMostItemIndex={{
-          index: Math.max(groupedMessages.length - 1, 0),
-          align: 'end',
-        }}
-        alignToBottom
+        // 短对话不要 align end/alignToBottom，否则会整块沉到底（截图：一条消息贴输入框）
+        // 长对话首屏落到最新；后续贴底靠 pin / followOutput
+        initialTopMostItemIndex={preferBottomOnOpen
+          ? {
+              index: lastEntryIndex,
+              align: 'end',
+            }
+          : 0}
         defaultItemHeight={96}
         atBottomThreshold={48}
         followOutput={(isAtBottom) => {
