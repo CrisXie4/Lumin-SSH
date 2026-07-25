@@ -24,6 +24,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
   const hasSectionBeforeReasoning = hasError
   const hasSectionBeforeBody = hasError || hasReasoning
   const hasSectionBeforeTools = hasError || hasReasoning || hasBody
+  const hasSectionBeforeActionBar = hasError || hasReasoning || hasBody || hasTools
   const handleCopyText = () => {
     const nextText = completionCopyText || assistantText
     if (!nextText) {
@@ -57,7 +58,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
       <div style={{ display: messageActionBarAtBottom ? 'none' : 'block' }}>
         {renderActionBar(true)}
       </div>
-      <div style={{ width: '100%', display: 'grid', gap: 0, padding: messageActionBarAtBottom ? '10px 12px 6px' : '10px 12px', borderRadius: 12, background: 'var(--surface-overlay)', border: '1px solid var(--border)', boxShadow: 'inset 0 1px 0 var(--border-light)' }}>
+      <div style={{ width: '100%', display: 'grid', gap: 0, padding: messageActionBarAtBottom ? '10px 12px 0' : '10px 12px', borderRadius: 12, background: 'var(--surface-overlay)', border: '1px solid var(--border)', boxShadow: 'inset 0 1px 0 var(--border-light)' }}>
         {hasError ? <AIChatErrorBlock text={assistantErrorText} /> : null}
         {hasReasoning ? (
           <div
@@ -66,8 +67,8 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
               gap: 8,
               paddingTop: hasSectionBeforeReasoning ? 10 : 0,
               borderTop: hasSectionBeforeReasoning ? '1px solid var(--border-subtle)' : 'none',
-              paddingBottom: hasBody || hasTools ? 10 : (messageActionBarAtBottom ? 6 : 0),
-              borderBottom: hasBody || hasTools || messageActionBarAtBottom ? '1px solid var(--border-subtle)' : 'none',
+              paddingBottom: hasBody || hasTools ? 10 : 0,
+              borderBottom: hasBody || hasTools ? '1px solid var(--border-subtle)' : 'none',
             }}
           >
             {reasoning.map((item, index) => (
@@ -82,17 +83,16 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
           </div>
         ) : null}
         {hasBody ? (
-          <div style={{ paddingTop: hasSectionBeforeBody && !hasReasoning ? 10 : 0, borderTop: hasSectionBeforeBody && !hasReasoning ? '1px solid var(--border-subtle)' : 'none', paddingBottom: messageActionBarAtBottom && !hasTools ? 6 : 0 }}>
+          <div style={{ paddingTop: hasSectionBeforeBody && !hasReasoning ? 10 : 0, borderTop: hasSectionBeforeBody && !hasReasoning ? '1px solid var(--border-subtle)' : 'none' }}>
             <AIChatAssistantBodyPane text={assistantText} />
           </div>
         ) : null}
         {hasTools ? (
-          <div style={{ paddingTop: hasSectionBeforeTools ? 10 : 0, borderTop: hasSectionBeforeTools ? '1px solid var(--border-subtle)' : 'none', paddingBottom: messageActionBarAtBottom ? 6 : 0 }}>
+          <div style={{ paddingTop: hasSectionBeforeTools ? 10 : 0, borderTop: hasSectionBeforeTools ? '1px solid var(--border-subtle)' : 'none' }}>
             <AIChatToolSessionPane items={tools} isLastAssistantTurn={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onSendUserMessage={onSendUserMessage} onPreviewRestore={onPreviewRestore} onApplyRestore={onApplyRestore} followupInteractionLocked={followupInteractionLocked} />
           </div>
         ) : null}
-        {/* 底部操作栏始终渲染；绿色耗时胶囊有数据才挂。间距压紧，避免和输入框之间空一大截 */}
-        <div style={{ display: messageActionBarAtBottom ? 'block' : 'none', padding: messageActionBarAtBottom ? '4px 0 0' : 0 }}>
+        <div style={{ display: messageActionBarAtBottom ? 'block' : 'none', padding: messageActionBarAtBottom ? '0 12px' : 0, margin: messageActionBarAtBottom ? '0 -12px' : 0, borderTop: hasSectionBeforeActionBar ? '1px solid var(--border-subtle)' : 'none' }}>
           {renderActionBar(true)}
         </div>
       </div>

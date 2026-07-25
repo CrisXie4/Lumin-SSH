@@ -747,13 +747,6 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
           }
           return isAtBottom || followIntentRef.current ? 'auto' : false
         }}
-        // 同一条气泡往下长高时 followOutput 不一定跟；贴底则钉真底部，让操作栏跟着沉下来
-        totalListHeightChanged={() => {
-          if (restoringRef.current || !followIntentRef.current || hasRecentUserScrollIntent()) {
-            return
-          }
-          pinScrollerToTrueBottom()
-        }}
         atBottomStateChange={(isAtBottom) => {
           if (restoringRef.current) {
             return
@@ -777,17 +770,13 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
           }
         }}
         computeItemKey={(index, entry) => getEntryKey(entry, index)}
-        // 末条只留一点呼吸，别叠 Footer+大 padding 空出一大截
-        components={{
-          Footer: () => <div style={{ height: 8, flexShrink: 0 }} aria-hidden="true" />,
-        }}
         itemContent={(index, entry) => {
           const entryKey = getEntryKey(entry, index)
           const isHighlighted = highlightedEntryKey === entryKey
           return (
             <div
               style={{
-                padding: '0 14px 14px',
+                padding: `0 14px ${index === groupedMessages.length - 1 ? 18 : 14}px`,
                 borderRadius: 14,
                 animation: isHighlighted ? 'ai-chat-message-flash 0.72s ease-in-out 4' : 'none',
                 background: isHighlighted ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
