@@ -6,6 +6,7 @@ import AIProviderQuickEditOverlay from './AIProviderQuickEditOverlay.jsx'
 import Tiptop from '../Tiptop.jsx'
 import { getAIProviderState, isBuiltinAIProvider, normalizeAIProviderState, saveAIProviderState } from './aiProviderBridge.js'
 import { getAIProviderDefinition } from './providers/index.js'
+import { isCallMyVipProviderHost } from './providerSpecialHosts.js'
 
 const defaultProviders = []
 const summaryTooltipDelay = 300
@@ -417,15 +418,7 @@ function resolveAIProviderBaseOrigin(value) {
 }
 
 function isAIProviderBalanceLabelEnabled(provider) {
-  const origin = resolveAIProviderBaseOrigin(provider?.baseUrl)
-  if (!origin) {
-    return false
-  }
-  try {
-    return new URL(origin).hostname.toLowerCase() === 'newapi.callmy.vip'
-  } catch {
-    return false
-  }
+  return isCallMyVipProviderHost(provider?.baseUrl)
 }
 
 function normalizeAIProviderBalanceValue(value) {

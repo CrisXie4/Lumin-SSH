@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	ai "luminssh-go/internal/ai"
 	mcp "luminssh-go/internal/mcp"
 	"luminssh-go/internal/mcpserver"
+
+	"golang.org/x/crypto/ssh"
 )
 
 func loadMCPServiceSettings(app *App) mcp.ServiceSettings {
@@ -304,12 +308,18 @@ func (h mcpHost) ListDirectoryContext(ctx context.Context, sessionID string, rem
 	if h.app == nil || h.app.sshManager == nil {
 		return nil, fmt.Errorf("ssh manager unavailable")
 	}
+	if client, _, err := h.app.sshManager.getClientEntry(sessionID); err == nil && client != nil {
+		return h.shellListDirectory(ctx, client, remotePath)
+	}
 	return h.app.sshManager.ListDirContext(ctx, sessionID, remotePath)
 }
 
 func (h mcpHost) ReadTextFileContext(ctx context.Context, sessionID string, remotePath string) (string, error) {
 	if h.app == nil || h.app.sshManager == nil {
 		return "", fmt.Errorf("ssh manager unavailable")
+	}
+	if client, _, err := h.app.sshManager.getClientEntry(sessionID); err == nil && client != nil {
+		return h.runShellCommandLong(ctx, client, "cat -- "+shellQuotePath(remotePath))
 	}
 	return h.app.sshManager.ReadFileContext(ctx, sessionID, remotePath)
 }
@@ -439,4 +449,110 @@ func containsMCPSessionTag(tags []string, value string) bool {
 		}
 	}
 	return false
+}
+
+func (h mcpHost) runShellCommandLong(ctx context.Context, client *ssh.Client, command string) (string, error) {
+	session, err := client.NewSession()
+	if err != nil {
+		return "", err
+	}
+	defer session.Close()
+	return runCommandWithSessionContext(ctx, session, command, remoteCmdLongTimeout)
+}
+
+func (h mcpHost) shellListDirectory(ctx context.Context, client *ssh.Client, remotePath string) ([]map[string]interface{}, error) {
+	command := "cd " + shellQuotePath(remotePath) + " && stat -c '%f\t%s\t%u\t%g\t%Y\t%n' -- .* * 2>/dev/null"
+	output, err := h.runShellCommandLong(ctx, client, command)
+	if err != nil {
+		return nil, err
+	}
+	results := parseShellDirEntries(output)
+	sort.Slice(results, func(i, j int) bool {
+		iDir := results[i]["isDirectory"].(bool)
+		jDir := results[j]["isDirectory"].(bool)
+		if iDir != jDir {
+			return iDir
+		}
+		return results[i]["name"].(string) < results[j]["name"].(string)
+	})
+	return results, nil
+}
+
+func parseShellDirEntries(output string) []map[string]interface{} {
+	results := make([]map[string]interface{}, 0)
+	for _, line := range strings.Split(output, "\n") {
+		if line == "" {
+			continue
+		}
+		fields := strings.SplitN(line, "\t", 6)
+		if len(fields) < 6 {
+			continue
+		}
+		name := fields[5]
+		if name == "." || name == ".." || name == "" {
+			continue
+		}
+		rawMode, parseErr := strconv.ParseUint(strings.TrimSpace(fields[0]), 16, 32)
+		if parseErr != nil {
+			continue
+		}
+		fileMode := unixRawModeToFileMode(uint32(rawMode))
+		size, _ := strconv.ParseInt(strings.TrimSpace(fields[1]), 10, 64)
+		modifyTime := ""
+		if epoch, timeErr := strconv.ParseInt(strings.TrimSpace(fields[4]), 10, 64); timeErr == nil {
+			modifyTime = time.Unix(epoch, 0).Format(time.RFC3339)
+		}
+		results = append(results, map[string]interface{}{
+			"name":        name,
+			"isDirectory": fileMode.IsDir(),
+			"size":        size,
+			"modifyTime":  modifyTime,
+			"permission":  fileMode.String(),
+			"mode":        fmt.Sprintf("%o", fileMode.Perm()),
+			"uid":         strings.TrimSpace(fields[2]),
+			"gid":         strings.TrimSpace(fields[3]),
+		})
+	}
+	return results
+}
+
+func unixRawModeToFileMode(raw uint32) os.FileMode {
+	const (
+		cIFMT   = 0xf000
+		cIFSOCK = 0xc000
+		cIFLNK  = 0xa000
+		cIFREG  = 0x8000
+		cIFBLK  = 0x6000
+		cIFDIR  = 0x4000
+		cIFCHR  = 0x2000
+		cIFIFO  = 0x1000
+		cISUID  = 0x800
+		cISGID  = 0x400
+		cISVTX  = 0x200
+	)
+	mode := os.FileMode(raw & 0777)
+	switch raw & cIFMT {
+	case cIFBLK:
+		mode |= os.ModeDevice
+	case cIFCHR:
+		mode |= os.ModeDevice | os.ModeCharDevice
+	case cIFDIR:
+		mode |= os.ModeDir
+	case cIFIFO:
+		mode |= os.ModeNamedPipe
+	case cIFLNK:
+		mode |= os.ModeSymlink
+	case cIFSOCK:
+		mode |= os.ModeSocket
+	}
+	if raw&cISUID != 0 {
+		mode |= os.ModeSetuid
+	}
+	if raw&cISGID != 0 {
+		mode |= os.ModeSetgid
+	}
+	if raw&cISVTX != 0 {
+		mode |= os.ModeSticky
+	}
+	return mode
 }
