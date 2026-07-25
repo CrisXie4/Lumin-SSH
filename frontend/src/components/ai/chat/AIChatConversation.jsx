@@ -166,25 +166,45 @@ function getTouchClientY(event) {
   return Number.isFinite(value) ? value : null
 }
 
-// 按服务器/终端记住滚动位置（面板 visibility 保活，切回来要原样恢复）
+// 按服务器/终端/对话记住滚动位置（面板 visibility 保活，切回来要原样恢复）
 const conversationScrollMemoryByPanel = new Map()
 
-function getConversationScrollMemoryKey(sessionId, terminalId) {
-  return `${sessionId || 'session'}::${terminalId || 'terminal'}`
+function getAIScrollScrollerMetrics(scroller) {
+  if (!(scroller instanceof HTMLElement)) {
+    return { hasScroller: false }
+  }
+  const scrollHeight = scroller.scrollHeight
+  const clientHeight = scroller.clientHeight
+  const scrollTop = scroller.scrollTop
+  const maxScrollTop = Math.max(scrollHeight - clientHeight, 0)
+  const distanceToBottom = maxScrollTop - scrollTop
+  return {
+    hasScroller: true,
+    scrollHeight,
+    clientHeight,
+    scrollTop,
+    maxScrollTop,
+    distanceToBottom,
+    nearBottom: distanceToBottom <= 24,
+  }
 }
 
-function readConversationScrollMemory(sessionId, terminalId) {
-  return conversationScrollMemoryByPanel.get(getConversationScrollMemoryKey(sessionId, terminalId)) || null
+function getConversationScrollMemoryKey(sessionId, terminalId, conversationId) {
+  return `${sessionId || 'session'}::${terminalId || 'terminal'}::${conversationId || 'conversation'}`
 }
 
-function writeConversationScrollMemory(sessionId, terminalId, snapshot) {
+function readConversationScrollMemory(sessionId, terminalId, conversationId) {
+  return conversationScrollMemoryByPanel.get(getConversationScrollMemoryKey(sessionId, terminalId, conversationId)) || null
+}
+
+function writeConversationScrollMemory(sessionId, terminalId, conversationId, snapshot) {
   if (!snapshot) {
     return
   }
-  conversationScrollMemoryByPanel.set(getConversationScrollMemoryKey(sessionId, terminalId), snapshot)
+  conversationScrollMemoryByPanel.set(getConversationScrollMemoryKey(sessionId, terminalId, conversationId), snapshot)
 }
 
-export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null }) {
+export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', conversationId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null }) {
   const { t } = useTranslation()
   const containerRef = useRef(null)
   const virtuosoRef = useRef(null)
@@ -194,24 +214,47 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const programmaticScrollResetRef = useRef(0)
   const scrollAnimationFrameRef = useRef(0)
   const pinBottomFrameRef = useRef(0)
+  const settleFollowTimerRef = useRef(0)
+  const holdBottomFrameRef = useRef(0)
+  const holdBottomStartedAtRef = useRef(0)
+  const holdBottomMaxDurationRef = useRef(0)
   const rememberFrameRef = useRef(0)
   const restoringRef = useRef(false)
   const hasHydratedRef = useRef(false)
   const lastContainerHeightRef = useRef(0)
   const lastUserScrollIntentAtRef = useRef(0)
+  const lastUserScrollDirectionRef = useRef(0)
   const lastTouchClientYRef = useRef(null)
+  const forceMeasureLastEntryRef = useRef(0)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedEntryKey, setHighlightedEntryKey] = useState('')
   const [scrollerVersion, setScrollerVersion] = useState(0)
   const groupedMessages = useMemo(() => groupConversationMessages(messages), [messages])
   const lastAssistantTurnIndex = useMemo(() => getLastAssistantTurnIndex(groupedMessages), [groupedMessages])
   const lastEntryIndex = Math.max(groupedMessages.length - 1, 0)
+  const conversationScrollKey = getConversationScrollMemoryKey(sessionId, terminalId, conversationId)
 
   const cancelPinBottomLoop = useCallback(() => {
     if (pinBottomFrameRef.current) {
       cancelAnimationFrame(pinBottomFrameRef.current)
       pinBottomFrameRef.current = 0
     }
+  }, [])
+
+  const cancelSettleFollow = useCallback(() => {
+    if (settleFollowTimerRef.current) {
+      window.clearInterval(settleFollowTimerRef.current)
+      settleFollowTimerRef.current = 0
+    }
+  }, [])
+
+  const cancelHoldBottom = useCallback(() => {
+    if (holdBottomFrameRef.current) {
+      cancelAnimationFrame(holdBottomFrameRef.current)
+      holdBottomFrameRef.current = 0
+    }
+    holdBottomStartedAtRef.current = 0
+    holdBottomMaxDurationRef.current = 0
   }, [])
 
   const markProgrammaticScroll = useCallback(() => {
@@ -222,19 +265,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     programmaticScrollResetRef.current = window.setTimeout(() => {
       programmaticScrollRef.current = false
       programmaticScrollResetRef.current = 0
-    }, 480)
+    }, 80)
   }, [])
-
-  const markUserScrollIntent = useCallback((direction = 0) => {
-    lastUserScrollIntentAtRef.current = Date.now()
-    // 用户主动滚：立刻停钉底/跟底，避免长对话被“假底部”弹回
-    followIntentRef.current = false
-    cancelPinBottomLoop()
-    // 上滑时立刻露出回底按钮；下滑靠近底部时留给 atBottomStateChange 收敛
-    if (direction < 0) {
-      setShowScrollToBottom(true)
-    }
-  }, [cancelPinBottomLoop])
 
   const hasRecentUserScrollIntent = useCallback(() => Date.now() - lastUserScrollIntentAtRef.current < 1200, [])
 
@@ -246,16 +278,13 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     const maxScrollTop = Math.max(scroller.scrollHeight - scroller.clientHeight, 0)
     const scrollTop = Math.max(0, Math.min(scroller.scrollTop, maxScrollTop))
     const distanceToBottom = maxScrollTop - scrollTop
-    // 只按真实离底距离判断贴底，避免 followIntent 把“停中间”记成贴底
-    const stickToBottom = distanceToBottom <= 24
     return {
       scrollTop,
       maxScrollTop,
-      stickToBottom,
+      stickToBottom: distanceToBottom <= 24,
     }
   }, [])
 
-  // 可见时持续记忆；切走时高度已是 0，再采会失败
   const rememberCurrentScrollPosition = useCallback(() => {
     if (restoringRef.current || programmaticScrollRef.current) {
       return
@@ -264,8 +293,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     if (!snapshot) {
       return
     }
-    writeConversationScrollMemory(sessionId, terminalId, snapshot)
-  }, [captureScrollPosition, sessionId, terminalId])
+    writeConversationScrollMemory(sessionId, terminalId, conversationId, snapshot)
+  }, [captureScrollPosition, conversationId, sessionId, terminalId])
 
   const scheduleRememberScrollPosition = useCallback(() => {
     if (rememberFrameRef.current) {
@@ -277,21 +306,119 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     })
   }, [rememberCurrentScrollPosition])
 
-  // 对话多、气泡高度不一：只 scrollToIndex 经常停在“假底部”。
-  // 先滚到最后一项触发测量，再多帧钉 scroller 真底部；高度一变就再 scrollToIndex 逼 Virtuoso 重测。
-  const pinScrollerToTrueBottom = useCallback(() => {
+  const pinScrollerToTrueBottom = useCallback((options = {}) => {
+    const silent = Boolean(options.silent)
     const scroller = scrollerElementRef.current
     if (!(scroller instanceof HTMLElement) || scroller.clientHeight <= 1) {
       return false
     }
-    markProgrammaticScroll()
     const nextTop = Math.max(scroller.scrollHeight - scroller.clientHeight, 0)
+    if (Math.abs(scroller.scrollTop - nextTop) <= 1) {
+      return true
+    }
+    if (!silent) {
+      markProgrammaticScroll()
+    }
     scroller.scrollTop = nextTop
     return true
   }, [markProgrammaticScroll])
 
-  const startPinBottomUntilStable = useCallback((maxFrames = 48) => {
+  const startHoldBottom = useCallback((reason = 'hold', durationMs = 900) => {
+    const nextDuration = Math.max(Number(durationMs) || 0, 200)
+    if (holdBottomFrameRef.current) {
+      holdBottomStartedAtRef.current = Date.now()
+      holdBottomMaxDurationRef.current = Math.max(holdBottomMaxDurationRef.current, nextDuration)
+      return
+    }
+    holdBottomStartedAtRef.current = Date.now()
+    holdBottomMaxDurationRef.current = nextDuration
+    const tick = () => {
+      holdBottomFrameRef.current = 0
+      if (!followIntentRef.current || restoringRef.current) {
+        return
+      }
+      if (Date.now() - holdBottomStartedAtRef.current >= holdBottomMaxDurationRef.current) {
+        pinScrollerToTrueBottom({ silent: true })
+        return
+      }
+      pinScrollerToTrueBottom({ silent: true })
+      holdBottomFrameRef.current = requestAnimationFrame(tick)
+    }
+    holdBottomFrameRef.current = requestAnimationFrame(tick)
+  }, [pinScrollerToTrueBottom])
+
+  const markUserScrollIntent = useCallback((direction = 0) => {
+    lastUserScrollIntentAtRef.current = Date.now()
+    lastUserScrollDirectionRef.current = direction
+    const metrics = getAIScrollScrollerMetrics(scrollerElementRef.current)
+    if (direction < 0) {
+      followIntentRef.current = false
+      cancelPinBottomLoop()
+      cancelSettleFollow()
+      cancelHoldBottom()
+      setShowScrollToBottom(true)
+      return
+    }
+    if (direction > 0 && metrics.hasScroller && metrics.distanceToBottom <= 200) {
+      followIntentRef.current = true
+      setShowScrollToBottom(false)
+      pinScrollerToTrueBottom()
+      startHoldBottom('user_resume', 700)
+    }
+  }, [cancelHoldBottom, cancelPinBottomLoop, cancelSettleFollow, pinScrollerToTrueBottom, startHoldBottom])
+
+  const startSettleFollow = useCallback((durationMs = 1800, reason = 'settle') => {
+    cancelSettleFollow()
+    const startedAt = Date.now()
+    startHoldBottom(reason, durationMs + 200)
+    settleFollowTimerRef.current = window.setInterval(() => {
+      if (!followIntentRef.current || restoringRef.current) {
+        cancelSettleFollow()
+        return
+      }
+      if (Date.now() - startedAt >= durationMs) {
+        cancelSettleFollow()
+        pinScrollerToTrueBottom({ silent: true })
+        return
+      }
+      const metrics = getAIScrollScrollerMetrics(scrollerElementRef.current)
+      if (!metrics.hasScroller) {
+        return
+      }
+      if (metrics.distanceToBottom > 2) {
+        pinScrollerToTrueBottom({ silent: true })
+        if (metrics.distanceToBottom > 48) {
+          startHoldBottom('settle_repin', Math.max(durationMs - (Date.now() - startedAt), 400))
+        }
+      }
+    }, 32)
+  }, [cancelSettleFollow, pinScrollerToTrueBottom, startHoldBottom])
+
+  const forceLastEntryIntoView = useCallback(() => {
+    if (typeof virtuosoRef.current?.scrollToIndex !== 'function') {
+      return false
+    }
+    const now = Date.now()
+    if (now - forceMeasureLastEntryRef.current < 400) {
+      return false
+    }
+    forceMeasureLastEntryRef.current = now
+    markProgrammaticScroll()
+    virtuosoRef.current.scrollToIndex({
+      index: lastEntryIndex,
+      align: 'end',
+      behavior: 'auto',
+    })
+    return true
+  }, [lastEntryIndex, markProgrammaticScroll])
+
+  const startPinBottomUntilStable = useCallback((maxFrames = 48, reason = 'pin') => {
     if (groupedMessages.length === 0) {
+      return
+    }
+    if (pinBottomFrameRef.current) {
+      followIntentRef.current = true
+      pinScrollerToTrueBottom()
       return
     }
     cancelPinBottomLoop()
@@ -299,27 +426,36 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     lastUserScrollIntentAtRef.current = 0
     setShowScrollToBottom(false)
 
-    const scrollLastIntoView = () => {
-      if (typeof virtuosoRef.current?.scrollToIndex !== 'function') {
-        return
-      }
-      markProgrammaticScroll()
-      virtuosoRef.current.scrollToIndex({
-        index: lastEntryIndex,
-        align: 'end',
-        behavior: 'auto',
-      })
+    const startMetrics = getAIScrollScrollerMetrics(scrollerElementRef.current)
+    if (!startMetrics.hasScroller || startMetrics.maxScrollTop <= 1 || startMetrics.distanceToBottom > 48) {
+      forceLastEntryIntoView()
     }
-
-    // 先让虚拟列表渲染最后几项，再钉真底部
-    scrollLastIntoView()
+    startHoldBottom(reason, Math.max(maxFrames * 20, 900))
 
     let frames = 0
-    let stableFrames = 0
-    let lastHeight = -1
+    let nearBottomFrames = 0
+    let maxSeenHeight = 0
+    let stableHeightFrames = 0
+    let previousHeight = -1
+    const expectScrollable = groupedMessages.length >= 4
+
+    const finishPin = (scroller) => {
+      pinScrollerToTrueBottom()
+      const live = scroller instanceof HTMLElement ? scroller : scrollerElementRef.current
+      const maxScrollTop = Math.max((live?.scrollHeight || 0) - (live?.clientHeight || 0), 0)
+      writeConversationScrollMemory(sessionId, terminalId, conversationId, {
+        scrollTop: maxScrollTop,
+        maxScrollTop,
+        stickToBottom: true,
+      })
+      setShowScrollToBottom(false)
+      if (followIntentRef.current) {
+        startSettleFollow(reason === 'hydrate_open' || reason === 'scroller_ready' ? 2200 : 1600, 'pin_stable')
+      }
+    }
+
     const tick = () => {
       pinBottomFrameRef.current = 0
-      // 用户上滑会清 followIntent；此处必须立刻停，否则长列表会弹回
       if (!followIntentRef.current) {
         return
       }
@@ -328,62 +464,71 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       frames += 1
       if (scroller instanceof HTMLElement) {
         const height = scroller.scrollHeight
-        if (height > 0 && height === lastHeight) {
-          stableFrames += 1
-        } else {
-          // 总高度还在变：继续逼最后一项进视口，让未测量气泡补测
-          if (height !== lastHeight && frames % 4 === 0) {
-            scrollLastIntoView()
-          }
-          stableFrames = 0
-          lastHeight = height
+        const clientHeight = scroller.clientHeight
+        const maxScrollTop = Math.max(height - clientHeight, 0)
+        const distance = maxScrollTop - scroller.scrollTop
+        if (height > maxSeenHeight) {
+          maxSeenHeight = height
         }
-        const distance = height - scroller.clientHeight - scroller.scrollTop
-        if (stableFrames >= 4 && distance <= 2) {
-          writeConversationScrollMemory(sessionId, terminalId, {
-            scrollTop: Math.max(height - scroller.clientHeight, 0),
-            maxScrollTop: Math.max(height - scroller.clientHeight, 0),
-            stickToBottom: true,
-          })
-          setShowScrollToBottom(false)
+        if (previousHeight > 0 && Math.abs(height - previousHeight) > 24) {
+          stableHeightFrames = 0
+        } else if (maxScrollTop > 1) {
+          stableHeightFrames += 1
+        } else {
+          stableHeightFrames = 0
+        }
+        previousHeight = height
+
+        if (maxScrollTop <= 1) {
+          nearBottomFrames = 0
+          if ((expectScrollable || frames <= 12) && (frames === 1 || frames % 6 === 0)) {
+            forceLastEntryIntoView()
+          }
+        } else if (distance <= 2) {
+          nearBottomFrames += 1
+        } else {
+          nearBottomFrames = 0
+        }
+
+        const nearPeak = maxSeenHeight <= 0 || height >= maxSeenHeight * 0.92
+        const contentReady = (
+          (maxScrollTop > 1 && nearPeak && stableHeightFrames >= 4)
+          || (!expectScrollable && height > 0 && height <= clientHeight + 1 && frames >= 6)
+        )
+        if (frames >= 12 && nearBottomFrames >= 6 && contentReady) {
+          finishPin(scroller)
           return
         }
       }
       if (frames >= maxFrames) {
-        pinScrollerToTrueBottom()
-        const live = scrollerElementRef.current
-        writeConversationScrollMemory(sessionId, terminalId, {
-          scrollTop: Math.max((live?.scrollHeight || 0) - (live?.clientHeight || 0), 0),
-          maxScrollTop: Math.max((live?.scrollHeight || 0) - (live?.clientHeight || 0), 0),
-          stickToBottom: true,
-        })
-        setShowScrollToBottom(false)
+        finishPin(scroller)
         return
       }
       pinBottomFrameRef.current = requestAnimationFrame(tick)
     }
     pinBottomFrameRef.current = requestAnimationFrame(tick)
-  }, [cancelPinBottomLoop, groupedMessages.length, lastEntryIndex, markProgrammaticScroll, pinScrollerToTrueBottom, sessionId, terminalId])
+  }, [cancelPinBottomLoop, conversationId, forceLastEntryIntoView, groupedMessages.length, pinScrollerToTrueBottom, sessionId, startHoldBottom, startSettleFollow, terminalId])
 
-  // 保活面板不 remount：只回写离开时的 scrollTop，避免高度重测导致往下漂
   const restoreRememberedScroll = useCallback(() => {
-    const snapshot = readConversationScrollMemory(sessionId, terminalId)
+    const snapshot = readConversationScrollMemory(sessionId, terminalId, conversationId)
     const scroller = scrollerElementRef.current
     if (!snapshot || !(scroller instanceof HTMLElement) || scroller.clientHeight <= 1) {
       return false
     }
-    // 记忆是贴底：用真底部钉住，避免旧 scrollTop 在高度重测后够不着底
     if (snapshot.stickToBottom) {
-      startPinBottomUntilStable(20)
+      startPinBottomUntilStable(28, 'restore_stick')
       return true
     }
     restoringRef.current = true
     markProgrammaticScroll()
     followIntentRef.current = false
+    cancelHoldBottom()
+    cancelSettleFollow()
+    cancelPinBottomLoop()
     const maxScrollTop = Math.max(scroller.scrollHeight - scroller.clientHeight, 0)
     const nextTop = Math.max(0, Math.min(Number(snapshot.scrollTop) || 0, maxScrollTop))
     scroller.scrollTop = nextTop
-    setShowScrollToBottom(true)
+    setShowScrollToBottom(maxScrollTop - nextTop > 24)
     window.requestAnimationFrame(() => {
       const live = scrollerElementRef.current
       if (live instanceof HTMLElement) {
@@ -393,18 +538,13 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       restoringRef.current = false
     })
     return true
-  }, [markProgrammaticScroll, sessionId, startPinBottomUntilStable, terminalId])
+  }, [cancelHoldBottom, cancelPinBottomLoop, cancelSettleFollow, conversationId, markProgrammaticScroll, sessionId, startPinBottomUntilStable, terminalId])
 
   const scrollToBottom = useCallback((behavior = 'auto') => {
     if (groupedMessages.length === 0) {
       return
     }
-    // 长对话一律多帧钉真底部；smooth 只多等一帧开滚，避免停在假底部
-    if (behavior === 'smooth') {
-      startPinBottomUntilStable(56)
-      return
-    }
-    startPinBottomUntilStable(40)
+    startPinBottomUntilStable(behavior === 'smooth' ? 56 : 40, behavior === 'smooth' ? 'scroll_smooth' : 'scroll_auto')
   }, [groupedMessages.length, startPinBottomUntilStable])
 
   const scheduleScrollToBottom = useCallback((behavior = 'auto', force = false) => {
@@ -423,40 +563,54 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     })
   }, [groupedMessages.length, scrollToBottom])
 
-  // 首屏：无记忆才落底；有记忆恢复停留点（不 remount）
+  useEffect(() => {
+    hasHydratedRef.current = false
+    followIntentRef.current = true
+    programmaticScrollRef.current = false
+    restoringRef.current = false
+    lastContainerHeightRef.current = 0
+    lastUserScrollIntentAtRef.current = 0
+    lastUserScrollDirectionRef.current = 0
+    forceMeasureLastEntryRef.current = 0
+    cancelPinBottomLoop()
+    cancelSettleFollow()
+    cancelHoldBottom()
+    setShowScrollToBottom(false)
+  }, [cancelHoldBottom, cancelPinBottomLoop, cancelSettleFollow, conversationScrollKey])
+
   useEffect(() => {
     if (groupedMessages.length === 0) {
-      followIntentRef.current = true
-      programmaticScrollRef.current = false
       hasHydratedRef.current = false
-      lastContainerHeightRef.current = 0
-      lastUserScrollIntentAtRef.current = 0
-      setShowScrollToBottom(false)
       return undefined
     }
     if (hasHydratedRef.current) {
       return undefined
     }
+    if (!(scrollerElementRef.current instanceof HTMLElement) || scrollerElementRef.current.clientHeight <= 1) {
+      return undefined
+    }
+
     hasHydratedRef.current = true
-    const remembered = readConversationScrollMemory(sessionId, terminalId)
+    const remembered = readConversationScrollMemory(sessionId, terminalId, conversationId)
     const timer = window.setTimeout(() => {
       if (remembered) {
         restoreRememberedScroll()
         return
       }
       followIntentRef.current = true
-      scheduleScrollToBottom('auto', true)
+      startPinBottomUntilStable(56, 'hydrate_open')
       window.requestAnimationFrame(() => {
-        scheduleScrollToBottom('auto', true)
-        scheduleRememberScrollPosition()
+        if (followIntentRef.current) {
+          pinScrollerToTrueBottom()
+          scheduleRememberScrollPosition()
+        }
       })
     }, 0)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [groupedMessages.length, restoreRememberedScroll, scheduleRememberScrollPosition, scheduleScrollToBottom, sessionId, terminalId])
+  }, [conversationId, conversationScrollKey, groupedMessages.length, pinScrollerToTrueBottom, restoreRememberedScroll, scheduleRememberScrollPosition, scrollerVersion, sessionId, startPinBottomUntilStable, terminalId])
 
-  // 发送/强制回底信号：用户主动要到底
   useEffect(() => {
     if (!scrollToBottomSignal || groupedMessages.length === 0) {
       return
@@ -482,8 +636,6 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         lastContainerHeightRef.current = nextHeight
         return
       }
-      // 面板用 visibility 保活后，切服务器不再出现 0→有高度 的假“重新可见”。
-      // 这里只处理真实尺寸变化，且仅贴底意图才跟底。
       if (!lastContainerHeightRef.current) {
         lastContainerHeightRef.current = nextHeight
         return
@@ -502,14 +654,16 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     }
   }, [scheduleScrollToBottom])
 
-  // 挂上 scroller 后监听 scroll：记位置；仅“往下滚贴近底”时补测最后一项
   useEffect(() => {
     const scroller = scrollerElementRef.current
     if (!(scroller instanceof HTMLElement)) {
       return undefined
     }
     let nearBottomRemeasureFrame = 0
+    let heightFollowFrame = 0
     let lastScrollTop = scroller.scrollTop
+    let lastScrollHeight = scroller.scrollHeight
+
     const handleScroll = () => {
       if (programmaticScrollRef.current || restoringRef.current) {
         lastScrollTop = scroller.scrollTop
@@ -519,45 +673,98 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       const nextTop = scroller.scrollTop
       lastScrollTop = nextTop
       scheduleRememberScrollPosition()
-      // 上滑绝不补测，避免被 scrollToIndex(end) 弹回
-      if (nextTop <= prevTop) {
+      if (nextTop <= prevTop || lastUserScrollDirectionRef.current < 0) {
         return
       }
       const distance = scroller.scrollHeight - scroller.clientHeight - nextTop
-      if (distance > 120 || nearBottomRemeasureFrame || typeof virtuosoRef.current?.scrollToIndex !== 'function') {
+      if (distance <= 160 && lastUserScrollDirectionRef.current > 0) {
+        followIntentRef.current = true
+        setShowScrollToBottom(false)
+        startHoldBottom('scroll_near_bottom', 700)
+        if (distance > 2 && !nearBottomRemeasureFrame) {
+          nearBottomRemeasureFrame = requestAnimationFrame(() => {
+            nearBottomRemeasureFrame = 0
+            if (restoringRef.current || !followIntentRef.current || lastUserScrollDirectionRef.current < 0) {
+              return
+            }
+            pinScrollerToTrueBottom()
+          })
+        }
+      }
+    }
+
+    const handleScrollerHeightMaybeChanged = () => {
+      if (!followIntentRef.current || restoringRef.current) {
+        lastScrollHeight = scroller.scrollHeight
         return
       }
-      nearBottomRemeasureFrame = requestAnimationFrame(() => {
-        nearBottomRemeasureFrame = 0
-        if (programmaticScrollRef.current || restoringRef.current || !followIntentRef.current) {
-          // 无贴底意图时只补测一次高度，不强制钉底，让用户继续往下拖
-          if (!programmaticScrollRef.current && !restoringRef.current) {
-            virtuosoRef.current?.scrollToIndex?.({
-              index: lastEntryIndex,
-              align: 'end',
-              behavior: 'auto',
-            })
-          }
+      if (programmaticScrollRef.current) {
+        return
+      }
+      const nextHeight = scroller.scrollHeight
+      if (nextHeight === lastScrollHeight) {
+        const stuck = getAIScrollScrollerMetrics(scroller)
+        if (stuck.distanceToBottom > 24 && !heightFollowFrame) {
+          heightFollowFrame = requestAnimationFrame(() => {
+            heightFollowFrame = 0
+            if (!followIntentRef.current || restoringRef.current || programmaticScrollRef.current) {
+              return
+            }
+            pinScrollerToTrueBottom()
+          })
+        }
+        return
+      }
+      const grew = nextHeight > lastScrollHeight
+      lastScrollHeight = nextHeight
+      if (heightFollowFrame) {
+        return
+      }
+      heightFollowFrame = requestAnimationFrame(() => {
+        heightFollowFrame = 0
+        if (!followIntentRef.current || restoringRef.current) {
           return
         }
-        markProgrammaticScroll()
-        virtuosoRef.current.scrollToIndex({
-          index: lastEntryIndex,
-          align: 'end',
-          behavior: 'auto',
-        })
+        const metrics = getAIScrollScrollerMetrics(scroller)
+        if (!grew && metrics.distanceToBottom <= 24) {
+          return
+        }
         pinScrollerToTrueBottom()
+        if (grew) {
+          startHoldBottom('height_grow', 500)
+        }
       })
     }
+
     scroller.addEventListener('scroll', handleScroll, { passive: true })
+    let resizeObserver = null
+    if (typeof ResizeObserver === 'function') {
+      resizeObserver = new ResizeObserver(() => {
+        handleScrollerHeightMaybeChanged()
+      })
+      resizeObserver.observe(scroller)
+      if (scroller.firstElementChild instanceof HTMLElement) {
+        resizeObserver.observe(scroller.firstElementChild)
+      }
+    }
+    const heightPoll = window.setInterval(() => {
+      handleScrollerHeightMaybeChanged()
+    }, 200)
     scheduleRememberScrollPosition()
     return () => {
       scroller.removeEventListener('scroll', handleScroll)
       if (nearBottomRemeasureFrame) {
         cancelAnimationFrame(nearBottomRemeasureFrame)
       }
+      if (heightFollowFrame) {
+        cancelAnimationFrame(heightFollowFrame)
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
+      window.clearInterval(heightPoll)
     }
-  }, [groupedMessages.length, lastEntryIndex, markProgrammaticScroll, pinScrollerToTrueBottom, scheduleRememberScrollPosition, scrollerVersion])
+  }, [conversationId, groupedMessages.length, pinScrollerToTrueBottom, scheduleRememberScrollPosition, scrollerVersion, startHoldBottom])
 
   useEffect(() => {
     return () => {
@@ -571,8 +778,10 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         cancelAnimationFrame(rememberFrameRef.current)
       }
       cancelPinBottomLoop()
+      cancelSettleFollow()
+      cancelHoldBottom()
     }
-  }, [cancelPinBottomLoop])
+  }, [cancelHoldBottom, cancelPinBottomLoop, cancelSettleFollow])
 
   useEffect(() => {
     if (!highlightedEntryKey) {
@@ -650,8 +859,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     followIntentRef.current = true
     lastUserScrollIntentAtRef.current = 0
     setShowScrollToBottom(false)
-    // 长对话优先多帧真底部；smooth 只作观感，随后仍会 pin
-    startPinBottomUntilStable(56)
+    startPinBottomUntilStable(56, 'button')
   }, [startPinBottomUntilStable])
 
   const handleUserWheelCapture = useCallback((event) => {
@@ -662,7 +870,6 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     if (shouldIgnoreConversationScrollIntentFromNestedScroller(event?.target, containerRef.current, deltaY)) {
       return
     }
-    // deltaY>0 内容上移（看更下面）；deltaY<0 上滑看历史
     markUserScrollIntent(deltaY < 0 ? -1 : 1)
   }, [markUserScrollIntent])
 
@@ -684,12 +891,25 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     if (shouldIgnoreConversationScrollIntentFromNestedScroller(event?.target, containerRef.current, deltaY)) {
       return
     }
-    // 手指上滑（内容下移看历史）→ deltaY < 0
     markUserScrollIntent(deltaY < 0 ? -1 : 1)
   }, [markUserScrollIntent])
 
   const handleUserTouchEndCapture = useCallback(() => {
     lastTouchClientYRef.current = null
+  }, [])
+
+  // 必须稳定引用：内联 scrollerRef 每渲染都变 → cleanup(null) setState 死循环
+  // 卸载传 null 时只清 ref，不 setState
+  const handleScrollerRef = useCallback((element) => {
+    const next = element instanceof HTMLElement ? element : null
+    if (scrollerElementRef.current === next) {
+      return
+    }
+    scrollerElementRef.current = next
+    if (!next) {
+      return
+    }
+    setScrollerVersion((current) => current + 1)
   }, [])
 
   if (groupedMessages.length === 0) {
@@ -718,66 +938,54 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         }
       `}</style>
       <Virtuoso
-        key={`${sessionId || 'session'}:${terminalId || 'terminal'}`}
+        key={conversationScrollKey}
         ref={virtuosoRef}
-        scrollerRef={(element) => {
-          const next = element instanceof HTMLElement ? element : null
-          if (scrollerElementRef.current === next) {
-            return
-          }
-          scrollerElementRef.current = next
-          // scrollerRef 不会触发重渲染，用 version 挂 scroll 监听
-          setScrollerVersion((current) => current + 1)
-        }}
+        scrollerRef={handleScrollerRef}
         style={{ height: '100%' }}
         data={groupedMessages}
-        // 长对话最后几条气泡很高：底部多预渲染，减少“假底部”
-        increaseViewportBy={{ top: 900, bottom: 1600 }}
-        // 首屏落最新气泡底部；切服务器保活后靠记忆 scrollTop 恢复，不 remount
+        increaseViewportBy={{ top: 600, bottom: 900 }}
         initialTopMostItemIndex={{
           index: Math.max(groupedMessages.length - 1, 0),
           align: 'end',
         }}
         alignToBottom
+        defaultItemHeight={96}
         atBottomThreshold={48}
         followOutput={(isAtBottom) => {
-          // 用户刚滚过：绝不跟底，避免上滑被弹回
           if (hasRecentUserScrollIntent() && !followIntentRef.current) {
             return false
           }
           return isAtBottom || followIntentRef.current ? 'auto' : false
         }}
-        // 同一条气泡往下长高时 followOutput 不一定跟；贴底则钉真底部，让操作栏跟着沉下来
         totalListHeightChanged={() => {
-          if (restoringRef.current || !followIntentRef.current || hasRecentUserScrollIntent()) {
+          const metrics = getAIScrollScrollerMetrics(scrollerElementRef.current)
+          if (restoringRef.current || !followIntentRef.current) {
             return
           }
+          if (!metrics.hasScroller || metrics.maxScrollTop <= 1) {
+            forceLastEntryIntoView()
+          }
           pinScrollerToTrueBottom()
+          startHoldBottom('height_changed', 600)
         }}
         atBottomStateChange={(isAtBottom) => {
           if (restoringRef.current) {
             return
           }
           if (isAtBottom) {
-            // 仅在“仍要贴底”或没有用户上滑意图时才重新打开跟底
             if (followIntentRef.current || !hasRecentUserScrollIntent()) {
               followIntentRef.current = true
               programmaticScrollRef.current = false
-              lastUserScrollIntentAtRef.current = 0
               setShowScrollToBottom(false)
             }
-          } else if (!programmaticScrollRef.current) {
-            if (hasRecentUserScrollIntent() || !followIntentRef.current) {
-              followIntentRef.current = false
-              setShowScrollToBottom(true)
-            }
+          } else if (!programmaticScrollRef.current && !followIntentRef.current) {
+            setShowScrollToBottom(true)
           }
           if (!programmaticScrollRef.current && !restoringRef.current) {
             scheduleRememberScrollPosition()
           }
         }}
         computeItemKey={(index, entry) => getEntryKey(entry, index)}
-        // 末条只留一点呼吸，别叠 Footer+大 padding 空出一大截
         components={{
           Footer: () => <div style={{ height: 8, flexShrink: 0 }} aria-hidden="true" />,
         }}
