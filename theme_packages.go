@@ -1326,12 +1326,24 @@ func themePackageAccent(item ThemePackageFile, fallback string) string {
 	return "#4d9eff"
 }
 
-// 目标侧浅/深色身份：只锁界面骨架（底/字/边框）。accent/success 等语义色保留源包。
+// 目标侧浅/深色身份：锁界面骨架（底/字/边框）与文件图标色。
+// accent/success/danger 等语义色仍保留源包。
 var themePackageModeIdentityTokenKeys = []string{
 	"surfaceBase", "surfaceRaised", "surfaceOverlay", "surfaceSunken", "surfaceHover", "surfaceActive",
 	"border", "borderLight", "borderSubtle",
 	"textPrimary", "textSecondary", "textTertiary", "textMuted",
 	"probeLabel", "probeDetail", "probeFaint",
+	// 文件图标：深色亮绿复制到浅色会刺眼，按目标侧重写
+	"fileIconShell",
+}
+
+// 这些 UI 组件必须跟目标侧深浅走；源包里的旧值（尤其深→浅）会把文件管理器/顶栏/快捷命令整块带偏。
+// terminal 不在此列：复制设计就是保留源终端配色。
+var themePackageModeBoundUIComponents = []string{
+	"fileManager",
+	"topbar",
+	"quickCommands",
+	"connectingCard",
 }
 
 func applyTargetModeIdentityTokens(tokens map[string]string, targetMode string) map[string]string {
@@ -1343,6 +1355,18 @@ func applyTargetModeIdentityTokens(tokens map[string]string, targetMode string) 
 		if value := strings.TrimSpace(identity[key]); value != "" {
 			next[key] = value
 		}
+	}
+	return next
+}
+
+// stripModeBoundUIComponents 去掉会污染目标侧的 UI 组件，交给前端按 modeHint/tokens 重算默认值。
+func stripModeBoundUIComponents(components map[string]interface{}) map[string]interface{} {
+	next := cloneAnyMap(components)
+	if next == nil {
+		next = map[string]interface{}{}
+	}
+	for _, key := range themePackageModeBoundUIComponents {
+		delete(next, key)
 	}
 	return next
 }
@@ -1359,7 +1383,8 @@ func rewriteThemePackageModeDescription(description string, sourceMode string, t
 }
 
 // CopyThemePackageToMode 复制到另一侧：
-// - 界面骨架（底/字/边框）与 tabs 结构用目标侧
+// - 界面骨架（底/字/边框）、fileIconShell、tabs 用目标侧
+// - fileManager/topbar/quickCommands/connectingCard 丢弃源值，运行时按目标侧重算
 // - accent 与 terminal 等其余配色保留源包
 func (c *ConfigManager) CopyThemePackageToMode(themeID string, targetMode string) (ThemePackageSummary, error) {
 	targetMode = normalizeThemePackageModeHint(targetMode)
@@ -1383,10 +1408,11 @@ func (c *ConfigManager) CopyThemePackageToMode(themeID string, targetMode string
 		return ThemePackageSummary{}, err
 	}
 	targetDefault := defaultThemePackageForMode(targetMode)
-	components := cloneAnyMap(source.Components)
+	// 先剥掉跟深浅强绑定的 UI 组件，避免深色文件管理器整块粘到浅色
+	components := stripModeBoundUIComponents(source.Components)
 	// 标签栏结构跟随目标侧深浅；active 色走 --accent（源包主色）
 	components["tabs"] = buildTabsComponent(targetMode)
-	// terminal 等其余 component 保持源包
+	// terminal 保留源包；缺失时用目标侧默认兜底
 	if _, ok := components["terminal"]; !ok {
 		if terminal, ok := targetDefault.Components["terminal"]; ok {
 			components["terminal"] = cloneAnyValue(terminal)

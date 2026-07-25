@@ -462,6 +462,56 @@ function getResolvedThemeComponentTheme(themePackage, name) {
   };
 }
 
+const THEME_COMPONENT_CSS_VARS = [
+  '--file-manager-panel-bg',
+  '--file-manager-toolbar-bg',
+  '--file-manager-border-color',
+  '--file-manager-row-hover-bg',
+  '--file-manager-row-selected-bg',
+  '--file-manager-text-color',
+  '--file-manager-secondary-text-color',
+  '--file-manager-muted-text-color',
+  '--file-manager-header-text-color',
+  '--file-manager-path-bg',
+  '--file-manager-path-text-color',
+  '--file-manager-folder-text-color',
+  '--topbar-bg',
+  '--topbar-border-color',
+  '--topbar-title-color',
+  '--tab-inactive-bg',
+  '--tab-inactive-bg-hover',
+  '--tab-inactive-border',
+  '--tab-inactive-text',
+  '--tab-active-bg',
+  '--tab-active-border',
+  '--tab-active-text',
+  '--tab-radius',
+];
+
+// 主题包 token 键（与 buildBaseThemeTokens 对齐）。切换主题前先清掉，避免旧包内联值残留盖住 CSS。
+const THEME_TOKEN_KEYS = [
+  'surfaceBase', 'surfaceRaised', 'surfaceOverlay', 'surfaceSunken', 'surfaceHover', 'surfaceActive',
+  'border', 'borderLight', 'borderSubtle', 'borderFocus',
+  'textPrimary', 'textSecondary', 'textTertiary', 'textMuted',
+  'probeLabel', 'probeDetail', 'probeFaint',
+  'accent', 'accentRgb', 'accentHover', 'accentDim', 'accentBorder',
+  'success', 'successRgb', 'successDim',
+  'danger', 'dangerRgb', 'dangerDim',
+  'warning', 'warningRgb', 'warningDim',
+  'info', 'infoRgb', 'infoDim',
+  'fileIconShell',
+];
+
+function clearThemePackageInlineVariables(target) {
+  if (!target?.style) return;
+  THEME_TOKEN_KEYS.forEach((key) => {
+    target.style.removeProperty(toCssVarName(key));
+  });
+  THEME_COMPONENT_CSS_VARS.forEach((cssVar) => {
+    target.style.removeProperty(cssVar);
+  });
+}
+
 function applyComponentThemeVariables(themePackage) {
   if (typeof document === 'undefined') return;
   const target = document.body;
@@ -749,6 +799,8 @@ export function applyStoredThemePackage() {
   const target = document.body;
   if (!target) return;
   target.classList.toggle('theme-light', resolvedMode === 'light' && window.__luminForceDarkTheme !== true);
+  // 先清旧主题内联变量，再写新包，避免 fileIconShell / fileManager 等残留
+  clearThemePackageInlineVariables(target);
   Object.entries(activeThemePackage?.tokens || {}).forEach(([key, value]) => {
     if (value) {
       target.style.setProperty(toCssVarName(key), value);
