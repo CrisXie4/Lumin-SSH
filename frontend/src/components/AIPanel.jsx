@@ -18,6 +18,7 @@ import { processRemoteFileMentions } from './ai/aiMentions.js'
 import { expandFirstSlashCommandForPrompt } from './ai/aiSlashCommands.js'
 import AIChatConversation from './ai/chat/AIChatConversation.jsx'
 import { getConversationBranchAnchor } from './ai/chat/aiChatMessageTopology.js'
+import { isCallMyVipProviderHost } from './ai/providerSpecialHosts.js'
 import assistantThinkingActiveImg from '../assets/assistant-thinking-active.png'
 
 function formatMessageTime() {
@@ -1007,20 +1008,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     () => (Array.isArray(aiProviderState?.providers) ? aiProviderState.providers : []),
     [aiProviderState],
   )
-  const canToggleAIMode = useMemo(() => {
-    const rawBaseURL = typeof selectedAIProvider?.baseUrl === 'string' ? selectedAIProvider.baseUrl.trim() : ''
-    if (!rawBaseURL) {
-      return false
-    }
-    const candidates = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(rawBaseURL) ? [rawBaseURL] : [rawBaseURL, `https://${rawBaseURL}`]
-    return candidates.some((item) => {
-      try {
-        return new URL(item).hostname.toLowerCase() === 'newapi.callmy.vip'
-      } catch {
-        return false
-      }
-    })
-  }, [selectedAIProvider])
+  const canToggleAIMode = useMemo(() => isCallMyVipProviderHost(selectedAIProvider?.baseUrl), [selectedAIProvider])
   useEffect(() => {
     if (!canToggleAIMode) {
       setIsDevilMode(false)
