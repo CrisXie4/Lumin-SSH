@@ -2484,6 +2484,7 @@ body.theme-light .batch-operation-bar {
   flex: 1;
   overflow-y: auto;
   overflow-x: auto;
+  scrollbar-gutter: stable;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -2629,6 +2630,14 @@ body.theme-light .batch-operation-bar {
 .file-item:hover { background: var(--file-manager-row-hover-bg, var(--surface-hover)); }
 .file-item.selected { background: var(--file-manager-row-selected-bg, color-mix(in srgb, var(--accent) 15%, var(--surface-base))); }
 .file-item.selected:hover { background: var(--file-manager-row-selected-bg, color-mix(in srgb, var(--accent) 22%, var(--surface-hover))); }
+.file-item.context-menu-anchor {
+  background: var(--file-manager-row-selected-bg, color-mix(in srgb, var(--accent) 15%, var(--surface-base)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent);
+}
+.file-item.context-menu-anchor:hover {
+  background: var(--file-manager-row-selected-bg, color-mix(in srgb, var(--accent) 22%, var(--surface-hover)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 78%, transparent);
+}
 .file-item.clipboard-copy {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent);
 }
@@ -2643,16 +2652,16 @@ body.theme-light .batch-operation-bar {
 .file-item.selected.clipboard-cut {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 82%, transparent);
 }
-.file-list:not(:focus-within) .file-item.selected {
+.file-manager:not(.file-manager-context-menu-open) .file-list:not(:focus-within) .file-item.selected {
   background: color-mix(in srgb, var(--text-tertiary) 8%, var(--surface-base));
 }
-.file-list:not(:focus-within) .file-item.selected:hover {
+.file-manager:not(.file-manager-context-menu-open) .file-list:not(:focus-within) .file-item.selected:hover {
   background: color-mix(in srgb, var(--text-tertiary) 12%, var(--surface-hover));
 }
-.file-list:not(:focus-within) .file-item.selected.clipboard-copy {
+.file-manager:not(.file-manager-context-menu-open) .file-list:not(:focus-within) .file-item.selected.clipboard-copy {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
-.file-list:not(:focus-within) .file-item.selected.clipboard-cut {
+.file-manager:not(.file-manager-context-menu-open) .file-list:not(:focus-within) .file-item.selected.clipboard-cut {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 46%, transparent);
 }
 .file-item.deleted-placeholder {
@@ -2805,7 +2814,21 @@ body.theme-light .batch-operation-bar {
 }
 .file-permission:hover { color: var(--file-manager-text-color, var(--accent)); }
 .file-date { font-size: var(--text-sm); color: var(--file-manager-secondary-text-color, var(--text-secondary)); }
-.file-actions { opacity: 0; display: flex; gap: var(--space-1); justify-content: flex-end; }
+.file-actions { opacity: 0; display: flex; gap: var(--space-1); justify-content: flex-end; align-items: center; min-height: 26px; }
+/* 双面板紧凑模式：操作列不独占宽度，hover 时浮在修改时间列上方 */
+.file-manager-dual .file-list-body .file-actions {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 0;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  z-index: 3;
+}
 
 /* ── 右键菜单 ───────────────────────────────────────────────── */
 @keyframes contextMenuIn {
