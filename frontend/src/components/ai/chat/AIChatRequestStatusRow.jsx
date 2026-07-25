@@ -153,20 +153,25 @@ export default function AIChatRequestStatusRow({ assistant, reasoning = [] }) {
     samplesRef.current = [...samplesRef.current.filter((sample) => nextSample.ts - sample.ts <= 4000), nextSample]
   }, [combinedOutputText, isLive, nowMs, startedAtMs])
 
+  const finishedAtMs = Number(assistant?.extra?.finishedAtMs)
   const liveMetrics = useMemo(() => {
-    if (!isLive || !Number.isFinite(startedAtMs) || startedAtMs <= 0) {
+    if (!Number.isFinite(startedAtMs) || startedAtMs <= 0) {
       return []
     }
+    // 进行中用 now；结束后用 finishedAt，避免 requestStatusLive=false 且 metrics 为空时整颗胶囊消失
+    const endMs = isLive
+      ? nowMs
+      : (Number.isFinite(finishedAtMs) && finishedAtMs > startedAtMs ? finishedAtMs : nowMs)
     const parts = []
     const normalizedFirstTokenAtMs = Number.isFinite(firstTokenAtMs) && firstTokenAtMs > startedAtMs ? firstTokenAtMs : 0
     if (normalizedFirstTokenAtMs > 0) {
       parts.push(`${translate('首字')} ${formatDurationLabel(normalizedFirstTokenAtMs - startedAtMs)}`)
     }
-    const elapsedLabel = formatDurationLabel(Math.max(0, nowMs - startedAtMs))
+    const elapsedLabel = formatDurationLabel(Math.max(0, endMs - startedAtMs))
     if (elapsedLabel) {
       parts.push(elapsedLabel)
     }
-    if (normalizedFirstTokenAtMs > 0 && samplesRef.current.length >= 2) {
+    if (isLive && normalizedFirstTokenAtMs > 0 && samplesRef.current.length >= 2) {
       const latestSample = samplesRef.current[samplesRef.current.length - 1]
       const windowStart = latestSample.ts - 3000
       let baseSample = samplesRef.current[0]
@@ -185,9 +190,10 @@ export default function AIChatRequestStatusRow({ assistant, reasoning = [] }) {
       }
     }
     return parts
-  }, [firstTokenAtMs, isLive, nowMs, startedAtMs])
+  }, [finishedAtMs, firstTokenAtMs, isLive, nowMs, startedAtMs])
 
-  const metrics = isLive ? liveMetrics : (explicitMetrics.length > 0 ? explicitMetrics : liveMetrics)
+  // 明确 metrics 优先；否则用本地时间轴兜底（不是“到多少字才显示”）
+  const metrics = explicitMetrics.length > 0 ? explicitMetrics : liveMetrics
   const metricItems = useMemo(
     () => metrics.map((metric, index) => buildMetricItem(metric, index)).filter(Boolean),
     [metrics],

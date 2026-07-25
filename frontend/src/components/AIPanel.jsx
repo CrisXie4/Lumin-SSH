@@ -437,18 +437,35 @@ function trimLatestAssistantAPIHistoryMessage(apiMessages) {
   return list
 }
 
-function buildMetrics(payload) {
+function buildMetrics(payload, messageExtra = null) {
   const metrics = []
+  const extra = messageExtra && typeof messageExtra === 'object' ? messageExtra : null
+  const startedAtMs = Number(extra?.statusStartedAtMs)
+  const firstTokenAtMs = Number(extra?.firstTokenAtMs)
+  const finishedAtMs = Number(extra?.finishedAtMs) || Date.now()
 
-  if (typeof payload.firstTokenMs === 'number' && payload.firstTokenMs > 0) {
-    metrics.push(`${translate('首字')} ${(payload.firstTokenMs / 1000).toFixed(1)}s`)
+  let firstTokenMs = typeof payload?.firstTokenMs === 'number' && payload.firstTokenMs > 0
+    ? payload.firstTokenMs
+    : 0
+  // 后端没带 firstTokenMs 时，用本地首 token 时间兜底，避免绿色耗时胶囊整块消失
+  if (!firstTokenMs && Number.isFinite(startedAtMs) && startedAtMs > 0 && Number.isFinite(firstTokenAtMs) && firstTokenAtMs > startedAtMs) {
+    firstTokenMs = firstTokenAtMs - startedAtMs
+  }
+  if (firstTokenMs > 0) {
+    metrics.push(`${translate('首字')} ${(firstTokenMs / 1000).toFixed(1)}s`)
   }
 
-  if (typeof payload.elapsedMs === 'number' && payload.elapsedMs > 0) {
-    metrics.push(`${(payload.elapsedMs / 1000).toFixed(1)}s`)
+  let elapsedMs = typeof payload?.elapsedMs === 'number' && payload.elapsedMs > 0
+    ? payload.elapsedMs
+    : 0
+  if (!elapsedMs && Number.isFinite(startedAtMs) && startedAtMs > 0 && finishedAtMs > startedAtMs) {
+    elapsedMs = finishedAtMs - startedAtMs
+  }
+  if (elapsedMs > 0) {
+    metrics.push(`${(elapsedMs / 1000).toFixed(1)}s`)
   }
 
-  if (typeof payload.tokensPerSecond === 'number' && Number.isFinite(payload.tokensPerSecond) && payload.tokensPerSecond > 0) {
+  if (typeof payload?.tokensPerSecond === 'number' && Number.isFinite(payload.tokensPerSecond) && payload.tokensPerSecond > 0) {
     metrics.push(`${payload.tokensPerSecond.toFixed(1)} tok/s`)
   }
 
@@ -1786,17 +1803,19 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             if (message.id !== assistantMessageId || message.kind !== 'assistant') {
               return message
             }
+            const finishedAtMs = Date.now()
+            const nextExtra = {
+              ...(message.extra || {}),
+              requestStatusLive: false,
+              finishedAtMs,
+              errorText: '',
+            }
             return {
               ...message,
               text: typeof payload.text === 'string' ? payload.text : '',
-              metrics: buildMetrics(payload),
+              metrics: buildMetrics(payload, nextExtra),
               streaming: Boolean(payload.streaming),
-              extra: {
-                ...(message.extra || {}),
-                requestStatusLive: false,
-                finishedAtMs: Date.now(),
-                errorText: '',
-              },
+              extra: nextExtra,
             }
           })
           if (current.conversation) {
@@ -2375,8 +2394,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
 
       if (payload.kind === 'done') {
         const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
-        const metrics = buildMetrics(payload)
         const reasoningDuration = buildReasoningDuration(payload)
+        const finishedAtMs = Date.now()
         const nextMessages = matchedPanel.messages.map((message) => {
           if (message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning') {
             return {
@@ -2387,17 +2406,18 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           if (message.id !== assistantMessageId || message.kind !== 'assistant') {
             return message
           }
+          const nextExtra = {
+            ...(message.extra || {}),
+            requestStatusLive: false,
+            finishedAtMs,
+            errorText: '',
+          }
           return {
             ...message,
-            text: payload.text || String(message.text || '').replace(/▍$/u, ''),
-            metrics,
+            text: payload.text || String(message.text || '').replace(/0$/u, ''),
+            metrics: buildMetrics(payload, nextExtra),
             streaming: false,
-            extra: {
-              ...(message.extra || {}),
-              requestStatusLive: false,
-              finishedAtMs: Date.now(),
-              errorText: '',
-            },
+            extra: nextExtra,
           }
         })
         const nextConversation = {
