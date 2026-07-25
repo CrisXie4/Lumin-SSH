@@ -2903,6 +2903,185 @@ func rmRfCmd(path string) string {
 // executeCmdWithClientContext 固定 30 秒，对大文件 cp 会过早超时，故这里使用更长上限。
 const remoteCmdLongTimeout = 30 * time.Minute
 
+const (
+	smartUncompressConflictStrategyOverwrite = "overwrite"
+	smartUncompressConflictStrategyAutoRename = "auto_rename"
+	smartUncompressConflictStrategyPrompt = "prompt"
+	smartUncompressModeDirect = "direct"
+	smartUncompressModeFolder = "folder"
+)
+
+type smartUncompressPlan struct {
+	Mode         string
+	Reason       string
+	TargetName   string
+	TargetPath   string
+	TargetKind   string
+	TargetExists bool
+}
+
+func normalizeSmartUncompressConflictStrategy(value string) string {
+	switch strings.TrimSpace(value) {
+	case smartUncompressConflictStrategyOverwrite:
+		return smartUncompressConflictStrategyOverwrite
+	case smartUncompressConflictStrategyPrompt:
+		return smartUncompressConflictStrategyPrompt
+	default:
+		return smartUncompressConflictStrategyAutoRename
+	}
+}
+
+func smartUncompressTargetBaseName(base string) string {
+	lowerBase := strings.ToLower(base)
+	switch {
+	case strings.HasSuffix(lowerBase, ".tar.gz"):
+		return base[:len(base)-len(".tar.gz")]
+	case strings.HasSuffix(lowerBase, ".tar.bz2"):
+		return base[:len(base)-len(".tar.bz2")]
+	case strings.HasSuffix(lowerBase, ".tgz"):
+		return base[:len(base)-len(".tgz")]
+	case strings.HasSuffix(lowerBase, ".tbz2"):
+		return base[:len(base)-len(".tbz2")]
+	case strings.HasSuffix(lowerBase, ".zip"):
+		return base[:len(base)-len(".zip")]
+	case strings.HasSuffix(lowerBase, ".tar"):
+		return base[:len(base)-len(".tar")]
+	case strings.HasSuffix(lowerBase, ".gz"):
+		return base[:len(base)-len(".gz")]
+	default:
+		return base
+	}
+}
+
+func buildSmartUncompressListCommand(dir string, base string) (string, error) {
+	safeDir := shellQuotePath(dir)
+	safeBase := shellQuotePath(base)
+	lowerBase := strings.ToLower(base)
+	switch {
+	case strings.HasSuffix(lowerBase, ".zip"):
+		return fmt.Sprintf("cd %s && unzip -Z1 %s", safeDir, safeBase), nil
+	case strings.HasSuffix(lowerBase, ".tar.gz") || strings.HasSuffix(lowerBase, ".tgz"):
+		return fmt.Sprintf("cd %s && tar -tzf %s", safeDir, safeBase), nil
+	case strings.HasSuffix(lowerBase, ".tar"):
+		return fmt.Sprintf("cd %s && tar -tf %s", safeDir, safeBase), nil
+	case strings.HasSuffix(lowerBase, ".tar.bz2") || strings.HasSuffix(lowerBase, ".tbz2"):
+		return fmt.Sprintf("cd %s && tar -tjf %s", safeDir, safeBase), nil
+	case strings.HasSuffix(lowerBase, ".gz"):
+		return "", nil
+	default:
+		return "", fmt.Errorf("unsupported archive format")
+	}
+}
+
+func parseSmartUncompressArchiveMembers(output string) []string {
+	lines := strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n")
+	result := make([]string, 0, len(lines))
+	seen := make(map[string]struct{}, len(lines))
+	for _, line := range lines {
+		member := strings.TrimSpace(strings.ReplaceAll(line, "\\", "/"))
+		for strings.HasPrefix(member, "./") {
+			member = strings.TrimPrefix(member, "./")
+		}
+		member = strings.TrimLeft(member, "/")
+		if member == "" {
+			continue
+		}
+		if _, ok := seen[member]; ok {
+			continue
+		}
+		seen[member] = struct{}{}
+		result = append(result, member)
+	}
+	return result
+}
+
+func buildSmartUncompressPlan(remoteDir string, base string, members []string, sftpClient *sftp.Client) smartUncompressPlan {
+	normalizedMembers := members
+	if len(normalizedMembers) == 0 {
+		normalizedMembers = []string{smartUncompressTargetBaseName(base)}
+	}
+	if len(normalizedMembers) == 1 && !strings.HasSuffix(normalizedMembers[0], "/") {
+		return smartUncompressPlan{
+			Mode:   smartUncompressModeDirect,
+			Reason: "single_file",
+		}
+	}
+	topLevelName := ""
+	allInSingleTopLevelDir := true
+	sawEntry := false
+	for _, member := range normalizedMembers {
+		normalizedMember := strings.TrimSpace(member)
+		if normalizedMember == "" {
+			continue
+		}
+		sawEntry = true
+		normalizedMember = strings.TrimSuffix(normalizedMember, "/")
+		if normalizedMember == "" {
+			continue
+		}
+		topLevelPart := strings.SplitN(normalizedMember, "/", 2)[0]
+		if topLevelPart == "" {
+			allInSingleTopLevelDir = false
+			break
+		}
+		if topLevelName == "" {
+			topLevelName = topLevelPart
+			continue
+		}
+		if topLevelName != topLevelPart {
+			allInSingleTopLevelDir = false
+			break
+		}
+	}
+	if sawEntry && allInSingleTopLevelDir && topLevelName != "" {
+		return smartUncompressPlan{
+			Mode:   smartUncompressModeDirect,
+			Reason: "single_root_dir",
+		}
+	}
+	targetName := strings.TrimSpace(smartUncompressTargetBaseName(base))
+	if targetName == "" {
+		targetName = strings.TrimSpace(base)
+	}
+	targetPath := pathpkg.Join(remoteDir, targetName)
+	plan := smartUncompressPlan{
+		Mode:       smartUncompressModeFolder,
+		Reason:     "archive_name_folder",
+		TargetName: targetName,
+		TargetPath: targetPath,
+		TargetKind: "directory",
+	}
+	if sftpClient != nil {
+		if info, err := sftpClient.Stat(targetPath); err == nil && info != nil {
+			plan.TargetExists = true
+			if !info.IsDir() {
+				plan.TargetKind = "file"
+			}
+		}
+	}
+	return plan
+}
+
+func resolveSmartUncompressUniqueTargetPath(sftpClient *sftp.Client, remoteDir string, targetName string) (string, string, error) {
+	if sftpClient == nil {
+		return "", "", fmt.Errorf("SFTP not available")
+	}
+	if strings.TrimSpace(targetName) == "" {
+		return "", "", fmt.Errorf("missing target name")
+	}
+	for index := 2; index < 10000; index++ {
+		candidateName := fmt.Sprintf("%s (%d)", targetName, index)
+		candidatePath := pathpkg.Join(remoteDir, candidateName)
+		if _, err := sftpClient.Stat(candidatePath); err != nil {
+			if isRemotePathNotFound(err) {
+				return candidateName, candidatePath, nil
+			}
+			return "", "", err
+		}
+	}
+	return "", "", fmt.Errorf("unable to find available smart extract target")
+}
+
 // execRemoteCmdLong 在 sessionId 对应服务器上执行命令，使用长超时，
 // 适用于 cp/mv 等可能耗时较久的文件操作。返回命令的退出错误。
 func (m *SSHManager) execRemoteCmdLong(ctx context.Context, sessionId string, cmd string) error {
@@ -2975,6 +3154,40 @@ func (m *SSHManager) DeleteItemShellContext(ctx context.Context, sessionId strin
 		return err
 	}
 	_, err = m.executeCmdWithClientContext(ctx, client, rmRfCmd(path))
+	return err
+}
+
+func batchRmRfCmd(paths []string) string {
+	parts := make([]string, 0, len(paths)+2)
+	parts = append(parts, "rm", "-rf")
+	for _, p := range paths {
+		parts = append(parts, shellQuotePath(p))
+	}
+	return strings.Join(parts, " ")
+}
+
+func (m *SSHManager) BatchDeleteItemShell(sessionId string, paths []string) error {
+	return m.BatchDeleteItemShellContext(context.Background(), sessionId, paths)
+}
+
+func (m *SSHManager) BatchDeleteItemShellContext(ctx context.Context, sessionId string, paths []string) error {
+	if err := ensureContextActive(ctx); err != nil {
+		return err
+	}
+	safePaths := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if !isDangerousPath(p) {
+			safePaths = append(safePaths, p)
+		}
+	}
+	if len(safePaths) == 0 {
+		return nil
+	}
+	client, _, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return err
+	}
+	_, err = m.executeCmdWithClientContext(ctx, client, batchRmRfCmd(safePaths))
 	return err
 }
 
@@ -3270,31 +3483,128 @@ func (m *SSHManager) CompressItem(sessionId string, remotePath string) error {
 	return nil
 }
 
+func (m *SSHManager) previewSmartUncompressItem(client *ssh.Client, sftpClient *sftp.Client, remotePath string) (smartUncompressPlan, string, string, error) {
+	if client == nil {
+		return smartUncompressPlan{}, "", "", fmt.Errorf("client not found")
+	}
+	remoteDir := strings.ReplaceAll(filepath.Dir(remotePath), "\\", "/")
+	base := filepath.Base(remotePath)
+	listCmd, err := buildSmartUncompressListCommand(remoteDir, base)
+	if err != nil {
+		return smartUncompressPlan{}, "", "", err
+	}
+	members := []string{smartUncompressTargetBaseName(base)}
+	if listCmd != "" {
+		out, runErr := m.executeCmdWithClient(client, listCmd)
+		if runErr != nil {
+			return smartUncompressPlan{}, "", "", fmt.Errorf("list archive members failed: %w, output: %s", runErr, out)
+		}
+		members = parseSmartUncompressArchiveMembers(out)
+	}
+	return buildSmartUncompressPlan(remoteDir, base, members, sftpClient), remoteDir, base, nil
+}
+
+func (m *SSHManager) PreviewSmartUncompressItem(sessionId string, remotePath string) (map[string]interface{}, error) {
+	client, sftpClient, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return nil, err
+	}
+	if sftpClient == nil {
+		sftpClient, err = m.getSFTPClient(sessionId)
+		if err != nil {
+			return nil, err
+		}
+	}
+	plan, _, _, err := m.previewSmartUncompressItem(client, sftpClient, remotePath)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"mode":        plan.Mode,
+		"reason":      plan.Reason,
+		"targetName":  plan.TargetName,
+		"targetPath":  plan.TargetPath,
+		"targetKind":  plan.TargetKind,
+		"targetExists": plan.TargetExists,
+	}, nil
+}
+
 func (m *SSHManager) UncompressItem(sessionId string, remotePath string) error {
-	client, _, err := m.getClientEntry(sessionId)
+	return m.UncompressItemWithStrategy(sessionId, remotePath, smartUncompressConflictStrategyAutoRename)
+}
+
+func (m *SSHManager) UncompressItemWithStrategy(sessionId string, remotePath string, conflictStrategy string) error {
+	client, sftpClient, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return err
+	}
+	if sftpClient == nil {
+		sftpClient, err = m.getSFTPClient(sessionId)
+		if err != nil {
+			return err
+		}
+	}
+
+	plan, remoteDir, base, err := m.previewSmartUncompressItem(client, sftpClient, remotePath)
 	if err != nil {
 		return err
 	}
 
-	dir := filepath.Dir(remotePath)
-	base := filepath.Base(remotePath)
-	dir = strings.ReplaceAll(dir, "\\", "/")
-	safeDir := shellQuotePath(dir)
+	effectiveStrategy := normalizeSmartUncompressConflictStrategy(conflictStrategy)
+	targetPath := plan.TargetPath
+	if plan.Mode == smartUncompressModeFolder {
+		if plan.TargetExists {
+			switch effectiveStrategy {
+			case smartUncompressConflictStrategyOverwrite:
+				if plan.TargetKind != "directory" {
+					return fmt.Errorf("smart uncompress target exists and is not a directory")
+				}
+			case smartUncompressConflictStrategyAutoRename:
+				_, nextTargetPath, renameErr := resolveSmartUncompressUniqueTargetPath(sftpClient, remoteDir, plan.TargetName)
+				if renameErr != nil {
+					return renameErr
+				}
+				targetPath = nextTargetPath
+			default:
+				return fmt.Errorf("smart uncompress target exists")
+			}
+		}
+		if err := sftpClient.MkdirAll(targetPath); err != nil {
+			return err
+		}
+	}
+
+	safeDir := shellQuotePath(remoteDir)
 	safeBase := shellQuotePath(base)
+	safeTargetPath := shellQuotePath(targetPath)
 
 	var cmd string
 	lowerBase := strings.ToLower(base)
-	// 注意：解压在远程服务器执行，无法在客户端校验归档成员路径。
-	// tar slip 路径穿越风险由用户在信任的服务器上自行评估。
 	switch {
 	case strings.HasSuffix(lowerBase, ".zip"):
-		cmd = fmt.Sprintf("cd %s && unzip -o %s", safeDir, safeBase)
+		if plan.Mode == smartUncompressModeFolder {
+			cmd = fmt.Sprintf("cd %s && unzip -o %s -d %s", safeDir, safeBase, safeTargetPath)
+		} else {
+			cmd = fmt.Sprintf("cd %s && unzip -o %s", safeDir, safeBase)
+		}
 	case strings.HasSuffix(lowerBase, ".tar.gz") || strings.HasSuffix(lowerBase, ".tgz"):
-		cmd = fmt.Sprintf("cd %s && tar -xzf %s", safeDir, safeBase)
+		if plan.Mode == smartUncompressModeFolder {
+			cmd = fmt.Sprintf("cd %s && tar -xzf %s -C %s", safeDir, safeBase, safeTargetPath)
+		} else {
+			cmd = fmt.Sprintf("cd %s && tar -xzf %s", safeDir, safeBase)
+		}
 	case strings.HasSuffix(lowerBase, ".tar"):
-		cmd = fmt.Sprintf("cd %s && tar -xf %s", safeDir, safeBase)
+		if plan.Mode == smartUncompressModeFolder {
+			cmd = fmt.Sprintf("cd %s && tar -xf %s -C %s", safeDir, safeBase, safeTargetPath)
+		} else {
+			cmd = fmt.Sprintf("cd %s && tar -xf %s", safeDir, safeBase)
+		}
 	case strings.HasSuffix(lowerBase, ".tar.bz2") || strings.HasSuffix(lowerBase, ".tbz2"):
-		cmd = fmt.Sprintf("cd %s && tar -xjf %s", safeDir, safeBase)
+		if plan.Mode == smartUncompressModeFolder {
+			cmd = fmt.Sprintf("cd %s && tar -xjf %s -C %s", safeDir, safeBase, safeTargetPath)
+		} else {
+			cmd = fmt.Sprintf("cd %s && tar -xjf %s", safeDir, safeBase)
+		}
 	case strings.HasSuffix(lowerBase, ".gz"):
 		cmd = fmt.Sprintf("cd %s && gunzip -f -k %s", safeDir, safeBase)
 	default:

@@ -86,7 +86,9 @@ type ChmodDialogSettings struct {
 }
 
 type FileManagerSettings struct {
-	ChmodDialog ChmodDialogSettings `json:"chmodDialog,omitempty"`
+	ChmodDialog                     ChmodDialogSettings `json:"chmodDialog,omitempty"`
+	DoubleClickUncompressArchive   bool                `json:"doubleClickUncompressArchive,omitempty"`
+	SmartUncompressConflictStrategy string             `json:"smartUncompressConflictStrategy,omitempty"`
 }
 
 type AppSettings struct {
@@ -1721,6 +1723,17 @@ func sanitizeChmodDialogMode(mode string) string {
 	return filtered
 }
 
+func normalizeFileManagerSmartUncompressConflictStrategy(value string) string {
+	switch strings.TrimSpace(value) {
+	case "overwrite":
+		return "overwrite"
+	case "prompt":
+		return "prompt"
+	default:
+		return "auto_rename"
+	}
+}
+
 func (c *ConfigManager) getFileManagerSettingsLocked() FileManagerSettings {
 	data, err := os.ReadFile(c.fileManagerSettingsFile)
 	if err != nil {
@@ -1732,6 +1745,7 @@ func (c *ConfigManager) getFileManagerSettingsLocked() FileManagerSettings {
 		return FileManagerSettings{}
 	}
 	settings.ChmodDialog.Mode = sanitizeChmodDialogMode(settings.ChmodDialog.Mode)
+	settings.SmartUncompressConflictStrategy = normalizeFileManagerSmartUncompressConflictStrategy(settings.SmartUncompressConflictStrategy)
 	return settings
 }
 
@@ -1803,6 +1817,16 @@ func (c *ConfigManager) GetChmodDialogSettings() map[string]interface{} {
 	}
 }
 
+func (c *ConfigManager) GetFileManagerSettings() map[string]interface{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	settings := c.getFileManagerSettingsLocked()
+	return map[string]interface{}{
+		"doubleClickUncompressArchive":   settings.DoubleClickUncompressArchive,
+		"smartUncompressConflictStrategy": settings.SmartUncompressConflictStrategy,
+	}
+}
+
 func (c *ConfigManager) SaveChmodDialogSettings(mode string, includeSubdirectories bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -1828,6 +1852,32 @@ func (c *ConfigManager) SetChmodAutoApplyLastSettings(enabled bool) error {
 	settings := c.getFileManagerSettingsLocked()
 	settings.ChmodDialog.AutoApplyLastSettings = enabled
 	settings.ChmodDialog.LastModified = time.Now().UnixMilli()
+	err := c.saveFileManagerSettingsLocked(settings)
+	if err == nil {
+		c.bumpSnapshotTime()
+		go c.AutoSync()
+	}
+	return err
+}
+
+func (c *ConfigManager) SetFileManagerDoubleClickUncompressArchive(enabled bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	settings := c.getFileManagerSettingsLocked()
+	settings.DoubleClickUncompressArchive = enabled
+	err := c.saveFileManagerSettingsLocked(settings)
+	if err == nil {
+		c.bumpSnapshotTime()
+		go c.AutoSync()
+	}
+	return err
+}
+
+func (c *ConfigManager) SetFileManagerSmartUncompressConflictStrategy(strategy string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	settings := c.getFileManagerSettingsLocked()
+	settings.SmartUncompressConflictStrategy = normalizeFileManagerSmartUncompressConflictStrategy(strategy)
 	err := c.saveFileManagerSettingsLocked(settings)
 	if err == nil {
 		c.bumpSnapshotTime()

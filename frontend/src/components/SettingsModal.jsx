@@ -823,6 +823,8 @@ export default function SettingsModal({
   const [fileManagerUploadMaxChunksPerFile, setFileManagerUploadMaxChunksPerFile] = useState(localStorage.getItem('fileManagerUploadMaxChunksPerFile') || '8');
   const [fileManagerUploadGlobalInflightLimit, setFileManagerUploadGlobalInflightLimit] = useState(localStorage.getItem('fileManagerUploadGlobalInflightLimit') || '24');
   const [fileManagerChmodAutoApplyLastSettings, setFileManagerChmodAutoApplyLastSettings] = useState(false);
+  const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
+  const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
   const [fileManagerDefaultOpenMode, setFileManagerDefaultOpenMode] = useState(() => {
     const mode = localStorage.getItem('fileManagerDefaultOpenMode') || 'builtin';
     return ['builtin', 'system', 'external'].includes(mode) ? mode : 'builtin';
@@ -1011,6 +1013,37 @@ export default function SettingsModal({
       addToast($t('请求失败') + `: ${err}`, 'error');
     }
   };
+  const handleToggleFileManagerDoubleClickUncompressArchive = async () => {
+    const next = !fileManagerDoubleClickUncompressArchive;
+    setFileManagerDoubleClickUncompressArchive(next);
+    try {
+      const setter = window?.go?.main?.App?.SetFileManagerDoubleClickUncompressArchive;
+      if (typeof setter !== 'function') {
+        throw new Error($t('应用不可用'));
+      }
+      await setter(next);
+      window.dispatchEvent(new CustomEvent('file-manager-double-click-uncompress-archive-changed', { detail: next }));
+    } catch (err) {
+      setFileManagerDoubleClickUncompressArchive(!next);
+      addToast($t('请求失败') + `: ${err}`, 'error');
+    }
+  };
+  const handleFileManagerSmartUncompressConflictStrategyChange = async (value) => {
+    const next = value === 'overwrite' || value === 'prompt' ? value : 'auto_rename';
+    const previous = fileManagerSmartUncompressConflictStrategy;
+    setFileManagerSmartUncompressConflictStrategy(next);
+    try {
+      const setter = window?.go?.main?.App?.SetFileManagerSmartUncompressConflictStrategy;
+      if (typeof setter !== 'function') {
+        throw new Error($t('应用不可用'));
+      }
+      await setter(next);
+      window.dispatchEvent(new CustomEvent('file-manager-smart-uncompress-conflict-strategy-changed', { detail: next }));
+    } catch (err) {
+      setFileManagerSmartUncompressConflictStrategy(previous);
+      addToast($t('请求失败') + `: ${err}`, 'error');
+    }
+  };
   const handleToggleRuntimeEnvironmentEnabled = async () => {
     const next = !runtimeEnvironmentEnabled;
     setRuntimeEnvironmentEnabled(next);
@@ -1175,6 +1208,18 @@ export default function SettingsModal({
       .then((settings) => {
         if (cancelled || !settings) return;
         setFileManagerChmodAutoApplyLastSettings(settings.autoApplyLastSettings === true);
+      })
+      .catch(() => {});
+
+    Promise.resolve(window?.go?.main?.App?.GetFileManagerSettings?.())
+      .then((settings) => {
+        if (cancelled || !settings) return;
+        setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);
+        setFileManagerSmartUncompressConflictStrategy(
+          settings.smartUncompressConflictStrategy === 'overwrite' || settings.smartUncompressConflictStrategy === 'prompt'
+            ? settings.smartUncompressConflictStrategy
+            : 'auto_rename'
+        );
       })
       .catch(() => {});
 
@@ -1765,6 +1810,10 @@ export default function SettingsModal({
                 onToggleFileManagerHideTabCloseButton={handleToggleFileManagerHideTabCloseButton}
                 fileManagerChmodAutoApplyLastSettings={fileManagerChmodAutoApplyLastSettings}
                 onToggleFileManagerChmodAutoApplyLastSettings={handleToggleFileManagerChmodAutoApplyLastSettings}
+                fileManagerDoubleClickUncompressArchive={fileManagerDoubleClickUncompressArchive}
+                onToggleFileManagerDoubleClickUncompressArchive={handleToggleFileManagerDoubleClickUncompressArchive}
+                fileManagerSmartUncompressConflictStrategy={fileManagerSmartUncompressConflictStrategy}
+                onFileManagerSmartUncompressConflictStrategyChange={handleFileManagerSmartUncompressConflictStrategyChange}
                 fileManagerDefaultOpenMode={fileManagerDefaultOpenMode}
                 onFileManagerDefaultOpenModeChange={handleFileManagerDefaultOpenModeChange}
                 fileManagerPreferredExternalApp={fileManagerPreferredExternalApp}

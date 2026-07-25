@@ -836,6 +836,11 @@ func (a *App) DeleteItemShell(sessionId string, path string) error {
 	return a.sshManager.DeleteItemShell(sessionId, path)
 }
 
+// BatchDeleteItemShell 用一条rm -rf path1 path2 ... 批量删除
+func (a *App) BatchDeleteItemShell(sessionId string, paths []string) error {
+	return a.sshManager.BatchDeleteItemShell(sessionId, paths)
+}
+
 // Mkdir creates a directory via SFTP
 func (a *App) Mkdir(sessionId string, path string) error {
 	return a.sshManager.Mkdir(sessionId, path)
@@ -861,6 +866,10 @@ func (a *App) GetChmodDialogSettings() map[string]interface{} {
 	return a.configManager.GetChmodDialogSettings()
 }
 
+func (a *App) GetFileManagerSettings() map[string]interface{} {
+	return a.configManager.GetFileManagerSettings()
+}
+
 // SaveChmodDialogSettings persists chmod dialog preferences
 func (a *App) SaveChmodDialogSettings(mode string, includeSubdirectories bool) error {
 	return a.configManager.SaveChmodDialogSettings(mode, includeSubdirectories)
@@ -868,6 +877,14 @@ func (a *App) SaveChmodDialogSettings(mode string, includeSubdirectories bool) e
 
 func (a *App) SetChmodAutoApplyLastSettings(enabled bool) error {
 	return a.configManager.SetChmodAutoApplyLastSettings(enabled)
+}
+
+func (a *App) SetFileManagerDoubleClickUncompressArchive(enabled bool) error {
+	return a.configManager.SetFileManagerDoubleClickUncompressArchive(enabled)
+}
+
+func (a *App) SetFileManagerSmartUncompressConflictStrategy(strategy string) error {
+	return a.configManager.SetFileManagerSmartUncompressConflictStrategy(strategy)
 }
 
 func (a *App) ListOwnershipCandidates(sessionId string) (OwnershipCandidates, error) {
@@ -896,9 +913,26 @@ func (a *App) CompressItem(sessionId string, remotePath string) error {
 	return a.sshManager.CompressItem(sessionId, remotePath)
 }
 
-// UncompressItem extracts an archive on the remote server
+// PreviewSmartUncompressItem previews smart extract destination without modifying files.
+func (a *App) PreviewSmartUncompressItem(sessionId string, remotePath string) (map[string]interface{}, error) {
+	return a.sshManager.PreviewSmartUncompressItem(sessionId, remotePath)
+}
+
+// UncompressItemWithStrategy extracts an archive on the remote server using a caller-provided conflict strategy.
+func (a *App) UncompressItemWithStrategy(sessionId string, remotePath string, strategy string) error {
+	return a.sshManager.UncompressItemWithStrategy(sessionId, remotePath, strategy)
+}
+
+// UncompressItem extracts an archive on the remote server using the saved smart extract strategy.
 func (a *App) UncompressItem(sessionId string, remotePath string) error {
-	return a.sshManager.UncompressItem(sessionId, remotePath)
+	strategy := "auto_rename"
+	if a != nil && a.configManager != nil {
+		settings := a.configManager.GetFileManagerSettings()
+		if configuredStrategy, ok := settings["smartUncompressConflictStrategy"].(string); ok {
+			strategy = normalizeFileManagerSmartUncompressConflictStrategy(configuredStrategy)
+		}
+	}
+	return a.sshManager.UncompressItemWithStrategy(sessionId, remotePath, strategy)
 }
 
 // UploadLocalFile uploads a local file to a remote directory (no dialog)
