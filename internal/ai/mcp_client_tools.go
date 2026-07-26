@@ -342,7 +342,7 @@ func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 		"requestId": execution.RequestID,
 		"message":   buildAIMCPToolMessage(execution, serverName, toolLabel, argsText, uiResultText, statusText, source, mcpExtra),
 	})
-	a.emitAIMCPToolResultMessage(execution.RequestID, execution.ToolMessageID, serverName, toolLabel, rawResultText)
+	a.emitAIMCPToolResultMessage(execution.RequestID, execution, serverName, toolLabel, rawResultText)
 	a.emitAIChatToolExecutionPersistRequested(execution.RequestID)
 	if statusText != "已执行" {
 		execution.Batch.NextToolIndex = len(execution.Batch.ParsedTools)
@@ -576,7 +576,7 @@ func indentAIMCPMultiline(text string, indent string) string {
 	return strings.Join(lines, "\n")
 }
 
-func (a *App) emitAIMCPToolResultMessage(requestID string, toolMessageID string, serverName string, toolName string, resultText string) {
+func (a *App) emitAIMCPToolResultMessage(requestID string, execution *aiToolExecutionState, serverName string, toolName string, resultText string) {
 	if a == nil || strings.TrimSpace(resultText) == "" {
 		return
 	}
@@ -584,6 +584,16 @@ func (a *App) emitAIMCPToolResultMessage(requestID string, toolMessageID string,
 	resultContent := thresholdedResult.Content
 	if strings.TrimSpace(resultContent) == "" {
 		resultContent = strings.TrimSpace(resultText)
+	}
+	if execution != nil && execution.Batch != nil {
+		execution.Batch.RequestMessages = append(execution.Batch.RequestMessages, AIChatRequestMessage{
+			Role:    "user",
+			Content: buildAIMCPToolResultContent(serverName, toolName, resultContent),
+		})
+	}
+	toolMessageID := ""
+	if execution != nil {
+		toolMessageID = execution.ToolMessageID
 	}
 	a.emitAIChatEvent(map[string]interface{}{
 		"kind":      "api_message_append",

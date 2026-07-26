@@ -1285,8 +1285,48 @@ func (a *App) resumeAIChatAfterToolBatch(requestID string, batch *aiPendingToolB
 	go a.continueCompatibleAIChatAfterResolvedTools(ctx, requestID, batch)
 }
 
+// forceRejectAIChatToolBatchForCollaboration rejects every remaining tool in the batch
+// regardless of approval settings, then hands control to the forced collaboration layer.
+func (a *App) forceRejectAIChatToolBatchForCollaboration(requestID string, batch *aiPendingToolBatch) {
+	if a == nil || batch == nil {
+		return
+	}
+	for batch.NextToolIndex < len(batch.ParsedTools) {
+		tool := batch.ParsedTools[batch.NextToolIndex]
+		message := buildToolPreviewMessage(batch.AssistantMessageID, tool, batch.NextToolIndex)
+		message["status"] = "已拒绝"
+		if tool.Name == "execute_command" {
+			message["output"] = "已拒绝执行工具调用"
+		} else {
+			message["result"] = "已拒绝执行工具调用"
+		}
+		a.emitAIChatEvent(map[string]interface{}{
+			"kind":      "upsert_message",
+			"requestId": requestID,
+			"message":   message,
+		})
+		execution := &aiToolExecutionState{
+			RequestID:          requestID,
+			AssistantMessageID: batch.AssistantMessageID,
+			ToolIndex:          batch.NextToolIndex,
+			ToolMessageID:      buildToolMessageID(batch.AssistantMessageID, batch.NextToolIndex),
+			Tool:               tool,
+			Batch:              batch,
+		}
+		a.emitAIChatToolResultMessage(requestID, execution, "已拒绝执行工具调用")
+		batch.NextToolIndex++
+	}
+	a.emitAIChatToolExecutionPersistRequested(requestID)
+	a.startAIForcedCollaboration(requestID, batch)
+}
+
 func (a *App) advanceAIChatToolBatch(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil {
+		return
+	}
+	if batch.ForceCollaboration {
+		a.emitAIChatRuntimePhase(requestID, "tool_session")
+		a.forceRejectAIChatToolBatchForCollaboration(requestID, batch)
 		return
 	}
 	if batch.NextToolIndex >= len(batch.ParsedTools) {

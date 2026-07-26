@@ -468,7 +468,7 @@ function buildReasoningDuration(payload) {
 
 function normalizeAICollaborationMode(value) {
   const nextValue = typeof value === 'string' ? value.trim() : ''
-  return nextValue === 'followup' || nextValue === 'completion' ? nextValue : ''
+  return nextValue === 'followup' || nextValue === 'completion' || nextValue === 'forced' ? nextValue : ''
 }
 
 function normalizeAICollaborationDecision(value) {
@@ -1911,6 +1911,17 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           ...current,
           apiMessages: upsertAPIHistoryMessage(current.apiMessages, payload.message, current.messages),
         }))
+        return
+      }
+
+      if (payload.kind === 'collaboration_force_user_takeover') {
+        const takeoverText = typeof payload.text === 'string' ? payload.text.trim() : ''
+        if (takeoverText) {
+          setComposerInputValue((current) => {
+            const currentValue = typeof current === 'string' ? current : ''
+            return currentValue ? `${takeoverText}${currentValue}` : takeoverText
+          })
+        }
         return
       }
 
