@@ -2618,7 +2618,7 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 	// ponytail: 对每个 URL 尝试完整的 下载→写入磁盘 流程，失败再试下一个。
 	// 旧实现只在 Get() 阶段切换 URL，io.Copy 阶段超时直接放弃（"failed to save update file"），
 	// 不会重试代理 URL。大文件 + 慢网络下直连极易在 body 读取阶段超时。
-	client := &http.Client{Timeout: 10 * time.Minute}
+	client := newUpdateDownloadHTTPClient()
 	ghProxies := []string{"https://ghproxy.net/", "https://gh-proxy.com/", "https://proxy.gitwarp.top/"}
 	var tryUrls []string
 	if strings.Contains(downloadUrl, "github.com") {
@@ -2671,12 +2671,22 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 	}
 
 	var lastErr error
-	for _, u := range tryUrls {
+	var failedSources []string
+	for i, u := range tryUrls {
+		src := updateDownloadSourceLabel(u)
 		err := downloadUpdatePackageWithFallback(client, a.ctx, u, targetPath, "app-update-progress")
 		if err != nil {
 			_ = os.Remove(targetPath)
-			fmt.Printf("[UpdateApp] download from %s failed: err=%v, trying next\n", u, err)
+			failedSources = append(failedSources, src)
 			lastErr = err
+			if i+1 < len(tryUrls) {
+				next := updateDownloadSourceLabel(tryUrls[i+1])
+				fmt.Printf("[UpdateApp] %s 整源失败，换源 → %s: %v\n", src, next, err)
+				// 换源时进度归零，避免接在上一源半成品后面
+				emitUpdateDownloadProgress(a.ctx, "app-update-progress", 0)
+			} else {
+				fmt.Printf("[UpdateApp] %s 整源失败，无更多源: %v\n", src, err)
+			}
 			continue
 		}
 
@@ -2685,7 +2695,10 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 		break
 	}
 	if lastErr != nil {
-		return fmt.Errorf("failed to download update from all sources: %w", lastErr)
+		if len(failedSources) == 0 {
+			return fmt.Errorf("更新下载失败: %w", lastErr)
+		}
+		return fmt.Errorf("所有下载源均失败（%s）: %w", strings.Join(failedSources, " → "), lastErr)
 	}
 
 	// 2.5 强制校验下载文件的 SHA256，校验失败不得继续安装/替换。

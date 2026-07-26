@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -16,7 +19,12 @@ import (
 )
 
 const updateDownloadMaxConcurrency = 8
-const updateDownloadMinChunkSize int64 = 1 << 20
+const updateDownloadMinChunkSize int64 = 1 << 20 // 1 MiB
+const updateDownloadReadBufferSize = 1 << 20     // 1 MiB
+const updateRangePartMaxAttempts = 3
+const updateDownloadOverallTimeout = 10 * time.Minute
+const updateDownloadDialTimeout = 15 * time.Second
+const updateDownloadHeaderTimeout = 30 * time.Second
 
 type updateByteRange struct {
 	start int64
@@ -69,9 +77,35 @@ func (r *updateProgressReporter) Start() {
 	}()
 }
 
-func (r *updateProgressReporter) Add(n int) {
-	if n > 0 {
-		r.current.Add(int64(n))
+func (r *updateProgressReporter) Add(n int64) {
+	if n != 0 {
+		r.current.Add(n)
+	}
+}
+
+// newUpdateDownloadHTTPClient 专用于更新下载。
+// 强制 HTTP/1.1：Range 分片要靠多条 TCP 并行；默认 HTTP/2 多路复用会把并发挤回单连接，分片几乎白做。
+// ResponseHeaderTimeout 让假死源尽快失败，外层才能换代理。
+func newUpdateDownloadHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: updateDownloadOverallTimeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   updateDownloadDialTimeout,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			// 空 TLSNextProto：禁用 HTTP/2，Range 分片才能真正多 TCP 并行。
+			TLSNextProto:          map[string]func(authority string, c *tls.Conn) http.RoundTripper{},
+			ForceAttemptHTTP2:     false,
+			MaxIdleConns:          32,
+			MaxIdleConnsPerHost:   16,
+			MaxConnsPerHost:       16,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   updateDownloadDialTimeout,
+			ResponseHeaderTimeout: updateDownloadHeaderTimeout,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
 	}
 }
 
@@ -188,61 +222,94 @@ func probeUpdateRangeDownload(client *http.Client, ctx context.Context, download
 	return parseUpdateContentRange(resp.Header.Get("Content-Range"), 0, 0)
 }
 
-func downloadUpdateRangePart(ctx context.Context, client *http.Client, downloadURL string, file *os.File, totalSize int64, chunk updateByteRange, reporter *updateProgressReporter) error {
+func downloadUpdateRangePart(ctx context.Context, client *http.Client, downloadURL string, file *os.File, totalSize int64, chunk updateByteRange, reporter *updateProgressReporter) (int64, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", chunk.start, chunk.end))
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusPartialContent {
-		return fmt.Errorf("unexpected range status %d", resp.StatusCode)
+		return 0, fmt.Errorf("unexpected range status %d", resp.StatusCode)
 	}
 	reportedTotal, err := parseUpdateContentRange(resp.Header.Get("Content-Range"), chunk.start, chunk.end)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if reportedTotal != totalSize {
-		return fmt.Errorf("unexpected content-range total %d", reportedTotal)
+		return 0, fmt.Errorf("unexpected content-range total %d", reportedTotal)
 	}
 	writeOffset := chunk.start
 	remaining := chunk.end - chunk.start + 1
-	buf := make([]byte, 256*1024)
+	var writtenTotal int64
+	buf := make([]byte, updateDownloadReadBufferSize)
 	for remaining > 0 {
 		if err := ctx.Err(); err != nil {
-			return err
+			return writtenTotal, err
 		}
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
 			if int64(n) > remaining {
-				return fmt.Errorf("range overflow: expected %d remaining, got %d", remaining, n)
+				return writtenTotal, fmt.Errorf("range overflow: expected %d remaining, got %d", remaining, n)
 			}
 			written, writeErr := file.WriteAt(buf[:n], writeOffset)
 			if writeErr != nil {
-				return writeErr
+				return writtenTotal, writeErr
 			}
 			if written != n {
-				return io.ErrShortWrite
+				return writtenTotal, io.ErrShortWrite
 			}
 			writeOffset += int64(n)
 			remaining -= int64(n)
-			reporter.Add(n)
+			writtenTotal += int64(n)
+			reporter.Add(int64(n))
 		}
 		if readErr == io.EOF {
 			break
 		}
 		if readErr != nil {
-			return readErr
+			return writtenTotal, readErr
 		}
 	}
 	if remaining != 0 {
-		return fmt.Errorf("incomplete range download: %d bytes remaining", remaining)
+		return writtenTotal, fmt.Errorf("incomplete range download: %d bytes remaining", remaining)
 	}
-	return nil
+	return writtenTotal, nil
+}
+
+// 单分片最多重试几次：代理/直连偶发断流时不必整包作废。
+// 失败时回退已上报进度，避免重试把进度条顶穿。
+func downloadUpdateRangePartWithRetry(ctx context.Context, client *http.Client, downloadURL string, file *os.File, totalSize int64, chunk updateByteRange, reporter *updateProgressReporter) error {
+	var lastErr error
+	for attempt := 1; attempt <= updateRangePartMaxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		written, err := downloadUpdateRangePart(ctx, client, downloadURL, file, totalSize, chunk, reporter)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if written > 0 {
+			reporter.Add(-written)
+		}
+		if attempt == updateRangePartMaxAttempts {
+			break
+		}
+		backoff := time.Duration(attempt) * 300 * time.Millisecond
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return lastErr
 }
 
 func downloadUpdatePackageMultiPart(client *http.Client, ctx context.Context, downloadURL string, targetPath string, eventName string) error {
@@ -276,7 +343,7 @@ func downloadUpdatePackageMultiPart(client *http.Client, ctx context.Context, do
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := downloadUpdateRangePart(rangeCtx, client, downloadURL, file, totalSize, chunk, reporter); err != nil {
+			if err := downloadUpdateRangePartWithRetry(rangeCtx, client, downloadURL, file, totalSize, chunk, reporter); err != nil {
 				firstErrOnce.Do(func() {
 					firstErr = err
 					cancel()
@@ -328,7 +395,8 @@ func downloadUpdatePackageSingleThread(client *http.Client, ctx context.Context,
 		total:     resp.ContentLength,
 		lastEmit:  time.Now(),
 	}
-	_, copyErr := io.Copy(out, pr)
+	buf := make([]byte, updateDownloadReadBufferSize)
+	_, copyErr := io.CopyBuffer(out, pr, buf)
 	closeErr := out.Close()
 	if copyErr != nil {
 		_ = os.Remove(targetPath)
@@ -341,15 +409,49 @@ func downloadUpdatePackageSingleThread(client *http.Client, ctx context.Context,
 	return nil
 }
 
+// isDirectGitHubUpdateURL 仅识别直连 github.com（及子域）下载地址。
+// 代理前缀（如 ghproxy.net/https://github.com/...）返回 false。
+func isDirectGitHubUpdateURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme != "https" {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	return host == "github.com" || strings.HasSuffix(host, ".github.com")
+}
+
+// updateDownloadSourceLabel 给日志/错误用的短源名，避免整段 URL 刷屏。
+func updateDownloadSourceLabel(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return raw
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "github.com" || strings.HasSuffix(host, ".github.com") {
+		return "GitHub直连"
+	}
+	return host
+}
+
+// downloadUpdatePackageWithFallback 单源策略：先多线程 Range，失败再同源单线程。
+// 两种模式都失败才返回错误，由 UpdateApp 外层换下一个源。
 func downloadUpdatePackageWithFallback(client *http.Client, ctx context.Context, downloadURL string, targetPath string, eventName string) error {
+	src := updateDownloadSourceLabel(downloadURL)
 	rangeErr := downloadUpdatePackageMultiPart(client, ctx, downloadURL, targetPath, eventName)
 	if rangeErr == nil {
+		fmt.Printf("[UpdateApp] %s 多线程下载成功\n", src)
 		return nil
 	}
 	_ = os.Remove(targetPath)
+	fmt.Printf("[UpdateApp] %s 多线程失败，改单线程重试: %v\n", src, rangeErr)
+	// 进度归零，避免单线程接在多线程半成品进度后面
+	emitUpdateDownloadProgress(ctx, eventName, 0)
 	singleErr := downloadUpdatePackageSingleThread(client, ctx, downloadURL, targetPath, eventName)
-	if singleErr != nil {
-		return fmt.Errorf("range download failed: %v; single download fallback failed: %w", rangeErr, singleErr)
+	if singleErr == nil {
+		fmt.Printf("[UpdateApp] %s 单线程下载成功\n", src)
+		return nil
 	}
-	return nil
+	_ = os.Remove(targetPath)
+	// 用户可见文案走中文 key，便于前端 i18n；技术细节挂在后面。
+	return fmt.Errorf("%s 多线程与单线程均失败: multi=%v; single=%w", src, rangeErr, singleErr)
 }

@@ -26,7 +26,7 @@ import GlobalContextMenu from './components/GlobalContextMenu.jsx';
 import { clampPanelWidth } from './components/probeFormatting.js';
 import { useTranslation } from './i18n.js';
 import { getTerminalTheme, hexToRgb } from './utils/theme.js';
-import { useUpdateChecker } from './hooks/useUpdateChecker.js';
+import { formatUpdateError, useUpdateChecker } from './hooks/useUpdateChecker.js';
 import ConnectingCard from './components/ConnectingCard.jsx';
 import UpdateModal from './components/UpdateModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
@@ -2003,7 +2003,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     try {
       await applyUpdate(startupUpdateInfo);
     } catch (err) {
-      addToast(`${t('自动更新失败')}: ${err}`, 'error', 5000);
+      addToast(`${t('自动更新失败')}: ${formatUpdateError(err)}`, 'error', 5000);
     }
   };
 

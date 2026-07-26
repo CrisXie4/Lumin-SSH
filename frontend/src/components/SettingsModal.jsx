@@ -4,7 +4,7 @@ import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t } from
 import { getModKey } from '../utils/platform.js';
 import logoImg from '../assets/logo.png';
 import { APP_BUILD_TIME, APP_VERSION } from '../config.js';
-import { useUpdateChecker } from '../hooks/useUpdateChecker.js';
+import { formatUpdateError, useUpdateChecker } from '../hooks/useUpdateChecker.js';
 import { Sun, Monitor, Moon, Keyboard, Cloud, Info, Database, Folder, X, RefreshCw, Globe, Palette, Lock, SlidersHorizontal } from 'lucide-react';
 import { Z } from '../constants/zIndex';
 import { EventsOn, WindowSetSize, WindowUnmaximise } from '../../wailsjs/runtime/runtime.js';
@@ -265,7 +265,7 @@ export default function SettingsModal({
 
   const handleApplyUpdate = () => {
     applyUpdate(updateInfo).catch((err) => {
-      addToast($t('更新失败: ') + err, 'error');
+      addToast($t('更新失败: ') + formatUpdateError(err), 'error');
     });
   };
 

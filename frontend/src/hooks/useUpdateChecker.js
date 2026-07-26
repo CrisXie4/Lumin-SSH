@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
 import { APP_VERSION } from '../config.js';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
+import { t } from '../i18n.js';
 
 const RELEASE_API = 'https://api.github.com/repos/wmwlwmwl/Lumin-SSH/releases/latest';
 
@@ -244,4 +245,56 @@ export function useUpdateChecker({ onResult, onError } = {}) {
   }, [downloadProgress]);
 
   return { checking, downloadProgress, checkUpdate, applyUpdate };
+}
+
+/** 将后端/前端更新错误翻成当前语言（中文 key 稳定匹配）。 */
+export function formatUpdateError(err) {
+  const raw = String(err?.message || err || '').trim();
+  if (!raw) return t('更新下载失败');
+
+  // 所有下载源均失败（a → b）: detail
+  let m = raw.match(/^所有下载源均失败（(.+?)）(?::\s*(.*))?$/s);
+  if (m) {
+    const sources = m[1]
+      .split(/\s*→\s*/)
+      .map((s) => (s === 'GitHub直连' ? t('GitHub直连') : s))
+      .join(' → ');
+    const head = t('所有下载源均失败（{sources}）', { sources });
+    return m[2] ? `${head}: ${formatUpdateErrorDetail(m[2])}` : head;
+  }
+
+  // 更新下载失败: detail
+  m = raw.match(/^更新下载失败(?::\s*(.*))?$/s);
+  if (m) {
+    const head = t('更新下载失败');
+    return m[1] ? `${head}: ${formatUpdateErrorDetail(m[1])}` : head;
+  }
+
+  // source 多线程与单线程均失败: detail
+  m = raw.match(/^(.+?) 多线程与单线程均失败(?::\s*(.*))?$/s);
+  if (m) {
+    const source = m[1] === 'GitHub直连' ? t('GitHub直连') : m[1];
+    const head = t('{source} 多线程与单线程均失败', { source });
+    return m[2] ? `${head}: ${m[2]}` : head;
+  }
+
+  if (raw === '当前平台安装包尚未就绪，请稍后再试' || raw === '未找到可安装的更新包，已取消自动替换') {
+    return t(raw);
+  }
+
+  // 完整 key 命中则翻，否则原样（保留底层网络错误）
+  const full = t(raw);
+  return full !== raw ? full : raw;
+}
+
+function formatUpdateErrorDetail(detail) {
+  const raw = String(detail || '').trim();
+  if (!raw) return raw;
+  const m = raw.match(/^(.+?) 多线程与单线程均失败(?::\s*(.*))?$/s);
+  if (m) {
+    const source = m[1] === 'GitHub直连' ? t('GitHub直连') : m[1];
+    const head = t('{source} 多线程与单线程均失败', { source });
+    return m[2] ? `${head}: ${m[2]}` : head;
+  }
+  return raw;
 }
