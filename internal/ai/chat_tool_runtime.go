@@ -1291,14 +1291,15 @@ func (a *App) forceRejectAIChatToolBatchForCollaboration(requestID string, batch
 	if a == nil || batch == nil {
 		return
 	}
+	forcedRejectText := "⚠️助理察觉到异常,拒绝本次回复并强制介入"
 	for batch.NextToolIndex < len(batch.ParsedTools) {
 		tool := batch.ParsedTools[batch.NextToolIndex]
 		message := buildToolPreviewMessage(batch.AssistantMessageID, tool, batch.NextToolIndex)
 		message["status"] = "已拒绝"
 		if tool.Name == "execute_command" {
-			message["output"] = "已拒绝执行工具调用"
+			message["output"] = forcedRejectText
 		} else {
-			message["result"] = "已拒绝执行工具调用"
+			message["result"] = forcedRejectText
 		}
 		a.emitAIChatEvent(map[string]interface{}{
 			"kind":      "upsert_message",
@@ -1313,7 +1314,7 @@ func (a *App) forceRejectAIChatToolBatchForCollaboration(requestID string, batch
 			Tool:               tool,
 			Batch:              batch,
 		}
-		a.emitAIChatToolResultMessage(requestID, execution, "已拒绝执行工具调用")
+		a.emitAIChatToolResultMessage(requestID, execution, forcedRejectText)
 		batch.NextToolIndex++
 	}
 	a.emitAIChatToolExecutionPersistRequested(requestID)
@@ -1909,6 +1910,10 @@ func (a *App) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
 	rawResultSource := rawResultText
 	uiResultText := sanitizeAIToolResultText(strings.TrimSpace(result.Output))
 	stopAfterThisTool := false
+	exitCodeText := ""
+	if execErr == nil && result.ExitCode != nil {
+		exitCodeText = fmt.Sprintf("[Lumin_EXIT_CODE_%d]", *result.ExitCode)
+	}
 
 	if execErr != nil {
 		statusText = "错误"
@@ -1941,6 +1946,9 @@ func (a *App) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
 	}
 
 	commandExtra := buildAIChatCommandMessageExtra(execution.targetSessionID(), resolveAIChatCommandDisplayCwd(result.CWD, cwd), isMutating)
+	if result.ExitCode != nil && execErr == nil {
+		commandExtra["exitCode"] = *result.ExitCode
+	}
 	if resultTokenEstimateMeta := buildAIResultTokenEstimateMeta(buildAIChatToolResultContent(execution.Tool.Name, rawResultSource)); len(resultTokenEstimateMeta) > 0 {
 		for key, value := range resultTokenEstimateMeta {
 			commandExtra[key] = value
@@ -1969,6 +1977,13 @@ func (a *App) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
 	}
 	if strings.TrimSpace(rawResultText) == "" {
 		rawResultText = uiResultText
+	}
+	if exitCodeText != "" {
+		if strings.TrimSpace(rawResultText) == "" {
+			rawResultText = exitCodeText
+		} else {
+			rawResultText = strings.TrimSpace(rawResultText) + "\n" + exitCodeText
+		}
 	}
 
 	a.emitAIChatToolResultMessage(execution.RequestID, execution, rawResultText)

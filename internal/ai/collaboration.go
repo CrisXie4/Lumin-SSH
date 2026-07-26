@@ -803,7 +803,11 @@ func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, stat
 		return
 	}
 	batch := state.Batch
-	if batch.NextToolIndex >= len(batch.ParsedTools) {
+	if len(batch.ParsedTools) == 0 {
+		a.finishAIChatCollaborationWithFallback(trimmedRequestID, state)
+		return
+	}
+	if state.Mode != aiCollaborationModeForced && batch.NextToolIndex >= len(batch.ParsedTools) {
 		a.finishAIChatCollaborationWithFallback(trimmedRequestID, state)
 		return
 	}
