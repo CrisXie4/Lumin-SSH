@@ -173,40 +173,28 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const virtuosoRef = useRef(null)
   const scrollerElementRef = useRef(null)
   const followIntentRef = useRef(true)
-  const programmaticScrollRef = useRef(false)
-  const programmaticScrollResetRef = useRef(0)
   const scrollAnimationFrameRef = useRef(0)
   const hasHydratedRef = useRef(false)
   const lastContainerHeightRef = useRef(0)
-  const lastUserScrollIntentAtRef = useRef(0)
   const lastTouchClientYRef = useRef(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedEntryKey, setHighlightedEntryKey] = useState('')
   const groupedMessages = useMemo(() => groupConversationMessages(messages), [messages])
   const lastAssistantTurnIndex = useMemo(() => getLastAssistantTurnIndex(groupedMessages), [groupedMessages])
 
-  const markProgrammaticScroll = useCallback(() => {
-    programmaticScrollRef.current = true
-    if (programmaticScrollResetRef.current) {
-      window.clearTimeout(programmaticScrollResetRef.current)
+  const suspendFollow = useCallback(() => {
+    const scroller = scrollerElementRef.current
+    if (!(scroller instanceof HTMLElement) || scroller.scrollHeight <= scroller.clientHeight + 1) {
+      return
     }
-    programmaticScrollResetRef.current = window.setTimeout(() => {
-      programmaticScrollRef.current = false
-      programmaticScrollResetRef.current = 0
-    }, 480)
+    followIntentRef.current = false
+    setShowScrollToBottom(true)
   }, [])
-
-  const markUserScrollIntent = useCallback(() => {
-    lastUserScrollIntentAtRef.current = Date.now()
-  }, [])
-
-  const hasRecentUserScrollIntent = useCallback(() => Date.now() - lastUserScrollIntentAtRef.current < 1200, [])
 
   const scrollToBottom = useCallback((behavior = 'auto') => {
     if (groupedMessages.length === 0) {
       return
     }
-    markProgrammaticScroll()
     const scroller = scrollerElementRef.current
     if (behavior === 'auto' && scroller instanceof HTMLElement) {
       scroller.scrollTop = scroller.scrollHeight
@@ -238,7 +226,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       top: Number.MAX_SAFE_INTEGER,
       behavior,
     })
-  }, [groupedMessages.length, markProgrammaticScroll])
+  }, [groupedMessages.length])
 
   const scheduleScrollToBottom = useCallback((behavior = 'auto', force = false) => {
     if (groupedMessages.length === 0) {
@@ -259,10 +247,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   useEffect(() => {
     if (groupedMessages.length === 0) {
       followIntentRef.current = true
-      programmaticScrollRef.current = false
       hasHydratedRef.current = false
       lastContainerHeightRef.current = 0
-      lastUserScrollIntentAtRef.current = 0
       setShowScrollToBottom(false)
       return
     }
@@ -278,7 +264,6 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       return
     }
     followIntentRef.current = true
-    lastUserScrollIntentAtRef.current = 0
     setShowScrollToBottom(false)
     scheduleScrollToBottom('smooth', true)
   }, [groupedMessages.length, scheduleScrollToBottom, scrollToBottomSignal])
@@ -311,9 +296,6 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
 
   useEffect(() => {
     return () => {
-      if (programmaticScrollResetRef.current) {
-        window.clearTimeout(programmaticScrollResetRef.current)
-      }
       if (scrollAnimationFrameRef.current) {
         cancelAnimationFrame(scrollAnimationFrameRef.current)
       }
@@ -370,7 +352,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
 
       const targetEntry = groupedMessages[targetIndex]
       const targetEntryKey = getEntryKey(targetEntry, targetIndex)
-      markProgrammaticScroll()
+      suspendFollow()
       if (typeof virtuosoRef.current?.scrollToIndex === 'function') {
         virtuosoRef.current.scrollToIndex({
           index: targetIndex,
@@ -390,25 +372,24 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     return () => {
       window.removeEventListener('ai-conversation-diff-locate', handleLocateConversationDiffItem)
     }
-  }, [groupedMessages, markProgrammaticScroll, sessionId, terminalId])
+  }, [groupedMessages, sessionId, suspendFollow, terminalId])
 
   const handleScrollToBottom = useCallback(() => {
     followIntentRef.current = true
-    lastUserScrollIntentAtRef.current = 0
     setShowScrollToBottom(false)
     scrollToBottom('smooth')
   }, [scrollToBottom])
 
   const handleUserWheelCapture = useCallback((event) => {
     const deltaY = Number(event?.deltaY) || 0
-    if (Math.abs(deltaY) < 1) {
+    if (deltaY >= -1) {
       return
     }
     if (shouldIgnoreConversationScrollIntentFromNestedScroller(event?.target, containerRef.current, deltaY)) {
       return
     }
-    markUserScrollIntent()
-  }, [markUserScrollIntent])
+    suspendFollow()
+  }, [suspendFollow])
 
   const handleUserTouchStartCapture = useCallback((event) => {
     lastTouchClientYRef.current = getTouchClientY(event)
@@ -422,18 +403,40 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       return
     }
     const deltaY = previousTouchClientY - nextTouchClientY
-    if (Math.abs(deltaY) < 1) {
+    if (deltaY >= -1) {
       return
     }
     if (shouldIgnoreConversationScrollIntentFromNestedScroller(event?.target, containerRef.current, deltaY)) {
       return
     }
-    markUserScrollIntent()
-  }, [markUserScrollIntent])
+    suspendFollow()
+  }, [suspendFollow])
 
   const handleUserTouchEndCapture = useCallback(() => {
     lastTouchClientYRef.current = null
   }, [])
+
+  const handlePointerDownCapture = useCallback((event) => {
+    const scroller = scrollerElementRef.current
+    if (!(scroller instanceof HTMLElement) || event?.target !== scroller) {
+      return
+    }
+    const rect = scroller.getBoundingClientRect()
+    const scrollbarWidth = Math.max(scroller.offsetWidth - scroller.clientWidth, 12)
+    if (Number(event?.clientX) >= rect.right - scrollbarWidth) {
+      suspendFollow()
+    }
+  }, [suspendFollow])
+
+  const handleKeyDownCapture = useCallback((event) => {
+    if (!['ArrowUp', 'PageUp', 'Home'].includes(event?.key)) {
+      return
+    }
+    if (shouldIgnoreConversationScrollIntentFromNestedScroller(event?.target, containerRef.current, -1)) {
+      return
+    }
+    suspendFollow()
+  }, [suspendFollow])
 
   if (groupedMessages.length === 0) {
     return (
@@ -453,6 +456,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       onTouchMoveCapture={handleUserTouchMoveCapture}
       onTouchEndCapture={handleUserTouchEndCapture}
       onTouchCancelCapture={handleUserTouchEndCapture}
+      onPointerDownCapture={handlePointerDownCapture}
+      onKeyDownCapture={handleKeyDownCapture}
       style={{ flex: 1, minHeight: 0, height: '100%', background: 'transparent', position: 'relative' }}>
       <style>{`
         @keyframes ai-chat-message-flash {
@@ -469,17 +474,15 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         data={groupedMessages}
         increaseViewportBy={{ top: 1200, bottom: 800 }}
         initialTopMostItemIndex={Math.max(groupedMessages.length - 1, 0)}
-        atBottomThreshold={24}
+        atBottomThreshold={70}
         followOutput={(isAtBottom) => (isAtBottom || followIntentRef.current ? 'auto' : false)}
         atBottomStateChange={(isAtBottom) => {
           if (isAtBottom) {
             followIntentRef.current = true
-            programmaticScrollRef.current = false
-            lastUserScrollIntentAtRef.current = 0
-          } else if (!programmaticScrollRef.current && hasRecentUserScrollIntent()) {
-            followIntentRef.current = false
+            setShowScrollToBottom(false)
+            return
           }
-          setShowScrollToBottom(!isAtBottom && !followIntentRef.current && !programmaticScrollRef.current)
+          setShowScrollToBottom(!followIntentRef.current)
         }}
         computeItemKey={(index, entry) => getEntryKey(entry, index)}
         itemContent={(index, entry) => {

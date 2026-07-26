@@ -1,5 +1,6 @@
 import { ChevronDown, TerminalSquare } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useStickToBottom } from 'use-stick-to-bottom'
 import { useTranslation } from '../../../i18n.js'
 
 const buildShellCommandPattern = (commandPattern) => new RegExp(`(^|[\\s|;&()])(${commandPattern})(?=\\s)`, 'gi')
@@ -237,60 +238,24 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
   const targetLabel = typeof extra?.targetLabel === 'string' ? extra.targetLabel.trim() : ''
   const targetCwd = typeof extra?.targetCwd === 'string' ? extra.targetCwd.trim() : ''
   const resultTokenEstimateDisplay = typeof extra?.resultTokenEstimateDisplay === 'string' ? extra.resultTokenEstimateDisplay.trim() : ''
-  const outputContainerRef = useRef(null)
-  const shouldAutoFollowOutputRef = useRef(true)
-  const outputScrollFrameRef = useRef(0)
-
-  const cancelScheduledOutputScroll = () => {
-    if (outputScrollFrameRef.current) {
-      window.cancelAnimationFrame(outputScrollFrameRef.current)
-      outputScrollFrameRef.current = 0
-    }
-  }
-
-  const scrollOutputToBottom = () => {
-    const container = outputContainerRef.current
-    if (!container || !shouldAutoFollowOutputRef.current) {
-      return
-    }
-    container.scrollTop = Math.max(container.scrollHeight - container.clientHeight, 0)
-  }
-
-  const scheduleOutputScrollToBottom = () => {
-    if (!expanded || !displayOutput || !shouldAutoFollowOutputRef.current || outputScrollFrameRef.current) {
-      return
-    }
-    outputScrollFrameRef.current = window.requestAnimationFrame(() => {
-      outputScrollFrameRef.current = 0
-      scrollOutputToBottom()
-      window.requestAnimationFrame(() => {
-        scrollOutputToBottom()
-      })
-    })
-  }
+  const hasDisplayOutput = Boolean(displayOutput)
+  const {
+    scrollRef: outputContainerRef,
+    contentRef: outputContentRef,
+    scrollToBottom: scrollOutputToBottom,
+    stopScroll: stopOutputScroll,
+  } = useStickToBottom({
+    initial: 'instant',
+    resize: 'smooth',
+  })
 
   useEffect(() => {
-    if (!expanded || !displayOutput) {
-      return undefined
-    }
-    scheduleOutputScrollToBottom()
-    return undefined
-  }, [displayOutput, expanded, status])
-
-  useEffect(() => {
-    return () => {
-      cancelScheduledOutputScroll()
-    }
-  }, [])
-
-  const handleOutputScroll = () => {
-    const container = outputContainerRef.current
-    if (!container) {
+    if (!expanded || !hasDisplayOutput) {
+      stopOutputScroll()
       return
     }
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    shouldAutoFollowOutputRef.current = distanceToBottom <= 12
-  }
+    void scrollOutputToBottom('instant')
+  }, [expanded, hasDisplayOutput, scrollOutputToBottom, stopOutputScroll])
 
   return (
     <div style={{ display: 'grid', gap: 8 }}>
@@ -363,9 +328,9 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
           </div>
         </div>
         <div style={{ padding: '12px 12px 10px', display: 'grid', gap: 10 }}>
-          <pre style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: riskState.severity === 'danger' ? '1px solid rgba(var(--danger-rgb), 0.24)' : riskState.severity === 'warning' ? '1px solid rgba(var(--warning-rgb), 0.24)' : mutationPalette.commandBorder, background: riskState.severity ? 'var(--surface-base)' : mutationPalette.commandBackground, color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto' }}>{highlightedCommand}</pre>
+          <pre style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: riskState.severity === 'danger' ? '1px solid rgba(var(--danger-rgb), 0.24)' : riskState.severity === 'warning' ? '1px solid rgba(var(--warning-rgb), 0.24)' : mutationPalette.commandBorder, background: riskState.severity ? 'var(--surface-base)' : mutationPalette.commandBackground, color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}>{highlightedCommand}</pre>
           {expanded && displayOutput ? (
-            <pre ref={outputContainerRef} onScroll={handleOutputScroll} style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflowY: 'auto', overflowX: 'auto' }}>{t(displayOutput)}</pre>
+            <pre ref={outputContainerRef} style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}><span ref={outputContentRef} style={{ display: 'block' }}>{t(displayOutput)}</span></pre>
           ) : null}
         </div>
       </div>
