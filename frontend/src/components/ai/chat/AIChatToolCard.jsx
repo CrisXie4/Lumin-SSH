@@ -117,7 +117,7 @@ function buildCompactAlignedLinePairs(leftLines, rightLines) {
   return alignedPairs
 }
 
-function buildCompactVisibleRanges(rows, contextLines = 2) {
+function buildCompactVisibleRanges(rows, contextLines = 4) {
   const ranges = []
   rows.forEach((row, index) => {
     if (row.equal) {
