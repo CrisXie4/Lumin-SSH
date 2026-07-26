@@ -13,10 +13,79 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
+  # 先唯一创建 draft（含标题/说明），避免多 job 并行 softprops 竞态：
+  # 无 body 的 job 先建空 draft 后，带 body 的副本会被当重复删掉
+  create-draft:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          TITLE="Lumin SSH Client ${TAG}"
+          NOTES_FILE="${RUNNER_TEMP}/release-notes.md"
+          cat > "${NOTES_FILE}" <<EOF
+          ## 更新日志
+          - 改进文件管理器
+          - 修复多 job 并行创建 Release 的竞态问题：新增 create-draft 独占 job 先建 draft
+          - macOS/Windows 构建 job 依赖 create-draft，上传到已有 release
+          - 安装 Node 24 时缓存依赖锁定 package-lock 路径
+          - 统一下载链接引用步骤输出变量
+
+          ## 产物下载
+          - Linux 便携版 ([Lumin-V${VERSION}-linux-amd64](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-linux-amd64))：即下即用
+          - Linux DEB 安装包 ([Lumin-V${VERSION}-amd64.deb](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64.deb))：Debian/Ubuntu 安装包
+          - Linux RPM 安装包 ([Lumin-V${VERSION}-amd64.rpm](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64.rpm))：Red Hat/Fedora 安装包
+          - macOS ARM 版 ([Lumin-V${VERSION}-arm64.dmg](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-arm64.dmg))：Apple Silicon (M1/M2/M3/M4)
+          - macOS Intel 版 ([Lumin-V${VERSION}-amd64.dmg](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64.dmg))：Intel 芯片
+          - Windows 便携绿色版 ([Lumin-V${VERSION}-portable.exe](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-portable.exe))：内嵌 WebView2，即下即用
+          - Windows 标准安装版 ([Lumin-V${VERSION}-amd64-installer.exe](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64-installer.exe))：NSIS 安装包
+          - 每个产物附带 .sha256 校验文件，自动更新时校验 SHA256 确保文件完整性
+          - 本 Release **仅 Desktop**，Android 端见 [Lumin-SSH-Android](https://github.com/wmwlwmwl/Lumin-SSH-Android/releases)
+          - 许可见仓库 [LICENSE](LICENSE)
+
+          ## 安装/卸载方法
+          ### DEB 包（Debian/Ubuntu）
+          \`\`\`bash
+          # 安装
+          sudo dpkg -i Lumin-V${VERSION}-amd64.deb
+          # 卸载
+          sudo dpkg -r lumin
+          \`\`\`
+
+          ### RPM 包（Red Hat/Fedora）
+          \`\`\`bash
+          # 安装
+          sudo rpm -ivh Lumin-V${VERSION}-amd64.rpm
+          # 卸载
+          sudo rpm -e lumin
+          \`\`\`
+          EOF
+          # heredoc 用了缩进，去掉每行前导空格
+          sed -i 's/^[[:space:]]*//' "${NOTES_FILE}"
+
+          if gh release view "${TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --draft=true \
+              --title "${TITLE}" \
+              --notes-file "${NOTES_FILE}"
+          else
+            gh release create "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --draft \
+              --title "${TITLE}" \
+              --notes-file "${NOTES_FILE}"
+          fi
+
+  build-linux:
+    needs: create-draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: |
@@ -26,11 +95,11 @@ jobs:
             libc6-dev libayatana-appindicator3-dev \
             rpm alien fakeroot
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.22'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -98,69 +167,23 @@ jobs:
             echo "rpm_sha=${{ github.workspace }}/build/$RPM_BASENAME.sha256" >> $GITHUB_ENV
           fi
 
-      - name: Get clean version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-
-      # 先写 draft：/releases/latest 不会暴露未齐套的安装包，避免 Windows 仍在打包时被客户端热更
+      # 只上传产物，不经 softprops，避免覆盖 name/body
       - name: Upload to Draft Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          name: "Lumin SSH Client ${{ github.ref_name }}"
-          body: |
-            ## 更新日志
-            - 文件资源管理器：左侧标签双面板视图、快捷键、右键复制剪切粘贴、双击解压压缩包
-            - 发行版图标外置为 public 文件并统一 SVG
-            - AI 助手：支持对话历史编辑任务标题、差异卡片、改进滚动与协同接管、MCP shell 优先
-            - 修复托盘久置后点击无法唤起主窗口
-            - 修复 SOCKS 取消连接泄漏与上传/历史缓存膨胀
-            - 修复 shell hook 中强制恢复终端回显
-            - 文件打开方式、编辑器语言与主题图标统一
-            - 优化延迟检测路径判断与双频 Banner，降低 TUN 误判
-            - 规范化命令输出并隐藏终端控制符
-            - 加强命令块边框对比度，修正发布取消 draft 流程
-            - 支持主题包复制到浅/深色并修正混合主题显示
-            - 修复深色复制到浅色时重算文件管理器与图标色
-            - 多语言更新
-
-            ## 产物下载
-            - Linux 便携版 ([Lumin-V${{ steps.version.outputs.version }}-linux-amd64](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-linux-amd64))：即下即用
-            - Linux DEB 安装包 ([Lumin-V${{ steps.version.outputs.version }}-amd64.deb](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-amd64.deb))：Debian/Ubuntu 安装包
-            - Linux RPM 安装包 ([Lumin-V${{ steps.version.outputs.version }}-amd64.rpm](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-amd64.rpm))：Red Hat/Fedora 安装包
-            - macOS ARM 版 ([Lumin-V${{ steps.version.outputs.version }}-arm64.dmg](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-arm64.dmg))：Apple Silicon (M1/M2/M3/M4)
-            - macOS Intel 版 ([Lumin-V${{ steps.version.outputs.version }}-amd64.dmg](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-amd64.dmg))：Intel 芯片
-            - Windows 便携绿色版 ([Lumin-V${{ steps.version.outputs.version }}-portable.exe](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-portable.exe))：内嵌 WebView2，即下即用
-            - Windows 标准安装版 ([Lumin-V${{ steps.version.outputs.version }}-amd64-installer.exe](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${{ steps.version.outputs.version }}/Lumin-V${{ steps.version.outputs.version }}-amd64-installer.exe))：NSIS 安装包
-            - 每个产物附带 .sha256 校验文件，自动更新时校验 SHA256 确保文件完整性
-            - 本 Release **仅 Desktop**，Android 端见 [Lumin-SSH-Android](https://github.com/wmwlwmwl/Lumin-SSH-Android/releases)
-            - 许可见仓库 [LICENSE](LICENSE)
-
-            ## 安装/卸载方法
-            ### DEB 包（Debian/Ubuntu）
-            ```bash
-            # 安装
-            sudo dpkg -i Lumin-V${{ steps.version.outputs.version }}-amd64.deb
-            # 卸载
-            sudo dpkg -r lumin
-            ```
-
-            ### RPM 包（Red Hat/Fedora）
-            ```bash
-            # 安装
-            sudo rpm -ivh Lumin-V${{ steps.version.outputs.version }}-amd64.rpm
-            # 卸载
-            sudo rpm -e lumin
-            ```
-          files: |
-            ${{ env.binary }}
-            ${{ env.binary_sha }}
-            ${{ env.deb }}
-            ${{ env.deb_sha }}
-            ${{ env.rpm }}
-            ${{ env.rpm_sha }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          files=("${binary}" "${binary_sha}" "${deb}" "${deb_sha}")
+          if [ -n "${rpm:-}" ] && [ -f "${rpm}" ]; then
+            files+=("${rpm}" "${rpm_sha}")
+          fi
+          gh release upload "${GITHUB_REF_NAME}" \
+            --repo "${{ github.repository }}" \
+            --clobber \
+            "${files[@]}"
 
   build-macos:
+    needs: create-draft
     strategy:
       fail-fast: false
       matrix:
@@ -171,13 +194,13 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.22'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -209,23 +232,26 @@ jobs:
           echo "app_sha=${{ github.workspace }}/build/Lumin-V${VERSION}-${ARCH}.dmg.sha256" >> $GITHUB_ENV
 
       - name: Upload to Draft Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: |
-            ${{ env.app_dmg }}
-            ${{ env.app_sha }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" \
+            --repo "${{ github.repository }}" \
+            --clobber \
+            "${app_dmg}" "${app_sha}"
 
   build-windows:
+    needs: create-draft
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.22'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -268,17 +294,18 @@ jobs:
           echo "installer_sha=${{ github.workspace }}\build\Lumin-V$VERSION-amd64-installer.exe.sha256" >> $env:GITHUB_ENV
 
       - name: Upload to Draft Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: |
-            ${{ env.portable }}
-            ${{ env.portable_sha }}
-            ${{ env.installer }}
-            ${{ env.installer_sha }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" \
+            --repo "${{ github.repository }}" \
+            --clobber \
+            "${portable}" "${portable_sha}" "${installer}" "${installer_sha}"
 
   # 全平台产物齐套后再取消 draft，客户端 /releases/latest 才能看到
-  # 用 gh release edit 只改 draft/latest，避免 softprops 更新时把 name/body 清空
+  # 用 gh release edit 只改 draft/latest，避免覆盖 name/body
   publish-release:
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
