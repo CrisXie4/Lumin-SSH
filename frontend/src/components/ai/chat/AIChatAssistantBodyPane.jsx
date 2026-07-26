@@ -1,24 +1,11 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
 import AIChatMarkdown from './AIChatMarkdown.jsx'
 
-const streamingAnimatedTailLength = 1
-
 const streamingCursorKeyframes = `
-@keyframes ai-chat-stream-cursor-frame {
-  0%, 100% {
-    opacity: 0.38;
-    transform: scaleY(0.94);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scaleY(1);
-  }
-}
-
 @keyframes ai-chat-stream-cursor-beam {
   0%, 100% {
-    opacity: 0.52;
-    transform: scaleY(0.78) translateY(1px);
+    opacity: 0.55;
+    transform: scaleY(0.82) translateY(1px);
   }
   50% {
     opacity: 1;
@@ -49,7 +36,7 @@ function StreamingCursor() {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 12,
+        width: 8,
         height: '1.5em',
         marginLeft: 4,
         verticalAlign: 'text-bottom',
@@ -58,48 +45,13 @@ function StreamingCursor() {
       <span
         style={{
           position: 'absolute',
-          inset: '4% 18%',
+          inset: '10% 34%',
           borderRadius: 999,
-          border: '1px solid rgba(var(--accent-rgb), 0.32)',
-          animation: 'ai-chat-stream-cursor-frame 1.1s ease-in-out infinite',
-        }}
-      />
-      <span
-        style={{
-          position: 'absolute',
-          inset: '10% 42%',
-          borderRadius: 999,
-          background: 'rgba(var(--accent-rgb), 0.9)',
+          background: 'rgba(var(--accent-rgb), 0.92)',
+          boxShadow: '0 0 10px rgba(var(--accent-rgb), 0.28)',
           animation: 'ai-chat-stream-cursor-beam 0.9s ease-in-out infinite',
         }}
       />
-    </span>
-  )
-}
-
-function renderStreamingCharacter(char, index, isLatest) {
-  if (char === '\r') {
-    return null
-  }
-  if (char === '\n') {
-    return <br key={`br-${index}`} />
-  }
-  const displayChar = char === ' ' ? '\u00A0' : char === '\t' ? '\u00A0\u00A0\u00A0\u00A0' : char
-  return (
-    <span
-      key={`${index}-${char}`}
-      style={
-        isLatest
-          ? {
-              display: 'inline-block',
-              verticalAlign: 'baseline',
-              animation: 'ai-chat-stream-char-enter 160ms cubic-bezier(0.22, 1, 0.36, 1)',
-              transformOrigin: '50% 100%',
-            }
-          : undefined
-      }
-    >
-      {displayChar}
     </span>
   )
 }
@@ -141,11 +93,6 @@ export default function AIChatAssistantBodyPane({ text, isStreaming = false }) {
   if (!displayContent && !isStreaming) {
     return null
   }
-
-  const streamingCharacters = isStreaming ? Array.from(displayContent) : []
-  const animatedTailStart = Math.max(streamingCharacters.length - streamingAnimatedTailLength, 0)
-  const stablePrefix = streamingCharacters.slice(0, animatedTailStart).join('')
-  const animatedTail = streamingCharacters.slice(animatedTailStart)
 
   const handleScroll = () => {
     const container = scrollRef.current
@@ -236,8 +183,7 @@ export default function AIChatAssistantBodyPane({ text, isStreaming = false }) {
         >
           {isStreaming ? (
             <>
-              {stablePrefix}
-              {animatedTail.map((char, index) => renderStreamingCharacter(char, animatedTailStart + index, animatedTailStart + index === streamingCharacters.length - 1))}
+              {displayContent}
               <StreamingCursor />
             </>
           ) : (
