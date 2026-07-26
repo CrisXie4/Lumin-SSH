@@ -52,7 +52,7 @@ function ensureFileManagerPathCacheStore() {
 function cloneFileManagerPathItems(items) {
   return Array.isArray(items)
     ? items
-      .filter((item) => item && typeof item === 'object')
+      .filter((item) => item && typeof item === 'object' && !item.__luminDeletedPlaceholder)
       .map((item) => ({ ...item }))
     : [];
 }

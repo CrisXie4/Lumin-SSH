@@ -164,6 +164,7 @@ const DOWNLOAD_RENAME_SUFFIX_RANDOM = 'random';
 const DOWNLOAD_RENAME_SUFFIX_SEQUENCE = 'sequence';
 const UPLOAD_PANEL_CLOSE_ANIMATION_MS = 100;
 const FILE_LIST_SWITCH_ANIMATION_MS = 420;
+const FILE_MANAGER_INTERNAL_DRAG_MIME = 'application/x-lumin-file-manager-items';
 const FILE_MANAGER_NEW_TAB_PATH_MODE_INHERIT_CURRENT = 'inherit_current';
 const FILE_MANAGER_NEW_TAB_PATH_MODE_ROOT = 'root';
 const FILE_MANAGER_NEW_TAB_PATH_MODE_SESSION_INITIAL_PATH = 'session_initial_path';
@@ -249,6 +250,18 @@ function getFileManagerLayoutMode() {
   return localStorage.getItem('fileManagerLayoutMode') === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL
     ? FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL
     : FILE_MANAGER_LAYOUT_MODE_CLASSIC;
+}
+
+function isFileManagerDualPaneDragTransferEnabled() {
+  return localStorage.getItem('fileManagerDualPaneDragTransferEnabled') !== 'false';
+}
+
+function shouldPromptFileManagerDualPaneDragDirectory() {
+  return localStorage.getItem('fileManagerDualPaneDragPromptOnDirectory') !== 'false';
+}
+
+function shouldInvertFileManagerDualPaneDragModifier() {
+  return localStorage.getItem('fileManagerDualPaneDragInvertModifier') === 'true';
 }
 
 function createFileManagerTab(path = '', options = {}) {
@@ -1144,6 +1157,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [showFileManagerTabIcons, setShowFileManagerTabIcons] = useState(() => shouldShowFileManagerTabIcons());
   const [hideFileManagerTabCloseButton, setHideFileManagerTabCloseButton] = useState(() => shouldHideFileManagerTabCloseButton());
   const [fileManagerLayoutMode, setFileManagerLayoutMode] = useState(() => getFileManagerLayoutMode());
+  const [fileManagerDualPaneDragTransferEnabled, setFileManagerDualPaneDragTransferEnabled] = useState(() => isFileManagerDualPaneDragTransferEnabled());
+  const [fileManagerDualPaneDragPromptOnDirectory, setFileManagerDualPaneDragPromptOnDirectory] = useState(() => shouldPromptFileManagerDualPaneDragDirectory());
+  const [fileManagerDualPaneDragInvertModifier, setFileManagerDualPaneDragInvertModifier] = useState(() => shouldInvertFileManagerDualPaneDragModifier());
+  const [fileManagerPaneDropTarget, setFileManagerPaneDropTarget] = useState('');
+  const internalFileManagerDragPayloadRef = useRef(null);
+  const [fileManagerDragTip, setFileManagerDragTip] = useState(null);
   const [fileManagerSidebarOpen, setFileManagerSidebarOpen] = useState(false);
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
@@ -1167,8 +1186,26 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return () => window.removeEventListener('file-manager-layout-mode-changed', handleChange);
   }, []);
   useEffect(() => {
+    const handleChange = (e) => setFileManagerDualPaneDragTransferEnabled(e.detail !== false);
+    window.addEventListener('file-manager-dual-pane-drag-transfer-enabled-changed', handleChange);
+    return () => window.removeEventListener('file-manager-dual-pane-drag-transfer-enabled-changed', handleChange);
+  }, []);
+  useEffect(() => {
+    const handleChange = (e) => setFileManagerDualPaneDragPromptOnDirectory(e.detail !== false);
+    window.addEventListener('file-manager-dual-pane-drag-prompt-on-directory-changed', handleChange);
+    return () => window.removeEventListener('file-manager-dual-pane-drag-prompt-on-directory-changed', handleChange);
+  }, []);
+  useEffect(() => {
+    const handleChange = (e) => setFileManagerDualPaneDragInvertModifier(e.detail === true);
+    window.addEventListener('file-manager-dual-pane-drag-invert-modifier-changed', handleChange);
+    return () => window.removeEventListener('file-manager-dual-pane-drag-invert-modifier-changed', handleChange);
+  }, []);
+  useEffect(() => {
     if (fileManagerLayoutMode !== FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL) {
       setFileManagerSidebarOpen(false);
+      setFileManagerPaneDropTarget('');
+      internalFileManagerDragPayloadRef.current = null;
+      setFileManagerDragTip(null);
     }
   }, [fileManagerLayoutMode]);
   useEffect(() => {
@@ -1834,6 +1871,38 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     || String(prevItem?.modifyTime || '') !== String(nextItem?.modifyTime || '')
   ), []);
 
+  const buildItemsWithTrackedDiff = useCallback((currentItems, nextItems, directoryPath) => {
+    const normalizedNextItems = Array.isArray(nextItems) ? nextItems : [];
+    const currentVisibleItems = currentItems.filter((entry) => !isDeletedPlaceholderItem(entry));
+    const existingPlaceholders = currentItems.filter((entry) => isDeletedPlaceholderItem(entry));
+    const currentByName = new Map(currentVisibleItems.map((entry) => [entry.name, entry]));
+    const nextByName = new Map(normalizedNextItems.map((entry) => [entry.name, entry]));
+
+    normalizedNextItems.forEach((entry) => {
+      const logicalPath = directoryPath === '/' ? `/${entry.name}` : `${directoryPath}/${entry.name}`;
+      const previousEntry = currentByName.get(entry.name);
+      if (!previousEntry) {
+        queueRowEffect(logicalPath, logicalPath, 'added');
+        return;
+      }
+      if (didItemMetadataChange(previousEntry, entry)) {
+        queueRowEffect(logicalPath, logicalPath, 'changed');
+      }
+    });
+
+    const newDeletedPlaceholders = currentVisibleItems
+      .filter((entry) => !nextByName.has(entry.name))
+      .map((entry) => {
+        const logicalPath = directoryPath === '/' ? `/${entry.name}` : `${directoryPath}/${entry.name}`;
+        const placeholder = createDeletedPlaceholder(entry, logicalPath);
+        queueRowEffect(logicalPath, placeholder.__rowKey, 'removed');
+        return placeholder;
+      });
+
+    const persistedPlaceholders = existingPlaceholders.filter((entry) => !nextByName.has(entry.name));
+    return [...normalizedNextItems, ...persistedPlaceholders, ...newDeletedPlaceholders];
+  }, [createDeletedPlaceholder, didItemMetadataChange, isDeletedPlaceholderItem, queueRowEffect]);
+
   useEffect(() => {
     captureFileListViewAnchor();
     flushPendingRowEffects();
@@ -2212,37 +2281,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
       const applyLoadedData = () => {
         if (trackDiff) {
-          updateItemsPreservingView((current) => {
-            const nextItems = Array.isArray(data) ? data : [];
-            const currentVisibleItems = current.filter((entry) => !isDeletedPlaceholderItem(entry));
-            const existingPlaceholders = current.filter((entry) => isDeletedPlaceholderItem(entry));
-            const currentByName = new Map(currentVisibleItems.map((entry) => [entry.name, entry]));
-            const nextByName = new Map(nextItems.map((entry) => [entry.name, entry]));
-
-            nextItems.forEach((entry) => {
-              const logicalPath = joinPath(normalizedPath, entry.name);
-              const previousEntry = currentByName.get(entry.name);
-              if (!previousEntry) {
-                queueRowEffect(logicalPath, logicalPath, 'added');
-                return;
-              }
-              if (didItemMetadataChange(previousEntry, entry)) {
-                queueRowEffect(logicalPath, logicalPath, 'changed');
-              }
-            });
-
-            const newDeletedPlaceholders = currentVisibleItems
-              .filter((entry) => !nextByName.has(entry.name))
-              .map((entry) => {
-                const logicalPath = joinPath(normalizedPath, entry.name);
-                const placeholder = createDeletedPlaceholder(entry, logicalPath);
-                queueRowEffect(logicalPath, placeholder.__rowKey, 'removed');
-                return placeholder;
-              });
-
-            const persistedPlaceholders = existingPlaceholders.filter((entry) => !nextByName.has(entry.name));
-            return [...nextItems, ...persistedPlaceholders, ...newDeletedPlaceholders];
-          });
+          updateItemsPreservingView((current) => buildItemsWithTrackedDiff(current, data, normalizedPath));
         } else {
           setItems(data || []);
         }
@@ -2870,13 +2909,79 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
     try {
       const nextItems = await AppGo.ListDir(sessionId, normalizedTargetPath);
-      setSessionCachedFileManagerPathItems(
-        sessionId,
+      const mergedItems = buildItemsWithTrackedDiff(
+        getSessionCachedFileManagerPathItems(sessionId, normalizedTargetPath) || [],
+        nextItems,
         normalizedTargetPath,
-        Array.isArray(nextItems) ? nextItems : [],
       );
+      setSessionCachedFileManagerPathItems(sessionId, normalizedTargetPath, mergedItems);
+      const currentWorkspace = fileManagerWorkspaceRef.current;
+      const matchingTabIds = Array.isArray(currentWorkspace?.tabs)
+        ? currentWorkspace.tabs
+          .filter((tab) => (normalizePath(tab?.path) || '/') === normalizedTargetPath)
+          .map((tab) => String(tab?.id || '').trim())
+          .filter(Boolean)
+        : [];
+      matchingTabIds.forEach((tabId) => {
+        cacheCurrentTabItems(tabId, normalizedTargetPath, mergedItems);
+      });
+      if (fileManagerLayoutMode === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL) {
+        const leftPanePath = normalizePath(currentWorkspace?.panes?.left?.path) || '';
+        const rightPanePath = normalizePath(currentWorkspace?.panes?.right?.path) || '';
+        if ((leftPanePath && leftPanePath === normalizedTargetPath) || (rightPanePath && rightPanePath === normalizedTargetPath)) {
+          pendingVisualEffectsRef.current.forEach((entry, logicalKey) => {
+            if (!entry?.rowKey || !entry?.effect) {
+              return;
+            }
+            const entryPath = normalizePath(logicalKey) || '';
+            if (entryPath && getParentPath(entryPath) === normalizedTargetPath) {
+              pendingVisualEffectsRef.current.delete(logicalKey);
+              startRowEffect(entry);
+            }
+          });
+          const nextWorkspace = setSessionFileManagerWorkspace(sessionId, (current) => (
+            current
+              ? { ...current, panes: { ...(current.panes || {}) } }
+              : current
+          ));
+          fileManagerWorkspaceRef.current = nextWorkspace;
+          setFileManagerWorkspaceState(nextWorkspace);
+        }
+      }
     } catch (_) {}
-  }, [loadDir, normalizePath, sessionId]);
+  }, [buildItemsWithTrackedDiff, cacheCurrentTabItems, fileManagerLayoutMode, getParentPath, loadDir, normalizePath, sessionId, startRowEffect]);
+
+  const fileManagerUndoStackRef = useRef([]);
+
+  const pushFileManagerUndoEntry = useCallback((entry) => {
+    if (!entry || typeof entry.undo !== 'function') {
+      return;
+    }
+    fileManagerUndoStackRef.current = [...fileManagerUndoStackRef.current, entry].slice(-100);
+  }, []);
+
+  const handleUndoFileManagerAction = useCallback(async () => {
+    if (operationInProgressRef.current) return;
+    const undoEntry = fileManagerUndoStackRef.current[fileManagerUndoStackRef.current.length - 1];
+    if (!undoEntry) {
+      addToast(t('没有可撤销的操作'), 'info');
+      return;
+    }
+    fileManagerUndoStackRef.current = fileManagerUndoStackRef.current.slice(0, -1);
+    operationInProgressRef.current = true;
+    setOperationProgress({ message: t('正在撤销中...') });
+    try {
+      await undoEntry.undo();
+      addToast(t('已撤销'), 'success');
+    } catch (err) {
+      fileManagerUndoStackRef.current = [...fileManagerUndoStackRef.current, undoEntry].slice(-100);
+      addToast(`${t('撤销失败')}: ${err}`, 'error');
+    } finally {
+      setOperationProgress(null);
+      operationInProgressRef.current = false;
+      fileListRef.current?.focus();
+    }
+  }, [addToast, t]);
 
   const uploadNativePaths = useCallback(async (paths) => {
     const localPaths = Array.from(paths || []).map((path) => String(path || '').trim()).filter(Boolean);
@@ -3340,6 +3445,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
     const existing = new Set((Array.isArray(targetItems) ? targetItems : []).map((item) => item.name));
     const localPatchedItems = [];
+    const successfulOperations = [];
     let shouldFallbackRefresh = !isCurrentTargetPath;
     const total = normalizedPaths.length;
     setOperationProgress({ message: t('正在粘贴中...'), current: 0, total });
@@ -3352,6 +3458,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           : null;
         let destPath = joinPath(normalizedTargetPath, name);
         let destName = name;
+        let overwroteExisting = false;
         if (mode === 'copy' && normalizedSourcePath === normalizedTargetPath) {
           const base = name.replace(/(\.[^.]+)$/, '');
           const ext = name !== base ? name.slice(base.length) : '';
@@ -3372,6 +3479,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             `${t('目标已存在同名项目')} "${name}"${t('，是否覆盖？')}`
           );
           if (!ok) continue;
+          overwroteExisting = true;
         }
         setOperationProgress({
           message: `${mode === 'copy' ? t('正在复制') : t('正在移动')} ${name}`,
@@ -3386,6 +3494,14 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           }
           existing.add(destName);
           count++;
+          successfulOperations.push({
+            mode,
+            srcPath,
+            destPath,
+            sourceDirPath: normalizedSourcePath,
+            targetDirPath: normalizedTargetPath,
+            overwroteExisting,
+          });
           if (mode === 'copy' && sourceItem && isCurrentTargetPath) {
             localPatchedItems.push(createLocalItemShell(destName, sourceItem.isDirectory, {
               ...sourceItem,
@@ -3403,6 +3519,31 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       operationInProgressRef.current = false;
     }
     if (count > 0) {
+      if (successfulOperations.length > 0 && successfulOperations.every((operation) => operation.overwroteExisting !== true)) {
+        const undoOperations = [...successfulOperations];
+        pushFileManagerUndoEntry({
+          undo: async () => {
+            for (let index = undoOperations.length - 1; index >= 0; index--) {
+              const operation = undoOperations[index];
+              if (operation.mode === 'copy') {
+                await AppGo.DeleteItemShell(sessionId, operation.destPath);
+              } else {
+                await AppGo.MoveItem(sessionId, operation.destPath, operation.srcPath);
+              }
+            }
+            const refreshTargets = new Set();
+            undoOperations.forEach((operation) => {
+              refreshTargets.add(operation.targetDirPath);
+              if (operation.mode === 'cut') {
+                refreshTargets.add(operation.sourceDirPath);
+              }
+            });
+            for (const refreshPath of refreshTargets) {
+              await refreshDirectoryAfterTransfer(refreshPath);
+            }
+          },
+        });
+      }
       addToast(`${t('操作完成')}: ${count} ${t('项')}`, 'success');
       if (clearClipboardOnSuccess && mode === 'cut') {
         updateClipboard(null);
@@ -4427,6 +4568,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (e.target !== e.currentTarget) return;
     if (e.defaultPrevented) return;
     const isCtrl = e.ctrlKey || e.metaKey;
+    if (isCtrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      void handleUndoFileManagerAction();
+      return;
+    }
     if (e.key === 'Delete' || e.key === 'Del') {
       e.preventDefault();
       void handleDeleteItems();
@@ -4492,7 +4638,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     });
   }, [clipboard, currentPath, transferFileManagerItems]);
 
-  // Create directory
   const handleMkdir = async (targetDirPath = currentPath) => {
     const normalizedTargetDirPath = normalizePath(typeof targetDirPath === 'string' ? targetDirPath : (currentPathRef.current || currentPath)) || '/';
     const name = await window.luminDialog?.prompt(t('新文件夹名称:'));
@@ -4508,6 +4653,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       } else {
         setSessionCachedFileManagerPathItems(sessionId, normalizedTargetDirPath, listedItems);
       }
+      pushFileManagerUndoEntry({
+        undo: async () => {
+          await AppGo.DeleteItemShell(sessionId, remotePath);
+          await refreshDirectoryAfterTransfer(normalizedTargetDirPath);
+        },
+      });
       addToast(
         normalizedTargetDirPath === currentVisiblePath
           ? `${t('文件夹创建成功')}: ${matchedItem.name}`
@@ -4519,7 +4670,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
   };
 
-  // Create file
   const handleNewFile = async (targetDirPath = currentPath) => {
     const normalizedTargetDirPath = normalizePath(typeof targetDirPath === 'string' ? targetDirPath : (currentPathRef.current || currentPath)) || '/';
     const name = await window.luminDialog?.prompt(t('新文件名称:'));
@@ -4535,6 +4685,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       } else {
         setSessionCachedFileManagerPathItems(sessionId, normalizedTargetDirPath, listedItems);
       }
+      pushFileManagerUndoEntry({
+        undo: async () => {
+          await AppGo.DeleteItemShell(sessionId, remotePath);
+          await refreshDirectoryAfterTransfer(normalizedTargetDirPath);
+        },
+      });
       addToast(
         normalizedTargetDirPath === currentVisiblePath
           ? `${t('文件创建成功')}: ${matchedItem.name}`
@@ -4730,6 +4886,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const newPath = joinPath(currentPath, nextName);
     try {
       await AppGo.RenameItem(sessionId, oldPath, newPath);
+      pushFileManagerUndoEntry({
+        undo: async () => {
+          await AppGo.RenameItem(sessionId, newPath, oldPath);
+          await refreshDirectoryAfterTransfer(currentPathRef.current || currentPath);
+        },
+      });
       addToast(t('重命名成功'), 'success');
       const anchor = captureFileListViewAnchor();
       if (anchor?.key === oldPath) {
@@ -4863,6 +5025,25 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       if (modeChanged) {
         await AppGo.ChmodFile(sessionId, chmodTarget.path, normalizedMode, recursive);
       }
+      pushFileManagerUndoEntry({
+        undo: async () => {
+          if (ownerChanged || groupChanged) {
+            const chownFile = window?.go?.main?.App?.ChownFile;
+            if (typeof chownFile !== 'function') {
+              throw new Error(t('应用不可用'));
+            }
+            await chownFile(sessionId, chmodTarget.path, ownerChanged ? currentOwnerId : '', groupChanged ? currentGroupId : '', recursive);
+          }
+          if (modeChanged) {
+            await AppGo.ChmodFile(sessionId, chmodTarget.path, currentMode, recursive);
+          }
+          if (getParentPath(chmodTarget.path) === (currentPathRef.current || currentPath)) {
+            await loadDir(currentPathRef.current || currentPath, { preserveView: true, showLoading: false });
+          } else {
+            await refreshDirectoryAfterTransfer(getParentPath(chmodTarget.path));
+          }
+        },
+      });
       addToast(t('权限修改成功'), 'success');
       setChmodTarget(null);
       if (getParentPath(chmodTarget.path) === currentPathRef.current) {
@@ -4994,6 +5175,154 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     await uploadEntries(Array.from(entryMap.values()));
   };
 
+  const buildFileManagerDragPayload = useCallback((itemPath) => {
+    if (!itemPath) {
+      return null;
+    }
+    const sourceDirPath = normalizePath(currentPathRef.current || currentPath) || '/';
+    const currentSelectedPaths = Array.isArray(selectedPathsRef.current) ? selectedPathsRef.current : [];
+    const dragPaths = currentSelectedPaths.length > 1 && currentSelectedPaths.includes(itemPath)
+      ? currentSelectedPaths
+      : [itemPath];
+    const payloadItems = dragPaths.map((path) => {
+      const matchedItem = items.find((entry) => joinPath(sourceDirPath, entry.name) === path);
+      return {
+        path,
+        isDirectory: matchedItem?.isDirectory === true,
+      };
+    });
+    return {
+      sessionId,
+      sourceDir: sourceDirPath,
+      paths: dragPaths,
+      items: payloadItems,
+    };
+  }, [currentPath, items, normalizePath, sessionId]);
+
+  const parseFileManagerDragPayload = useCallback((event) => {
+    const rawPayload = event?.dataTransfer?.getData(FILE_MANAGER_INTERNAL_DRAG_MIME);
+    if (!rawPayload) {
+      return null;
+    }
+    try {
+      const parsedPayload = JSON.parse(rawPayload);
+      const sourceDir = normalizePath(parsedPayload?.sourceDir) || '/';
+      const paths = Array.isArray(parsedPayload?.paths)
+        ? parsedPayload.paths.map((path) => String(path || '').trim()).filter(Boolean)
+        : [];
+      if (!paths.length) {
+        return null;
+      }
+      const payloadItems = Array.isArray(parsedPayload?.items)
+        ? parsedPayload.items.map((item, index) => ({
+          path: paths[index] || String(item?.path || '').trim(),
+          isDirectory: item?.isDirectory === true,
+        }))
+        : paths.map((path) => ({ path, isDirectory: false }));
+      return {
+        sessionId: String(parsedPayload?.sessionId || '').trim(),
+        sourceDir,
+        paths,
+        items: payloadItems,
+      };
+    } catch {
+      return null;
+    }
+  }, [normalizePath]);
+
+  const confirmDualPaneDirectoryDrag = useCallback(async (mode, paneState, payload) => {
+    if (!fileManagerDualPaneDragPromptOnDirectory) {
+      return true;
+    }
+    if (!Array.isArray(payload?.items) || !payload.items.some((item) => item?.isDirectory === true)) {
+      return true;
+    }
+    const actionLabel = mode === 'cut' ? t('移动') : t('复制');
+    const normalizedTargetDirPath = normalizePath(paneState?.path) || '/';
+    const normalizedPaths = Array.isArray(payload?.paths)
+      ? payload.paths.map((path) => normalizePath(path)).filter(Boolean)
+      : [];
+    const primarySourcePath = normalizedPaths[0] || normalizePath(payload?.sourceDir) || '/';
+    const sourceName = primarySourcePath.split('/').filter(Boolean).pop() || '';
+    const targetPath = sourceName
+      ? joinPath(normalizedTargetDirPath, sourceName)
+      : normalizedTargetDirPath;
+    const message = `${t('确认{action}', { action: actionLabel })}\n${primarySourcePath}\n${t('到')}\n${targetPath}`;
+    const confirm = await window.luminDialog?.confirm?.(message);
+    return confirm !== false;
+  }, [fileManagerDualPaneDragPromptOnDirectory, joinPath, normalizePath, t]);
+
+  const resolveDualPaneDragTransferMode = useCallback((ctrlKey = false) => (
+    fileManagerDualPaneDragInvertModifier
+      ? (ctrlKey ? 'copy' : 'cut')
+      : (ctrlKey ? 'cut' : 'copy')
+  ), [fileManagerDualPaneDragInvertModifier]);
+
+  const hideFileManagerDragTip = useCallback(() => {
+    setFileManagerDragTip(null);
+  }, []);
+
+  const updateFileManagerDragTip = useCallback((clientX, clientY, targetPath, ctrlKey = false) => {
+    const mode = resolveDualPaneDragTransferMode(ctrlKey);
+    const actionLabel = mode === 'cut' ? t('移动') : t('复制');
+    const normalizedTargetPath = normalizePath(targetPath) || '/';
+    setFileManagerDragTip({
+      x: clientX + 16,
+      y: clientY + 20,
+      text: t('{action}至:{path}', { action: actionLabel, path: normalizedTargetPath }),
+    });
+  }, [normalizePath, resolveDualPaneDragTransferMode, t]);
+
+  const handleDualPaneTransferDragOver = useCallback((event, paneState) => {
+    if (fileManagerLayoutMode !== FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL || !fileManagerDualPaneDragTransferEnabled) {
+      return;
+    }
+    if (paneState.key === activePaneKey) {
+      return;
+    }
+    const types = Array.from(event?.dataTransfer?.types || []);
+    if (!types.includes(FILE_MANAGER_INTERNAL_DRAG_MIME)) {
+      return;
+    }
+    const payload = internalFileManagerDragPayloadRef.current;
+    if (!payload || payload.sessionId !== sessionId) {
+      return;
+    }
+    const mode = resolveDualPaneDragTransferMode(event.ctrlKey);
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = mode === 'cut' ? 'move' : 'copy';
+    updateFileManagerDragTip(event.clientX, event.clientY, paneState.path, event.ctrlKey);
+    setFileManagerPaneDropTarget(paneState.key);
+  }, [activePaneKey, fileManagerDualPaneDragTransferEnabled, fileManagerLayoutMode, resolveDualPaneDragTransferMode, sessionId, updateFileManagerDragTip]);
+
+  const handleDualPaneTransferDrop = useCallback(async (event, paneState) => {
+    setFileManagerPaneDropTarget('');
+    hideFileManagerDragTip();
+    if (fileManagerLayoutMode !== FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL || !fileManagerDualPaneDragTransferEnabled) {
+      return;
+    }
+    const payload = parseFileManagerDragPayload(event) || internalFileManagerDragPayloadRef.current;
+    internalFileManagerDragPayloadRef.current = null;
+    if (!payload || payload.sessionId !== sessionId || paneState.key === activePaneKey) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const mode = resolveDualPaneDragTransferMode(event.ctrlKey);
+    const confirmed = await confirmDualPaneDirectoryDrag(mode, paneState, payload);
+    if (!confirmed) {
+      return;
+    }
+    await transferFileManagerItems({
+      paths: payload.paths,
+      mode,
+      sourceDir: payload.sourceDir,
+      targetDirPath: paneState.path,
+    });
+    fileListRef.current?.focus();
+  }, [activePaneKey, confirmDualPaneDirectoryDrag, fileManagerDualPaneDragTransferEnabled, fileManagerLayoutMode, hideFileManagerDragTip, parseFileManagerDragPayload, resolveDualPaneDragTransferMode, sessionId, transferFileManagerItems]);
+
   const isDualPaneLayout = fileManagerLayoutMode === FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL;
   const currentPaneTabId = useMemo(() => {
     const paneTabId = String(fileManagerWorkspace?.panes?.[activePaneKey]?.tabId || '').trim();
@@ -5041,6 +5370,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const rightFileManagerPane = useMemo(() => buildFileManagerPaneState('right'), [buildFileManagerPaneState]);
   const renderInactiveFileManagerPane = useCallback((paneState) => {
     const previewItems = paneState.items.filter((item) => !isDeletedPlaceholderItem(item));
+    const isDropTarget = fileManagerPaneDropTarget === paneState.key;
     return (
       <div
         key={`inactive-pane-${paneState.key}`}
@@ -5051,7 +5381,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           flexDirection: 'column',
           borderRight: paneState.key === 'left' ? '1px solid var(--border)' : 'none',
           overflow: 'hidden',
-          background: 'var(--surface-raised)',
+          background: isDropTarget ? 'var(--accent-dim)' : 'var(--surface-raised)',
           position: 'relative',
         }}
         onContextMenu={(event) => {
@@ -5059,6 +5389,22 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           event.stopPropagation();
           closeContextMenu();
           void activateFileManagerPane(paneState.key);
+        }}
+        onDragEnter={(event) => {
+          handleDualPaneTransferDragOver(event, paneState);
+        }}
+        onDragOver={(event) => {
+          handleDualPaneTransferDragOver(event, paneState);
+        }}
+        onDragLeave={(event) => {
+          if (event.currentTarget.contains(event.relatedTarget)) {
+            return;
+          }
+          hideFileManagerDragTip();
+          setFileManagerPaneDropTarget((current) => current === paneState.key ? '' : current);
+        }}
+        onDrop={(event) => {
+          void handleDualPaneTransferDrop(event, paneState);
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderTop: '2px solid transparent', borderBottom: '1px solid var(--border)', background: 'var(--surface-base)' }}>
@@ -5105,9 +5451,16 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               )}
               {previewItems.map((item) => {
                 const itemPath = paneState.path === '/' ? `/${item.name}` : `${paneState.path}/${item.name}`;
+                const rowKey = item.__rowKey || itemPath;
+                const rowEffect = activeRowEffects[rowKey] || '';
                 const permissionDisplay = formatPermissionDisplay(item.permission || '-');
                 return (
-                  <div key={`${paneState.key}:${itemPath}`} className={`file-item${paneState.selectedPaths.includes(itemPath) ? ' selected' : ''}`}>
+                  <div
+                    key={`${paneState.key}:${rowKey}`}
+                    data-file-row-key={rowKey}
+                    className={`file-item${paneState.selectedPaths.includes(itemPath) ? ' selected' : ''}${rowEffect ? ` visual-effect visual-effect-${rowEffect}` : ''}`}
+                    style={item.__luminDeletedPlaceholder ? { '--file-row-height': `${item.__rowHeight || 36}px` } : undefined}
+                  >
                     <div className="file-name-cell">
                       <span className="file-icon">{fileIcon(item.name, item.isDirectory)}</span>
                       <span className={`file-name ${item.isDirectory ? 'is-dir' : ''}`}>{item.name}</span>
@@ -5138,11 +5491,27 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             closeContextMenu();
             void activateFileManagerPane(paneState.key);
           }}
+          onDragEnter={(event) => {
+            handleDualPaneTransferDragOver(event, paneState);
+          }}
+          onDragOver={(event) => {
+            handleDualPaneTransferDragOver(event, paneState);
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget.parentElement?.contains(event.relatedTarget)) {
+              return;
+            }
+            hideFileManagerDragTip();
+            setFileManagerPaneDropTarget((current) => current === paneState.key ? '' : current);
+          }}
+          onDrop={(event) => {
+            void handleDualPaneTransferDrop(event, paneState);
+          }}
           style={{ position: 'absolute', inset: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
         />
       </div>
     );
-  }, [activateFileManagerPane, isDeletedPlaceholderItem, t]);
+  }, [activateFileManagerPane, activeRowEffects, fileManagerPaneDropTarget, handleDualPaneTransferDragOver, handleDualPaneTransferDrop, isDeletedPlaceholderItem, t]);
 
   const uploadPanelTarget = isActive && workbenchState.uploadOpen
     ? (
@@ -5838,6 +6207,26 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   data-file-row-key={rowKey}
                   className={`file-item${isSelected ? ' selected' : ''}${isContextMenuAnchor ? ' context-menu-anchor' : ''}${clipboardMode === 'copy' ? ' clipboard-copy' : ''}${clipboardMode === 'cut' ? ' clipboard-cut' : ''}${isDeletedPlaceholder ? ' deleted-placeholder' : ''}${rowEffect ? ` visual-effect visual-effect-${rowEffect}` : ''}`}
                   style={isDeletedPlaceholder ? { '--file-row-height': `${item.__rowHeight || 36}px` } : undefined}
+                  draggable={isDualPaneLayout && fileManagerDualPaneDragTransferEnabled && !isDeletedPlaceholder}
+                  onDragStart={(event) => {
+                    const payload = buildFileManagerDragPayload(itemPath);
+                    if (!payload) {
+                      event.preventDefault();
+                      return;
+                    }
+                    internalFileManagerDragPayloadRef.current = payload;
+                    event.dataTransfer.effectAllowed = 'copyMove';
+                    event.dataTransfer.setData(FILE_MANAGER_INTERNAL_DRAG_MIME, JSON.stringify(payload));
+                    event.dataTransfer.setData('text/plain', payload.paths.join('\n'));
+                    const oppositePanePath = activePaneKey === 'right' ? leftFileManagerPane.path : rightFileManagerPane.path;
+                    updateFileManagerDragTip(event.clientX, event.clientY, oppositePanePath, event.ctrlKey);
+                    setFileManagerPaneDropTarget(activePaneKey === 'right' ? 'left' : 'right');
+                  }}
+                  onDragEnd={() => {
+                    internalFileManagerDragPayloadRef.current = null;
+                    hideFileManagerDragTip();
+                    setFileManagerPaneDropTarget('');
+                  }}
                   onClick={handleItemClick}
                   onDoubleClick={() => {
                     if (isDeletedPlaceholder) return;
@@ -5957,6 +6346,26 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         <div className="drag-overlay">
           <div className="drag-overlay-text"><Upload size={14} /> {t('释放以上传文件/文件夹')}</div>
         </div>
+      )}
+
+      {fileManagerDragTip && typeof document !== 'undefined' && createPortal(
+        <div
+          className="tiptop-bubble tiptop-bubble-bottom"
+          style={{
+            position: 'fixed',
+            left: fileManagerDragTip.x,
+            top: fileManagerDragTip.y,
+            transform: 'none',
+            opacity: 1,
+            visibility: 'visible',
+            pointerEvents: 'none',
+            zIndex: Z.MENU + 2,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {fileManagerDragTip.text}
+        </div>,
+        document.body
       )}
 
       {/* Context Menu */}
