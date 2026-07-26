@@ -68,6 +68,8 @@ type PendingToolBatch struct {
 	CollaborationRetryCount        int
 	SuppressNextCommandActionSound bool
 	AutoApprovalSettings           AIConversationTaskSettings
+	ForceCollaboration             bool
+	ForceCollaborationReason       string
 }
 
 type aiPendingToolBatch = PendingToolBatch
@@ -2274,6 +2276,56 @@ func extractAILatestAssistantCacheObjects(messages []AIChatRequestMessage) *AICo
 	return nil
 }
 
+func getAILatestComparableAssistantMessageContent(messages []AIChatRequestMessage) (string, bool) {
+	for index := len(messages) - 1; index >= 0; index-- {
+		if strings.ToLower(strings.TrimSpace(messages[index].Role)) != "assistant" {
+			continue
+		}
+		for nextIndex := index + 1; nextIndex < len(messages); nextIndex++ {
+			if !strings.EqualFold(strings.TrimSpace(messages[nextIndex].Role), "user") {
+				continue
+			}
+			if isAIExplicitUserPromptMessage(messages[nextIndex]) {
+				return "", false
+			}
+		}
+		content := strings.TrimSpace(sanitizeAIAssistantToolProtocolText(messages[index].Content))
+		if content == "" {
+			return "", false
+		}
+		return content, true
+	}
+	return "", false
+}
+
+func isAIEmptyAttemptCompletionResult(tool aiParsedToolUse) bool {
+	if strings.TrimSpace(tool.Name) != "attempt_completion" {
+		return false
+	}
+	return sanitizeAIToolResultText(strings.TrimSpace(tool.Params["result"])) == ""
+}
+
+func buildAIForcedCollaborationFlags(requestMessages []AIChatRequestMessage, roundText string, parsedTools []aiParsedToolUse) (bool, string) {
+	if len(parsedTools) == 0 {
+		return false, ""
+	}
+	if len(parsedTools) == 1 && isAIEmptyAttemptCompletionResult(parsedTools[0]) {
+		return true, "attempt_completion_empty_result"
+	}
+	currentAssistantContent := strings.TrimSpace(sanitizeAIAssistantToolProtocolText(roundText))
+	if currentAssistantContent == "" {
+		return false, ""
+	}
+	previousAssistantContent, comparable := getAILatestComparableAssistantMessageContent(requestMessages)
+	if !comparable {
+		return false, ""
+	}
+	if currentAssistantContent != previousAssistantContent {
+		return false, ""
+	}
+	return true, "assistant_same_output_twice"
+}
+
 func buildToolPreviewMessages(turnID string, tools []aiParsedToolUse) []map[string]interface{} {
 	messages := make([]map[string]interface{}, 0, len(tools))
 	for index, tool := range tools {
@@ -2737,6 +2789,8 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 			"tokensPerSecond": roundResult.TokensPerSecond,
 		})
 
+		forceCollaboration, forceCollaborationReason := buildAIForcedCollaborationFlags(requestMessages, roundResult.Text, parsedTools)
+
 		nextRequestMessages := roundResult.NextRequestMessages
 		if len(nextRequestMessages) == 0 {
 			nextRequestMessages = append([]AIChatRequestMessage{}, requestMessages...)
@@ -2758,6 +2812,8 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 			AssistantRetryCount:     assistantRetryCount,
 			CollaborationRetryCount: collaborationRetryCount,
 			AutoApprovalSettings:    autoApprovalSettings,
+			ForceCollaboration:      forceCollaboration,
+			ForceCollaborationReason: forceCollaborationReason,
 		}
 		a.advanceAIChatToolBatch(requestID, batch)
 		return

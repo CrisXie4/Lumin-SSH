@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 type aiCollaborationMode string
 
 const (
 	aiCollaborationModeNone       aiCollaborationMode = ""
+	aiCollaborationModeForced     aiCollaborationMode = "forced"
 	aiCollaborationModeFollowup   aiCollaborationMode = "followup"
 	aiCollaborationModeCompletion aiCollaborationMode = "completion"
 )
@@ -375,6 +377,61 @@ func trimAILatestAssistantRequestMessage(messages []AIChatRequestMessage) ([]AIC
 	return append([]AIChatRequestMessage{}, messages...), false
 }
 
+func buildAIForcedCollaborationTakeoverText() string {
+	switch resolveAICollaborationTemplateLanguage() {
+	case "zh", "zh-CN", "zh-Hans":
+		return "您的回复出现重复,请重新策划您正确的步骤以继续,若已有充足的信息请继续推进任务或继续调用正确且合适的工具."
+	default:
+		return "Your reply has entered a repeated-output state. Please re-plan the correct next steps to proceed. If sufficient information is already available, continue advancing the task or invoke the correct and appropriate tool."
+	}
+}
+
+func resolveAIForcedCollaborationHint(reason string) string {
+	switch strings.TrimSpace(reason) {
+	case "assistant_same_output_twice":
+		return "强制协同原因: 主助手正文连续两次完全一致, 该比较不包含思考链。"
+	case "attempt_completion_empty_result":
+		return "强制协同原因: 主助手给出了 attempt_completion, 但 result 为空。"
+	default:
+		return ""
+	}
+}
+
+func (a *App) emitAIChatForcedCollaborationTakeover(requestID string, text string) {
+	trimmedRequestID := strings.TrimSpace(requestID)
+	trimmedText := strings.TrimSpace(text)
+	if a == nil || trimmedRequestID == "" || trimmedText == "" {
+		return
+	}
+	a.emitAIChatEvent(map[string]interface{}{
+		"kind":      "collaboration_force_user_takeover",
+		"requestId": trimmedRequestID,
+		"text":      trimmedText,
+	})
+}
+
+func (a *App) startAIForcedCollaboration(requestID string, batch *aiPendingToolBatch) {
+	trimmedRequestID := strings.TrimSpace(requestID)
+	if a == nil || trimmedRequestID == "" || batch == nil {
+		return
+	}
+	state := &aiCollaborationState{
+		RequestID:  trimmedRequestID,
+		Batch:      batch,
+		Mode:       aiCollaborationModeForced,
+		RetryCount: batch.CollaborationRetryCount,
+	}
+	a.setAIChatCollaborationState(trimmedRequestID, state)
+	a.emitAIChatCollaborationPending(trimmedRequestID, aiCollaborationModeForced)
+	ctx, cancel := context.WithCancel(context.Background())
+	if !state.start(cancel) {
+		cancel()
+		return
+	}
+	a.setAIChatRequestCancel(trimmedRequestID, cancel)
+	go a.runAIChatCollaboration(ctx, trimmedRequestID, state)
+}
+
 func buildAIChatRequestMessagesFromConversationAPI(apiMessages []AIConversationAPIMessage) []AIChatRequestMessage {
 	normalizedMessages := normalizeAIConversationAPIMessages(apiMessages)
 	requestMessages := make([]AIChatRequestMessage, 0, len(normalizedMessages))
@@ -394,10 +451,20 @@ func buildAIChatRequestMessagesFromConversationAPI(apiMessages []AIConversationA
 }
 
 func buildAICollaborationRequestMessages(batch *aiPendingToolBatch, mode aiCollaborationMode, compressionAttempts int, retryCount int) []AIChatRequestMessage {
-	if batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
+	if batch == nil {
 		return nil
 	}
-	tool := batch.ParsedTools[batch.NextToolIndex]
+	if mode != aiCollaborationModeForced && batch.NextToolIndex >= len(batch.ParsedTools) {
+		return nil
+	}
+	toolIndex := batch.NextToolIndex
+	if toolIndex >= len(batch.ParsedTools) {
+		toolIndex = len(batch.ParsedTools) - 1
+	}
+	tool := aiParsedToolUse{}
+	if toolIndex >= 0 {
+		tool = batch.ParsedTools[toolIndex]
+	}
 	requestMessages := append([]AIChatRequestMessage{}, batch.RequestMessages...)
 	remainingRetryAttempts := aiCollaborationRetryMaxAttempts - retryCount
 	if remainingRetryAttempts < 0 {
@@ -412,17 +479,34 @@ func buildAICollaborationRequestMessages(batch *aiPendingToolBatch, mode aiColla
 		"<pending_tool_xml>",
 		strings.TrimSpace(tool.RawXML),
 		"</pending_tool_xml>",
-		"<output_contract>",
-		"你只能输出以下 4 种形式之一:",
-		"[Done]",
-		"[Continue] 后面紧跟一段要发给主助理的普通用户消息正文",
-		"[Compression]",
-		"[Retry]",
-		"</output_contract>",
-		"<retry_rule>",
-		"如果输出 [Retry], 系统会丢弃上一条主助手消息,并原地重试同一个 assistant 回合。",
-		fmt.Sprintf("当前 [Retry] 独立预算还剩 %d 次。", remainingRetryAttempts),
-		"</retry_rule>",
+	}
+	if mode == aiCollaborationModeForced {
+		lines = append(lines,
+			"<output_contract>",
+			"当前是 forced 模式, 这是一次自动的轨道纠偏介入。",
+			"系统已经强制拒绝了主助手本轮的工具调用, 现在需要你替用户写一条纠偏用户消息, 引导主助手换一个方向或方法, 不要再重复刚才那次调用。",
+			"你只能输出 [Continue] 后接一段要发给主助手的普通用户消息正文, 或者在上下文太脏时输出 [Compression]。",
+			"禁止输出 [Done] 和 [Retry]。",
+			"[Continue] 后面的正文会被当作新的普通用户消息自动发送给主助手继续任务。",
+			"</output_contract>",
+		)
+		if hint := resolveAIForcedCollaborationHint(batch.ForceCollaborationReason); hint != "" {
+			lines = append(lines, "<forced_rule>", hint, "</forced_rule>")
+		}
+	} else {
+		lines = append(lines,
+			"<output_contract>",
+			"你只能输出以下 4 种形式之一:",
+			"[Done]",
+			"[Continue] 后面紧跟一段要发给主助理的普通用户消息正文",
+			"[Compression]",
+			"[Retry]",
+			"</output_contract>",
+			"<retry_rule>",
+			"如果输出 [Retry], 系统会丢弃上一条主助手消息,并原地重试同一个 assistant 回合。",
+			fmt.Sprintf("当前 [Retry] 独立预算还剩 %d 次。", remainingRetryAttempts),
+			"</retry_rule>",
+		)
 	}
 	if mode == aiCollaborationModeFollowup {
 		lines = append(lines,
@@ -541,6 +625,17 @@ func (a *App) finishAIChatCollaborationWithFallback(requestID string, state *aiC
 		state.Cancel()
 	}
 	switch state.Mode {
+	case aiCollaborationModeForced:
+		state.Batch.ForceCollaboration = false
+		state.Batch.ForceCollaborationReason = ""
+		a.emitAIChatCollaborationFinished(trimmedRequestID, state.Mode, aiCollaborationDecisionRetry, "")
+		a.emitAIChatRuntimePhase(trimmedRequestID, "ready")
+		a.emitAIChatEvent(map[string]interface{}{
+			"kind":      "automatic_request_skipped",
+			"requestId": trimmedRequestID,
+		})
+		a.emitAIChatForcedCollaborationTakeover(trimmedRequestID, buildAIForcedCollaborationTakeoverText())
+		a.finishAIChatRequest(trimmedRequestID)
 	case aiCollaborationModeFollowup:
 		a.emitAIChatCollaborationFinished(trimmedRequestID, state.Mode, aiCollaborationDecisionFallbackFollowup, "")
 	case aiCollaborationModeCompletion:
@@ -565,6 +660,44 @@ func (a *App) finalizeAIChatCollaborationContinue(requestID string, state *aiCol
 	a.popAIChatRequestCancel(trimmedRequestID)
 	if state.Cancel != nil {
 		state.Cancel()
+	}
+	if state.Mode == aiCollaborationModeForced && state.Batch != nil {
+		now := time.Now()
+		forcedText := strings.TrimSpace(messageText)
+		forcedUserMessageID := fmt.Sprintf("%s-forced-user-%d", state.Batch.AssistantMessageID, now.UnixNano())
+		forcedUserContent := fmt.Sprintf("<user_message>\n%s\n</user_message>", forcedText)
+		state.Batch.RequestMessages = append(state.Batch.RequestMessages, AIChatRequestMessage{
+			Role:    "user",
+			Content: forcedUserContent,
+		})
+		state.Batch.ForceCollaboration = false
+		state.Batch.ForceCollaborationReason = ""
+		a.emitAIChatEvent(map[string]interface{}{
+			"kind":      "append_message",
+			"requestId": trimmedRequestID,
+			"message": map[string]interface{}{
+				"id":     forcedUserMessageID,
+				"kind":   "user",
+				"text":   forcedText,
+				"time":   now.Format("15:04"),
+				"turnId": "",
+			},
+		})
+		a.emitAIChatEvent(map[string]interface{}{
+			"kind":      "api_message_append",
+			"requestId": trimmedRequestID,
+			"message": map[string]interface{}{
+				"messageId":    fmt.Sprintf("api-forced-user-%d", now.UnixNano()),
+				"role":         "user",
+				"content":      forcedUserContent,
+				"uiMessageIds": []string{forcedUserMessageID},
+				"ts":           now.UnixMilli(),
+			},
+		})
+		a.emitAIChatCollaborationFinished(trimmedRequestID, state.Mode, aiCollaborationDecisionContinue, "")
+		a.emitAIChatToolExecutionPersistRequested(trimmedRequestID)
+		a.resumeAIChatAfterToolBatch(trimmedRequestID, state.Batch)
+		return
 	}
 	if state.Batch != nil && state.Batch.NextToolIndex < len(state.Batch.ParsedTools) {
 		switch state.Mode {
@@ -721,6 +854,10 @@ func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, stat
 		a.finalizeAIChatCollaborationDone(trimmedRequestID, state)
 		return
 	case aiCollaborationDecisionRetry:
+		if state.Mode == aiCollaborationModeForced {
+			a.finishAIChatCollaborationWithFallback(trimmedRequestID, state)
+			return
+		}
 		a.finalizeAIChatCollaborationRetry(trimmedRequestID, state)
 		return
 	default:
