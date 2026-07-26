@@ -99,7 +99,6 @@ func buildPromptBuilderTemplateVariables(sessionID string, profile AIProviderPro
 	variables := buildAIBaseTemplateVariables(aiTemplateLanguageCode)
 	variables["apply_diff_tag_name"] = tagSet.ApplyDiffTagName
 	variables["write_to_file_tag_name"] = tagSet.WriteToFileTagName
-	variables["session_id"] = strings.TrimSpace(sessionID)
 	variables["language_preference_instruction"] = buildPromptBuilderLanguagePreferenceInstruction()
 	variables["live_search_instruction"] = buildPromptBuilderLiveSearchInstruction(profile)
 	variables["mcp_client_prompt_context"] = mcpClientPromptContext
@@ -199,6 +198,9 @@ func formatAIChatToolDefinition(definition mcpserver.ToolDefinition, sessionID s
 	builder.WriteString("Usage:\n")
 	builder.WriteString(fmt.Sprintf("<%s>\n", definition.Name))
 	for _, name := range paramNames {
+		if shouldOmitAIChatToolSessionIDInUsage(name, sessionID) {
+			continue
+		}
 		builder.WriteString(fmt.Sprintf("<%s>%s</%s>\n", name, buildAIChatToolParameterPlaceholder(name, properties[name], sessionID), name))
 	}
 	builder.WriteString(fmt.Sprintf("</%s>", definition.Name))
@@ -240,6 +242,10 @@ func extractAIChatToolRequiredSet(schema map[string]any) map[string]bool {
 	return requiredSet
 }
 
+func shouldOmitAIChatToolSessionIDInUsage(name string, sessionID string) bool {
+	return strings.TrimSpace(name) == "session_id" && strings.TrimSpace(sessionID) != ""
+}
+
 func formatAIChatToolParameter(name string, schema map[string]any, required bool) string {
 	requiredText := "optional"
 	if required {
@@ -252,9 +258,12 @@ func formatAIChatToolParameter(name string, schema map[string]any, required bool
 	if minimum, ok := schema["minimum"]; ok {
 		minimumText = fmt.Sprintf(" minimum=%v.", minimum)
 	}
-	detailParts := make([]string, 0, 2)
+	detailParts := make([]string, 0, 3)
 	if descriptionText != "" && descriptionText != "<nil>" {
 		detailParts = append(detailParts, descriptionText)
+	}
+	if strings.TrimSpace(name) == "session_id" {
+		detailParts = append(detailParts, "For the current AI panel terminal, omit this parameter by default. Only include it when explicitly targeting another terminal session, another server session, or when the user explicitly asks for that session.")
 	}
 	if enumText != "" {
 		detailParts = append(detailParts, enumText)
@@ -295,10 +304,7 @@ func formatAIChatToolEnum(rawEnum any) string {
 func buildAIChatToolParameterPlaceholder(name string, schema map[string]any, sessionID string) string {
 	switch name {
 	case "session_id":
-		if strings.TrimSpace(sessionID) != "" {
-			return strings.TrimSpace(sessionID)
-		}
-		return "session_id from list_connected_sessions"
+		return "target session_id only when explicitly operating another terminal or server session"
 	case "path", "file_path":
 		return "/path/to/file"
 	case "local_parent":

@@ -24,9 +24,10 @@ function TitleIcon({ Icon, onClick, clickTitle }) {
   )
 }
 
-function UserMessageActionBar({ t, title, time, actions, onTitleIconClick, titleIconClickTitle }) {
+function UserMessageActionBar({ t, title, time, actions, onTitleIconClick, titleIconClickTitle, leadingContent = null }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, fontSize: 11, color: 'var(--text-tertiary)', flexWrap: 'wrap' }}>
+      {leadingContent}
       <AIChatMessageActions actions={actions} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
         <span>{time}</span>
@@ -49,10 +50,10 @@ function AssistantMessageActionBar({ t, title, time, actions, status, onTitleIco
   )
 }
 
-export default function AIChatMessageActionBar({ variant = 'assistant', title = assistantTitleKey, time = '', actions = [], status = null, onTitleIconClick, titleIconClickTitle = '' }) {
+export default function AIChatMessageActionBar({ variant = 'assistant', title = assistantTitleKey, time = '', actions = [], status = null, onTitleIconClick, titleIconClickTitle = '', leadingContent = null }) {
   const { t } = useTranslation()
   if (variant === 'user') {
-    return <UserMessageActionBar t={t} title={title} time={time} actions={actions} onTitleIconClick={onTitleIconClick} titleIconClickTitle={titleIconClickTitle} />
+    return <UserMessageActionBar t={t} title={title} time={time} actions={actions} onTitleIconClick={onTitleIconClick} titleIconClickTitle={titleIconClickTitle} leadingContent={leadingContent} />
   }
   return <AssistantMessageActionBar t={t} title={title} time={time} actions={actions} status={status} onTitleIconClick={onTitleIconClick} titleIconClickTitle={titleIconClickTitle} />
 }

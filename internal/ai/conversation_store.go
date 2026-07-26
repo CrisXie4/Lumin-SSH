@@ -108,6 +108,12 @@ type AIConversationSummary struct {
 	ToolProtocol              string `json:"toolProtocol"`
 	MessageCount              int    `json:"messageCount"`
 	PromptCacheBypassTimestamp string `json:"promptCacheBypassTimestamp,omitempty"`
+	ParentConversationID      string `json:"parentConversationId,omitempty"`
+	RootConversationID        string `json:"rootConversationId,omitempty"`
+	RelationType              string `json:"relationType,omitempty"`
+	RelationSource            string `json:"relationSource,omitempty"`
+	ParentTitleSnapshot       string `json:"parentTitleSnapshot,omitempty"`
+	Archived                  bool   `json:"archived,omitempty"`
 }
 
 type AIConversationSnapshot struct {
@@ -118,6 +124,12 @@ type AIConversationSnapshot struct {
 	Status                    string                     `json:"status"`
 	ToolProtocol              string                     `json:"toolProtocol"`
 	PromptCacheBypassTimestamp string                     `json:"promptCacheBypassTimestamp,omitempty"`
+	ParentConversationID      string                     `json:"parentConversationId,omitempty"`
+	RootConversationID        string                     `json:"rootConversationId,omitempty"`
+	RelationType              string                     `json:"relationType,omitempty"`
+	RelationSource            string                     `json:"relationSource,omitempty"`
+	ParentTitleSnapshot       string                     `json:"parentTitleSnapshot,omitempty"`
+	Archived                  bool                       `json:"archived,omitempty"`
 	Messages                  []AIConversationMessage    `json:"messages"`
 	APIMessages               []AIConversationAPIMessage `json:"apiMessages"`
 	Settings                  AIConversationTaskSettings `json:"settings"`
@@ -393,6 +405,11 @@ func normalizeAIConversationSummary(summary AIConversationSummary) AIConversatio
 		summary.ToolProtocol = "xml"
 	}
 	summary.PromptCacheBypassTimestamp = normalizeAIPromptCacheBypassTimestamp(summary.PromptCacheBypassTimestamp)
+	summary.ParentConversationID = strings.TrimSpace(summary.ParentConversationID)
+	summary.RootConversationID = strings.TrimSpace(summary.RootConversationID)
+	summary.RelationType = normalizeAIConversationRelationType(summary.RelationType)
+	summary.RelationSource = normalizeAIConversationRelationSource(summary.RelationSource)
+	summary.ParentTitleSnapshot = strings.TrimSpace(summary.ParentTitleSnapshot)
 	return summary
 }
 
@@ -412,6 +429,11 @@ func normalizeAIConversationSnapshot(snapshot AIConversationSnapshot, fallbackSe
 		snapshot.ToolProtocol = "xml"
 	}
 	snapshot.PromptCacheBypassTimestamp = normalizeAIPromptCacheBypassTimestamp(snapshot.PromptCacheBypassTimestamp)
+	snapshot.ParentConversationID = strings.TrimSpace(snapshot.ParentConversationID)
+	snapshot.RootConversationID = strings.TrimSpace(snapshot.RootConversationID)
+	snapshot.RelationType = normalizeAIConversationRelationType(snapshot.RelationType)
+	snapshot.RelationSource = normalizeAIConversationRelationSource(snapshot.RelationSource)
+	snapshot.ParentTitleSnapshot = strings.TrimSpace(snapshot.ParentTitleSnapshot)
 	if snapshot.Messages == nil {
 		snapshot.Messages = []AIConversationMessage{}
 	}
@@ -541,6 +563,12 @@ func (c *ConfigManager) writeAIConversationSnapshot(snapshot AIConversationSnaps
 		ToolProtocol:              snapshot.ToolProtocol,
 		MessageCount:              len(snapshot.Messages),
 		PromptCacheBypassTimestamp: snapshot.PromptCacheBypassTimestamp,
+		ParentConversationID:      snapshot.ParentConversationID,
+		RootConversationID:        snapshot.RootConversationID,
+		RelationType:              snapshot.RelationType,
+		RelationSource:            snapshot.RelationSource,
+		ParentTitleSnapshot:       snapshot.ParentTitleSnapshot,
+		Archived:                  snapshot.Archived,
 	})
 
 	metadataBytes, err := marshalAIConversationJSON(summary)
@@ -662,6 +690,12 @@ func (c *ConfigManager) GetAIConversation(conversationID string) (AIConversation
 		Status:                    summary.Status,
 		ToolProtocol:              summary.ToolProtocol,
 		PromptCacheBypassTimestamp: summary.PromptCacheBypassTimestamp,
+		ParentConversationID:      summary.ParentConversationID,
+		RootConversationID:        summary.RootConversationID,
+		RelationType:              summary.RelationType,
+		RelationSource:            summary.RelationSource,
+		ParentTitleSnapshot:       summary.ParentTitleSnapshot,
+		Archived:                  summary.Archived,
 		Messages:                  c.readAIConversationMessages(conversationID),
 		APIMessages:               c.readAIConversationAPIMessages(conversationID),
 		Settings:                  c.readAIConversationSettings(conversationID, fallbackSettings),
@@ -719,6 +753,12 @@ func (c *ConfigManager) DeleteAIConversation(conversationID string) error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	targetSummary, err := c.readAIConversationSummary(conversationID)
+	if err == nil && strings.TrimSpace(targetSummary.ParentConversationID) == "" {
+		if reorganizeErr := c.reorganizeAIRootConversationDescendantsLocked(targetSummary); reorganizeErr != nil {
+			return reorganizeErr
+		}
+	}
 	if err := os.RemoveAll(c.aiConversationDir(conversationID)); err != nil {
 		return err
 	}

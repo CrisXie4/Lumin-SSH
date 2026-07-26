@@ -367,15 +367,22 @@ func (c *ConfigManager) buildAIConversationSnapshotLocked(conversationID string)
 	}
 	fallbackSettings := defaultAIConversationTaskSettings(c.readAIGlobalSettingsUnlocked())
 	snapshot := AIConversationSnapshot{
-		ID:           summary.ID,
-		Title:        summary.Title,
-		CreatedAt:    summary.CreatedAt,
-		UpdatedAt:    summary.UpdatedAt,
-		Status:       summary.Status,
-		ToolProtocol: summary.ToolProtocol,
-		Messages:     c.readAIConversationMessages(conversationID),
-		APIMessages:  c.readAIConversationAPIMessages(conversationID),
-		Settings:     c.readAIConversationSettings(conversationID, fallbackSettings),
+		ID:                        summary.ID,
+		Title:                     summary.Title,
+		CreatedAt:                 summary.CreatedAt,
+		UpdatedAt:                 summary.UpdatedAt,
+		Status:                    summary.Status,
+		ToolProtocol:              summary.ToolProtocol,
+		PromptCacheBypassTimestamp: summary.PromptCacheBypassTimestamp,
+		ParentConversationID:      summary.ParentConversationID,
+		RootConversationID:        summary.RootConversationID,
+		RelationType:              summary.RelationType,
+		RelationSource:            summary.RelationSource,
+		ParentTitleSnapshot:       summary.ParentTitleSnapshot,
+		Archived:                  summary.Archived,
+		Messages:                  c.readAIConversationMessages(conversationID),
+		APIMessages:               c.readAIConversationAPIMessages(conversationID),
+		Settings:                  c.readAIConversationSettings(conversationID, fallbackSettings),
 	}
 	return normalizeAIConversationSnapshot(snapshot, fallbackSettings), nil
 }

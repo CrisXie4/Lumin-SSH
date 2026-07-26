@@ -42,6 +42,8 @@ function renderGroupedEntry(entry, handlers, entryMeta = {}) {
           onDelete={handlers.onDeleteMessage}
           messageActionBarAtBottom={Boolean(handlers.messageActionBarAtBottom)}
           perfMetricsText={resolveSendPerfMetrics(handlers.sendPerfMetricsRef, entry.message?.id)}
+          isEditingTarget={Boolean(handlers.isEditingTarget)}
+          isFirstUserMessage={Boolean(entryMeta.isFirstUserMessage)}
         />
       )
     case 'assistant-turn':
@@ -188,6 +190,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const [highlightedEntryKey, setHighlightedEntryKey] = useState('')
   const groupedMessages = useMemo(() => groupConversationMessages(messages), [messages])
   const lastAssistantTurnIndex = useMemo(() => getLastAssistantTurnIndex(groupedMessages), [groupedMessages])
+  const firstUserMessageIndex = useMemo(() => groupedMessages.findIndex((entry) => entry?.type === 'user'), [groupedMessages])
 
   const suspendFollow = useCallback(() => {
     const scroller = scrollerElementRef.current
@@ -465,7 +468,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       onTouchCancelCapture={handleUserTouchEndCapture}
       onPointerDownCapture={handlePointerDownCapture}
       onKeyDownCapture={handleKeyDownCapture}
-      style={{ flex: 1, minHeight: 0, height: '100%', background: 'transparent', position: 'relative' }}>
+      style={{ flex: 1, minHeight: 0, height: '100%', background: 'transparent', position: 'relative', overflowX: 'hidden' }}>
       <style>{`
         @keyframes ai-chat-message-flash {
           0%, 100% { background: rgba(var(--accent-rgb), 0.06); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12); }
@@ -491,16 +494,18 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
             transform: translateX(0);
           }
         }
-        @keyframes ai-chat-message-breathe {
+        @keyframes ai-chat-message-breathe-border {
           0%, 100% {
-            transform: translate3d(0, 0, 0) scale(1);
-            box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 0 0 rgba(var(--accent-rgb), 0);
-            background: rgba(var(--accent-rgb), 0.06);
+            background: rgba(var(--accent-rgb), 0.04);
+            border-color: rgba(var(--accent-rgb), 0.14);
+            box-shadow: inset 0 1px 0 var(--border-light), inset 0 0 0 1px rgba(var(--accent-rgb), 0.08), inset 0 0 10px rgba(var(--accent-rgb), 0.04);
+            filter: brightness(1) saturate(1);
           }
           50% {
-            transform: translate3d(0, 0, 0) scale(1.013);
-            box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.24), 0 0 26px rgba(var(--accent-rgb), 0.16);
-            background: rgba(var(--accent-rgb), 0.11);
+            background: rgba(var(--accent-rgb), 0.18);
+            border-color: rgba(var(--accent-rgb), 0.82);
+            box-shadow: inset 0 1px 0 rgba(var(--accent-rgb), 0.28), inset 0 0 0 1px rgba(var(--accent-rgb), 0.44), inset 0 0 24px rgba(var(--accent-rgb), 0.16);
+            filter: brightness(1.14) saturate(1.3);
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -518,8 +523,11 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         ref={virtuosoRef}
         scrollerRef={(element) => {
           scrollerElementRef.current = element instanceof HTMLElement ? element : null
+          if (element instanceof HTMLElement) {
+            element.style.overflowX = 'hidden'
+          }
         }}
-        style={{ height: '100%' }}
+        style={{ height: '100%', overflowX: 'hidden' }}
         data={groupedMessages}
         increaseViewportBy={{ top: 1200, bottom: 800 }}
         initialTopMostItemIndex={Math.max(groupedMessages.length - 1, 0)}
@@ -546,12 +554,9 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
                 borderRadius: 14,
                 animation: isHighlighted
                   ? 'ai-chat-message-flash 0.72s ease-in-out 4'
-                  : isEditingTargetEntry
-                    ? 'ai-chat-message-breathe 2s ease-in-out infinite'
-                    : `${entryAnimName} 1500ms cubic-bezier(0.16, 1, 0.3, 1) both`,
-                background: isEditingTargetEntry ? 'rgba(var(--accent-rgb), 0.08)' : isHighlighted ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
+                  : `${entryAnimName} 1500ms cubic-bezier(0.16, 1, 0.3, 1) both`,
+                background: isHighlighted ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
                 transition: 'background 180ms ease, box-shadow 180ms ease',
-                willChange: isEditingTargetEntry ? 'transform, box-shadow, background-color' : 'auto',
               }}>
               {renderGroupedEntry(entry, {
                 onSendUserMessage,
@@ -565,9 +570,11 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
                 followupInteractionLocked,
                 messageActionBarAtBottom,
                 sendPerfMetricsRef,
+                isEditingTarget: isEditingTargetEntry,
               }, {
                 isLastAssistantTurn: index === lastAssistantTurnIndex,
                 hasSubsequentAssistantMessage: hasSubsequentAssistantTurn(groupedMessages, index),
+                isFirstUserMessage: index === firstUserMessageIndex,
               })}
             </div>
           )

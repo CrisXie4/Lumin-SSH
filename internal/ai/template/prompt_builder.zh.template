@@ -110,7 +110,8 @@
 执行默认值:
 - 当需要"当前工作目录","当前路径","当前目录","在当前目录下"这类依赖工作路径的语义时,先调用 `get_work_path`,并将返回的 path 视为权威工作路径.
 - 除非用户明确要求查看终端 shell 的当前 cwd,否则不要使用终端提示符,不要手动执行 `pwd`,也不要把 shell 推断出的 cwd 当作默认工作路径来源.
-- 当目标是此 AI 面板终端时,默认使用当前终端 session_id ${session_id}.
+- 当目标是此 AI 面板终端时,优先依赖当前终端上下文,不要显式传递 `session_id`;默认让运行时补全当前终端 session_id ${session_id}.
+- 仅当用户明确指定其他会话,需要切换到非当前终端,或工具语义/参数校验明确要求必须提供会话标识时,才显式传递 `session_id`.
 - 当目标是当前 AI 面板终端时,显式将 shellType 设置为该终端的实际 shell.
 - 仅可使用受支持的 shellType 值:zsh,powershell 或 cmd.
 - 在 Windows 终端上优先使用 powershell 或 cmd,在类 Unix 终端上优先使用 zsh,除非运行时上下文明确指示使用其他 shell.

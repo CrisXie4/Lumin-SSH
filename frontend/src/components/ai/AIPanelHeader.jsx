@@ -1,5 +1,5 @@
 import { Columns2, House, MessagesSquare, Search, Settings } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '../../i18n.js'
 import Tiptop from '../Tiptop.jsx'
 import IconActionButton from './IconActionButton.jsx'
@@ -38,15 +38,70 @@ export default function AIPanelHeader({
   apiMessageCount = 0,
   isCondensingContext = false,
   canCondenseContext = false,
+  canQuickCondenseContext = false,
+  canSummaryCondenseContext = false,
   conversationSearchActive = false,
   onCondenseContext,
+  onCondenseContextFullSummary,
+  fullSummaryCondenseAvailable = false,
 }) {
   const { t } = useTranslation()
+  const [condenseActionsVisible, setCondenseActionsVisible] = useState(false)
+  const condenseCloseTimerRef = useRef(0)
   const contextTokenLabel = useMemo(() => formatAIContextTokens(contextTokens), [contextTokens])
   const normalizedApiMessageCount = Number.isFinite(Number(apiMessageCount)) && Number(apiMessageCount) > 0 ? Math.trunc(Number(apiMessageCount)) : 0
   const modeToggleLabel = isDevilMode
     ? t('切换到天使模式:善良的天使会全心全意地保护你和你的设备,它有绝对的原则和信念来帮助你,同时也会感化你的不良行为')
     : t('切换到恶魔模式:可恶的恶魔会不择手段地满足你所有的危险想法,它会诱导你突破边界,并纵容你一步步滑向失控')
+  const condenseButtonTooltip = isCondensingContext ? t('正在智能压缩上下文') : t('当前对话上下文 Token,点击压缩')
+  const canOpenCondenseActions = Boolean(canCondenseContext || canQuickCondenseContext || canSummaryCondenseContext)
+  const clearCondenseCloseTimer = () => {
+    if (condenseCloseTimerRef.current) {
+      window.clearTimeout(condenseCloseTimerRef.current)
+      condenseCloseTimerRef.current = 0
+    }
+  }
+  const showCondenseActions = () => {
+    if (!canOpenCondenseActions) {
+      return
+    }
+    clearCondenseCloseTimer()
+    setCondenseActionsVisible(true)
+  }
+  const hideCondenseActionsWithDelay = () => {
+    clearCondenseCloseTimer()
+    condenseCloseTimerRef.current = window.setTimeout(() => {
+      setCondenseActionsVisible(false)
+      condenseCloseTimerRef.current = 0
+    }, 180)
+  }
+  useEffect(() => () => {
+    clearCondenseCloseTimer()
+  }, [])
+  const handleTriggerQuickCondense = () => {
+    if (!canQuickCondenseContext) {
+      return
+    }
+    setCondenseActionsVisible(false)
+    onCondenseContext?.()
+  }
+  const handleTriggerFullSummaryCondense = () => {
+    if (!canSummaryCondenseContext) {
+      return
+    }
+    setCondenseActionsVisible(false)
+    onCondenseContextFullSummary?.()
+  }
+  const handleCondenseButtonClick = () => {
+    if (canQuickCondenseContext) {
+      handleTriggerQuickCondense()
+      return
+    }
+    if (canSummaryCondenseContext) {
+      clearCondenseCloseTimer()
+      setCondenseActionsVisible((current) => !current)
+    }
+  }
 
   return (
     <div style={{ height: 54, padding: '0 14px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)', flexShrink: 0, ...(isDevilMode ? { backgroundImage: 'linear-gradient(180deg, rgba(255, 0, 38, 0.08) 0%, transparent 100%)', boxShadow: 'inset 0 -1px 0 rgba(255, 64, 64, 0.12), inset 0 0 28px rgba(255, 0, 38, 0.08)' } : {}) }}>
@@ -55,7 +110,7 @@ export default function AIPanelHeader({
         {showModeToggle ? (
           <Tiptop
             text={modeToggleLabel}
-            placement="bottom"
+            placement="top"
           >
             <button
               type="button"
@@ -81,38 +136,114 @@ export default function AIPanelHeader({
       </div>
       {showContextTokens ? (
         <div style={{ justifySelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
-          <Tiptop text={isCondensingContext ? t('正在智能压缩上下文') : t('当前对话上下文 Token,点击智能压缩')} placement="bottom">
-            <button
-              type="button"
-              aria-label={isCondensingContext ? t('正在智能压缩上下文') : t('当前对话上下文 Token,点击智能压缩')}
-              disabled={!canCondenseContext}
-              onClick={onCondenseContext}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 'fit-content',
-                minWidth: 0,
-                maxWidth: '100%',
-                height: 28,
-                padding: '0 10px',
-                borderRadius: 999,
-                border: `1px solid ${isCondensingContext ? 'var(--accent-border)' : 'var(--border)'}`,
-                background: isCondensingContext ? 'var(--accent-dim)' : 'transparent',
-                color: isCondensingContext ? 'var(--accent)' : 'var(--text-secondary)',
-                fontSize: 12,
-                fontWeight: 700,
-                opacity: canCondenseContext || isCondensingContext ? 1 : 0.6,
-                transition: 'var(--transition)',
-                whiteSpace: 'nowrap',
-                lineHeight: 1,
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {contextTokenLabel}
-            </button>
-          </Tiptop>
-          <Tiptop text={t('当前对话节点数')} placement="bottom">
+          <div
+            style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+            onMouseEnter={showCondenseActions}
+            onMouseLeave={hideCondenseActionsWithDelay}
+            onFocus={showCondenseActions}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                hideCondenseActionsWithDelay()
+              }
+            }}
+          >
+            <Tiptop text={condenseButtonTooltip} placement="top">
+              <button
+                type="button"
+                aria-label={condenseButtonTooltip}
+                disabled={!canOpenCondenseActions}
+                onClick={handleCondenseButtonClick}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 'fit-content',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  height: 28,
+                  padding: '0 10px',
+                  borderRadius: 999,
+                  border: `1px solid ${isCondensingContext ? 'var(--accent-border)' : 'var(--border)'}`,
+                  background: isCondensingContext ? 'var(--accent-dim)' : 'transparent',
+                  color: isCondensingContext ? 'var(--accent)' : 'var(--text-secondary)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  opacity: canOpenCondenseActions || isCondensingContext ? 1 : 0.6,
+                  transition: 'var(--transition)',
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {contextTokenLabel}
+              </button>
+            </Tiptop>
+            {condenseActionsVisible && canOpenCondenseActions ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 2px)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'grid',
+                  gap: 6,
+                  minWidth: 156,
+                  padding: 8,
+                  borderRadius: 12,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-raised)',
+                  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.18)',
+                  zIndex: 20,
+                }}
+                onMouseEnter={showCondenseActions}
+                onMouseLeave={hideCondenseActionsWithDelay}
+              >
+                <button
+                  type="button"
+                  onClick={handleTriggerQuickCondense}
+                  disabled={!canQuickCondenseContext}
+                  style={{
+                    height: 30,
+                    padding: '0 10px',
+                    borderRadius: 999,
+                    border: '1px solid var(--accent-border)',
+                    background: 'var(--accent-dim)',
+                    color: 'var(--accent)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    cursor: canQuickCondenseContext ? 'pointer' : 'not-allowed',
+                    opacity: canQuickCondenseContext ? 1 : 0.45,
+                    transition: 'var(--transition)',
+                  }}
+                >
+                  {t('快速智能压缩')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTriggerFullSummaryCondense}
+                  disabled={!canSummaryCondenseContext}
+                  style={{
+                    height: 30,
+                    padding: '0 10px',
+                    borderRadius: 999,
+                    border: '1px solid var(--border)',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    cursor: canSummaryCondenseContext ? 'pointer' : 'not-allowed',
+                    opacity: canSummaryCondenseContext ? 1 : 0.45,
+                    transition: 'var(--transition)',
+                  }}
+                >
+                  {t('全量摘要压缩')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <Tiptop text={t('当前对话节点数')} placement="top">
             <span
               aria-label={t('当前对话节点数')}
               style={{

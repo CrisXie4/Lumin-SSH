@@ -188,6 +188,10 @@ func (b *AIBindings) CondenseAIConversationContext(conversationID string, sessio
 	return b.runtime().CondenseAIConversationContext(conversationID, sessionID)
 }
 
+func (b *AIBindings) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (ai.AIConversationSnapshot, error) {
+	return b.runtime().CreateAIConversationSummarySubtask(conversationID, sessionID, requestID)
+}
+
 func (b *AIBindings) BuildAIConversationTokenLedger(sessionID string, snapshotJSON string) (ai.AIConversationTokenLedger, error) {
 	return b.runtime().BuildAIConversationTokenLedger(sessionID, snapshotJSON)
 }
