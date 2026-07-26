@@ -12,46 +12,274 @@ function normalizeCompactDiffText(value) {
   return typeof value === 'string' ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : ''
 }
 
-function buildCompactDiffRows(rawDiff, maxVisibleLines = 18) {
+function splitCompactDiffLines(value) {
+  const normalized = normalizeCompactDiffText(value)
+  if (normalized === '') {
+    return []
+  }
+  return normalized.split('\n')
+}
+
+function buildCompactAlignedLinePairs(leftLines, rightLines) {
+  const maxProduct = 32000
+  if (leftLines.length * rightLines.length > maxProduct) {
+    const prefixPairs = []
+    let prefix = 0
+    while (prefix < leftLines.length && prefix < rightLines.length && leftLines[prefix] === rightLines[prefix]) {
+      prefixPairs.push({ left: leftLines[prefix], right: rightLines[prefix], equal: true })
+      prefix += 1
+    }
+    let leftSuffix = leftLines.length - 1
+    let rightSuffix = rightLines.length - 1
+    const suffixPairs = []
+    while (leftSuffix >= prefix && rightSuffix >= prefix && leftLines[leftSuffix] === rightLines[rightSuffix]) {
+      suffixPairs.unshift({ left: leftLines[leftSuffix], right: rightLines[rightSuffix], equal: true })
+      leftSuffix -= 1
+      rightSuffix -= 1
+    }
+    const middleLeft = leftLines.slice(prefix, leftSuffix + 1)
+    const middleRight = rightLines.slice(prefix, rightSuffix + 1)
+    const middlePairs = []
+    const maxLength = Math.max(middleLeft.length, middleRight.length)
+    for (let index = 0; index < maxLength; index += 1) {
+      middlePairs.push({
+        left: index < middleLeft.length ? middleLeft[index] : null,
+        right: index < middleRight.length ? middleRight[index] : null,
+        equal: false,
+      })
+    }
+    return [...prefixPairs, ...middlePairs, ...suffixPairs]
+  }
+  const dp = Array.from({ length: leftLines.length + 1 }, () => new Array(rightLines.length + 1).fill(0))
+  for (let leftIndex = leftLines.length - 1; leftIndex >= 0; leftIndex -= 1) {
+    for (let rightIndex = rightLines.length - 1; rightIndex >= 0; rightIndex -= 1) {
+      if (leftLines[leftIndex] === rightLines[rightIndex]) {
+        dp[leftIndex][rightIndex] = dp[leftIndex + 1][rightIndex + 1] + 1
+      } else {
+        dp[leftIndex][rightIndex] = Math.max(dp[leftIndex + 1][rightIndex], dp[leftIndex][rightIndex + 1])
+      }
+    }
+  }
+  const rawPairs = []
+  let leftCursor = 0
+  let rightCursor = 0
+  while (leftCursor < leftLines.length && rightCursor < rightLines.length) {
+    if (leftLines[leftCursor] === rightLines[rightCursor]) {
+      rawPairs.push({ left: leftLines[leftCursor], right: rightLines[rightCursor], equal: true })
+      leftCursor += 1
+      rightCursor += 1
+      continue
+    }
+    if (dp[leftCursor + 1][rightCursor] >= dp[leftCursor][rightCursor + 1]) {
+      rawPairs.push({ left: leftLines[leftCursor], right: null, equal: false })
+      leftCursor += 1
+    } else {
+      rawPairs.push({ left: null, right: rightLines[rightCursor], equal: false })
+      rightCursor += 1
+    }
+  }
+  while (leftCursor < leftLines.length) {
+    rawPairs.push({ left: leftLines[leftCursor], right: null, equal: false })
+    leftCursor += 1
+  }
+  while (rightCursor < rightLines.length) {
+    rawPairs.push({ left: null, right: rightLines[rightCursor], equal: false })
+    rightCursor += 1
+  }
+  const alignedPairs = []
+  let pairCursor = 0
+  while (pairCursor < rawPairs.length) {
+    if (rawPairs[pairCursor].equal) {
+      alignedPairs.push(rawPairs[pairCursor])
+      pairCursor += 1
+      continue
+    }
+    const removed = []
+    const added = []
+    while (pairCursor < rawPairs.length && !rawPairs[pairCursor].equal) {
+      if (rawPairs[pairCursor].left !== null) {
+        removed.push(rawPairs[pairCursor].left)
+      }
+      if (rawPairs[pairCursor].right !== null) {
+        added.push(rawPairs[pairCursor].right)
+      }
+      pairCursor += 1
+    }
+    const maxLength = Math.max(removed.length, added.length)
+    for (let index = 0; index < maxLength; index += 1) {
+      alignedPairs.push({
+        left: index < removed.length ? removed[index] : null,
+        right: index < added.length ? added[index] : null,
+        equal: false,
+      })
+    }
+  }
+  return alignedPairs
+}
+
+function buildCompactVisibleRanges(rows, contextLines = 2) {
+  const ranges = []
+  rows.forEach((row, index) => {
+    if (row.equal) {
+      return
+    }
+    const start = Math.max(0, index - contextLines)
+    const end = Math.min(rows.length - 1, index + contextLines)
+    const previousRange = ranges[ranges.length - 1]
+    if (previousRange && start <= previousRange.end + 1) {
+      previousRange.end = Math.max(previousRange.end, end)
+      return
+    }
+    ranges.push({ start, end })
+  })
+  return ranges
+}
+
+function buildCompactDiffRowsFromBlocks(blocks, t) {
+  const rows = []
+  const normalizedBlocks = Array.isArray(blocks) ? blocks.filter((block) => block && typeof block === 'object') : []
+  normalizedBlocks.forEach((block, blockIndex) => {
+    const beforeLines = splitCompactDiffLines(block.before)
+    const afterLines = splitCompactDiffLines(block.after)
+    const alignedPairs = buildCompactAlignedLinePairs(beforeLines, afterLines)
+    let oldLineNumber = 1
+    let newLineNumber = 1
+    const pairRows = alignedPairs.map((pair) => {
+      const nextRow = {
+        equal: pair.equal,
+        leftText: pair.left,
+        rightText: pair.right,
+        oldLineNumber: pair.left !== null ? oldLineNumber : null,
+        newLineNumber: pair.right !== null ? newLineNumber : null,
+      }
+      if (pair.left !== null) {
+        oldLineNumber += 1
+      }
+      if (pair.right !== null) {
+        newLineNumber += 1
+      }
+      return nextRow
+    })
+    const visibleRanges = buildCompactVisibleRanges(pairRows)
+    if (visibleRanges.length === 0) {
+      return
+    }
+    const labelKey = typeof block.label === 'string' && block.label.trim() ? block.label.trim() : '文件 #{count}'
+    const labelParams = block?.labelParams && typeof block.labelParams === 'object'
+      ? block.labelParams
+      : { count: blockIndex + 1 }
+    rows.push({
+      type: 'file',
+      text: t(labelKey, labelParams),
+      key: `file-${blockIndex}`,
+    })
+    let previousEnd = -1
+    visibleRanges.forEach((range, rangeIndex) => {
+      if (range.start > previousEnd + 1) {
+        rows.push({
+          type: 'hidden',
+          count: range.start - previousEnd - 1,
+          key: `hidden-${blockIndex}-${rangeIndex}`,
+        })
+      }
+      for (let pairIndex = range.start; pairIndex <= range.end; pairIndex += 1) {
+        const pairRow = pairRows[pairIndex]
+        if (pairRow.equal) {
+          rows.push({
+            type: 'context',
+            oldLineNumber: pairRow.oldLineNumber,
+            newLineNumber: pairRow.newLineNumber,
+            text: pairRow.leftText ?? pairRow.rightText ?? '',
+            key: `context-${blockIndex}-${pairIndex}`,
+          })
+          continue
+        }
+        if (pairRow.leftText !== null) {
+          rows.push({
+            type: 'remove',
+            oldLineNumber: pairRow.oldLineNumber,
+            newLineNumber: null,
+            text: pairRow.leftText,
+            key: `remove-${blockIndex}-${pairIndex}`,
+          })
+        }
+        if (pairRow.rightText !== null) {
+          rows.push({
+            type: 'add',
+            oldLineNumber: null,
+            newLineNumber: pairRow.newLineNumber,
+            text: pairRow.rightText,
+            key: `add-${blockIndex}-${pairIndex}`,
+          })
+        }
+      }
+      previousEnd = range.end
+    })
+    if (previousEnd < pairRows.length - 1) {
+      rows.push({
+        type: 'hidden',
+        count: pairRows.length - previousEnd - 1,
+        key: `hidden-tail-${blockIndex}`,
+      })
+    }
+  })
+  return rows
+}
+
+function buildCompactDiffRowsFromRawDiff(rawDiff) {
   const lines = normalizeCompactDiffText(rawDiff).split('\n')
   if (lines.length > 0 && lines[lines.length - 1] === '') {
     lines.pop()
   }
-  if (lines.length <= maxVisibleLines) {
-    return lines.map((text, index) => ({ type: 'line', text, key: `line-${index}` }))
-  }
-  const headCount = Math.min(12, Math.max(8, maxVisibleLines - 4))
-  const tailCount = Math.max(4, maxVisibleLines - headCount)
-  const hiddenCount = Math.max(lines.length - headCount - tailCount, 0)
-  return [
-    ...lines.slice(0, headCount).map((text, index) => ({ type: 'line', text, key: `head-${index}` })),
-    ...(hiddenCount > 0 ? [{ type: 'hidden', count: hiddenCount, key: 'hidden' }] : []),
-    ...lines.slice(lines.length - tailCount).map((text, index) => ({ type: 'line', text, key: `tail-${index}` })),
-  ]
+  return lines.map((text, index) => {
+    if (text.startsWith('diff --git')) {
+      return { type: 'file', text, key: `raw-file-${index}` }
+    }
+    if (text.startsWith('@@') || text.startsWith('index ') || text.startsWith('---') || text.startsWith('+++')) {
+      return { type: 'meta', text, key: `raw-meta-${index}` }
+    }
+    if (text.startsWith('+') && !text.startsWith('+++')) {
+      return { type: 'add', oldLineNumber: null, newLineNumber: null, text: text.slice(1), key: `raw-add-${index}` }
+    }
+    if (text.startsWith('-') && !text.startsWith('---')) {
+      return { type: 'remove', oldLineNumber: null, newLineNumber: null, text: text.slice(1), key: `raw-remove-${index}` }
+    }
+    return {
+      type: 'context',
+      oldLineNumber: null,
+      newLineNumber: null,
+      text: text.startsWith(' ') ? text.slice(1) : text,
+      key: `raw-context-${index}`,
+    }
+  })
 }
 
-function resolveCompactDiffRowPalette(text) {
-  if (typeof text !== 'string') {
-    return { color: 'var(--text-secondary)', background: 'transparent' }
+function buildCompactDiffRows(rawDiff, reviewBlocks, t) {
+  const blockRows = buildCompactDiffRowsFromBlocks(reviewBlocks, t)
+  if (blockRows.length > 0) {
+    return blockRows
   }
-  if (text.startsWith('@@')) {
-    return { color: 'var(--accent)', background: 'rgba(var(--accent-rgb), 0.08)' }
-  }
-  if (text.startsWith('+') && !text.startsWith('+++')) {
-    return { color: 'var(--success)', background: 'rgba(var(--success-rgb), 0.10)' }
-  }
-  if (text.startsWith('-') && !text.startsWith('---')) {
-    return { color: 'var(--danger)', background: 'rgba(var(--danger-rgb), 0.10)' }
-  }
-  if (text.startsWith('diff --git') || text.startsWith('index ') || text.startsWith('---') || text.startsWith('+++')) {
-    return { color: 'var(--text-secondary)', background: 'rgba(var(--accent-rgb), 0.05)' }
-  }
-  return { color: 'var(--text-primary)', background: 'transparent' }
+  return buildCompactDiffRowsFromRawDiff(rawDiff)
 }
 
-function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
+function resolveCompactDiffRowPalette(row) {
+  switch (row?.type) {
+    case 'file':
+      return { color: 'var(--text-primary)', background: 'rgba(var(--accent-rgb), 0.08)' }
+    case 'meta':
+      return { color: 'var(--accent)', background: 'rgba(var(--accent-rgb), 0.08)' }
+    case 'add':
+      return { color: 'var(--success)', background: 'rgba(var(--success-rgb), 0.10)' }
+    case 'remove':
+      return { color: 'var(--danger)', background: 'rgba(var(--danger-rgb), 0.10)' }
+    default:
+      return { color: 'var(--text-primary)', background: 'transparent' }
+  }
+}
+
+function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, t }) {
   const normalizedRawDiff = typeof rawDiff === 'string' ? rawDiff.trim() : ''
-  const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff), [normalizedRawDiff])
+  const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff, reviewBlocks, t), [normalizedRawDiff, reviewBlocks, t])
   if (loading) {
     return (
       <div style={{ padding: '10px 12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12 }}>
@@ -59,7 +287,7 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
       </div>
     )
   }
-  if (!normalizedRawDiff) {
+  if (rows.length === 0) {
     return (
       <div style={{ padding: '10px 12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12 }}>
         {t('暂无可预览差异')}
@@ -68,7 +296,7 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
   }
   return (
     <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', overflow: 'hidden' }}>
-      <div style={{ maxHeight: 220, overflow: 'auto', overscrollBehavior: 'contain', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '18px' }}>
+      <div style={{ maxHeight: 240, overflow: 'auto', overscrollBehavior: 'contain', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '18px' }}>
         {rows.map((row, index) => {
           if (row.type === 'hidden') {
             return (
@@ -87,13 +315,30 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
               </div>
             )
           }
-          const palette = resolveCompactDiffRowPalette(row.text)
+          const palette = resolveCompactDiffRowPalette(row)
+          if (row.type === 'file') {
+            return (
+              <div
+                key={row.key}
+                style={{
+                  padding: '6px 10px',
+                  background: palette.background,
+                  color: palette.color,
+                  borderTop: index === 0 ? 'none' : '1px solid rgba(255,255,255,0.02)',
+                  fontWeight: 700,
+                  wordBreak: 'break-all',
+                }}>
+                {row.text}
+              </div>
+            )
+          }
+          const linePrefix = row.type === 'add' ? '+ ' : row.type === 'remove' ? '- ' : row.type === 'meta' ? '' : '  '
           return (
             <div
               key={row.key}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '40px minmax(0, 1fr)',
+                gridTemplateColumns: '52px 52px minmax(0, 1fr)',
                 minWidth: 0,
                 background: palette.background,
                 borderTop: index === 0 ? 'none' : '1px solid rgba(255,255,255,0.02)',
@@ -107,7 +352,18 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
                   userSelect: 'none',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                {index + 1}
+                {row.oldLineNumber ?? ''}
+              </div>
+              <div
+                style={{
+                  padding: '0 8px',
+                  color: 'var(--text-tertiary)',
+                  textAlign: 'right',
+                  borderRight: '1px solid var(--border-subtle)',
+                  userSelect: 'none',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                {row.newLineNumber ?? ''}
               </div>
               <div
                 style={{
@@ -118,7 +374,7 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
                   overflowWrap: 'anywhere',
                   minWidth: 0,
                 }}>
-                {row.text || ' '}
+                {row.type === 'meta' ? row.text : `${linePrefix}${row.text || ' '}`}
               </div>
             </div>
           )
@@ -233,6 +489,7 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
   const showCopyCharacterCount = copyCharacterCount > 0
   const resultTokenEstimateDisplay = typeof extra?.resultTokenEstimateDisplay === 'string' ? extra.resultTokenEstimateDisplay.trim() : ''
   const inlineDiffRaw = typeof inlineDiffReview?.rawDiff === 'string' ? inlineDiffReview.rawDiff : ''
+  const inlineDiffBlocks = Array.isArray(inlineDiffReview?.blocks) ? inlineDiffReview.blocks : []
 
   const handleToggleExpand = () => {
     setIsAutoExpanded(false)
@@ -409,7 +666,7 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
         </div>
         {showInlineDiffPreview ? (
           <div style={{ padding: '12px' }}>
-            <CompactDiffPreview rawDiff={inlineDiffRaw} loading={inlineDiffLoading} t={t} />
+            <CompactDiffPreview reviewBlocks={inlineDiffBlocks} rawDiff={inlineDiffRaw} loading={inlineDiffLoading} t={t} />
           </div>
         ) : null}
         {expanded ? (
