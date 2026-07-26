@@ -1927,7 +1927,17 @@ export default function Terminal({
     setLinkMenu(null);
     const hasSelection = !!(termRef.current && termRef.current.getSelection());
     setContextHasSelection(hasSelection);
-    setContextMenu(clampMenuPosition(e.clientX, e.clientY, 190, 168));
+    setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY, 190, 168), source: 'terminal' });
+  };
+
+  const handleInputContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLinkMenu(null);
+    const input = cmdInputRef.current;
+    const hasSelection = !!input && (input.selectionStart ?? 0) !== (input.selectionEnd ?? 0);
+    setContextHasSelection(hasSelection);
+    setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY, 190, 132), source: 'input' });
   };
 
   const closeContextMenu = () => {
@@ -2073,7 +2083,82 @@ export default function Terminal({
   }, [contextMenu, linkMenu]);
 
   const handleMenuAction = (action) => {
+    const contextSource = contextMenu?.source || 'terminal';
     closeContextMenu();
+
+    if (contextSource === 'input') {
+      const input = cmdInputRef.current;
+      if (!input) return;
+      const value = input.value || '';
+      const selectionStart = input.selectionStart ?? 0;
+      const selectionEnd = input.selectionEnd ?? selectionStart;
+      const selectedText = selectionEnd > selectionStart ? value.slice(selectionStart, selectionEnd) : '';
+
+      switch (action) {
+        case 'cut': {
+          if (!selectedText) {
+            input.focus();
+            return;
+          }
+          navigator.clipboard.writeText(selectedText).catch(() => {});
+          const nextValue = `${value.slice(0, selectionStart)}${value.slice(selectionEnd)}`;
+          setCmdInput(nextValue);
+          requestAnimationFrame(() => {
+            if (!cmdInputRef.current) return;
+            cmdInputRef.current.focus();
+            cmdInputRef.current.setSelectionRange(selectionStart, selectionStart);
+            syncCommandInputHeight();
+            if (nextValue.trim()) {
+              commandAutocompleteFocusedRef.current = true;
+              scheduleCommandAutocompleteSuggestions(nextValue);
+            } else {
+              closeCommandAutocomplete();
+            }
+          });
+          break;
+        }
+        case 'copy':
+          if (selectedText) {
+            navigator.clipboard.writeText(selectedText).catch(() => {});
+          }
+          input.focus();
+          break;
+        case 'paste':
+          navigator.clipboard.readText().then((text) => {
+            const insertText = String(text || '');
+            const nextValue = `${value.slice(0, selectionStart)}${insertText}${value.slice(selectionEnd)}`;
+            const nextCaret = selectionStart + insertText.length;
+            setCmdInput(nextValue);
+            requestAnimationFrame(() => {
+              if (!cmdInputRef.current) return;
+              cmdInputRef.current.focus();
+              cmdInputRef.current.setSelectionRange(nextCaret, nextCaret);
+              syncCommandInputHeight();
+              if (nextValue.trim()) {
+                commandAutocompleteFocusedRef.current = true;
+                scheduleCommandAutocompleteSuggestions(nextValue);
+              } else {
+                closeCommandAutocomplete();
+              }
+            });
+          }).catch((err) => {
+            console.error('Failed to read clipboard:', err);
+            input.focus();
+          });
+          break;
+        case 'selectAll':
+          requestAnimationFrame(() => {
+            cmdInputRef.current?.focus();
+            cmdInputRef.current?.select();
+          });
+          break;
+        default:
+          input.focus();
+          break;
+      }
+      return;
+    }
+
     if (!termRef.current) return;
     switch (action) {
       case 'copy': {
@@ -2877,6 +2962,7 @@ export default function Terminal({
           rows={1}
           spellCheck={false}
           autoComplete="off"
+          onContextMenu={handleInputContextMenu}
           onChange={e => {
             const nextValue = e.target.value;
             setCmdInput(nextValue);
@@ -3355,15 +3441,23 @@ export default function Terminal({
             fontFamily: 'var(--font-ui)',
           }}
         >
-          {[
-            { icon: <Copy size={13} />, label: t('复制'), action: 'copy', shortcut: formatShortcut('Ctrl+C'), disabled: !contextHasSelection },
-            { icon: <Clipboard size={13} />, label: t('粘贴'), action: 'paste', shortcut: formatShortcut('Ctrl+V') },
-            { type: 'separator' },
-            { icon: <CheckSquare size={13} />, label: t('全选'), action: 'selectAll' },
-            { icon: <Search size={13} />, label: t('查找'), action: 'find', shortcut: formatShortcut(shortcutsRef.current?.find || 'Ctrl+F') },
-            { icon: <MessageSquarePlus size={13} />, label: t('添加到 AI助手'), action: 'sendToAssistant', disabled: !contextHasSelection },
-            { icon: <Trash2 size={13} />, label: t('清空屏幕'), action: 'clear', shortcut: formatShortcut('Ctrl+L') },
-          ].map((item, idx) =>
+          {(contextMenu?.source === 'input'
+            ? [
+                { icon: <Trash2 size={13} />, label: t('剪切'), action: 'cut', shortcut: formatShortcut('Ctrl+X'), disabled: !contextHasSelection },
+                { icon: <Copy size={13} />, label: t('复制'), action: 'copy', shortcut: formatShortcut('Ctrl+C'), disabled: !contextHasSelection },
+                { icon: <Clipboard size={13} />, label: t('粘贴'), action: 'paste', shortcut: formatShortcut('Ctrl+V') },
+                { type: 'separator' },
+                { icon: <CheckSquare size={13} />, label: t('全选'), action: 'selectAll', shortcut: formatShortcut('Ctrl+A') },
+              ]
+            : [
+                { icon: <Copy size={13} />, label: t('复制'), action: 'copy', shortcut: formatShortcut('Ctrl+C'), disabled: !contextHasSelection },
+                { icon: <Clipboard size={13} />, label: t('粘贴'), action: 'paste', shortcut: formatShortcut('Ctrl+V') },
+                { type: 'separator' },
+                { icon: <CheckSquare size={13} />, label: t('全选'), action: 'selectAll' },
+                { icon: <Search size={13} />, label: t('查找'), action: 'find', shortcut: formatShortcut(shortcutsRef.current?.find || 'Ctrl+F') },
+                { icon: <MessageSquarePlus size={13} />, label: t('添加到 AI助手'), action: 'sendToAssistant', disabled: !contextHasSelection },
+                { icon: <Trash2 size={13} />, label: t('清空屏幕'), action: 'clear', shortcut: formatShortcut('Ctrl+L') },
+              ]).map((item, idx) =>
             item.type === 'separator' ? (
               <div key={idx} className="context-menu-separator" />
             ) : (

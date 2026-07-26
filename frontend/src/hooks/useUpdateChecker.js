@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
-import { APP_VERSION } from '../config.js';
+import { APP_GITHUB_RELEASE_API, APP_VERSION } from '../config.js';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
 import { t } from '../i18n.js';
 
-const RELEASE_API = 'https://api.github.com/repos/wmwlwmwl/Lumin-SSH/releases/latest';
+const RELEASE_API = APP_GITHUB_RELEASE_API;
 
 let sharedDownloadProgress = -1;
 const downloadProgressListeners = new Set();

@@ -100,9 +100,11 @@ type GitHubContributor struct {
 	Weeks  []GitHubContributorWeek `json:"weeks"`
 }
 
-const githubContributorsAPIURL = "https://github.com/wmwlwmwl/Lumin-SSH/graphs/contributors-data"
+const githubRepoURL = "https://github.com/wmwlwmwl/Lumin-SSH"
 
-const githubContributorsRefererURL = "https://github.com/wmwlwmwl/Lumin-SSH/graphs/contributors"
+const githubContributorsAPIURL = githubRepoURL + "/graphs/contributors-data"
+
+const githubContributorsRefererURL = githubRepoURL + "/graphs/contributors"
 
 const githubContributorsRequestTimeout = 10 * time.Second
 
