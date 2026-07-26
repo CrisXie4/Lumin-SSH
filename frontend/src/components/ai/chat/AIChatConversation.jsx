@@ -108,6 +108,13 @@ function hasSubsequentAssistantTurn(entries, currentIndex) {
   return false
 }
 
+function getAIChatMessageEntryAnimationName(entry) {
+  if (entry?.type === 'user') {
+    return 'ai-chat-msg-enter-right'
+  }
+  return 'ai-chat-msg-enter-left'
+}
+
 function isVerticallyScrollableElement(element) {
   if (!(element instanceof HTMLElement)) {
     return false
@@ -167,7 +174,7 @@ function getTouchClientY(event) {
   return Number.isFinite(value) ? value : null
 }
 
-export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null }) {
+export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }) {
   const { t } = useTranslation()
   const containerRef = useRef(null)
   const virtuosoRef = useRef(null)
@@ -464,6 +471,48 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
           0%, 100% { background: rgba(var(--accent-rgb), 0.06); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12); }
           50% { background: rgba(var(--accent-rgb), 0.22); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.42), 0 0 24px rgba(var(--accent-rgb), 0.24); }
         }
+        @keyframes ai-chat-msg-enter-left {
+          from {
+            opacity: 0;
+            transform: translateX(-88px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes ai-chat-msg-enter-right {
+          from {
+            opacity: 0;
+            transform: translateX(88px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes ai-chat-message-breathe {
+          0%, 100% {
+            transform: translate3d(0, 0, 0) scale(1);
+            box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 0 0 rgba(var(--accent-rgb), 0);
+            background: rgba(var(--accent-rgb), 0.06);
+          }
+          50% {
+            transform: translate3d(0, 0, 0) scale(1.013);
+            box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.24), 0 0 26px rgba(var(--accent-rgb), 0.16);
+            background: rgba(var(--accent-rgb), 0.11);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes ai-chat-msg-enter-left {
+            from { opacity: 0; transform: translateX(-6px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+          @keyframes ai-chat-msg-enter-right {
+            from { opacity: 0; transform: translateX(6px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        }
       `}</style>
       <Virtuoso
         ref={virtuosoRef}
@@ -488,14 +537,21 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         itemContent={(index, entry) => {
           const entryKey = getEntryKey(entry, index)
           const isHighlighted = highlightedEntryKey === entryKey
+          const entryAnimName = getAIChatMessageEntryAnimationName(entry)
+          const isEditingTargetEntry = entry?.type === 'user' && typeof entry?.message?.id === 'string' && entry.message.id.trim() && entry.message.id.trim() === editingTargetMessageId
           return (
             <div
               style={{
                 padding: `0 14px ${index === groupedMessages.length - 1 ? 18 : 14}px`,
                 borderRadius: 14,
-                animation: isHighlighted ? 'ai-chat-message-flash 0.72s ease-in-out 4' : 'none',
-                background: isHighlighted ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
+                animation: isHighlighted
+                  ? 'ai-chat-message-flash 0.72s ease-in-out 4'
+                  : isEditingTargetEntry
+                    ? 'ai-chat-message-breathe 2s ease-in-out infinite'
+                    : `${entryAnimName} 1500ms cubic-bezier(0.16, 1, 0.3, 1) both`,
+                background: isEditingTargetEntry ? 'rgba(var(--accent-rgb), 0.08)' : isHighlighted ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
                 transition: 'background 180ms ease, box-shadow 180ms ease',
+                willChange: isEditingTargetEntry ? 'transform, box-shadow, background-color' : 'auto',
               }}>
               {renderGroupedEntry(entry, {
                 onSendUserMessage,

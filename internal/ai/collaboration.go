@@ -122,11 +122,18 @@ func getAICollaborationModeForTool(tool aiParsedToolUse) aiCollaborationMode {
 	}
 }
 
+func (a *App) isAIChatCollaborationEnabledForBatch(batch *aiPendingToolBatch) bool {
+	if a == nil || batch == nil {
+		return false
+	}
+	return a.getAIAutoApprovalSettingsForConversation(batch.Payload.ConversationID).AlwaysAllowFollowupQuestions
+}
+
 func (a *App) shouldUseAIChatCollaboration(batch *aiPendingToolBatch) bool {
 	if a == nil || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return false
 	}
-	if !batch.AutoApprovalSettings.AlwaysAllowFollowupQuestions {
+	if !a.isAIChatCollaborationEnabledForBatch(batch) {
 		return false
 	}
 	return getAICollaborationModeForTool(batch.ParsedTools[batch.NextToolIndex]) != aiCollaborationModeNone
@@ -803,7 +810,11 @@ func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, stat
 		return
 	}
 	batch := state.Batch
-	if batch.NextToolIndex >= len(batch.ParsedTools) {
+	if len(batch.ParsedTools) == 0 {
+		a.finishAIChatCollaborationWithFallback(trimmedRequestID, state)
+		return
+	}
+	if state.Mode != aiCollaborationModeForced && batch.NextToolIndex >= len(batch.ParsedTools) {
 		a.finishAIChatCollaborationWithFallback(trimmedRequestID, state)
 		return
 	}
@@ -892,6 +903,10 @@ func (a *App) StartAIChatCollaboration(requestID string) error {
 	}
 	state := a.getAIChatCollaborationState(trimmedRequestID)
 	if state == nil || state.Batch == nil || state.Mode == aiCollaborationModeNone {
+		return nil
+	}
+	if state.Mode != aiCollaborationModeForced && !a.shouldUseAIChatCollaboration(state.Batch) {
+		a.popAIChatCollaborationState(trimmedRequestID)
 		return nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
