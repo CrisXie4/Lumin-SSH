@@ -447,6 +447,27 @@ function formatAIProviderBalanceLabel(value) {
   return `¥${normalizedValue}`
 }
 
+function parseAIProviderBalanceNumber(value) {
+  const normalizedValue = stripAIProviderBalanceCurrencyPrefix(value).replace(/,/g, '')
+  if (!normalizedValue) {
+    return null
+  }
+  const parsedValue = Number.parseFloat(normalizedValue)
+  return Number.isFinite(parsedValue) ? parsedValue : null
+}
+
+function formatAIProviderBalanceDeltaLabel(value) {
+  if (!Number.isFinite(value) || value === 0) {
+    return ''
+  }
+  const sign = value > 0 ? '+' : '-'
+  const absValue = Math.abs(value)
+  const formattedValue = absValue >= 1000
+    ? absValue.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : absValue.toFixed(absValue >= 100 ? 0 : absValue >= 1 ? 2 : 4).replace(/\.?0+$/u, '')
+  return `${sign}${formattedValue}`
+}
+
 function extractAIProviderBalanceValue(payload) {
   if (typeof payload === 'string' && payload.trim()) {
     try {
@@ -529,11 +550,17 @@ export default function AIProviderSelector({
   const [tokenStoreViewTitle, setTokenStoreViewTitle] = useState('')
   const [embeddedBrowserContext, setEmbeddedBrowserContext] = useState(null)
   const [providerBalanceLabel, setProviderBalanceLabel] = useState('')
+  const [providerBalanceDelta, setProviderBalanceDelta] = useState(null)
+  const [providerBalanceDeltaTick, setProviderBalanceDeltaTick] = useState(0)
   const [quickModelOptions, setQuickModelOptions] = useState([])
   const [quickModelLoading, setQuickModelLoading] = useState(false)
   const [quickModelError, setQuickModelError] = useState('')
   const [quickModelResolved, setQuickModelResolved] = useState(false)
   const modelButtonRef = useRef(null)
+  const balanceDeltaTimeoutRef = useRef(null)
+  const lastBalanceProviderIdRef = useRef('')
+  const lastBalanceNumericValueRef = useRef(null)
+  const providerBalanceCacheRef = useRef({})
   const expandLeft = triggerRect ? triggerRect.left + 400 > window.innerWidth - 16 : false
   const tooltipExpandLeft = tooltipTriggerRect ? tooltipTriggerRect.left + 280 > window.innerWidth - 16 : false
   const [editingState, setEditingState] = useState({ open: false, mode: 'edit', provider: null })
@@ -608,6 +635,8 @@ export default function AIProviderSelector({
   }, [selectedProvider, t])
   const providerBalanceLabelEnabled = isAIProviderBalanceLabelEnabled(selectedProvider)
   const providerTriggerText = providerBalanceLabelEnabled ? (providerBalanceLabel || '¥ --') : (selectedProvider?.name || t('选择供应商'))
+  const providerBalanceDeltaLabel = providerBalanceDelta === null ? '' : formatAIProviderBalanceDeltaLabel(providerBalanceDelta)
+  const providerBalanceDeltaPositive = Number(providerBalanceDelta) > 0
   const providerSummaryRows = [
     { label: t('供应商'), value: selectedProvider?.name || t('选择供应商') },
     { label: t('模型'), value: getProviderModelSummary(t, selectedProvider) },
@@ -845,18 +874,26 @@ export default function AIProviderSelector({
   useEffect(() => {
     if (!selectedProvider || !providerBalanceLabelEnabled) {
       setProviderBalanceLabel('')
+      setProviderBalanceDelta(null)
+      lastBalanceProviderIdRef.current = ''
+      lastBalanceNumericValueRef.current = null
       return undefined
     }
     const origin = resolveAIProviderBaseOrigin(selectedProvider.baseUrl)
     const apiKey = typeof selectedProvider.apiKey === 'string' ? selectedProvider.apiKey.trim() : ''
+    const providerId = typeof selectedProvider.id === 'string' ? selectedProvider.id.trim() : ''
+    const cachedBalanceEntry = providerId ? providerBalanceCacheRef.current[providerId] || null : null
     if (!origin || !apiKey) {
       setProviderBalanceLabel('¥ --')
+      setProviderBalanceDelta(null)
+      lastBalanceProviderIdRef.current = providerId
+      lastBalanceNumericValueRef.current = null
       return undefined
     }
     const requestId = balanceRequestRef.current + 1
     balanceRequestRef.current = requestId
     const controller = new AbortController()
-    setProviderBalanceLabel('¥ --')
+    setProviderBalanceLabel(cachedBalanceEntry?.label || '¥ --')
     void fetch(`${origin}/api/usage/token/user-balance?apikey=${encodeURIComponent(apiKey)}`, {
       method: 'GET',
       signal: controller.signal,
@@ -876,18 +913,61 @@ export default function AIProviderSelector({
           return
         }
         const balanceValue = extractAIProviderBalanceValue(payload)
-        setProviderBalanceLabel(formatAIProviderBalanceLabel(balanceValue))
+        const nextNumericValue = parseAIProviderBalanceNumber(balanceValue)
+        const previousNumericValue = cachedBalanceEntry?.numericValue
+        const nextBalanceLabel = formatAIProviderBalanceLabel(balanceValue)
+        setProviderBalanceLabel(nextBalanceLabel)
+        if (
+          providerId
+          && Number.isFinite(previousNumericValue)
+          && Number.isFinite(nextNumericValue)
+        ) {
+          const deltaValue = nextNumericValue - previousNumericValue
+          if (deltaValue !== 0) {
+            setProviderBalanceDelta(deltaValue)
+            setProviderBalanceDeltaTick((current) => current + 1)
+          }
+        }
+        if (providerId) {
+          providerBalanceCacheRef.current[providerId] = {
+            label: nextBalanceLabel,
+            numericValue: nextNumericValue,
+          }
+        }
+        lastBalanceProviderIdRef.current = providerId
+        lastBalanceNumericValueRef.current = nextNumericValue
       })
       .catch(() => {
         if (balanceRequestRef.current !== requestId) {
           return
         }
-        setProviderBalanceLabel('¥ --')
+        setProviderBalanceLabel(cachedBalanceEntry?.label || '¥ --')
+        setProviderBalanceDelta(null)
       })
     return () => {
       controller.abort()
     }
   }, [balanceRefreshSignal, providerBalanceLabelEnabled, selectedProvider?.apiKey, selectedProvider?.baseUrl, selectedProvider?.id])
+
+  useEffect(() => {
+    if (balanceDeltaTimeoutRef.current) {
+      window.clearTimeout(balanceDeltaTimeoutRef.current)
+      balanceDeltaTimeoutRef.current = null
+    }
+    if (!providerBalanceDeltaLabel) {
+      return undefined
+    }
+    balanceDeltaTimeoutRef.current = window.setTimeout(() => {
+      setProviderBalanceDelta(null)
+      balanceDeltaTimeoutRef.current = null
+    }, 2400)
+    return () => {
+      if (balanceDeltaTimeoutRef.current) {
+        window.clearTimeout(balanceDeltaTimeoutRef.current)
+        balanceDeltaTimeoutRef.current = null
+      }
+    }
+  }, [providerBalanceDeltaLabel, providerBalanceDeltaTick])
 
   useEffect(() => () => closeTooltip(), [closeTooltip])
 
@@ -1510,6 +1590,47 @@ export default function AIProviderSelector({
   return (
     <>
       <div ref={containerRef} style={{ position: 'relative', flex: '1 1 0', width: 0, minWidth: 0, maxWidth: '100%', overflow: 'visible', zIndex: open || modelMenuOpen || reasoningMenuOpen ? 40 : 'auto' }}>
+        {providerBalanceLabelEnabled && providerBalanceDeltaLabel ? (
+          <span
+            key={`${providerBalanceDeltaTick}:${providerBalanceDeltaLabel}`}
+            style={{
+              position: 'absolute',
+              left: 10,
+              bottom: 'calc(100% + 2px)',
+              pointerEvents: 'none',
+              fontSize: 12,
+              fontWeight: 700,
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+              color: providerBalanceDeltaPositive ? 'var(--success)' : 'var(--danger)',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.22)',
+              animation: 'ai-provider-balance-delta-float 2.2s ease-out forwards',
+              zIndex: 10003,
+            }}
+          >
+            {providerBalanceDeltaLabel}
+          </span>
+        ) : null}
+        <style>{`
+          @keyframes ai-provider-balance-delta-float {
+            0% {
+              opacity: 0;
+              transform: translateY(8px) scale(0.92);
+            }
+            18% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+            72% {
+              opacity: 1;
+              transform: translateY(-10px) scale(1);
+            }
+            100% {
+              opacity: 0;
+              transform: translateY(-18px) scale(0.98);
+            }
+          }
+        `}</style>
         <div style={{ display: 'flex', alignItems: 'stretch', width: '100%', minWidth: 0, maxWidth: '100%' }}>
           <button
             type="button"
