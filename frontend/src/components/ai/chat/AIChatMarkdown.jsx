@@ -39,7 +39,7 @@ function getSelectedTextWithinContainer(container) {
 }
 
 const markdownComponents = {
-  p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.7 }}>{children}</p>,
+  p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{children}</p>,
   ul: ({ children }) => <ul style={{ margin: '0 0 10px', paddingLeft: 20 }}>{children}</ul>,
   ol: ({ children }) => <ol style={{ margin: '0 0 10px', paddingLeft: 20 }}>{children}</ol>,
   li: ({ children }) => <li style={{ margin: '2px 0', lineHeight: 1.7 }}>{children}</li>,

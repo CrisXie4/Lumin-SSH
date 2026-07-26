@@ -84,7 +84,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
         ) : null}
         {hasBody ? (
           <div style={{ paddingTop: hasSectionBeforeBody && !hasReasoning ? 10 : 0, borderTop: hasSectionBeforeBody && !hasReasoning ? '1px solid var(--border-subtle)' : 'none' }}>
-            <AIChatAssistantBodyPane text={assistantText} />
+            <AIChatAssistantBodyPane text={assistantText} isStreaming={Boolean(assistant?.streaming)} />
           </div>
         ) : null}
         {hasTools ? (

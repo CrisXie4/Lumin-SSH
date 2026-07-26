@@ -68,7 +68,7 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t }) {
   }
   return (
     <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', overflow: 'hidden' }}>
-      <div style={{ maxHeight: 220, overflow: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '18px' }}>
+      <div style={{ maxHeight: 220, overflow: 'auto', overscrollBehavior: 'contain', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '18px' }}>
         {rows.map((row, index) => {
           if (row.type === 'hidden') {
             return (
@@ -414,11 +414,11 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
         ) : null}
         {expanded ? (
           <div style={{ display: 'grid', gap: 10, padding: '12px', borderTop: showInlineDiffPreview ? '1px solid var(--border-subtle)' : 'none' }}>
-            <pre style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto' }}>{code}</pre>
+            <pre style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}>{code}</pre>
             {result ? (
               <div style={{ display: 'grid', gap: 6 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{t('result')}</div>
-                <pre style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-base)', color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflowY: 'auto', overflowX: 'auto' }}>{t(result)}</pre>
+                <pre style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-base)', color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}>{t(result)}</pre>
               </div>
             ) : null}
           </div>

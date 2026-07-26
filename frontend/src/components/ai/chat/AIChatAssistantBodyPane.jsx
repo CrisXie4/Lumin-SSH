@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import AIChatMarkdown from './AIChatMarkdown.jsx'
 
 const streamingAnimatedTailLength = 1
@@ -39,7 +39,6 @@ const streamingCursorKeyframes = `
 `
 
 const assistantBodyMaxHeight = 420
-const assistantBodyAutoFollowThreshold = 24
 
 function StreamingCursor() {
   return (
@@ -105,193 +104,145 @@ function renderStreamingCharacter(char, index, isLatest) {
   )
 }
 
-export default function AIChatAssistantBodyPane({ text }) {
+export default function AIChatAssistantBodyPane({ text, isStreaming = false }) {
   const content = typeof text === 'string' ? text.trim() : ''
-  const isStreaming = content.endsWith('▍')
-  const displayContent = isStreaming ? content.slice(0, -1) : content
-  const scrollContainerRef = useRef(null)
+  const displayContent = isStreaming && content.endsWith('▍') ? content.slice(0, -1) : content
+  const scrollRef = useRef(null)
   const contentRef = useRef(null)
-  const shouldAutoFollowRef = useRef(true)
-  const scrollFrameRef = useRef(0)
-  const programmaticScrollRef = useRef(false)
-  const programmaticScrollResetRef = useRef(0)
-  const streamingFollowTimerRef = useRef(0)
+  const followRef = useRef(true)
+  const lastTouchClientYRef = useRef(null)
 
-  const cancelScheduledScrollBodyToBottom = () => {
-    if (scrollFrameRef.current) {
-      window.cancelAnimationFrame(scrollFrameRef.current)
-      scrollFrameRef.current = 0
-    }
-    if (programmaticScrollResetRef.current) {
-      window.clearTimeout(programmaticScrollResetRef.current)
-      programmaticScrollResetRef.current = 0
-    }
-  }
-
-  const clearStreamingFollowTimer = () => {
-    if (streamingFollowTimerRef.current) {
-      window.clearInterval(streamingFollowTimerRef.current)
-      streamingFollowTimerRef.current = 0
-    }
-  }
-
-  const markProgrammaticScroll = () => {
-    programmaticScrollRef.current = true
-    if (programmaticScrollResetRef.current) {
-      window.clearTimeout(programmaticScrollResetRef.current)
-    }
-    programmaticScrollResetRef.current = window.setTimeout(() => {
-      programmaticScrollRef.current = false
-      programmaticScrollResetRef.current = 0
-    }, 180)
-  }
-
-  const scrollBodyToBottom = (trackProgrammatic = true) => {
-    const container = scrollContainerRef.current
-    if (!container || !shouldAutoFollowRef.current) {
+  const scrollToBottom = useCallback(() => {
+    const container = scrollRef.current
+    if (!container || !followRef.current) {
       return
     }
-    if (trackProgrammatic) {
-      markProgrammaticScroll()
-    }
-    container.scrollTop = Math.max(container.scrollHeight - container.clientHeight, 0)
-  }
+    container.scrollTop = container.scrollHeight
+  }, [])
 
-  const scheduleScrollBodyToBottom = () => {
-    if (!isStreaming || !shouldAutoFollowRef.current || scrollFrameRef.current) {
-      return
-    }
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      scrollFrameRef.current = 0
-      scrollBodyToBottom()
-      window.requestAnimationFrame(() => {
-        scrollBodyToBottom()
-      })
-    })
-  }
-
-  useEffect(() => {
-    clearStreamingFollowTimer()
-    if (!isStreaming) {
-      return undefined
-    }
-    streamingFollowTimerRef.current = window.setInterval(() => {
-      if (!shouldAutoFollowRef.current) {
-        return
-      }
-      scrollBodyToBottom(false)
-    }, 48)
-    return () => {
-      clearStreamingFollowTimer()
-    }
-  }, [isStreaming])
+  const suspendFollow = useCallback(() => {
+    followRef.current = false
+  }, [])
 
   useLayoutEffect(() => {
-    if (!isStreaming) {
-      return undefined
-    }
-    scheduleScrollBodyToBottom()
-    return undefined
-  }, [displayContent, isStreaming])
+    scrollToBottom()
+  }, [displayContent, isStreaming, scrollToBottom])
 
-  useEffect(() => {
-    if (!isStreaming) {
+  useLayoutEffect(() => {
+    const element = contentRef.current
+    if (!element || typeof ResizeObserver !== 'function') {
       return undefined
     }
-    const container = scrollContainerRef.current
-    const contentElement = contentRef.current
-    if (!container || !contentElement || typeof ResizeObserver === 'undefined') {
-      return undefined
-    }
-    const observer = new ResizeObserver(() => {
-      scheduleScrollBodyToBottom()
-    })
-    observer.observe(contentElement)
+    const observer = new ResizeObserver(scrollToBottom)
+    observer.observe(element)
     return () => observer.disconnect()
-  }, [displayContent, isStreaming])
-
-  useEffect(() => {
-    return () => {
-      cancelScheduledScrollBodyToBottom()
-      clearStreamingFollowTimer()
-    }
-  }, [])
+  }, [scrollToBottom])
 
   if (!displayContent && !isStreaming) {
     return null
   }
 
-  const handleBodyScroll = () => {
-    const container = scrollContainerRef.current
+  const streamingCharacters = isStreaming ? Array.from(displayContent) : []
+  const animatedTailStart = Math.max(streamingCharacters.length - streamingAnimatedTailLength, 0)
+  const stablePrefix = streamingCharacters.slice(0, animatedTailStart).join('')
+  const animatedTail = streamingCharacters.slice(animatedTailStart)
+
+  const handleScroll = () => {
+    const container = scrollRef.current
     if (!container) {
       return
     }
-    const followThreshold = isStreaming ? assistantBodyAutoFollowThreshold : 0
     const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    if (programmaticScrollRef.current) {
-      if (distanceToBottom <= followThreshold) {
-        shouldAutoFollowRef.current = true
-      }
-      return
+    if (distanceToBottom <= 2) {
+      followRef.current = true
     }
-    shouldAutoFollowRef.current = distanceToBottom <= followThreshold
   }
 
-  if (isStreaming) {
-    const streamingCharacters = Array.from(displayContent)
-    const animatedTailStart = Math.max(streamingCharacters.length - streamingAnimatedTailLength, 0)
-    const stablePrefix = streamingCharacters.slice(0, animatedTailStart).join('')
-    const animatedTail = streamingCharacters.slice(animatedTailStart)
+  const handleWheelCapture = (event) => {
+    if ((Number(event?.deltaY) || 0) < -1) {
+      suspendFollow()
+    }
+  }
 
-    return (
-      <div style={{ minWidth: 0, color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7 }}>
-        <div
-          ref={scrollContainerRef}
-          onScroll={handleBodyScroll}
-          style={{
-            minWidth: 0,
-            maxHeight: assistantBodyMaxHeight,
-            overflowY: 'auto',
-            overflowAnchor: 'none',
-            paddingRight: 4,
-            scrollbarGutter: 'stable both-edges',
-          }}
-        >
-          <style>{streamingCursorKeyframes}</style>
-          <div
-            ref={contentRef}
-            style={{
-              minWidth: 0,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              minHeight: '1.6em',
-            }}
-          >
-            {stablePrefix}
-            {animatedTail.map((char, index) => renderStreamingCharacter(char, animatedTailStart + index, animatedTailStart + index === streamingCharacters.length - 1))}
-            <StreamingCursor />
-          </div>
-        </div>
-      </div>
-    )
+  const handleTouchStartCapture = (event) => {
+    const nextClientY = Number(event?.touches?.[0]?.clientY)
+    lastTouchClientYRef.current = Number.isFinite(nextClientY) ? nextClientY : null
+  }
+
+  const handleTouchMoveCapture = (event) => {
+    const nextClientY = Number(event?.touches?.[0]?.clientY)
+    const previousClientY = lastTouchClientYRef.current
+    lastTouchClientYRef.current = Number.isFinite(nextClientY) ? nextClientY : null
+    if (Number.isFinite(nextClientY) && previousClientY !== null && previousClientY - nextClientY < -1) {
+      suspendFollow()
+    }
+  }
+
+  const handlePointerDownCapture = (event) => {
+    const container = scrollRef.current
+    if (!container || event?.target !== container) {
+      return
+    }
+    const rect = container.getBoundingClientRect()
+    const scrollbarWidth = Math.max(container.offsetWidth - container.clientWidth, 12)
+    if (Number(event?.clientX) >= rect.right - scrollbarWidth) {
+      suspendFollow()
+    }
+  }
+
+  const handleKeyDownCapture = (event) => {
+    if (['ArrowUp', 'PageUp', 'Home'].includes(event?.key)) {
+      suspendFollow()
+    }
   }
 
   return (
     <div style={{ minWidth: 0, color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7 }}>
       <div
-        ref={scrollContainerRef}
-        onScroll={handleBodyScroll}
+        ref={scrollRef}
+        onScroll={handleScroll}
+        onWheelCapture={handleWheelCapture}
+        onTouchStartCapture={handleTouchStartCapture}
+        onTouchMoveCapture={handleTouchMoveCapture}
+        onTouchEndCapture={() => {
+          lastTouchClientYRef.current = null
+        }}
+        onTouchCancelCapture={() => {
+          lastTouchClientYRef.current = null
+        }}
+        onPointerDownCapture={handlePointerDownCapture}
+        onKeyDownCapture={handleKeyDownCapture}
         style={{
           minWidth: 0,
           maxHeight: assistantBodyMaxHeight,
           overflowY: 'auto',
           overflowAnchor: 'none',
+          overscrollBehavior: 'contain',
           paddingRight: 4,
           scrollbarGutter: 'stable both-edges',
         }}
       >
-        <div ref={contentRef}>
-          <AIChatMarkdown text={displayContent} enableQuoteContextMenu={true} />
+        {isStreaming ? <style>{streamingCursorKeyframes}</style> : null}
+        <div
+          ref={contentRef}
+          style={isStreaming
+            ? {
+                minWidth: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                minHeight: '1.6em',
+              }
+            : { minWidth: 0 }}
+        >
+          {isStreaming ? (
+            <>
+              {stablePrefix}
+              {animatedTail.map((char, index) => renderStreamingCharacter(char, animatedTailStart + index, animatedTailStart + index === streamingCharacters.length - 1))}
+              <StreamingCursor />
+            </>
+          ) : (
+            <AIChatMarkdown text={displayContent} enableQuoteContextMenu={true} />
+          )}
         </div>
       </div>
     </div>
