@@ -25,6 +25,12 @@ export default function FileManagerTab({
   onToggleFileManagerHideTabCloseButton,
   fileManagerLayoutMode = 'classic',
   onFileManagerLayoutModeChange,
+  fileManagerDualPaneDragTransferEnabled,
+  onToggleFileManagerDualPaneDragTransferEnabled,
+  fileManagerDualPaneDragPromptOnDirectory,
+  onToggleFileManagerDualPaneDragPromptOnDirectory,
+  fileManagerDualPaneDragInvertModifier,
+  onToggleFileManagerDualPaneDragInvertModifier,
   fileManagerChmodAutoApplyLastSettings,
   onToggleFileManagerChmodAutoApplyLastSettings,
   fileManagerDoubleClickUncompressArchive,
@@ -109,6 +115,28 @@ export default function FileManagerTab({
                 onClick={() => onFileManagerLayoutModeChange?.('sidebar_dual')}
               />
             </div>
+            {fileManagerLayoutMode === 'sidebar_dual' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{$t('仅在左侧标签双面板视图中生效')}</div>
+                <SettingRow
+                  title={$t('允许左右面板互相拖拽文件')}
+                  description={$t('开启后,可在双栏之间直接拖拽文件;默认复制,按住 Ctrl 为移动')}
+                  action={<ToggleSwitch checked={fileManagerDualPaneDragTransferEnabled} onChange={onToggleFileManagerDualPaneDragTransferEnabled} />}
+                />
+                <div className="divider" style={{ margin: '2px 0', borderTop: '1px solid var(--border)' }} />
+                <SettingRow
+                  title={$t('拖拽文件夹时先询问')}
+                  description={$t('开启后,拖拽内容包含文件夹时先确认是否继续')}
+                  action={<ToggleSwitch checked={fileManagerDualPaneDragPromptOnDirectory} onChange={onToggleFileManagerDualPaneDragPromptOnDirectory} />}
+                />
+                <div className="divider" style={{ margin: '2px 0', borderTop: '1px solid var(--border)' }} />
+                <SettingRow
+                  title={$t('反转 Ctrl 拖拽语义')}
+                  description={$t('开启后,默认移动,按住 Ctrl 为复制')}
+                  action={<ToggleSwitch checked={fileManagerDualPaneDragInvertModifier} onChange={onToggleFileManagerDualPaneDragInvertModifier} />}
+                />
+              </div>
+            ) : null}
           </div>
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow

@@ -811,6 +811,9 @@ export default function SettingsModal({
   const [fileManagerShowTabIcons, setFileManagerShowTabIcons] = useState(localStorage.getItem('fileManagerShowTabIcons') !== 'false');
   const [fileManagerHideTabCloseButton, setFileManagerHideTabCloseButton] = useState(localStorage.getItem('fileManagerHideTabCloseButton') === 'true');
   const [fileManagerLayoutMode, setFileManagerLayoutMode] = useState(localStorage.getItem('fileManagerLayoutMode') === 'sidebar_dual' ? 'sidebar_dual' : 'classic');
+  const [fileManagerDualPaneDragTransferEnabled, setFileManagerDualPaneDragTransferEnabled] = useState(localStorage.getItem('fileManagerDualPaneDragTransferEnabled') !== 'false');
+  const [fileManagerDualPaneDragPromptOnDirectory, setFileManagerDualPaneDragPromptOnDirectory] = useState(localStorage.getItem('fileManagerDualPaneDragPromptOnDirectory') !== 'false');
+  const [fileManagerDualPaneDragInvertModifier, setFileManagerDualPaneDragInvertModifier] = useState(localStorage.getItem('fileManagerDualPaneDragInvertModifier') === 'true');
   const [fileManagerInitialPathMode, setFileManagerInitialPathMode] = useState(localStorage.getItem('fileManagerInitialPathMode') || 'session_initial_path');
   const [fileManagerNewTabPathMode, setFileManagerNewTabPathMode] = useState(localStorage.getItem('fileManagerNewTabPathMode') || 'inherit_current');
   const [fileManagerAskDownloadEveryTime, setFileManagerAskDownloadEveryTime] = useState(localStorage.getItem('fileManagerAskDownloadEveryTime') === 'true');
@@ -939,6 +942,27 @@ export default function SettingsModal({
     if (next === 'classic') localStorage.removeItem('fileManagerLayoutMode');
     else localStorage.setItem('fileManagerLayoutMode', next);
     window.dispatchEvent(new CustomEvent('file-manager-layout-mode-changed', { detail: next }));
+  };
+  const handleToggleFileManagerDualPaneDragTransferEnabled = () => {
+    const next = !fileManagerDualPaneDragTransferEnabled;
+    setFileManagerDualPaneDragTransferEnabled(next);
+    if (next) localStorage.removeItem('fileManagerDualPaneDragTransferEnabled');
+    else localStorage.setItem('fileManagerDualPaneDragTransferEnabled', 'false');
+    window.dispatchEvent(new CustomEvent('file-manager-dual-pane-drag-transfer-enabled-changed', { detail: next }));
+  };
+  const handleToggleFileManagerDualPaneDragPromptOnDirectory = () => {
+    const next = !fileManagerDualPaneDragPromptOnDirectory;
+    setFileManagerDualPaneDragPromptOnDirectory(next);
+    if (next) localStorage.removeItem('fileManagerDualPaneDragPromptOnDirectory');
+    else localStorage.setItem('fileManagerDualPaneDragPromptOnDirectory', 'false');
+    window.dispatchEvent(new CustomEvent('file-manager-dual-pane-drag-prompt-on-directory-changed', { detail: next }));
+  };
+  const handleToggleFileManagerDualPaneDragInvertModifier = () => {
+    const next = !fileManagerDualPaneDragInvertModifier;
+    setFileManagerDualPaneDragInvertModifier(next);
+    if (next) localStorage.setItem('fileManagerDualPaneDragInvertModifier', 'true');
+    else localStorage.removeItem('fileManagerDualPaneDragInvertModifier');
+    window.dispatchEvent(new CustomEvent('file-manager-dual-pane-drag-invert-modifier-changed', { detail: next }));
   };
   const handleFileManagerInitialPathModeChange = (value) => {
     setFileManagerInitialPathMode(value);
@@ -1818,6 +1842,12 @@ export default function SettingsModal({
                 onToggleFileManagerHideTabCloseButton={handleToggleFileManagerHideTabCloseButton}
                 fileManagerLayoutMode={fileManagerLayoutMode}
                 onFileManagerLayoutModeChange={handleFileManagerLayoutModeChange}
+                fileManagerDualPaneDragTransferEnabled={fileManagerDualPaneDragTransferEnabled}
+                onToggleFileManagerDualPaneDragTransferEnabled={handleToggleFileManagerDualPaneDragTransferEnabled}
+                fileManagerDualPaneDragPromptOnDirectory={fileManagerDualPaneDragPromptOnDirectory}
+                onToggleFileManagerDualPaneDragPromptOnDirectory={handleToggleFileManagerDualPaneDragPromptOnDirectory}
+                fileManagerDualPaneDragInvertModifier={fileManagerDualPaneDragInvertModifier}
+                onToggleFileManagerDualPaneDragInvertModifier={handleToggleFileManagerDualPaneDragInvertModifier}
                 fileManagerChmodAutoApplyLastSettings={fileManagerChmodAutoApplyLastSettings}
                 onToggleFileManagerChmodAutoApplyLastSettings={handleToggleFileManagerChmodAutoApplyLastSettings}
                 fileManagerDoubleClickUncompressArchive={fileManagerDoubleClickUncompressArchive}
