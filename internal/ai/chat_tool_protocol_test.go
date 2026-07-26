@@ -62,6 +62,65 @@ func TestParseAssistantToolUses_AcceptsTrailingStreamJunk(t *testing.T) {
 	}
 }
 
+func TestParseAssistantToolUses_RemovesDuplicateToolXML(t *testing.T) {
+	raw := `<execute_command>
+<command>echo ok</command>
+<cwd>/root</cwd>
+<is_mutating>0</is_mutating>
+<purpose>ping</purpose>
+<session_id>session_1</session_id>
+<shellType>zsh</shellType>
+</execute_command>
+<execute_command>
+<command>echo ok</command>
+<cwd>/root</cwd>
+<is_mutating>0</is_mutating>
+<purpose>ping</purpose>
+<session_id>session_1</session_id>
+<shellType>zsh</shellType>
+</execute_command>`
+	tools, err := parseAssistantToolUses(raw)
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+	if len(tools) != 1 || tools[0].Name != "execute_command" {
+		t.Fatalf("unexpected tools: %+v", tools)
+	}
+	cleaned := sanitizeAIAssistantToolProtocolText(raw)
+	if strings.Count(cleaned, "<execute_command>") != 1 {
+		t.Fatalf("duplicate tool XML was not removed: %q", cleaned)
+	}
+}
+
+func TestParseAssistantToolUses_KeepsSameToolWithDifferentParams(t *testing.T) {
+	raw := `<execute_command>
+<command>echo one</command>
+<cwd>/root</cwd>
+<is_mutating>0</is_mutating>
+<purpose>ping one</purpose>
+<session_id>session_1</session_id>
+<shellType>zsh</shellType>
+</execute_command>
+<execute_command>
+<command>echo two</command>
+<cwd>/root</cwd>
+<is_mutating>0</is_mutating>
+<purpose>ping two</purpose>
+<session_id>session_1</session_id>
+<shellType>zsh</shellType>
+</execute_command>`
+	tools, err := parseAssistantToolUses(raw)
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+	if len(tools) != 2 {
+		t.Fatalf("expected 2 tools, got %d (%v)", len(tools), toolNames(tools))
+	}
+	if tools[0].Params["command"] != "echo one" || tools[1].Params["command"] != "echo two" {
+		t.Fatalf("unexpected commands: %+v", tools)
+	}
+}
+
 func TestParseAssistantToolUses_BareAttemptCompletionWithProse(t *testing.T) {
 	raw := `先前排查邮箱接口时反复读代码导致循环，现按你的“结束”指令停止。
 <tool_call>

@@ -1964,7 +1964,7 @@ func (a *App) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
 		case "已终止":
 			uiResultText = "已终止"
 		default:
-			uiResultText = "已执行"
+			uiResultText = "(命令已执行未产生输出)"
 		}
 	}
 	if strings.TrimSpace(rawResultText) == "" {

@@ -33,14 +33,14 @@ const (
 const aiCollaborationStreamEventPrefix = "collaboration"
 
 type aiCollaborationState struct {
-	RequestID            string
-	Batch                *aiPendingToolBatch
-	Mode                 aiCollaborationMode
-	CompressionAttempts  int
-	RetryCount           int
-	Cancel               context.CancelFunc
-	mu                   sync.Mutex
-	finished             bool
+	RequestID           string
+	Batch               *aiPendingToolBatch
+	Mode                aiCollaborationMode
+	CompressionAttempts int
+	RetryCount          int
+	Cancel              context.CancelFunc
+	mu                  sync.Mutex
+	finished            bool
 }
 
 func (s *aiCollaborationState) markFinished() bool {
@@ -578,9 +578,9 @@ func (a *App) emitAIChatCollaborationStarted(requestID string, mode aiCollaborat
 		return
 	}
 	a.emitAIChatEvent(map[string]interface{}{
-		"kind":               "collaboration_started",
-		"requestId":          trimmedRequestID,
-		"mode":               string(mode),
+		"kind":                "collaboration_started",
+		"requestId":           trimmedRequestID,
+		"mode":                string(mode),
 		"compressionAttempts": compressionAttempts,
 	})
 }
@@ -877,9 +877,9 @@ func (a *App) queueAIChatCollaboration(requestID string, batch *aiPendingToolBat
 		return
 	}
 	a.setAIChatCollaborationState(trimmedRequestID, &aiCollaborationState{
-		RequestID: trimmedRequestID,
-		Batch:     batch,
-		Mode:      mode,
+		RequestID:  trimmedRequestID,
+		Batch:      batch,
+		Mode:       mode,
 		RetryCount: batch.CollaborationRetryCount,
 	})
 	a.emitAIChatCollaborationPending(trimmedRequestID, mode)
