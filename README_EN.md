@@ -212,6 +212,8 @@ wails build
 wails build -nsis
 ```
 
+Tagged releases (changelog + multi-platform packages): [.github/RELEASE_EN.md](.github/RELEASE_EN.md).
+
 ---
 
 ## Security notes

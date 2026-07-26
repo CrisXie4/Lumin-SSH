@@ -5,68 +5,85 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的已有 tag（如 v1.2.3）'
+        required: true
+        type: string
 
 env:
   NODE_VERSION: '24'
+  WAILS_VERSION: 'v2.12.0'
+  GO_VERSION: '1.26'
 
 permissions:
   contents: write
 
 jobs:
-  # 先唯一创建 draft（含标题/说明），避免多 job 并行 softprops 竞态：
-  # 无 body 的 job 先建空 draft 后，带 body 的副本会被当重复删掉
+  # 先唯一创建 draft（含标题/说明），避免多 job 并行竞态清掉 body
   create-draft:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
     steps:
+      - name: Resolve tag
+        id: meta
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "${TAG}" in
+            v*) ;;
+            *)
+              echo "tag 必须以 v 开头，当前: ${TAG}" >&2
+              exit 1
+              ;;
+          esac
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+          # 需要完整历史 + 全部 v* tags，才能取「上一版本..当前」提交
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
           TITLE="Lumin SSH Client ${TAG}"
           NOTES_FILE="${RUNNER_TEMP}/release-notes.md"
-          cat > "${NOTES_FILE}" <<EOF
-          ## 更新日志
-          - 改进文件管理器
-          - 修复多 job 并行创建 Release 的竞态问题：新增 create-draft 独占 job 先建 draft
-          - macOS/Windows 构建 job 依赖 create-draft，上传到已有 release
-          - 安装 Node 24 时缓存依赖锁定 package-lock 路径
-          - 统一下载链接引用步骤输出变量
 
-          ## 产物下载
-          - Linux 便携版 ([Lumin-V${VERSION}-linux-amd64](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-linux-amd64))：即下即用
-          - Linux DEB 安装包 ([Lumin-V${VERSION}-amd64.deb](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64.deb))：Debian/Ubuntu 安装包
-          - Linux RPM 安装包 ([Lumin-V${VERSION}-amd64.rpm](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64.rpm))：Red Hat/Fedora 安装包
-          - macOS ARM 版 ([Lumin-V${VERSION}-arm64.dmg](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-arm64.dmg))：Apple Silicon (M1/M2/M3/M4)
-          - macOS Intel 版 ([Lumin-V${VERSION}-amd64.dmg](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64.dmg))：Intel 芯片
-          - Windows 便携绿色版 ([Lumin-V${VERSION}-portable.exe](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-portable.exe))：内嵌 WebView2，即下即用
-          - Windows 标准安装版 ([Lumin-V${VERSION}-amd64-installer.exe](https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v${VERSION}/Lumin-V${VERSION}-amd64-installer.exe))：NSIS 安装包
-          - 每个产物附带 .sha256 校验文件，自动更新时校验 SHA256 确保文件完整性
-          - 本 Release **仅 Desktop**，Android 端见 [Lumin-SSH-Android](https://github.com/wmwlwmwl/Lumin-SSH-Android/releases)
-          - 许可见仓库 [LICENSE](LICENSE)
-
-          ## 安装/卸载方法
-          ### DEB 包（Debian/Ubuntu）
-          \`\`\`bash
-          # 安装
-          sudo dpkg -i Lumin-V${VERSION}-amd64.deb
-          # 卸载
-          sudo dpkg -r lumin
-          \`\`\`
-
-          ### RPM 包（Red Hat/Fedora）
-          \`\`\`bash
-          # 安装
-          sudo rpm -ivh Lumin-V${VERSION}-amd64.rpm
-          # 卸载
-          sudo rpm -e lumin
-          \`\`\`
-          EOF
-          # heredoc 用了缩进，去掉每行前导空格
-          sed -i 's/^[[:space:]]*//' "${NOTES_FILE}"
-
+          # 上一发行 tag：按版本号排序，取当前 tag 的前一个 v*
+          PREV=$(git tag -l 'v*' --sort=-v:refname | awk -v t="${TAG}" '$0==t{getline; print; exit}')
+          {
+            echo "## 更新日志"
+            if [ -n "${PREV}" ]; then
+              echo "（自 ${PREV} 以来）"
+              # 跳过 merge、纯「发行 vX」提交；去重
+              LOG=$(git log "${PREV}..${TAG}" --pretty=format:'- %s' --no-merges \
+                | grep -vE '^- (feat: )?发行 v' \
+                | awk 'NF && !seen[$0]++' || true)
+              if [ -n "${LOG}" ]; then
+                printf '%s\n' "${LOG}"
+              else
+                echo "- （无新增提交说明）"
+              fi
+            else
+              echo "- 首次发布"
+            fi
+            echo
+            sed "s/__VERSION__/${VERSION}/g" .github/release-notes-footer.md
+          } > "${NOTES_FILE}"
           if gh release view "${TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release edit "${TAG}" \
               --repo "${{ github.repository }}" \
@@ -76,6 +93,7 @@ jobs:
           else
             gh release create "${TAG}" \
               --repo "${{ github.repository }}" \
+              --target "${TAG}" \
               --draft \
               --title "${TITLE}" \
               --notes-file "${NOTES_FILE}"
@@ -86,6 +104,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-draft.outputs.tag }}
 
       - name: Install system dependencies
         run: |
@@ -97,7 +117,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/setup-node@v7
         with:
@@ -106,16 +126,17 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Install frontend dependencies
         run: npm install
         working-directory: frontend
 
       - name: Build Wails
+        env:
+          VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
           export PATH=$HOME/go/bin:$PATH
-          VERSION=${GITHUB_REF_NAME#v}
           wails build -clean -tags webkit2_41 -o Lumin
           cp build/bin/Lumin "build/Lumin-V${VERSION}-linux-amd64"
           shasum -a 256 "build/Lumin-V${VERSION}-linux-amd64" | sed 's|build/||' > "build/Lumin-V${VERSION}-linux-amd64.sha256"
@@ -123,24 +144,24 @@ jobs:
           echo "binary_sha=${{ github.workspace }}/build/Lumin-V${VERSION}-linux-amd64.sha256" >> $GITHUB_ENV
 
       - name: Package .deb & .rpm
+        env:
+          VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
           mkdir -p build/deb/DEBIAN
           mkdir -p build/deb/usr/bin
           mkdir -p build/deb/usr/share/applications
           mkdir -p build/deb/usr/share/icons/hicolor/256x256/apps
-          # 生成 control 文件
-          { \
-            echo "Package: lumin"; \
-            echo "Version: ${VERSION}"; \
-            echo "Section: net"; \
-            echo "Priority: optional"; \
-            echo "Architecture: amd64"; \
-            echo "Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libglib2.0-0, libc6, libayatana-appindicator3-1"; \
-            echo "Maintainer: Lumin <admin@662662.xyz>"; \
-            echo "Description: Lightweight SSH Client"; \
-            echo " A modern, lightweight SSH client built with Wails."; \
-            echo " Quickly manage and connect to your SSH servers."; \
+          {
+            echo "Package: lumin"
+            echo "Version: ${VERSION}"
+            echo "Section: net"
+            echo "Priority: optional"
+            echo "Architecture: amd64"
+            echo "Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libglib2.0-0, libc6, libayatana-appindicator3-1"
+            echo "Maintainer: Lumin <admin@662662.xyz>"
+            echo "Description: Lightweight SSH Client"
+            echo " A modern, lightweight SSH client built with Wails."
+            echo " Quickly manage and connect to your SSH servers."
           } > build/deb/DEBIAN/control
           cp build/bin/Lumin build/deb/usr/bin/lumin
           sudo chown root:root build/deb/usr/bin/lumin
@@ -150,13 +171,11 @@ jobs:
           shasum -a 256 "build/Lumin-V${VERSION}-amd64.deb" | sed 's|build/||' > "build/Lumin-V${VERSION}-amd64.deb.sha256"
           echo "deb=${{ github.workspace }}/build/Lumin-V${VERSION}-amd64.deb" >> $GITHUB_ENV
           echo "deb_sha=${{ github.workspace }}/build/Lumin-V${VERSION}-amd64.deb.sha256" >> $GITHUB_ENV
-          # Convert .deb to .rpm via alien
           sudo alien -r "build/Lumin-V${VERSION}-amd64.deb" --scripts || echo "alien_rpm_failed=true" >> $GITHUB_ENV
           RPM_FILE=$(find . -name "*.rpm" 2>/dev/null | head -1)
           if [ -n "$RPM_FILE" ]; then
             mv "$RPM_FILE" build/
             RPM_BASENAME=$(basename "$RPM_FILE")
-            # 统一命名：加入 V 前缀，x86_64 → amd64，去掉 alien release 号
             RPM_BASENAME_CLEAN=$(echo "$RPM_BASENAME" | sed "s/lumin-[0-9.]\+-\([0-9]\+\)\.x86_64\.rpm/Lumin-V${VERSION}-amd64.rpm/")
             if [ "$RPM_BASENAME" != "$RPM_BASENAME_CLEAN" ] && [ -f "build/$RPM_BASENAME" ]; then
               mv "build/$RPM_BASENAME" "build/$RPM_BASENAME_CLEAN"
@@ -167,17 +186,17 @@ jobs:
             echo "rpm_sha=${{ github.workspace }}/build/$RPM_BASENAME.sha256" >> $GITHUB_ENV
           fi
 
-      # 只上传产物，不经 softprops，避免覆盖 name/body
       - name: Upload to Draft Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-draft.outputs.tag }}
         run: |
           set -euo pipefail
           files=("${binary}" "${binary_sha}" "${deb}" "${deb_sha}")
           if [ -n "${rpm:-}" ] && [ -f "${rpm}" ]; then
             files+=("${rpm}" "${rpm_sha}")
           fi
-          gh release upload "${GITHUB_REF_NAME}" \
+          gh release upload "${TAG}" \
             --repo "${{ github.repository }}" \
             --clobber \
             "${files[@]}"
@@ -195,10 +214,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-draft.outputs.tag }}
 
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/setup-node@v7
         with:
@@ -207,7 +228,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Install frontend dependencies
         run: npm install
@@ -222,9 +243,10 @@ jobs:
           lipo -archs build/bin/Lumin.app/Contents/MacOS/Lumin
 
       - name: Package .app to .dmg
+        env:
+          VERSION: ${{ needs.create-draft.outputs.version }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          ARCH=${{ matrix.arch }}
           cp -r build/bin/Lumin.app build/Lumin.app
           hdiutil create -volname "Lumin" -srcfolder build/Lumin.app -ov -format UDZO "build/Lumin-V${VERSION}-${ARCH}.dmg"
           shasum -a 256 "build/Lumin-V${VERSION}-${ARCH}.dmg" | sed 's|build/||' > "build/Lumin-V${VERSION}-${ARCH}.dmg.sha256"
@@ -234,9 +256,10 @@ jobs:
       - name: Upload to Draft Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-draft.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release upload "${GITHUB_REF_NAME}" \
+          gh release upload "${TAG}" \
             --repo "${{ github.repository }}" \
             --clobber \
             "${app_dmg}" "${app_sha}"
@@ -246,10 +269,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-draft.outputs.tag }}
 
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/setup-node@v7
         with:
@@ -258,7 +283,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Install NSIS
         run: choco install nsis -y
@@ -272,49 +297,91 @@ jobs:
           $env:PATH = "$env:USERPROFILE\go\bin;C:\Program Files (x86)\NSIS;" + $env:PATH
           wails build -clean -o Lumin.exe --nsis
 
-      - name: Package portable
-        shell: pwsh
+      - name: Package portable & installer
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
-          $VERSION = "$env:GITHUB_REF_NAME" -replace "^v", ""
-          Copy-Item build/bin/Lumin.exe "build/Lumin-V$VERSION-portable.exe"
-          $hash = (CertUtil -hashfile "build/Lumin-V$VERSION-portable.exe" SHA256)[1] -replace " ",""
-          Set-Content -Path "build/Lumin-V$VERSION-portable.exe.sha256" -Value "$hash  Lumin-V$VERSION-portable.exe"
-          echo "portable=${{ github.workspace }}\build\Lumin-V$VERSION-portable.exe" >> $env:GITHUB_ENV
-          echo "portable_sha=${{ github.workspace }}\build\Lumin-V$VERSION-portable.exe.sha256" >> $env:GITHUB_ENV
-
-      - name: Copy NSIS installer
-        shell: pwsh
-        run: |
-          $VERSION = "$env:GITHUB_REF_NAME" -replace "^v", ""
-          $installer = Get-Item "build/bin/*-installer.exe"
-          Copy-Item $installer.FullName "build/Lumin-V$VERSION-amd64-installer.exe"
-          $hash = (CertUtil -hashfile "build/Lumin-V$VERSION-amd64-installer.exe" SHA256)[1] -replace " ",""
-          Set-Content -Path "build/Lumin-V$VERSION-amd64-installer.exe.sha256" -Value "$hash  Lumin-V$VERSION-amd64-installer.exe"
-          echo "installer=${{ github.workspace }}\build\Lumin-V$VERSION-amd64-installer.exe" >> $env:GITHUB_ENV
-          echo "installer_sha=${{ github.workspace }}\build\Lumin-V$VERSION-amd64-installer.exe.sha256" >> $env:GITHUB_ENV
+          set -euo pipefail
+          # Windows runner 上 sha256sum / shasum 不一定都有
+          sha256_file() {
+            local f="$1"
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$f" | sed 's|build/||'
+            elif command -v shasum >/dev/null 2>&1; then
+              shasum -a 256 "$f" | sed 's|build/||'
+            else
+              # Git Bash 常见：certutil
+              local h
+              h=$(certutil -hashfile "$f" SHA256 | sed -n '2p' | tr -d '\r\n ')
+              echo "${h}  $(basename "$f")"
+            fi
+          }
+          cp build/bin/Lumin.exe "build/Lumin-V${VERSION}-portable.exe"
+          sha256_file "build/Lumin-V${VERSION}-portable.exe" > "build/Lumin-V${VERSION}-portable.exe.sha256"
+          installer=$(ls build/bin/*-installer.exe | head -1)
+          cp "${installer}" "build/Lumin-V${VERSION}-amd64-installer.exe"
+          sha256_file "build/Lumin-V${VERSION}-amd64-installer.exe" > "build/Lumin-V${VERSION}-amd64-installer.exe.sha256"
+          # GITHUB_ENV 在 Windows 上用正斜杠更稳
+          WS="${GITHUB_WORKSPACE//\\//}"
+          echo "portable=${WS}/build/Lumin-V${VERSION}-portable.exe" >> "$GITHUB_ENV"
+          echo "portable_sha=${WS}/build/Lumin-V${VERSION}-portable.exe.sha256" >> "$GITHUB_ENV"
+          echo "installer=${WS}/build/Lumin-V${VERSION}-amd64-installer.exe" >> "$GITHUB_ENV"
+          echo "installer_sha=${WS}/build/Lumin-V${VERSION}-amd64-installer.exe.sha256" >> "$GITHUB_ENV"
 
       - name: Upload to Draft Release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-draft.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release upload "${GITHUB_REF_NAME}" \
+          gh release upload "${TAG}" \
             --repo "${{ github.repository }}" \
             --clobber \
             "${portable}" "${portable_sha}" "${installer}" "${installer_sha}"
 
-  # 全平台产物齐套后再取消 draft，客户端 /releases/latest 才能看到
-  # 用 gh release edit 只改 draft/latest，避免覆盖 name/body
+  # 全平台产物齐套后再取消 draft；缺资产则失败，避免半套包变 latest
   publish-release:
-    needs: [build-linux, build-macos, build-windows]
+    needs: [create-draft, build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
-      - name: Publish Release
+      - name: Verify assets & publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-draft.outputs.tag }}
+          VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
-          gh release edit "${GITHUB_REF_NAME}" \
+          set -euo pipefail
+          required=(
+            "Lumin-V${VERSION}-portable.exe"
+            "Lumin-V${VERSION}-portable.exe.sha256"
+            "Lumin-V${VERSION}-amd64-installer.exe"
+            "Lumin-V${VERSION}-amd64-installer.exe.sha256"
+            "Lumin-V${VERSION}-linux-amd64"
+            "Lumin-V${VERSION}-linux-amd64.sha256"
+            "Lumin-V${VERSION}-amd64.deb"
+            "Lumin-V${VERSION}-amd64.deb.sha256"
+            "Lumin-V${VERSION}-amd64.rpm"
+            "Lumin-V${VERSION}-amd64.rpm.sha256"
+            "Lumin-V${VERSION}-arm64.dmg"
+            "Lumin-V${VERSION}-arm64.dmg.sha256"
+            "Lumin-V${VERSION}-amd64.dmg"
+            "Lumin-V${VERSION}-amd64.dmg.sha256"
+          )
+          assets=$(gh release view "${TAG}" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')
+          missing=0
+          for f in "${required[@]}"; do
+            if ! printf '%s\n' "${assets}" | grep -Fxq "${f}"; then
+              echo "缺少资产: ${f}" >&2
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            echo "资产未齐套，保持 draft，不发布" >&2
+            exit 1
+          fi
+          gh release edit "${TAG}" \
             --repo "${{ github.repository }}" \
             --draft=false \
             --latest

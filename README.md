@@ -251,6 +251,8 @@ wails build -nsis    # Windows 安装包（需 NSIS）
 
 常见产物：`build/bin/Lumin` / `Lumin.exe`；安装包与 deb/rpm/dmg 由 CI 或本地脚本按平台生成。
 
+正式发版（打 tag、更新日志、多平台包）见 [.github/RELEASE.md](.github/RELEASE.md)。
+
 ---
 
 ## 安全与注意
