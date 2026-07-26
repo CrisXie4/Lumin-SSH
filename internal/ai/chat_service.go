@@ -39,9 +39,11 @@ type AIChatRequestPayload struct {
 }
 
 type aiParsedToolUse struct {
-	Name   string
-	Params map[string]string
-	RawXML string
+	Name       string
+	Params     map[string]string
+	RawXML     string
+	StartIndex int
+	EndIndex   int
 }
 
 type aiToolParamTagCandidate struct {
@@ -1305,6 +1307,8 @@ func parseAINextToolUseFromXML(xmlContent string, startIndex int) (aiParsedToolU
 
 			if strings.HasPrefix(xmlContent[cursor:], candidate.ClosingTag) {
 				tool.RawXML = xmlContent[toolStartIndex : cursor+len(candidate.ClosingTag)]
+				tool.StartIndex = toolStartIndex
+				tool.EndIndex = cursor + len(candidate.ClosingTag)
 				return tool, cursor + len(candidate.ClosingTag), true
 			}
 
@@ -1328,6 +1332,8 @@ func parseAINextToolUseFromXML(xmlContent string, startIndex int) (aiParsedToolU
 		}
 
 		tool.RawXML = xmlContent[toolStartIndex:cursor]
+		tool.StartIndex = toolStartIndex
+		tool.EndIndex = cursor
 		return tool, cursor, true
 	}
 
@@ -1377,9 +1383,9 @@ func sanitizeAIAssistantToolProtocolText(content string) string {
 	text = aiToolProtocolStreamJunkPattern.ReplaceAllString(text, "")
 	text = aiToolProtocolWrapperTagPattern.ReplaceAllString(text, "")
 	text = fixAIBareToolOpenTags(text)
-	// Second pass: wrappers/junk may reappear after bare-tag fix edge cases; stream junk often trails.
 	text = aiToolProtocolWrapperTagPattern.ReplaceAllString(text, "")
 	text = aiToolProtocolStreamJunkPattern.ReplaceAllString(text, "")
+	text = removeAIDuplicateToolXML(text)
 	return strings.TrimSpace(text)
 }
 
@@ -1597,6 +1603,53 @@ func dedupeParsedToolUses(tools []aiParsedToolUse) []aiParsedToolUse {
 		deduped = append(deduped, tool)
 	}
 	return deduped
+}
+
+func dedupeParsedToolUsesAndText(tools []aiParsedToolUse, content string) ([]aiParsedToolUse, string) {
+	if len(tools) <= 1 {
+		return tools, content
+	}
+	type duplicateRange struct {
+		start int
+		end   int
+	}
+	seen := make(map[string]struct{}, len(tools))
+	deduped := make([]aiParsedToolUse, 0, len(tools))
+	duplicateRanges := make([]duplicateRange, 0)
+	for _, tool := range tools {
+		key := buildParsedToolUseDedupeKey(tool)
+		if _, exists := seen[key]; exists {
+			if tool.StartIndex >= 0 && tool.EndIndex > tool.StartIndex && tool.EndIndex <= len(content) {
+				duplicateRanges = append(duplicateRanges, duplicateRange{start: tool.StartIndex, end: tool.EndIndex})
+			}
+			continue
+		}
+		seen[key] = struct{}{}
+		deduped = append(deduped, tool)
+	}
+	if len(duplicateRanges) == 0 {
+		return deduped, content
+	}
+	var builder strings.Builder
+	cursor := 0
+	for _, item := range duplicateRanges {
+		if item.start < cursor || item.end > len(content) {
+			continue
+		}
+		builder.WriteString(content[cursor:item.start])
+		cursor = item.end
+	}
+	builder.WriteString(content[cursor:])
+	return deduped, strings.TrimSpace(builder.String())
+}
+
+func removeAIDuplicateToolXML(content string) string {
+	trimmedContent := strings.TrimSpace(content)
+	if trimmedContent == "" {
+		return ""
+	}
+	_, cleanedContent := dedupeParsedToolUsesAndText(parseToolUsesFromXML(trimmedContent), trimmedContent)
+	return cleanedContent
 }
 
 func stripAssistantToolXML(content string) string {
@@ -2802,17 +2855,17 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 		requestMessages = nextRequestMessages
 
 		batch := &aiPendingToolBatch{
-			RequestID:               requestID,
-			AssistantMessageID:      assistantMessageID,
-			Payload:                 payload,
-			Profile:                 profile,
-			RequestMessages:         requestMessages,
-			ParsedTools:             parsedTools,
-			NextToolIndex:           0,
-			AssistantRetryCount:     assistantRetryCount,
-			CollaborationRetryCount: collaborationRetryCount,
-			AutoApprovalSettings:    autoApprovalSettings,
-			ForceCollaboration:      forceCollaboration,
+			RequestID:                requestID,
+			AssistantMessageID:       assistantMessageID,
+			Payload:                  payload,
+			Profile:                  profile,
+			RequestMessages:          requestMessages,
+			ParsedTools:              parsedTools,
+			NextToolIndex:            0,
+			AssistantRetryCount:      assistantRetryCount,
+			CollaborationRetryCount:  collaborationRetryCount,
+			AutoApprovalSettings:     autoApprovalSettings,
+			ForceCollaboration:       forceCollaboration,
 			ForceCollaborationReason: forceCollaborationReason,
 		}
 		a.advanceAIChatToolBatch(requestID, batch)
