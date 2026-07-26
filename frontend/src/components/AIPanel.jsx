@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FolderOpen, Search } from 'lucide-react'
+import { FolderOpen, Pencil, Search } from 'lucide-react'
 import { EventsOn } from '../../wailsjs/runtime/runtime.js'
 import * as AppGo from '../../wailsjs/go/main/App.js'
 import { useTranslation, t as translate, getLanguage } from '../i18n.js'
@@ -2838,6 +2838,56 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
   }, [showAlert, t])
 
+  const handleRenameConversationTitle = useCallback(async (targetConversationId = '') => {
+    const normalizedTargetConversationId = typeof targetConversationId === 'string' ? targetConversationId.trim() : ''
+    let conversationToRename = activeConversation
+    if (!conversationToRename || (normalizedTargetConversationId && conversationToRename.id !== normalizedTargetConversationId)) {
+      if (!normalizedTargetConversationId) {
+        return
+      }
+      try {
+        conversationToRename = await getAIConversation(normalizedTargetConversationId)
+      } catch {
+        return
+      }
+    }
+    if (!conversationToRename || conversationToRename.transient === true) {
+      return
+    }
+    const currentTitle = typeof conversationToRename.title === 'string' ? conversationToRename.title.trim() : ''
+    const nextTitle = window?.luminDialog?.prompt
+      ? await window.luminDialog.prompt(
+          t('请输入任务标题'),
+          currentTitle,
+          t('编辑任务标题'),
+          '',
+          {
+            validate: (value) => (String(value || '').trim() ? '' : t('任务标题不能为空')),
+          },
+        )
+      : window.prompt(t('请输入任务标题'), currentTitle)
+    if (nextTitle === null || nextTitle === undefined) {
+      return
+    }
+    const trimmedTitle = String(nextTitle).trim()
+    if (!trimmedTitle || trimmedTitle === currentTitle) {
+      return
+    }
+    const nextConversation = {
+      ...conversationToRename,
+      title: trimmedTitle,
+      updatedAt: Date.now(),
+    }
+    if (activeConversation?.id === nextConversation.id) {
+      setPanelState(panelInstanceKey, (current) => ({
+        ...current,
+        conversation: nextConversation,
+      }))
+    }
+    await saveConversationSnapshot(nextConversation, panelInstanceKey)
+    addToast?.(t('任务标题已更新'), 'success')
+  }, [activeConversation, addToast, panelInstanceKey, saveConversationSnapshot, setPanelState, t])
+
   const locateConversationMessage = useCallback((messageId) => {
     const normalizedMessageId = typeof messageId === 'string' ? messageId.trim() : ''
     if (!normalizedMessageId || typeof window === 'undefined') {
@@ -4478,6 +4528,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     } else {
       content = conversationList.map((item) => {
         const isFolderHovered = hoveredConversationActionKey === `${item.id}:folder`
+        const isRenameHovered = hoveredConversationActionKey === `${item.id}:rename`
         const isDeleteHovered = hoveredConversationActionKey === `${item.id}:delete`
         return (
           <div
@@ -4543,6 +4594,33 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                 }}
               >
                 <FolderOpen size={13} />
+              </button>
+              <button
+                type="button"
+                title={t('编辑任务标题')}
+                aria-label={t('编辑任务标题')}
+                onClick={() => void handleRenameConversationTitle(item.id)}
+                onMouseEnter={() => setHoveredConversationActionKey(`${item.id}:rename`)}
+                onMouseLeave={() => setHoveredConversationActionKey((current) => (current === `${item.id}:rename` ? '' : current))}
+                onFocus={() => setHoveredConversationActionKey(`${item.id}:rename`)}
+                onBlur={() => setHoveredConversationActionKey((current) => (current === `${item.id}:rename` ? '' : current))}
+                style={{
+                  width: 26,
+                  height: 26,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 6,
+                  color: isRenameHovered ? 'var(--accent)' : 'var(--text-muted)',
+                  background: isRenameHovered ? 'rgba(var(--accent-rgb), 0.10)' : 'transparent',
+                  border: isRenameHovered ? '1px solid rgba(var(--accent-rgb), 0.22)' : '1px solid transparent',
+                  boxShadow: 'none',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  transition: 'background 120ms ease, border-color 120ms ease, color 120ms ease',
+                }}
+              >
+                <Pencil size={13} />
               </button>
               <button
                 type="button"
@@ -4668,6 +4746,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         showConversationSearchButton={Boolean(activeConversation)}
         showConversationDiffButton={Boolean(activeConversation)}
         conversationSearchActive={conversationSearchOpen}
+        conversationTitle={activeConversation?.title || ''}
+        showRenameConversationButton={Boolean(activeConversation) && activeConversation?.transient !== true}
+        onRenameConversation={() => { void handleRenameConversationTitle() }}
         showContextTokens={Boolean(activeConversation)}
         contextTokens={panelState.contextTokens}
         apiMessageCount={Array.isArray(panelState.apiMessages) ? panelState.apiMessages.length : 0}
