@@ -451,17 +451,21 @@ export default function Terminal({
   const commandAutocompleteListRef            = useRef(null);
   const [commandAutocompletePopupPos, setCommandAutocompletePopupPos] = useState(null);
 
-  // ── 点击历史弹窗外关闭（document 级 mousedown） ──
+  // ── 点击历史弹窗外关闭（document 捕获阶段 mousedown） ──
+  // 必须用 capture：命令按钮 / 底部快捷命令面板会 stopPropagation，
+  // 冒泡阶段收不到，历史开着点「命令」或命令面板时就收不起来。
   useEffect(() => {
     if (!showHistory) return;
     const handler = (e) => {
-      if (historyPopupRef.current && !historyPopupRef.current.contains(e.target)) {
-        setShowHistory(false);
-        setHistoryPopupPos(null);
-      }
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (historyPopupRef.current?.contains(target)) return;
+      if (historyBtnRef.current?.contains(target)) return;
+      setShowHistory(false);
+      setHistoryPopupPos(null);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', handler, true);
+    return () => document.removeEventListener('mousedown', handler, true);
   }, [showHistory]);
 
   // 热路径缓存：避免在按键和消息回调中频繁读取 localStorage
