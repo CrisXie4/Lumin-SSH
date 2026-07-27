@@ -1059,22 +1059,47 @@ export default function Terminal({
         parts.push(`<span style="display:inline-block;width:70px;min-width:70px;max-width:70px;text-align:right;flex-shrink:0;letter-spacing:0;box-sizing:border-box;color:${tsColor}">${ts || ''}</span>`);
       }
       if (showCb) {
-        let blockCell = `<span style="display:inline-flex;width:14px;min-width:14px;height:14px;align-items:center;justify-content:center;flex-shrink:0"></span>`;
+        // 纯 CSS 树线：连续竖条 + 末行 L 折角（不用 │/└ 字符，避免粗细/对齐怪）
+        // 整数 2px + border 画 L，避免 1.5px 横线抗锯齿后显得更细
+        const barBg = `color-mix(in srgb, ${blockColor} 92%, transparent)`;
+        const barW = 2;
+        const armW = 7;
+        const cell = (inner) =>
+          `<span style="position:relative;display:inline-block;width:14px;min-width:14px;height:${lineH}px;flex-shrink:0;box-sizing:border-box;vertical-align:top">${inner || ''}</span>`;
+        // 竖条水平居中于 14px 列
+        const vBar = (top, bottom) =>
+          `<span style="position:absolute;left:50%;top:${top};bottom:${bottom};width:${barW}px;margin-left:-${barW / 2}px;background:${barBg};pointer-events:none"></span>`;
+        // 末行 L：同宽 border-left + border-bottom；横臂贴文字垂直中心略偏下（约 0.55em 基线感）
+        // 用 lineH 比例 + 字号无关的下限，大字号时不显得折角悬在行上半
+        const cornerH = Math.max(barW + 4, Math.round(lineH * 0.72));
+        const lCorner = () =>
+          `<span style="position:absolute;left:50%;top:0;width:${armW}px;height:${cornerH}px;margin-left:-${barW / 2}px;border-left:${barW}px solid ${barBg};border-bottom:${barW}px solid ${barBg};box-sizing:border-box;pointer-events:none"></span>`;
+        let blockCell = cell('');
         if (owning && tsIdx === owning.start) {
           // 可折叠：展开有输出，或已收起可再展开
           const canFold = owning.collapsed || owning.end > owning.start;
           const icon = owning.collapsed ? '+' : '−';
-          blockCell = canFold
-            ? `<button type="button" data-cb-id="${owning.block.id}" title="${owning.collapsed ? '展开' : '收起'}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;min-width:14px;height:14px;margin:0;padding:0;border:1px solid color-mix(in srgb, ${blockColor} 78%, transparent);border-radius:2px;background:color-mix(in srgb, ${blockColor} 16%, transparent);color:${blockColor};font-size:11px;line-height:1;cursor:pointer;font-family:var(--font-mono);flex-shrink:0;box-sizing:border-box;font-weight:700">${icon}</button>`
-            : `<span style="display:inline-flex;width:14px;min-width:14px;height:14px;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, ${blockColor} 55%, transparent);border-radius:2px;opacity:0.75;flex-shrink:0;box-sizing:border-box"></span>`;
+          if (canFold) {
+            const padTop = Math.max(0, (lineH - 14) / 2);
+            const btn = `<button type="button" data-cb-id="${owning.block.id}" title="${owning.collapsed ? '展开' : '收起'}" style="position:absolute;left:0;top:${padTop}px;display:inline-flex;align-items:center;justify-content:center;width:14px;min-width:14px;height:14px;margin:0;padding:0;border:1px solid color-mix(in srgb, ${blockColor} 78%, transparent);border-radius:2px;background:color-mix(in srgb, ${blockColor} 16%, transparent);color:${blockColor};font-size:11px;line-height:1;cursor:pointer;font-family:var(--font-mono);box-sizing:border-box;font-weight:700;z-index:1">${icon}</button>`;
+            // 多行展开：按钮下接到行底，与下一行整高竖条无缝衔接
+            const barBelow = (!owning.collapsed && owning.end > owning.start)
+              ? vBar(`${padTop + 14}px`, '0')
+              : '';
+            blockCell = cell(`${btn}${barBelow}`);
+          } else {
+            const padTop = Math.max(0, (lineH - 14) / 2);
+            blockCell = cell(`<span style="position:absolute;left:0;top:${padTop}px;display:inline-flex;width:14px;height:14px;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, ${blockColor} 55%, transparent);border-radius:2px;opacity:0.75;box-sizing:border-box"></span>`);
+          }
         } else if (owning && !owning.collapsed && tsIdx > owning.start && tsIdx < owning.end) {
-          blockCell = `<span style="display:inline-flex;width:14px;min-width:14px;height:14px;align-items:center;justify-content:center;opacity:0.88;color:${blockColor};flex-shrink:0;font-weight:600">│</span>`;
+          blockCell = cell(vBar('0', '0'));
         } else if (owning && !owning.collapsed && tsIdx === owning.end && owning.end > owning.start) {
-          blockCell = `<span style="display:inline-flex;width:14px;min-width:14px;height:14px;align-items:center;justify-content:center;opacity:0.88;color:${blockColor};flex-shrink:0;font-weight:600">└</span>`;
+          blockCell = cell(lCorner());
         }
         parts.push(blockCell);
       }
-      html += `<div style="height:${lineH}px;line-height:${lineH}px;font-size:11px;font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;padding:0 2px 0 4px;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-end;gap:2px">${parts.join('')}</div>`;
+      // overflow:visible：命令块竖条才能顶满行高无裁切；时间戳等宽不溢出
+      html += `<div style="height:${lineH}px;line-height:${lineH}px;font-size:11px;font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:visible;padding:0 2px 0 4px;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-end;gap:2px">${parts.join('')}</div>`;
     }
     gutter.innerHTML = html;
   }
