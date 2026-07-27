@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Kompresi intisari penuh",
   "摘要创建子任务能力未就绪": "Kemampuan subtugas pembuatan ringkasan belum siap",
   "摘要创建子任务失败": "Subtugas pembuatan ringkasan gagal",
+  "上下文压缩预演能力未就绪": "Kemampuan pratinjau kompresi konteks belum siap",
+  "AI测活能力未就绪": "Kemampuan pengujian aktivitas AI belum siap",
   "协同小助手正在整理摘要并创建子任务": "Asisten kolaboratif sedang memilah ringkasan dan membuat subtugas",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Menghasilkan ringkasan terstruktur berdasarkan tugas saat ini dan memperoleh subtugas baru",
   "继续自: {title}": "Lanjutan dari: {title}",

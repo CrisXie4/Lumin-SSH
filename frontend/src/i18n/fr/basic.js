@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Compression complète du résumé",
   "摘要创建子任务能力未就绪": "La fonctionnalité de sous-tâche de création de résumé n'est pas prête",
   "摘要创建子任务失败": "Échec de la sous-tâche de création du résumé",
+  "上下文压缩预演能力未就绪": "La fonctionnalité d'aperçu de la compression contextuelle n'est pas prête",
+  "AI测活能力未就绪": "La capacité de test d’activité de l’IA n’est pas encore prête",
   "协同小助手正在整理摘要并创建子任务": "L'assistant collaboratif trie les résumés et crée des sous-tâches",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Générer un résumé structuré basé sur la tâche en cours et dériver de nouvelles sous-tâches",
   "继续自: {title}": "Continuer à partir de : {title}",

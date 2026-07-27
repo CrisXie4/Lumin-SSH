@@ -188,7 +188,15 @@ func (b *AIBindings) CondenseAIConversationContext(conversationID string, sessio
 	return b.runtime().CondenseAIConversationContext(conversationID, sessionID)
 }
 
-func (b *AIBindings) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (ai.AIConversationSnapshot, error) {
+func (b *AIBindings) PreviewAIConversationContextCondense(conversationID string, sessionID string) (ai.AIConversationContextCondenseResult, error) {
+	return b.runtime().PreviewAIConversationContextCondense(conversationID, sessionID)
+}
+
+func (b *AIBindings) ProbeAIProviderLiveness(conversationID string, sessionID string, requestID string) (bool, error) {
+	return b.runtime().ProbeAIProviderLiveness(conversationID, sessionID, requestID)
+}
+
+func (b *AIBindings) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (ai.AIConversationSummarySubtaskResult, error) {
 	return b.runtime().CreateAIConversationSummarySubtask(conversationID, sessionID, requestID)
 }
 

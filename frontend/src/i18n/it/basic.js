@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Compressione digest completa",
   "摘要创建子任务能力未就绪": "La funzionalità dell'attività secondaria di creazione del riepilogo non è pronta",
   "摘要创建子任务失败": "L'attività secondaria di creazione del riepilogo non è riuscita",
+  "上下文压缩预演能力未就绪": "La funzionalità di anteprima della compressione del contesto non è pronta",
+  "AI测活能力未就绪": "La capacità di test delle attività dell'IA non è ancora pronta",
   "协同小助手正在整理摘要并创建子任务": "L'assistente collaborativo sta sistemando i riepiloghi e creando attività secondarie",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Generazione di un riepilogo strutturato basato sull'attività corrente e derivazione di nuove attività secondarie",
   "继续自: {title}": "Continua da: {title}",

@@ -20,7 +20,7 @@ import AIChatConversation from './ai/chat/AIChatConversation.jsx'
 import { getConversationBranchAnchor } from './ai/chat/aiChatMessageTopology.js'
 import { isCallMyVipProviderHost } from './ai/providerSpecialHosts.js'
 import { getAIProviderDefinition } from './ai/providers/index.js'
-import assistantThinkingActiveImg from '../assets/assistant-thinking-active.png'
+import assistantThinkingActiveImg from '../assets/assistant-thinking-active.gif'
 import Tiptop from './Tiptop.jsx'
 
 function getAIBridge() {
@@ -80,6 +80,18 @@ function buildAIHistoryDisplayTimeParts(value, language) {
     absoluteText,
     relativeText,
   }
+}
+
+function buildAIConversationSummarySubtaskContinuePrompt(summaryText, language) {
+  const trimmedSummaryText = typeof summaryText === 'string' ? summaryText.trim() : ''
+  if (!trimmedSummaryText) {
+    return ''
+  }
+  const normalizedLanguage = String(language || '').toLowerCase()
+  const handoffInstruction = normalizedLanguage.startsWith('zh')
+    ? '您是本次新的对接工程师,以上是交接文档!请继续工作,可能需要您先检查当前的基线工作进度确保交接内容属实'
+    : 'You are the new handoff engineer for this task. The content above is the handoff document. Please continue the work, and you may need to first verify the current baseline progress to ensure the handoff is accurate.'
+  return `${trimmedSummaryText}\n\n${handoffInstruction}`
 }
 
 function getAIHistoryRelativeTimeToneStyle(value) {
@@ -1478,6 +1490,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     && runtimePhase === 'ready'
     && !panelState.queuedSubmission
     && !panelState.isFlushingQueuedSubmission
+    && !collaborationActive
+    && !panelState.isCondensingContext
     && (!panelState.lastTurnBusinessMessageKind || (panelState.lastTurnBusinessMessageKind !== 'completion' && panelState.lastTurnBusinessMessageKind !== 'followup'))
   const playAISound = useCallback((type) => {
     if (normalizedGlobalAISettings.soundEnabled === false) {
@@ -1991,6 +2005,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       }
 
       if (payload.kind === 'collaboration_started') {
+        if (matchedPanel.collaborationMode === 'summary_subtask') {
+          return
+        }
         setComposerInputValue('')
         setComposerImages([])
         setPanelState(matchedPanelKey, (current) => ({
@@ -2033,12 +2050,17 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           const nextDelta = typeof payload.delta === 'string' ? payload.delta : ''
           const nextBuffer = `${typeof current.collaborationStreamBuffer === 'string' ? current.collaborationStreamBuffer : ''}${nextDelta}`
           if (current.collaborationMode === 'summary_subtask') {
-            streamedCollaborationText = nextBuffer
+            const displayBuffer = nextBuffer
+              .replace(/<subtask_title>[\s\S]*?<\/subtask_title>/giu, '')
+              .replace(/<subtask_summary>/giu, '')
+              .replace(/<\/subtask_summary>/giu, '')
+              .trim()
+            streamedCollaborationText = displayBuffer
             return {
               ...current,
               collaborationStreamBuffer: nextBuffer,
               collaborationStatusFirstTokenAtMs: current.collaborationStatusFirstTokenAtMs || (nextDelta.trim() ? Date.now() : 0),
-              collaborationStatusText: nextBuffer,
+              collaborationStatusText: displayBuffer,
             }
           }
           const parsedCollaborationBuffer = parseAICollaborationStreamBuffer(nextBuffer)
@@ -2073,12 +2095,89 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             contextTokens: normalizeAIContextTokensValue(payload.newContextTokens),
           }
         })
-        // 压缩改写了历史节点: 全量重建账本 (对每个节点重算并重新持久化压缩后的 Token)
         void rebuildAIConversationTokenLedger(nextSnapshot, matchedPanelKey)
         return
       }
 
+      if (payload.kind === 'auto_recovery_started') {
+        const recoveryRequestId = typeof payload.recoveryRequestId === 'string' ? payload.recoveryRequestId.trim() : ''
+        setComposerInputValue('')
+        setComposerImages([])
+        setPanelState(matchedPanelKey, (current) => {
+          const previousAssistantMessageId = typeof current.activeAssistantMessageId === 'string' && current.activeAssistantMessageId.trim()
+            ? current.activeAssistantMessageId.trim()
+            : (typeof current.activeRequestId === 'string' ? current.activeRequestId.trim() : '')
+          const nextMessages = (Array.isArray(current.messages) ? current.messages : []).filter((message) => {
+            if (!message || typeof message !== 'object') {
+              return true
+            }
+            if (previousAssistantMessageId && message.id === previousAssistantMessageId && message.kind === 'assistant') {
+              return false
+            }
+            if (previousAssistantMessageId && message.id === `${previousAssistantMessageId}-reasoning` && message.kind === 'reasoning') {
+              return false
+            }
+            return true
+          })
+          const nextConversation = current.conversation
+            ? {
+                ...current.conversation,
+                messages: nextMessages,
+              }
+            : current.conversation
+          return {
+            ...current,
+            conversation: nextConversation,
+            messages: nextMessages,
+            activeRequestId: recoveryRequestId || current.activeRequestId,
+            activeAssistantMessageId: '',
+            activeToolExecution: null,
+            requestPhase: 'idle',
+            runtimePhase: 'ready',
+            isCondensingContext: true,
+            collaborationLocked: true,
+            collaborationActive: true,
+            collaborationMode: 'summary_subtask',
+            collaborationStreamBuffer: '',
+            collaborationAwaitingManualFollowup: false,
+            collaborationFollowupRequestId: '',
+            collaborationPendingMode: '',
+            collaborationPendingRequestId: '',
+            collaborationInterruptedRequestId: '',
+            collaborationStatusStartedAtMs: Date.now(),
+            collaborationStatusFirstTokenAtMs: 0,
+            collaborationStatusText: typeof payload.text === 'string' ? payload.text : '',
+            collaborationStatusReasoningText: typeof payload.reasoningText === 'string' ? payload.reasoningText : '',
+          }
+        })
+        return
+      }
+
+      if (payload.kind === 'auto_recovery_status') {
+        setPanelState(matchedPanelKey, (current) => ({
+          ...current,
+          collaborationLocked: true,
+          collaborationActive: true,
+          collaborationMode: 'summary_subtask',
+          collaborationStatusText: typeof payload.text === 'string' ? payload.text : '',
+          collaborationStatusReasoningText: typeof payload.reasoningText === 'string' ? payload.reasoningText : '',
+        }))
+        return
+      }
+
+      if (payload.kind === 'auto_recovery_run_full_summary') {
+        // 统一复用“手动全量摘要”的标准入口，不再保留自动链自己的特殊 requestId/协同态初始化路径
+        // 这样子任务创建、摘要请求、继续任务都与手动全量摘要保持同一执行源
+        void runAIConversationSummarySubtaskFlow(matchedPanel.conversation || conversation, {
+          autoRecoverySubtaskHops: 1,
+        })
+        return
+      }
+
       if (payload.kind === 'collaboration_finished') {
+        if (matchedPanel.collaborationMode === 'summary_subtask') {
+          return
+        }
         const decision = normalizeAICollaborationDecision(payload.decision)
         const finalCollaborationText = typeof payload.text === 'string' ? payload.text : ''
         const isFallbackFollowup = decision === 'fallback_followup'
@@ -2243,6 +2342,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
               apiMessages: Array.isArray(current.apiMessages) ? [...current.apiMessages] : [],
             }
           }
+          // 智能压缩就地重试：正式 AI 请求开始的这一刻已不属于助理协同态。
+          // 收到 assistant_continue 且当前处于 summary_subtask 协同态时，退出协同态并回落为普通流式。
+          const shouldExitSummarySubtaskCollaboration = current.collaborationMode === 'summary_subtask'
           return {
             ...current,
             activeAssistantMessageId: payload.messageId,
@@ -2268,6 +2370,22 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             ],
             lastAssistantTurnId: payload.messageId,
             lastTurnBusinessMessageKind: '',
+            ...(shouldExitSummarySubtaskCollaboration ? {
+              isCondensingContext: false,
+              collaborationLocked: shouldLockAssistantCollaboration,
+              collaborationActive: false,
+              collaborationMode: '',
+              collaborationStreamBuffer: '',
+              collaborationAwaitingManualFollowup: false,
+              collaborationFollowupRequestId: '',
+              collaborationPendingMode: '',
+              collaborationPendingRequestId: '',
+              collaborationInterruptedRequestId: '',
+              collaborationStatusStartedAtMs: 0,
+              collaborationStatusFirstTokenAtMs: 0,
+              collaborationStatusText: '',
+              collaborationStatusReasoningText: '',
+            } : {}),
           }
         })
         if (snapshotBeforeNextRequest) {
@@ -2600,7 +2718,6 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             if (message.id === assistantMessageId && message.kind === 'assistant') {
               return {
                 ...message,
-                text: typeof payload.text === 'string' ? payload.text : translate('已拒绝执行工具调用'),
                 metrics: Array.isArray(message.metrics) ? message.metrics : [],
                 streaming: false,
                 extra: {
@@ -2789,6 +2906,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
         const metrics = buildMetrics(payload)
         const reasoningDuration = buildReasoningDuration(payload)
+        const shouldClearSummarySubtaskCollaboration = matchedPanel.collaborationMode === 'summary_subtask'
         const nextMessages = matchedPanel.messages.map((message) => {
           if (message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning') {
             return {
@@ -2830,6 +2948,10 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           ),
         }
 
+        if (shouldClearSummarySubtaskCollaboration) {
+          setComposerInputValue('')
+          setComposerImages([])
+        }
         setPanelState(matchedPanelKey, {
           ...matchedPanel,
           activeRequestId: '',
@@ -2837,16 +2959,24 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           activeToolExecution: null,
           requestPhase: 'idle',
           skipNextAutomaticRequest: false,
+          isCondensingContext: false,
           conversation: nextConversation,
           messages: nextMessages,
           apiMessages: nextConversation.apiMessages,
           recoverableToolStopReason: '',
-          collaborationLocked: false,
-          collaborationActive: false,
-          collaborationMode: '',
-          collaborationStreamBuffer: '',
-          collaborationAwaitingManualFollowup: false,
-          collaborationFollowupRequestId: '',
+          collaborationLocked: shouldClearSummarySubtaskCollaboration ? false : matchedPanel.collaborationLocked,
+          collaborationActive: shouldClearSummarySubtaskCollaboration ? false : matchedPanel.collaborationActive,
+          collaborationMode: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationMode,
+          collaborationStreamBuffer: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationStreamBuffer,
+          collaborationAwaitingManualFollowup: shouldClearSummarySubtaskCollaboration ? false : matchedPanel.collaborationAwaitingManualFollowup,
+          collaborationFollowupRequestId: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationFollowupRequestId,
+          collaborationPendingMode: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationPendingMode,
+          collaborationPendingRequestId: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationPendingRequestId,
+          collaborationInterruptedRequestId: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationInterruptedRequestId,
+          collaborationStatusStartedAtMs: shouldClearSummarySubtaskCollaboration ? 0 : matchedPanel.collaborationStatusStartedAtMs,
+          collaborationStatusFirstTokenAtMs: shouldClearSummarySubtaskCollaboration ? 0 : matchedPanel.collaborationStatusFirstTokenAtMs,
+          collaborationStatusText: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationStatusText,
+          collaborationStatusReasoningText: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationStatusReasoningText,
         })
 
         void saveConversationSnapshot(nextConversation, matchedPanelKey)
@@ -2893,6 +3023,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           toolApprovalMode: '',
           runtimePhase: 'ready',
           skipNextAutomaticRequest: false,
+          isCondensingContext: false,
           activeChangeReview: null,
           conversation: nextConversation,
           messages: nextMessages,
@@ -2938,6 +3069,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           toolApprovalMode: '',
           runtimePhase: 'ready',
           skipNextAutomaticRequest: false,
+          isCondensingContext: false,
           activeChangeReview: null,
           conversation: nextConversation,
           messages: nextMessages,
@@ -3673,6 +3805,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       sendOptions = sendOptionsOrEditState
     }
 
+    const normalizedRuntimeOptions = runtimeOptions && typeof runtimeOptions === 'object' ? runtimeOptions : {}
     const nextText = typeof text === 'string' ? text.trim() : ''
     const messageImages = normalizeMessageImages(sendOptions?.images ?? composerImages)
     if (!nextText && messageImages.length === 0) {
@@ -3681,16 +3814,19 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
 
     clearRestorePreview()
 
+    const targetConversationFromOptions = normalizedRuntimeOptions?.targetConversationSnapshot && typeof normalizedRuntimeOptions.targetConversationSnapshot === 'object'
+      ? normalizedRuntimeOptions.targetConversationSnapshot
+      : null
     const activeConversationToolScope = typeof activeConversation?.toolScope === 'string' ? activeConversation.toolScope.trim() : ''
     const activeConversationToolScopeSlot = typeof activeConversation?.toolScopeSlot === 'string' ? activeConversation.toolScopeSlot.trim() : ''
-    const effectiveToolScope = typeof runtimeOptions?.toolScope === 'string' && runtimeOptions.toolScope.trim()
-      ? runtimeOptions.toolScope.trim()
+    const effectiveToolScope = typeof normalizedRuntimeOptions?.toolScope === 'string' && normalizedRuntimeOptions.toolScope.trim()
+      ? normalizedRuntimeOptions.toolScope.trim()
       : activeConversationToolScope
-    const effectiveToolScopeSlot = typeof runtimeOptions?.toolScopeSlot === 'string' && runtimeOptions.toolScopeSlot.trim()
-      ? runtimeOptions.toolScopeSlot.trim()
+    const effectiveToolScopeSlot = typeof normalizedRuntimeOptions?.toolScopeSlot === 'string' && normalizedRuntimeOptions.toolScopeSlot.trim()
+      ? normalizedRuntimeOptions.toolScopeSlot.trim()
       : activeConversationToolScopeSlot
     const isThemeTuningConversation = effectiveToolScope === 'theme_tuning'
-    let targetConversationSnapshot = runtimeOptions?.forceNewConversation === true ? null : activeConversation
+    let targetConversationSnapshot = normalizedRuntimeOptions?.forceNewConversation === true ? null : (targetConversationFromOptions || activeConversation)
     if (targetConversationSnapshot?.transient === true && !effectiveToolScope) {
       targetConversationSnapshot = null
     }
@@ -3887,7 +4023,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
 
     let assistantFirstReplyText = ''
-    if (shouldInjectAssistantFirstReply) {
+    if (!normalizedRuntimeOptions.skipAssistantFirstReply && shouldInjectAssistantFirstReply) {
       assistantFirstReplyText = (await getAIAssistantFirstReply(getLanguage())).trim()
     }
     recordPerfStage('首字预取')
@@ -3910,6 +4046,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       lastTurnBusinessMessageKind: '',
       requestPhase: 'streaming',
       runtimePhase: 'api_request',
+      isCondensingContext: normalizedRuntimeOptions.keepCondensingContext === true,
       collaborationLocked: shouldLockAssistantCollaboration,
       collaborationActive: false,
       collaborationMode: '',
@@ -3936,6 +4073,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         isDemon: Boolean(isDevilMode),
         toolScope: effectiveToolScope || undefined,
         toolScopeSlot: effectiveToolScopeSlot || undefined,
+        autoRecoverySubtaskHops: Number.isFinite(Number(normalizedRuntimeOptions.autoRecoverySubtaskHops))
+          ? Math.max(0, Math.trunc(Number(normalizedRuntimeOptions.autoRecoverySubtaskHops)))
+          : undefined,
         messages: requestMessages,
       })
       recordPerfStage('发起请求')
@@ -4533,55 +4673,71 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
   }, [activeConversation, panelInstanceKey, panelState.isCondensingContext, rebuildAIConversationTokenLedger, runtimePhase, setPanelState, terminalId])
 
-  const handleCondenseContextFullSummary = useCallback(async () => {
-    if (!activeConversation || runtimePhase !== 'ready' || panelState.isCondensingContext) {
-      return
+  const continueAIConversationSummarySubtask = useCallback(async (conversationSnapshot, continueText, options = {}) => {
+    const nextConversationSnapshot = normalizeAIConversationSnapshot(conversationSnapshot)
+    const normalizedContinueText = typeof continueText === 'string' ? continueText.trim() : ''
+    const normalizedOptions = options && typeof options === 'object' ? options : {}
+    const finalContinueText = buildAIConversationSummarySubtaskContinuePrompt(normalizedContinueText, getLanguage())
+    if (!nextConversationSnapshot?.id || !finalContinueText) {
+      return false
     }
-    const summaryRequestId = `summary-subtask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    setComposerInputValue('')
-    setComposerImages([])
-    setPanelState(panelInstanceKey, (current) => ({
-      ...current,
-      activeRequestId: summaryRequestId,
-      isCondensingContext: true,
-      collaborationLocked: true,
-      collaborationActive: true,
-      collaborationMode: 'summary_subtask',
-      collaborationStreamBuffer: '',
-      collaborationAwaitingManualFollowup: false,
-      collaborationFollowupRequestId: '',
-      collaborationPendingMode: '',
-      collaborationPendingRequestId: '',
-      collaborationInterruptedRequestId: '',
-      collaborationStatusStartedAtMs: Date.now(),
-      collaborationStatusFirstTokenAtMs: 0,
-      collaborationStatusText: '',
-      collaborationStatusReasoningText: '',
-    }))
-    try {
-      const childSnapshot = await createAIConversationSummarySubtask(activeConversation.id, terminalId, summaryRequestId)
-      if (!childSnapshot?.id) {
-        throw new Error(t('摘要创建子任务失败'))
-      }
-      await handleOpenConversation(childSnapshot.id)
+    return handleSendMessage(finalContinueText, { images: [] }, null, {
+      forceImmediate: true,
+      targetConversationSnapshot: nextConversationSnapshot,
+      autoRecoverySubtaskHops: Number.isFinite(Number(normalizedOptions.autoRecoverySubtaskHops))
+        ? Math.max(0, Math.trunc(Number(normalizedOptions.autoRecoverySubtaskHops)))
+        : undefined,
+    })
+  }, [handleSendMessage])
+
+  const runAIConversationSummarySubtaskFlow = useCallback(async (conversationSnapshot, options = {}) => {
+    const nextConversationSnapshot = normalizeAIConversationSnapshot(conversationSnapshot)
+    const normalizedOptions = options && typeof options === 'object' ? options : {}
+    const summaryRequestId = typeof normalizedOptions.requestId === 'string' && normalizedOptions.requestId.trim()
+      ? normalizedOptions.requestId.trim()
+      : `summary-subtask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const preserveExistingCollaboration = normalizedOptions.preserveExistingCollaboration === true
+    if (!nextConversationSnapshot?.id) {
+      return false
+    }
+    if (!preserveExistingCollaboration) {
+      setComposerInputValue('')
+      setComposerImages([])
       setPanelState(panelInstanceKey, (current) => ({
         ...current,
-        activeRequestId: '',
-        isCondensingContext: false,
-        collaborationLocked: false,
-        collaborationActive: false,
-        collaborationMode: '',
+        activeRequestId: summaryRequestId,
+        isCondensingContext: true,
+        collaborationLocked: true,
+        collaborationActive: true,
+        collaborationMode: 'summary_subtask',
         collaborationStreamBuffer: '',
         collaborationAwaitingManualFollowup: false,
         collaborationFollowupRequestId: '',
         collaborationPendingMode: '',
         collaborationPendingRequestId: '',
         collaborationInterruptedRequestId: '',
-        collaborationStatusStartedAtMs: 0,
+        collaborationStatusStartedAtMs: Date.now(),
         collaborationStatusFirstTokenAtMs: 0,
         collaborationStatusText: '',
         collaborationStatusReasoningText: '',
       }))
+    }
+    try {
+      const subtaskResult = await createAIConversationSummarySubtask(nextConversationSnapshot.id, terminalId, summaryRequestId)
+      const childSnapshot = normalizeAIConversationSnapshot(subtaskResult?.snapshot || subtaskResult)
+      const continueText = typeof subtaskResult?.continueText === 'string' ? subtaskResult.continueText.trim() : ''
+      if (!childSnapshot?.id || !continueText) {
+        throw new Error(t('摘要创建子任务失败'))
+      }
+      const accepted = await continueAIConversationSummarySubtask(childSnapshot, continueText, {
+        autoRecoverySubtaskHops: Number.isFinite(Number(normalizedOptions.autoRecoverySubtaskHops))
+          ? Math.max(0, Math.trunc(Number(normalizedOptions.autoRecoverySubtaskHops)))
+          : undefined,
+      })
+      if (!accepted) {
+        throw new Error(t('摘要创建子任务失败'))
+      }
+      return true
     } catch (error) {
       const interruptedRequestId = typeof terminalPanelsRef.current?.[panelInstanceKey]?.collaborationInterruptedRequestId === 'string'
         ? terminalPanelsRef.current[panelInstanceKey].collaborationInterruptedRequestId.trim()
@@ -4608,19 +4764,38 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         collaborationStatusText: '',
         collaborationStatusReasoningText: '',
       }))
+      return false
     }
-  }, [activeConversation, handleOpenConversation, panelInstanceKey, panelState.isCondensingContext, runtimePhase, setComposerImages, setComposerInputValue, setPanelState, showAlert, t, terminalId])
+  }, [continueAIConversationSummarySubtask, panelInstanceKey, setComposerImages, setComposerInputValue, setPanelState, showAlert, t, terminalId])
 
-  const resumeAIChatFromConversation = useCallback(async (conversationSnapshot, targetPanelKey = panelInstanceKey, recoverableToolStopReason = '') => {
+  const handleCondenseContextFullSummary = useCallback(async () => {
+    if (!activeConversation || runtimePhase !== 'ready' || panelState.isCondensingContext) {
+      return
+    }
+    void runAIConversationSummarySubtaskFlow(activeConversation)
+  }, [activeConversation, panelState.isCondensingContext, runAIConversationSummarySubtaskFlow, runtimePhase])
+
+  const resumeAIChatFromConversation = useCallback(async (conversationSnapshot, targetPanelKey = panelInstanceKey, options = {}) => {
     if (!conversationSnapshot || !effectiveProviderId) {
       return false
     }
+    const normalizedOptions = options && typeof options === 'object' ? options : {}
     const requestApiMessages = Array.isArray(conversationSnapshot.apiMessages) ? conversationSnapshot.apiMessages : []
     if (requestApiMessages.length === 0) {
       return false
     }
     const requestMessages = buildRequestMessages(requestApiMessages)
     const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const keepCollaborationActive = normalizedOptions.keepCollaborationActive === true
+    const collaborationMode = keepCollaborationActive
+      ? (typeof normalizedOptions.collaborationMode === 'string' && normalizedOptions.collaborationMode.trim() ? normalizedOptions.collaborationMode.trim() : 'summary_subtask')
+      : ''
+    const collaborationStatusText = typeof normalizedOptions.collaborationStatusText === 'string' ? normalizedOptions.collaborationStatusText : ''
+    const collaborationStatusReasoningText = typeof normalizedOptions.collaborationStatusReasoningText === 'string' ? normalizedOptions.collaborationStatusReasoningText : ''
+    const recoverableToolStopReason = typeof normalizedOptions.recoverableToolStopReason === 'string' ? normalizedOptions.recoverableToolStopReason : ''
+    const autoRecoverySubtaskHops = Number.isFinite(Number(normalizedOptions.autoRecoverySubtaskHops))
+      ? Math.max(0, Math.trunc(Number(normalizedOptions.autoRecoverySubtaskHops)))
+      : 0
     const assistantMessage = {
       id: requestId,
       turnId: requestId,
@@ -4666,19 +4841,19 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       recoverableToolStopReason: '',
       lastAssistantTurnId: requestId,
       lastTurnBusinessMessageKind: '',
-      collaborationLocked: shouldLockAssistantCollaboration,
-      collaborationActive: false,
-      collaborationMode: '',
+      isCondensingContext: keepCollaborationActive,
+      collaborationLocked: keepCollaborationActive ? true : shouldLockAssistantCollaboration,
+      collaborationActive: keepCollaborationActive,
+      collaborationMode,
       collaborationStreamBuffer: '',
       collaborationAwaitingManualFollowup: false,
       collaborationFollowupRequestId: '',
       collaborationInterruptedRequestId: '',
-      collaborationStatusStartedAtMs: 0,
+      collaborationStatusStartedAtMs: keepCollaborationActive ? Date.now() : 0,
       collaborationStatusFirstTokenAtMs: 0,
-      collaborationStatusText: '',
-      collaborationStatusReasoningText: '',
+      collaborationStatusText: keepCollaborationActive ? collaborationStatusText : '',
+      collaborationStatusReasoningText: keepCollaborationActive ? collaborationStatusReasoningText : '',
     })
-
 
     try {
       await startAIChat(requestId, {
@@ -4689,6 +4864,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         isDemon: Boolean(isDevilMode),
         toolScope: typeof conversationSnapshot?.toolScope === 'string' && conversationSnapshot.toolScope.trim() ? conversationSnapshot.toolScope.trim() : undefined,
         toolScopeSlot: typeof conversationSnapshot?.toolScopeSlot === 'string' && conversationSnapshot.toolScopeSlot.trim() ? conversationSnapshot.toolScopeSlot.trim() : undefined,
+        autoRecoverySubtaskHops,
         messages: requestMessages,
       })
       return true
@@ -4732,6 +4908,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         skipNextAutomaticRequest: false,
         resumeAfterCancelRequestId: '',
         recoverableToolStopReason,
+        isCondensingContext: false,
         activeChangeReview: null,
         collaborationLocked: false,
         collaborationActive: false,
@@ -4889,6 +5066,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       return {
         ...current,
         activeRequestId: targetMode === 'summary_subtask' ? '' : current.activeRequestId,
+        isCondensingContext: targetMode === 'summary_subtask' ? false : current.isCondensingContext,
         collaborationLocked: false,
         collaborationActive: false,
         collaborationMode: '',

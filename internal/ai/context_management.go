@@ -201,6 +201,9 @@ func compressAIConversationToolResultText(text string, removeEnvironmentDetails 
 	if header == "" {
 		return "*", compressedBody
 	}
+	if strings.HasSuffix(header, " *") {
+		return header, compressedBody
+	}
 	return fmt.Sprintf("%s *", header), compressedBody
 }
 

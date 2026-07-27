@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Full digest compression",
   "摘要创建子任务能力未就绪": "Summary creation subtask capability is not ready",
   "摘要创建子任务失败": "Summary creation subtask failed",
+  "上下文压缩预演能力未就绪": "Context compression preview capability is not ready",
+  "AI测活能力未就绪": "AI activity testing capability is not ready yet",
   "协同小助手正在整理摘要并创建子任务": "The collaborative assistant is sorting out summaries and creating subtasks",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Generating a structured summary based on the current task and deriving new subtasks",
   "继续自: {title}": "Continue from: {title}",

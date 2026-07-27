@@ -359,18 +359,44 @@ export async function condenseAIConversationContext(conversationId, sessionId) {
   return result?.snapshot ? { ...result, snapshot } : snapshot
 }
 
+export async function previewAIConversationContextCondense(conversationId, sessionId) {
+  const bridge = getAppBridge()
+  if (!bridge?.PreviewAIConversationContextCondense) {
+    throw new Error(t('上下文压缩预演能力未就绪'))
+  }
+  const result = await bridge.PreviewAIConversationContextCondense(conversationId, sessionId)
+  const snapshot = normalizeAIConversationSnapshot(result?.snapshot || result)
+  return result?.snapshot ? { ...result, snapshot } : snapshot
+}
+
+export async function probeAIProviderLiveness(conversationId, sessionId, requestId = '') {
+  const bridge = getAppBridge()
+  if (!bridge?.ProbeAIProviderLiveness) {
+    throw new Error(t('AI测活能力未就绪'))
+  }
+  return (await bridge.ProbeAIProviderLiveness(
+    conversationId,
+    sessionId,
+    typeof requestId === 'string' ? requestId : '',
+  )) === true
+}
+
 export async function createAIConversationSummarySubtask(conversationId, sessionId, requestId = '') {
   const bridge = getAppBridge()
   if (!bridge?.CreateAIConversationSummarySubtask) {
     throw new Error(t('摘要创建子任务能力未就绪'))
   }
-  const snapshot = normalizeAIConversationSnapshot(await bridge.CreateAIConversationSummarySubtask(
+  const result = await bridge.CreateAIConversationSummarySubtask(
     conversationId,
     sessionId,
     typeof requestId === 'string' ? requestId : '',
-  ))
+  )
+  const snapshot = normalizeAIConversationSnapshot(result?.snapshot || result)
   publishAIConversationUpsert(snapshot)
-  return snapshot
+  return {
+    snapshot,
+    continueText: typeof result?.continueText === 'string' ? result.continueText : '',
+  }
 }
 
 export async function openAIConversationFolder(conversationId) {

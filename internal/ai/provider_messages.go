@@ -104,6 +104,9 @@ func (a *App) requestMessagesAIChatRound(ctx context.Context, requestID string, 
 	firstTokenAt := time.Time{}
 	var contentBuilder strings.Builder
 	var contentParser aiReasoningTagStreamParser
+	finalizeRoundResult := func() {
+		finalizeAIChatRoundResult(&result, startedAt, firstTokenAt, &contentBuilder)
+	}
 
 	emitReasoningDelta := func(delta string) {
 		if delta == "" {
@@ -214,6 +217,7 @@ func (a *App) requestMessagesAIChatRound(ctx context.Context, requestID string, 
 
 	for scanner.Scan() {
 		if ctx.Err() != nil {
+			finalizeRoundResult()
 			return result, ctx.Err()
 		}
 
@@ -268,9 +272,11 @@ func (a *App) requestMessagesAIChatRound(ctx context.Context, requestID string, 
 	}
 
 	if err := scanner.Err(); err != nil {
+		finalizeRoundResult()
 		return result, err
 	}
 	if ctx.Err() != nil {
+		finalizeRoundResult()
 		return result, ctx.Err()
 	}
 

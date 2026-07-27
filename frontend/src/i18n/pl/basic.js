@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Kompresja pełnego podsumowania",
   "摘要创建子任务能力未就绪": "Możliwość podzadania tworzenia podsumowania nie jest gotowa",
   "摘要创建子任务失败": "Podzadanie tworzenia podsumowania nie powiodło się",
+  "上下文压缩预演能力未就绪": "Możliwość podglądu kompresji kontekstu nie jest gotowa",
+  "AI测活能力未就绪": "Możliwość testowania aktywności AI nie jest jeszcze gotowa",
   "协同小助手正在整理摘要并创建子任务": "Asystent współpracujący porządkuje podsumowania i tworzy podzadania",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Generowanie ustrukturyzowanego podsumowania na podstawie bieżącego zadania i wyprowadzanie nowych podzadań",
   "继续自: {title}": "Kontynuuj od: {title}",

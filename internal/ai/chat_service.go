@@ -25,17 +25,23 @@ type AIChatRequestMessage struct {
 }
 
 type AIChatRequestPayload struct {
-	ConversationID           string                 `json:"conversationId"`
-	SessionID                string                 `json:"sessionId"`
-	AutoApprove              bool                   `json:"autoApprove"`
-	SkipNextAutomaticRequest bool                   `json:"skipNextAutomaticRequest"`
-	AssistantFirstReplyText  string                 `json:"assistantFirstReplyText,omitempty"`
-	IsDemon                  bool                   `json:"isDemon,omitempty"`
-	SystemPromptOverride     string                 `json:"systemPromptOverride,omitempty"`
-	StreamEventPrefix        string                 `json:"streamEventPrefix,omitempty"`
-	ToolScope                string                 `json:"toolScope,omitempty"`
-	ToolScopeSlot            string                 `json:"toolScopeSlot,omitempty"`
-	Messages                 []AIChatRequestMessage `json:"messages"`
+	ConversationID                           string                 `json:"conversationId"`
+	SessionID                                string                 `json:"sessionId"`
+	AutoApprove                              bool                   `json:"autoApprove"`
+	SkipNextAutomaticRequest                 bool                   `json:"skipNextAutomaticRequest"`
+	AssistantFirstReplyText                  string                 `json:"assistantFirstReplyText,omitempty"`
+	IsDemon                                  bool                   `json:"isDemon,omitempty"`
+	SystemPromptOverride                     string                 `json:"systemPromptOverride,omitempty"`
+	SkipSystemPrompt                         bool                   `json:"skipSystemPrompt,omitempty"`
+	StreamEventPrefix                        string                 `json:"streamEventPrefix,omitempty"`
+	ToolScope                                string                 `json:"toolScope,omitempty"`
+	ToolScopeSlot                            string                 `json:"toolScopeSlot,omitempty"`
+	AutoRecoverySubtaskHops                  int                    `json:"autoRecoverySubtaskHops,omitempty"`
+	Messages                                 []AIChatRequestMessage `json:"messages"`
+	AutoRecoveryActive                       bool                   `json:"-"`
+	AutoRecoveryProbeCount                   int                    `json:"-"`
+	AutoRecoveryCurrentConversationCondensed bool                   `json:"-"`
+	AutoRecoveryRequestID                    string                 `json:"-"`
 }
 
 type aiParsedToolUse struct {
@@ -70,6 +76,7 @@ type PendingToolBatch struct {
 	CollaborationRetryCount        int
 	SuppressNextCommandActionSound bool
 	AutoApprovalSettings           AIConversationTaskSettings
+	AutoApprovalSettingsRefreshed  bool
 	ForceCollaboration             bool
 	ForceCollaborationReason       string
 }
@@ -82,7 +89,7 @@ const (
 	aiApprovalDecisionAutoApprove   aiApprovalDecision = "auto_approve"
 	aiApprovalDecisionAutoDeny      aiApprovalDecision = "auto_deny"
 	aiApprovalDecisionAskUser       aiApprovalDecision = "ask_user"
-	aiChatRequestMaxAttempts                           = 3
+	aiChatRequestMaxAttempts                           = 2
 	aiAssistantRetryMaxAttempts                        = 2
 	aiCollaborationRetryMaxAttempts                    = 2
 )
@@ -2202,7 +2209,7 @@ func (a *App) RejectAIChatToolsForQueuedSubmission(requestID string) error {
 	a.emitAIChatEvent(map[string]interface{}{
 		"kind":      "tool_rejected",
 		"requestId": trimmedRequestID,
-		"text":      "已拒绝当前工具调用，等待新的用户消息",
+		"text":      "",
 	})
 	a.finishAIChatRequest(trimmedRequestID)
 	return nil
@@ -2591,6 +2598,11 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 				continue
 			}
 
+			if !hasAIChatRoundProducedOutput(roundResult) {
+				if a.recoverAIChatAfterRequestFailure(ctx, requestID, payload, profile, requestMessages, autoApprovalSettings, assistantMessageID, assistantRetryCount, collaborationRetryCount, err) {
+					return
+				}
+			}
 			a.emitAIChatRuntimePhase(requestID, "ready")
 			a.emitAIChatEvent(map[string]interface{}{
 				"kind":      "error",
@@ -2656,8 +2668,20 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 			visibleText := strings.TrimSpace(roundResult.Text)
 
 			if isAssistantFirstReplyRound {
-				// UI-only first reply: do not inject protocol ERROR after local greeting.
-				// Some gateways return 400 on user->assistant(prose)->user([ERROR] force tools).
+				nextRequestMessages := buildAINextRequestMessagesWithAssistant(requestMessages, roundResult)
+				assistantCacheObjects := extractAILatestAssistantCacheObjects(nextRequestMessages)
+				a.emitAIChatEvent(map[string]interface{}{
+					"kind":      "api_message_append",
+					"requestId": requestID,
+					"message": map[string]interface{}{
+						"messageId":    fmt.Sprintf("api-assistant-%d", time.Now().UnixNano()),
+						"turnId":       assistantMessageID,
+						"role":         "assistant",
+						"content":      roundResult.Text,
+						"cacheObjects": assistantCacheObjects,
+						"ts":           time.Now().UnixMilli(),
+					},
+				})
 				a.emitAIChatEvent(map[string]interface{}{
 					"kind":            "assistant_replace",
 					"requestId":       requestID,
@@ -2669,23 +2693,7 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 					"outputTokens":    roundResult.OutputTokens,
 					"tokensPerSecond": roundResult.TokensPerSecond,
 				})
-				if a.consumeAIChatSkipNextAutomaticRequest(requestID) {
-					a.skipCompatibleAIChatAfterResolvedTools(requestID)
-					return
-				}
-				// Keep original user messages only for the first real model request.
-				// Clear first-reply text so later rounds hit the real upstream model.
-				// Otherwise shouldUseAIAssistantFirstReply stays true and local greeting spins.
-				payload.AssistantFirstReplyText = ""
-				requestMessages = normalizeAIChatRequestMessages(requestMessages)
-				nextAssistantMessageID := fmt.Sprintf("%s-cont-%d", requestID, time.Now().UnixNano())
-				a.emitAIChatEvent(map[string]interface{}{
-					"kind":      "assistant_continue",
-					"requestId": requestID,
-					"messageId": nextAssistantMessageID,
-				})
-				assistantMessageID = nextAssistantMessageID
-				continue
+				requestMessages = nextRequestMessages
 			}
 
 			consecutiveNoToolCount++

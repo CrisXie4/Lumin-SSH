@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "",
   "摘要创建子任务能力未就绪": "Schopnost dílčího úkolu vytvoření souhrnu není připravena",
   "摘要创建子任务失败": "Dílčí úkol vytvoření souhrnu se nezdařil",
+  "上下文压缩预演能力未就绪": "Funkce náhledu kontextové komprese není připravena",
+  "AI测活能力未就绪": "Možnost testování aktivity AI ještě není připravena",
   "协同小助手正在整理摘要并创建子任务": "Asistent pro spolupráci třídí souhrny a vytváří dílčí úkoly",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Generování strukturovaného shrnutí na základě aktuálního úkolu a odvození nových dílčích úkolů",
   "继续自: {title}": "Pokračovat z: {title}",

@@ -3,7 +3,6 @@ package ai
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -11,9 +10,6 @@ import (
 const aiConversationRelationTypePhase = "phase"
 const aiConversationRelationTypeAgent = "agent"
 const aiConversationRelationSourceSummaryCondense = "summary_condense"
-
-var aiConversationSubtaskTitleBlockPattern = regexp.MustCompile(`(?is)<subtask_title>\s*(.*?)\s*</subtask_title>`)
-var aiConversationSubtaskSummaryBlockPattern = regexp.MustCompile(`(?is)<subtask_summary>\s*(.*?)\s*</subtask_summary>`)
 
 type aiConversationCompressedSeed struct {
 	APIMessages       []AIConversationAPIMessage
@@ -24,6 +20,11 @@ type aiConversationCompressedSeed struct {
 type aiConversationSummarySubtaskOutput struct {
 	Title   string
 	Summary string
+}
+
+type AIConversationSummarySubtaskResult struct {
+	Snapshot     AIConversationSnapshot `json:"snapshot"`
+	ContinueText string                 `json:"continueText,omitempty"`
 }
 
 func normalizeAIConversationRelationType(value string) string {
@@ -47,8 +48,72 @@ func buildAIConversationSummarySubtaskPrompt() string {
 		return ""
 	}
 	return strings.TrimSpace(renderPromptBuilderTemplate(templateText, map[string]string{
-		"DETAILED_ANALYSIS_INSTRUCTION_BASE": "Return only two XML blocks in this exact order: <subtask_title>...</subtask_title> then <subtask_summary>...</subtask_summary>. Do not include the <analysis> block. The <subtask_title> block must be a concise task title suitable for naming a new conversation. The <subtask_summary> block must contain the detailed summary body.",
+		"DETAILED_ANALYSIS_INSTRUCTION_BASE": "Do not include the <analysis> block. Output plain text only, without any XML tags or markdown headings. The first line must be a concise task title suitable for naming a new conversation. Everything after the first line must be the detailed summary body.",
 	}))
+}
+
+func stripAIConversationSummarySubtaskResidualTags(value string) string {
+	result := value
+	for _, tag := range []string{"subtask_title", "subtask_summary"} {
+		for _, form := range []string{"<" + tag + ">", "</" + tag + ">"} {
+			for {
+				lowerResult := strings.ToLower(result)
+				idx := strings.Index(lowerResult, strings.ToLower(form))
+				if idx < 0 {
+					break
+				}
+				result = result[:idx] + result[idx+len(form):]
+			}
+		}
+	}
+	return strings.TrimSpace(result)
+}
+
+func extractAIConversationSummarySubtaskTitleFromLine(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return ""
+	}
+	lower := strings.ToLower(trimmed)
+	openTag := "<subtask_title>"
+	closeTag := "</subtask_title>"
+	startIndex := strings.Index(lower, openTag)
+	if startIndex < 0 {
+		return stripAIConversationSummarySubtaskResidualTags(trimmed)
+	}
+	contentStart := startIndex + len(openTag)
+	relEnd := strings.Index(lower[contentStart:], closeTag)
+	if relEnd < 0 {
+		return stripAIConversationSummarySubtaskResidualTags(strings.TrimSpace(trimmed[contentStart:]))
+	}
+	return stripAIConversationSummarySubtaskResidualTags(strings.TrimSpace(trimmed[contentStart : contentStart+relEnd]))
+}
+
+func extractAIConversationSummarySubtaskSummaryFromBody(body string) string {
+	trimmed := strings.TrimSpace(body)
+	if trimmed == "" {
+		return ""
+	}
+	lower := strings.ToLower(trimmed)
+	openTag := "<subtask_summary>"
+	closeTag := "</subtask_summary>"
+	startIndex := strings.Index(lower, openTag)
+	endIndex := strings.LastIndex(lower, closeTag)
+	if startIndex < 0 && endIndex < 0 {
+		return stripAIConversationSummarySubtaskResidualTags(trimmed)
+	}
+	contentStart := 0
+	if startIndex >= 0 {
+		contentStart = startIndex + len(openTag)
+	}
+	contentEnd := len(trimmed)
+	if endIndex >= contentStart {
+		contentEnd = endIndex
+	}
+	if contentStart > contentEnd {
+		return stripAIConversationSummarySubtaskResidualTags(trimmed)
+	}
+	return stripAIConversationSummarySubtaskResidualTags(strings.TrimSpace(trimmed[contentStart:contentEnd]))
 }
 
 func extractAIConversationSummarySubtaskOutput(value string) aiConversationSummarySubtaskOutput {
@@ -56,17 +121,15 @@ func extractAIConversationSummarySubtaskOutput(value string) aiConversationSumma
 	if trimmedValue == "" {
 		return aiConversationSummarySubtaskOutput{}
 	}
-	title := ""
-	titleMatches := aiConversationSubtaskTitleBlockPattern.FindStringSubmatch(trimmedValue)
-	if len(titleMatches) == 2 {
-		title = strings.TrimSpace(titleMatches[1])
+	lines := strings.SplitN(trimmedValue, "\n", 2)
+	title := extractAIConversationSummarySubtaskTitleFromLine(lines[0])
+	body := ""
+	if len(lines) == 2 {
+		body = lines[1]
 	}
-	summary := ""
-	summaryMatches := aiConversationSubtaskSummaryBlockPattern.FindStringSubmatch(trimmedValue)
-	if len(summaryMatches) == 2 {
-		summary = strings.TrimSpace(summaryMatches[1])
-	} else {
-		summary = trimmedValue
+	summary := extractAIConversationSummarySubtaskSummaryFromBody(body)
+	if summary == "" {
+		summary = stripAIConversationSummarySubtaskResidualTags(trimmedValue)
 	}
 	return aiConversationSummarySubtaskOutput{
 		Title:   title,
@@ -110,6 +173,21 @@ func buildAIConversationSummarySubtaskUIMessage(parentSnapshot AIConversationSna
 			"prevContextTokens":    prevContextTokens,
 			"newContextTokens":     newContextTokens,
 		},
+	}
+}
+
+func buildAIConversationSummarySubtaskFinalInstructionMessage() AIChatRequestMessage {
+	return AIChatRequestMessage{
+		Role: "user",
+		Content: `<user_message>
+Please prepare a professional context-compression handoff for this conversation so the work can continue in a derived subtask.
+Follow the existing system and summarization instructions already provided in the context.
+This instruction message is an out-of-band control instruction. It is NOT part of the conversation being summarized. Do NOT summarize, quote, paraphrase, or mention this compression request itself (including this message, and any wording about "preparing a handoff", "context compression", "continuing in a subtask", "being ready", or confirmations). Summarize ONLY the actual prior task conversation that occurred before this instruction.
+Do not continue executing the current task in this response.
+Do not answer the user's request, ask follow-up questions, provide confirmations, or add any extra commentary.
+Do not use any tools or perform web search.
+Output plain text only, without any XML tags. The first line is a concise task title, and everything after the first line is the detailed summary body.
+</user_message>`,
 	}
 }
 
@@ -211,35 +289,24 @@ func resolveAIConversationSummarySubtaskLineage(parentSnapshot AIConversationSna
 	return parentConversationID, rootConversationID, parentTitleSnapshot
 }
 
-func (a *App) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (AIConversationSnapshot, error) {
+func (a *App) generateAIConversationSummarySubtaskOutput(parentSnapshot AIConversationSnapshot, requestMessages []AIChatRequestMessage, sessionID string, requestID string) (aiConversationSummarySubtaskOutput, error) {
 	if a == nil || a.configManager == nil {
-		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
+		return aiConversationSummarySubtaskOutput{}, fmt.Errorf("配置管理器不可用")
 	}
-	trimmedConversationID := strings.TrimSpace(conversationID)
-	if trimmedConversationID == "" {
-		return AIConversationSnapshot{}, fmt.Errorf("缺少对话 ID")
+	if len(requestMessages) == 0 {
+		return aiConversationSummarySubtaskOutput{}, fmt.Errorf("压缩后的上下文为空")
 	}
 	trimmedRequestID := strings.TrimSpace(requestID)
-	parentSnapshot, err := a.configManager.GetAIConversation(trimmedConversationID)
-	if err != nil {
-		return AIConversationSnapshot{}, err
-	}
-	compressedSeed, err := a.buildAIConversationCompressedSeed(parentSnapshot, sessionID)
-	if err != nil {
-		return AIConversationSnapshot{}, err
-	}
-	requestMessages := buildAIChatRequestMessagesFromConversationAPI(compressedSeed.APIMessages)
-	if len(requestMessages) == 0 {
-		return AIConversationSnapshot{}, fmt.Errorf("压缩后的上下文为空")
-	}
 	profile, err := a.getAIProviderProfileForConversation(parentSnapshot.ID)
 	if err != nil {
-		return AIConversationSnapshot{}, err
+		return aiConversationSummarySubtaskOutput{}, err
 	}
 	summaryPrompt := buildAIConversationSummarySubtaskPrompt()
 	if strings.TrimSpace(summaryPrompt) == "" {
-		return AIConversationSnapshot{}, fmt.Errorf("摘要模板不可用")
+		return aiConversationSummarySubtaskOutput{}, fmt.Errorf("摘要模板不可用")
 	}
+	summaryRequestMessages := append([]AIChatRequestMessage{}, requestMessages...)
+	summaryRequestMessages = append(summaryRequestMessages, buildAIConversationSummarySubtaskFinalInstructionMessage())
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	if trimmedRequestID != "" {
 		a.setAIChatRequestCancel(trimmedRequestID, cancel)
@@ -250,21 +317,36 @@ func (a *App) CreateAIConversationSummarySubtask(conversationID string, sessionI
 			a.popAIChatRequestCancel(trimmedRequestID)
 		}
 	}()
+	summaryProfile := withAIDisabledWebSearch(profile)
 	roundResult, err := a.requestAIProviderChatRound(ctx, trimmedRequestID, AIChatRequestPayload{
 		ConversationID:       parentSnapshot.ID,
 		SessionID:            strings.TrimSpace(sessionID),
 		SystemPromptOverride: summaryPrompt,
 		StreamEventPrefix:    aiCollaborationStreamEventPrefix,
-		Messages:             requestMessages,
-	}, profile, requestMessages)
+		Messages:             summaryRequestMessages,
+	}, summaryProfile, summaryRequestMessages)
 	if err != nil {
-		return AIConversationSnapshot{}, err
+		return aiConversationSummarySubtaskOutput{}, err
 	}
 	summaryOutput := extractAIConversationSummarySubtaskOutput(roundResult.Text)
+	if strings.TrimSpace(summaryOutput.Summary) == "" {
+		return aiConversationSummarySubtaskOutput{}, fmt.Errorf("摘要内容为空")
+	}
+	return summaryOutput, nil
+}
+
+func (a *App) createAIConversationSummarySubtaskFromRequestMessages(parentSnapshot AIConversationSnapshot, requestMessages []AIChatRequestMessage, prevContextTokens int, newContextTokens int, sessionID string, requestID string) (AIConversationSummarySubtaskResult, error) {
+	if a == nil || a.configManager == nil {
+		return AIConversationSummarySubtaskResult{}, fmt.Errorf("配置管理器不可用")
+	}
+	summaryOutput, err := a.generateAIConversationSummarySubtaskOutput(parentSnapshot, requestMessages, sessionID, requestID)
+	if err != nil {
+		return AIConversationSummarySubtaskResult{}, err
+	}
 	summaryTitle := buildAIConversationSummarySubtaskTitle(summaryOutput.Title)
 	summaryText := strings.TrimSpace(summaryOutput.Summary)
 	if summaryText == "" {
-		return AIConversationSnapshot{}, fmt.Errorf("摘要内容为空")
+		return AIConversationSummarySubtaskResult{}, fmt.Errorf("摘要内容为空")
 	}
 	globalSettings := a.configManager.GetAIGlobalSettings()
 	childSettings := normalizeAIConversationTaskSettings(parentSnapshot.Settings)
@@ -273,7 +355,6 @@ func (a *App) CreateAIConversationSummarySubtask(conversationID string, sessionI
 	}
 	now := time.Now()
 	parentConversationID, rootConversationID, parentTitleSnapshot := resolveAIConversationSummarySubtaskLineage(parentSnapshot)
-	uiMessage := buildAIConversationSummarySubtaskUIMessage(parentSnapshot, summaryText, compressedSeed.PrevContextTokens, compressedSeed.NewContextTokens)
 	childSnapshot := normalizeAIConversationSnapshot(AIConversationSnapshot{
 		ID:                        aiConversationID(),
 		Title:                     summaryTitle,
@@ -288,19 +369,36 @@ func (a *App) CreateAIConversationSummarySubtask(conversationID string, sessionI
 		RelationSource:            aiConversationRelationSourceSummaryCondense,
 		ParentTitleSnapshot:       parentTitleSnapshot,
 		Archived:                  false,
-		Messages: []AIConversationMessage{
-			uiMessage,
-		},
-		APIMessages: []AIConversationAPIMessage{
-			{
-				Role:         "user",
-				Content:      buildAIConversationSummarySeedSystemContent(summaryText),
-				MessageID:    uiMessage.ID + "-user",
-				UIMessageIDs: []string{uiMessage.ID},
-				Ts:           now.UnixMilli(),
-			},
-		},
-		Settings: childSettings,
+		Messages:                  []AIConversationMessage{},
+		APIMessages:               []AIConversationAPIMessage{},
+		Settings:                  childSettings,
 	}, defaultAIConversationTaskSettings(globalSettings))
-	return a.configManager.SaveAIConversation(childSnapshot)
+	savedSnapshot, saveErr := a.configManager.SaveAIConversation(childSnapshot)
+	if saveErr != nil {
+		return AIConversationSummarySubtaskResult{}, saveErr
+	}
+	return AIConversationSummarySubtaskResult{
+		Snapshot:     savedSnapshot,
+		ContinueText: summaryText,
+	}, nil
+}
+
+func (a *App) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (AIConversationSummarySubtaskResult, error) {
+	if a == nil || a.configManager == nil {
+		return AIConversationSummarySubtaskResult{}, fmt.Errorf("配置管理器不可用")
+	}
+	trimmedConversationID := strings.TrimSpace(conversationID)
+	if trimmedConversationID == "" {
+		return AIConversationSummarySubtaskResult{}, fmt.Errorf("缺少对话 ID")
+	}
+	parentSnapshot, err := a.configManager.GetAIConversation(trimmedConversationID)
+	if err != nil {
+		return AIConversationSummarySubtaskResult{}, err
+	}
+	compressedSeed, err := a.buildAIConversationCompressedSeed(parentSnapshot, sessionID)
+	if err != nil {
+		return AIConversationSummarySubtaskResult{}, err
+	}
+	requestMessages := buildAIChatRequestMessagesFromConversationAPI(compressedSeed.APIMessages)
+	return a.createAIConversationSummarySubtaskFromRequestMessages(parentSnapshot, requestMessages, compressedSeed.PrevContextTokens, compressedSeed.NewContextTokens, sessionID, requestID)
 }

@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Volledige verteringscompressie",
   "摘要创建子任务能力未就绪": "De mogelijkheid voor het maken van subtaken voor het maken van samenvattingen is nog niet gereed",
   "摘要创建子任务失败": "Subtaak voor het maken van een samenvatting is mislukt",
+  "上下文压缩预演能力未就绪": "De preview-mogelijkheid voor contextcompressie is niet gereed",
+  "AI测活能力未就绪": "De mogelijkheid om AI-activiteiten te testen is nog niet klaar",
   "协同小助手正在整理摘要并创建子任务": "De samenwerkingsassistent sorteert samenvattingen en maakt subtaken",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Het genereren van een gestructureerde samenvatting op basis van de huidige taak en het afleiden van nieuwe subtaken",
   "继续自: {title}": "Ga verder vanaf: {title}",

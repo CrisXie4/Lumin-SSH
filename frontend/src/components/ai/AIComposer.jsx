@@ -1422,22 +1422,22 @@ export default function AIComposer({
           collaborationStatusReasoning.length > 0 ? (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) auto',
-                alignItems: 'start',
-                gap: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 8,
                 padding: '8px 12px 0',
               }}>
-              <div style={{ minWidth: 0, maxWidth: 'min(52%, 360px)' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <AIChatRequestStatusRow assistant={collaborationStatusAssistant} reasoning={collaborationStatusReasoning} />
+              </div>
+              <div style={{ width: '100%', minWidth: 0 }}>
                 <AIChatReasoningBlock
                   text={collaborationStatusReasoning[0]?.text || ''}
                   duration=""
                   isStreaming={true}
                   isLast={true}
                 />
-              </div>
-              <div style={{ justifySelf: 'end', alignSelf: 'start' }}>
-                <AIChatRequestStatusRow assistant={collaborationStatusAssistant} reasoning={collaborationStatusReasoning} />
               </div>
             </div>
           ) : (

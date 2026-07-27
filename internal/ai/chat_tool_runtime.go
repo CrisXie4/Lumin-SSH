@@ -1351,6 +1351,16 @@ func (a *App) advanceAIChatToolBatch(requestID string, batch *aiPendingToolBatch
 	}
 	decision := getAIParsedToolUseDecision(batch.AutoApprovalSettings, tool)
 
+	// 只在本批次第一次遇到需要用户审批的工具之前, 拉取一次最新的审批配置。
+	// 若本批次所有工具都是自动批准或自动拒绝, 则不会拉取; 多个工具也只在第一个进入审批前拉取一次。
+	if decision == aiApprovalDecisionAskUser && !batch.AutoApprovalSettingsRefreshed {
+		batch.AutoApprovalSettingsRefreshed = true
+		if a != nil && a.configManager != nil {
+			batch.AutoApprovalSettings = a.getAIAutoApprovalSettingsForConversation(batch.Payload.ConversationID)
+			decision = getAIParsedToolUseDecision(batch.AutoApprovalSettings, tool)
+		}
+	}
+
 	if decision == aiApprovalDecisionAutoDeny {
 		message := buildToolPreviewMessage(batch.AssistantMessageID, tool, batch.NextToolIndex)
 		if tool.Name == "execute_command" {

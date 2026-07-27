@@ -171,6 +171,9 @@ If the context is too noisy or too long, output [Compression].
 }
 
 func resolveAISystemPromptForPayload(appCtx context.Context, payload AIChatRequestPayload, profile AIProviderProfile) string {
+	if payload.SkipSystemPrompt {
+		return ""
+	}
 	override := strings.TrimSpace(payload.SystemPromptOverride)
 	if override != "" {
 		return override
@@ -823,7 +826,8 @@ func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, stat
 	payload.SystemPromptOverride = buildAICollaborationPrompt()
 	payload.StreamEventPrefix = aiCollaborationStreamEventPrefix
 	requestMessages := buildAICollaborationRequestMessages(batch, state.Mode, state.CompressionAttempts, state.RetryCount)
-	roundResult, err := a.requestAIProviderChatRound(ctx, trimmedRequestID, payload, batch.Profile, requestMessages)
+	collaborationProfile := withAIDisabledWebSearch(batch.Profile)
+	roundResult, err := a.requestAIProviderChatRound(ctx, trimmedRequestID, payload, collaborationProfile, requestMessages)
 	if ctx != nil && ctx.Err() != nil {
 		return
 	}

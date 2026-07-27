@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Tam özet sıkıştırma",
   "摘要创建子任务能力未就绪": "Özet oluşturma alt görev yeteneği hazır değil",
   "摘要创建子任务失败": "Özet oluşturma alt görevi başarısız oldu",
+  "上下文压缩预演能力未就绪": "Bağlam sıkıştırma önizleme özelliği hazır değil",
+  "AI测活能力未就绪": "Yapay zeka aktivite testi yeteneği henüz hazır değil",
   "协同小助手正在整理摘要并创建子任务": "İşbirlikçi asistan özetleri sıralıyor ve alt görevler oluşturuyor",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Mevcut göreve dayalı olarak yapılandırılmış bir özet oluşturma ve yeni alt görevler türetme",
   "继续自: {title}": "Devam et: {title}",

@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Compresie completă a digestiei",
   "摘要创建子任务能力未就绪": "Capacitatea subsarcinii de creare a rezumatului nu este gata",
   "摘要创建子任务失败": "Subsarcina de creare a rezumatului a eșuat",
+  "上下文压缩预演能力未就绪": "Capacitatea de previzualizare a comprimarii contextului nu este pregătită",
+  "AI测活能力未就绪": "Capacitatea de testare a activității AI nu este încă gata",
   "协同小助手正在整理摘要并创建子任务": "Asistentul colaborativ sortează rezumate și creează sarcini secundare",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Generarea unui rezumat structurat pe baza sarcinii curente și derivarea de noi subsarcini",
   "继续自: {title}": "Continuați de la: {title}",

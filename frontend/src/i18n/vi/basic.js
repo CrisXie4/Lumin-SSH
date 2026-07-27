@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Nén thông báo đầy đủ",
   "摘要创建子任务能力未就绪": "Khả năng tạo nhiệm vụ con tóm tắt chưa sẵn sàng",
   "摘要创建子任务失败": "Nhiệm vụ phụ tạo tóm tắt không thành công",
+  "上下文压缩预演能力未就绪": "Khả năng xem trước nén ngữ cảnh chưa sẵn sàng",
+  "AI测活能力未就绪": "Khả năng kiểm tra hoạt động AI vẫn chưa sẵn sàng",
   "协同小助手正在整理摘要并创建子任务": "Trợ lý cộng tác đang sắp xếp các bản tóm tắt và tạo các nhiệm vụ phụ",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Tạo một bản tóm tắt có cấu trúc dựa trên nhiệm vụ hiện tại và tạo ra các nhiệm vụ phụ mới",
   "继续自: {title}": "Tiếp tục từ: {title}",

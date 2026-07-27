@@ -1084,6 +1084,8 @@ export default {
   "全量摘要压缩": "Vollständige Digest-Komprimierung",
   "摘要创建子任务能力未就绪": "Die Unteraufgabenfunktion für die Zusammenfassungserstellung ist nicht bereit",
   "摘要创建子任务失败": "Die Unteraufgabe zum Erstellen der Zusammenfassung ist fehlgeschlagen",
+  "上下文压缩预演能力未就绪": "Die Vorschaufunktion für die Kontextkomprimierung ist nicht verfügbar",
+  "AI测活能力未就绪": "Die Funktion zum Testen der KI-Aktivität ist noch nicht fertig",
   "协同小助手正在整理摘要并创建子任务": "Der kollaborative Assistent sortiert Zusammenfassungen und erstellt Unteraufgaben",
   "正在基于当前任务生成结构化摘要,并派生新的子任务": "Erstellen einer strukturierten Zusammenfassung basierend auf der aktuellen Aufgabe und Ableiten neuer Teilaufgaben",
   "继续自: {title}": "Weiter ab: {title}",
