@@ -27,6 +27,7 @@ import {
   Palette, Database, Terminal, Film, Music, Archive, HardDrive, BookOpen,
   Pencil, PenLine, Download, Upload, Trash2, RefreshCw, Lock, FolderUp, SquarePen, Copy,
   Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight, Scissors,
+  MonitorSmartphone, PencilLine,
 } from 'lucide-react';
 
 // 格式化文件大小
@@ -907,7 +908,7 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
 }
 
 // Context menu component
-function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, clipboardActionArrow = '', onClose, onDownload, onEdit, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
+function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, clipboardActionArrow = '', onClose, onDownload, onEdit, onOpenSystemEditor, onOpenWithEditor, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
   const ref = useRef(null);
   const [adjusted, setAdjusted] = useState({ left: pos.x, top: pos.y });
   const isTabMenu = mode === 'tab';
@@ -975,6 +976,16 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
       {item && !item.isDirectory && isEditable(item.name) && (
         <div className="context-menu-item" onClick={onEdit}>
           <SquarePen size={14} /> {t('编辑')}
+        </div>
+      )}
+      {item && !item.isDirectory && (
+        <div className="context-menu-item" onClick={onOpenSystemEditor}>
+          <MonitorSmartphone size={14} /> {t('系统编辑器打开')}
+        </div>
+      )}
+      {item && !item.isDirectory && (
+        <div className="context-menu-item" onClick={onOpenWithEditor}>
+          <PencilLine size={14} /> {t('指定编辑器打开')}
         </div>
       )}
       {item && (
@@ -6238,6 +6249,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                       void handleUncompress(item);
                     } else if (isEditable(item.name)) {
                       handleEdit(item);
+                    } else if (defaultOpenMode === 'builtin') {
+                      // 内置编辑器无法识别的格式，回退到系统默认编辑器打开
+                      void handleOpenSystemEditor({ path: itemPath, name: item.name }, '');
                     }
                   }}
                   onContextMenu={(e) => {
@@ -6466,6 +6480,20 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           onEdit={() => {
             if (contextMenu.item) {
               void handleEdit(contextMenu.item);
+            }
+            closeContextMenu();
+          }}
+          onOpenSystemEditor={() => {
+            if (contextMenu.item && !contextMenu.item.isDirectory) {
+              const remotePath = joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name);
+              void handleOpenSystemEditor({ path: remotePath, name: contextMenu.item.name }, '');
+            }
+            closeContextMenu();
+          }}
+          onOpenWithEditor={() => {
+            if (contextMenu.item && !contextMenu.item.isDirectory) {
+              const remotePath = joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name);
+              void handleOpenWithEditor({ path: remotePath, name: contextMenu.item.name }, '', false);
             }
             closeContextMenu();
           }}
