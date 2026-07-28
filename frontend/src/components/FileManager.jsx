@@ -1166,6 +1166,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [fileManagerSidebarOpen, setFileManagerSidebarOpen] = useState(false);
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
+  const [fileManagerAutoRefreshDisabled, setFileManagerAutoRefreshDisabled] = useState(false);
+  const fileManagerAutoRefreshDisabledRef = useRef(false);
+  useEffect(() => { fileManagerAutoRefreshDisabledRef.current = fileManagerAutoRefreshDisabled; }, [fileManagerAutoRefreshDisabled]);
   useEffect(() => {
     const handleChange = (e) => setShowFileManagerTabIcons(e.detail !== false);
     window.addEventListener('file-manager-show-tab-icons-changed', handleChange);
@@ -1219,6 +1222,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             ? settings.smartUncompressConflictStrategy
             : 'auto_rename'
         );
+        setFileManagerAutoRefreshDisabled(settings.autoRefreshDisabled === true);
       })
       .catch(() => {});
     return () => {
@@ -1230,11 +1234,14 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const handleStrategyChange = (e) => setFileManagerSmartUncompressConflictStrategy(
       e.detail === 'overwrite' || e.detail === 'prompt' ? e.detail : 'auto_rename'
     );
+    const handleAutoRefreshChange = (e) => setFileManagerAutoRefreshDisabled(e.detail === true);
     window.addEventListener('file-manager-double-click-uncompress-archive-changed', handleDoubleClickChange);
     window.addEventListener('file-manager-smart-uncompress-conflict-strategy-changed', handleStrategyChange);
+    window.addEventListener('file-manager-auto-refresh-disabled-changed', handleAutoRefreshChange);
     return () => {
       window.removeEventListener('file-manager-double-click-uncompress-archive-changed', handleDoubleClickChange);
       window.removeEventListener('file-manager-smart-uncompress-conflict-strategy-changed', handleStrategyChange);
+      window.removeEventListener('file-manager-auto-refresh-disabled-changed', handleAutoRefreshChange);
     };
   }, []);
   useEffect(() => {
@@ -2950,6 +2957,57 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
     } catch (_) {}
   }, [buildItemsWithTrackedDiff, cacheCurrentTabItems, fileManagerLayoutMode, getParentPath, loadDir, normalizePath, sessionId, startRowEffect]);
+
+  // 自动刷新：终端命令完成（方案 A）+ 窗口/面板聚焦（方案 C 兜底）时，
+  // 防抖刷新当前目录。SFTP 无远程变更通知，只能客户端主动探测；按需刷新避免轰炸服务器。
+  useEffect(() => {
+    if (!sessionGroupId) return;
+    let refreshTimer = null;
+    const scheduleRefresh = (delay) => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        // 仅在自动刷新开启、组件挂载、当前会话激活（可见）且目录已 hydrate 时刷新
+        if (
+          fileManagerAutoRefreshDisabledRef.current
+          || !mountedRef.current
+          || !isActiveRef.current
+          || !currentPathHydratedRef.current
+        ) return;
+        const targetPath = currentPathRef.current || currentPath;
+        if (targetPath) {
+          void loadDir(targetPath, { preserveView: true, showLoading: false, silent: true });
+        }
+      }, delay);
+    };
+    // A：终端命令完成（提示符回归）。事件携带会话组 id，匹配本会话组才刷新。
+    const handleCommandFinished = (e) => {
+      if (!e?.detail || e.detail.sessionId !== sessionGroupId) return;
+      scheduleRefresh(800);
+    };
+    // C：应用窗口重新聚焦（兜底 A 的漏判：自定义提示符/TUI 等）。
+    const handleWindowFocus = () => scheduleRefresh(400);
+    window.addEventListener('ssh-command-finished', handleCommandFinished);
+    window.addEventListener('focus', handleWindowFocus);
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener('ssh-command-finished', handleCommandFinished);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [loadDir, sessionGroupId, currentPath]);
+
+  // C 补充：isActive 由 false→true（切回文件管理器面板）时立即触发一次刷新。
+  const prevIsActiveRef = useRef(isActive);
+  useEffect(() => {
+    const wasActive = prevIsActiveRef.current;
+    prevIsActiveRef.current = isActive;
+    if (!isActive || wasActive) return; // 仅在切"进来"时触发
+    if (fileManagerAutoRefreshDisabledRef.current || !currentPathHydratedRef.current) return;
+    const targetPath = currentPathRef.current || currentPath;
+    if (targetPath) {
+      void loadDir(targetPath, { preserveView: true, showLoading: false, silent: true });
+    }
+  }, [isActive, loadDir, currentPath]);
 
   const fileManagerUndoStackRef = useRef([]);
 

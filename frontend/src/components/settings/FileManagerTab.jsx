@@ -37,6 +37,8 @@ export default function FileManagerTab({
   onToggleFileManagerDoubleClickUncompressArchive,
   fileManagerSmartUncompressConflictStrategy,
   onFileManagerSmartUncompressConflictStrategyChange,
+  fileManagerAutoRefreshDisabled = false,
+  onToggleFileManagerAutoRefreshDisabled,
   fileManagerDefaultOpenMode = 'builtin',
   onFileManagerDefaultOpenModeChange,
   fileManagerPreferredExternalApp = '',
@@ -149,6 +151,11 @@ export default function FileManagerTab({
             title={$t('双击解压压缩包')}
             description={$t('开启后,双击压缩包会直接解压;右键“解压”也会使用同样的智能解压规则')}
             action={<ToggleSwitch checked={fileManagerDoubleClickUncompressArchive} onChange={onToggleFileManagerDoubleClickUncompressArchive} />}
+          />
+          <SettingRow
+            title={$t('自动刷新')}
+            description={$t('在终端执行命令后、或切回文件管理器时自动刷新当前目录。关闭可减少对远程服务器的请求')}
+            action={<ToggleSwitch checked={!fileManagerAutoRefreshDisabled} onChange={onToggleFileManagerAutoRefreshDisabled} />}
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

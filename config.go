@@ -89,6 +89,7 @@ type FileManagerSettings struct {
 	ChmodDialog                     ChmodDialogSettings `json:"chmodDialog,omitempty"`
 	DoubleClickUncompressArchive   bool                `json:"doubleClickUncompressArchive,omitempty"`
 	SmartUncompressConflictStrategy string             `json:"smartUncompressConflictStrategy,omitempty"`
+	AutoRefreshDisabled            bool                `json:"autoRefreshDisabled,omitempty"`
 }
 
 type AppSettings struct {
@@ -1824,6 +1825,7 @@ func (c *ConfigManager) GetFileManagerSettings() map[string]interface{} {
 	return map[string]interface{}{
 		"doubleClickUncompressArchive":   settings.DoubleClickUncompressArchive,
 		"smartUncompressConflictStrategy": settings.SmartUncompressConflictStrategy,
+		"autoRefreshDisabled":            settings.AutoRefreshDisabled,
 	}
 }
 
@@ -1865,6 +1867,19 @@ func (c *ConfigManager) SetFileManagerDoubleClickUncompressArchive(enabled bool)
 	defer c.mu.Unlock()
 	settings := c.getFileManagerSettingsLocked()
 	settings.DoubleClickUncompressArchive = enabled
+	err := c.saveFileManagerSettingsLocked(settings)
+	if err == nil {
+		c.bumpSnapshotTime()
+		go c.AutoSync()
+	}
+	return err
+}
+
+func (c *ConfigManager) SetFileManagerAutoRefreshDisabled(disabled bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	settings := c.getFileManagerSettingsLocked()
+	settings.AutoRefreshDisabled = disabled
 	err := c.saveFileManagerSettingsLocked(settings)
 	if err == nil {
 		c.bumpSnapshotTime()
