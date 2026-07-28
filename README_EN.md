@@ -7,7 +7,6 @@
 [![Release](https://img.shields.io/github/v/release/wmwlwmwl/Lumin-SSH?style=flat-square&color=0078D6&label=RELEASE)](https://github.com/wmwlwmwl/Lumin-SSH/releases)
 [![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS%20%7C%20macOS%20%7C%20Linux-0078D6.svg?style=flat-square)](https://github.com/wmwlwmwl/Lumin-SSH/releases)
 [![License](https://img.shields.io/badge/LICENSE-Source%20License%201.1-8CBA00.svg?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/VERSION-1.2.1-0078D6.svg?style=flat-square)](https://github.com/wmwlwmwl/Lumin-SSH/releases)
 
 [English](./README_EN.md) · [简体中文](./README.md)
 
@@ -286,14 +285,16 @@ If Lumin helps you, sponsorship is appreciated:
 
 ## License
 
-[Lumin SSH Source License 1.1](LICENSE) (same family as Android):
+See [LICENSE](LICENSE) (**Lumin SSH Source License 1.1**, same family as Android).
 
 | | |
 |--|--|
-| **Allowed** | Non-commercial use, study, research, public forks (keep license/attribution; published builds must ship readable source) |
-| **Not allowed** | Commercial use |
-| **Not allowed** | Shipping only encrypted/packed/heavily obfuscated builds without readable source |
+| **Allowed** | Non-commercial use, study, research, public forks (keep license/attribution; redistribution must be **source-available**) |
+| **Not allowed** | Commercial use (sale, paid distribution, commercial embedding, for-profit services, etc.; see LICENSE) |
+| **Not allowed** | Public distribution only in encrypted/packed/heavily obfuscated form without corresponding readable source |
 
-Third-party deps keep their own licenses. This is **not** legal advice.
+**Scope:** This license covers **original code in this repo**. Third-party components remain under **their own licenses**.
+
+This is a custom license, **not legal advice**. Consult a lawyer for commercial edge cases.
 
 > Desktop and Android ship from **separate repos**. This repo’s Releases are **Desktop only**. Android: [Lumin-SSH-Android](https://github.com/wmwlwmwl/Lumin-SSH-Android).

@@ -7,7 +7,6 @@
 [![Release](https://img.shields.io/github/v/release/wmwlwmwl/Lumin-SSH?style=flat-square&color=0078D6&label=RELEASE)](https://github.com/wmwlwmwl/Lumin-SSH/releases)
 [![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS%20%7C%20macOS%20%7C%20Linux-0078D6.svg?style=flat-square)](https://github.com/wmwlwmwl/Lumin-SSH/releases)
 [![License](https://img.shields.io/badge/LICENSE-Source%20License%201.1-8CBA00.svg?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/VERSION-1.2.1-0078D6.svg?style=flat-square)](https://github.com/wmwlwmwl/Lumin-SSH/releases)
 
 [English](./README_EN.md) · [简体中文](./README.md)
 
@@ -331,14 +330,16 @@ Windows、macOS、Linux 原生构建。
 
 ## 许可证
 
-采用 [Lumin SSH Source License 1.1](LICENSE)（与 Android 端一致）：
+见 [LICENSE](LICENSE)（**Lumin SSH Source License 1.1**，与 Android 端同族）：
 
 | | |
 |--|--|
-| **可以** | 非商业使用、学习、研究、公开二开（保留许可与署名；对外发布须源码可得） |
-| **不可以** | 商用 |
-| **不可以** | 仅以加密/加壳/强混淆形式发布且不提供可读源码 |
+| **可以** | 非商业使用、学习、研究、公开二开（保留许可与署名；对外发布须**源码可得**） |
+| **不可以** | 商用（出售、收费分发、商业内嵌、营利服务等，定义见 LICENSE） |
+| **不可以** | 仅以加密/加壳/强混淆形式对外发布且不提供对应可读源码 |
 
-第三方依赖遵循各自许可证。本说明**不构成法律意见**。
+**范围：** 本许可约束本仓**原创代码**；第三方依赖仍遵守其原许可证（不得用本许可去削弱第三方已授予的权利）。
+
+本许可为自定义条款，**非正式法律意见**。涉及商业边界时请自行咨询律师。
 
 > 桌面端与 Android **分仓分发**；本仓库 Release **仅 Desktop**。Android 见 [Lumin-SSH-Android](https://github.com/wmwlwmwl/Lumin-SSH-Android)。

@@ -84,6 +84,8 @@ jobs:
             echo
             sed "s/__VERSION__/${VERSION}/g" .github/release-notes-footer.md
           } > "${NOTES_FILE}"
+          # --target 只能是分支名或 commit SHA，不能传 tag 名（会 422 target_commitish invalid）
+          # tag 已存在时，create 不带 --target 即可挂到该 tag
           if gh release view "${TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release edit "${TAG}" \
               --repo "${{ github.repository }}" \
@@ -93,7 +95,6 @@ jobs:
           else
             gh release create "${TAG}" \
               --repo "${{ github.repository }}" \
-              --target "${TAG}" \
               --draft \
               --title "${TITLE}" \
               --notes-file "${NOTES_FILE}"
