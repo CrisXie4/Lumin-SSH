@@ -829,6 +829,7 @@ export default function SettingsModal({
   const [fileManagerChmodAutoApplyLastSettings, setFileManagerChmodAutoApplyLastSettings] = useState(false);
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
+  const [fileManagerAutoRefreshDisabled, setFileManagerAutoRefreshDisabled] = useState(false);
   const [fileManagerDefaultOpenMode, setFileManagerDefaultOpenMode] = useState(() => {
     const mode = localStorage.getItem('fileManagerDefaultOpenMode') || 'builtin';
     return ['builtin', 'system', 'external'].includes(mode) ? mode : 'builtin';
@@ -1060,6 +1061,21 @@ export default function SettingsModal({
       addToast($t('请求失败') + `: ${err}`, 'error');
     }
   };
+  const handleToggleFileManagerAutoRefreshDisabled = async () => {
+    const next = !fileManagerAutoRefreshDisabled;
+    setFileManagerAutoRefreshDisabled(next);
+    try {
+      const setter = window?.go?.main?.App?.SetFileManagerAutoRefreshDisabled;
+      if (typeof setter !== 'function') {
+        throw new Error($t('应用不可用'));
+      }
+      await setter(next);
+      window.dispatchEvent(new CustomEvent('file-manager-auto-refresh-disabled-changed', { detail: next }));
+    } catch (err) {
+      setFileManagerAutoRefreshDisabled(!next);
+      addToast($t('请求失败') + `: ${err}`, 'error');
+    }
+  };
   const handleFileManagerSmartUncompressConflictStrategyChange = async (value) => {
     const next = value === 'overwrite' || value === 'prompt' ? value : 'auto_rename';
     const previous = fileManagerSmartUncompressConflictStrategy;
@@ -1252,6 +1268,7 @@ export default function SettingsModal({
             ? settings.smartUncompressConflictStrategy
             : 'auto_rename'
         );
+        setFileManagerAutoRefreshDisabled(settings.autoRefreshDisabled === true);
       })
       .catch(() => {});
 
@@ -1854,6 +1871,8 @@ export default function SettingsModal({
                 onToggleFileManagerDoubleClickUncompressArchive={handleToggleFileManagerDoubleClickUncompressArchive}
                 fileManagerSmartUncompressConflictStrategy={fileManagerSmartUncompressConflictStrategy}
                 onFileManagerSmartUncompressConflictStrategyChange={handleFileManagerSmartUncompressConflictStrategyChange}
+                fileManagerAutoRefreshDisabled={fileManagerAutoRefreshDisabled}
+                onToggleFileManagerAutoRefreshDisabled={handleToggleFileManagerAutoRefreshDisabled}
                 fileManagerDefaultOpenMode={fileManagerDefaultOpenMode}
                 onFileManagerDefaultOpenModeChange={handleFileManagerDefaultOpenModeChange}
                 fileManagerPreferredExternalApp={fileManagerPreferredExternalApp}

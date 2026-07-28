@@ -885,6 +885,10 @@ func (a *App) SetFileManagerDoubleClickUncompressArchive(enabled bool) error {
 	return a.configManager.SetFileManagerDoubleClickUncompressArchive(enabled)
 }
 
+func (a *App) SetFileManagerAutoRefreshDisabled(disabled bool) error {
+	return a.configManager.SetFileManagerAutoRefreshDisabled(disabled)
+}
+
 func (a *App) SetFileManagerSmartUncompressConflictStrategy(strategy string) error {
 	return a.configManager.SetFileManagerSmartUncompressConflictStrategy(strategy)
 }

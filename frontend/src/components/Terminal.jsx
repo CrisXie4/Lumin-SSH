@@ -432,6 +432,7 @@ export default function Terminal({
   const historyPopupRef                       = useRef(null);
   const pendingCmdRef                         = useRef('');
   const awaitingPasswordRef                   = useRef(false); // 检测到密码提示后，下一行输入不记入命令历史
+  const awaitingCommandFinishRef              = useRef(false); // 按回车提交命令后，等待命令完成（提示符回归）
   const [terminalCwd, setTerminalCwd]         = useState('/');
   const [commandAutocomplete, setCommandAutocomplete] = useState(createCommandAutocompleteState());
   const commandAutocompleteRequestRef         = useRef(0);
@@ -1263,6 +1264,20 @@ export default function Terminal({
     const writeParsedDisposable = term.onWriteParsed(() => {
       scheduleGutterSync();
       scheduleLinkUnderlineSync();
+      // 命令完成检测：仅当处于"等待命令完成"状态且不在 TUI（备用屏）时，
+      // 检查光标所在行是否已回归 shell 提示符。命中则派发事件并退出等待态。
+      // 提示符识别复用 isShellPromptLine；只取末行避免全量扫描。
+      if (!awaitingCommandFinishRef.current || alternateBufferActiveRef.current) return;
+      const buf = term.buffer.active;
+      if (!buf) return;
+      const lastLine = buf.getLine(buf.baseY + buf.cursorY);
+      const text = lastLine ? lastLine.translateToString(true) : '';
+      if (isShellPromptLine(text)) {
+        awaitingCommandFinishRef.current = false;
+        window.dispatchEvent(new CustomEvent('ssh-command-finished', {
+          detail: { sessionId: serverIdRef.current }
+        }));
+      }
     });
     const bufferChangeDisposable = term.buffer.onBufferChange((buffer) => {
       const alternate = buffer.type === 'alternate';
@@ -1643,6 +1658,10 @@ export default function Terminal({
             detail: { sessionId: serverIdRef.current, command: cmd, time: new Date().toISOString(), source: 'input' }
           }));
         }
+        // 非密码输入且提交了实际命令：进入"等待命令完成"状态，
+        // 待提示符回归（onWriteParsed 检测）时派发 ssh-command-finished 事件，
+        // 供文件管理器自动刷新当前目录。
+        awaitingCommandFinishRef.current = !awaitingPasswordRef.current && cmd.length > 0;
         awaitingPasswordRef.current = false;
         pendingCmdRef.current = '';
       } else if (out === '\x7F' || out === '\b') {
@@ -2416,6 +2435,8 @@ export default function Terminal({
       }));
     }
     awaitingPasswordRef.current = false;
+    // 快捷命令/输入框提交：与 onData 回车路径一致，进入等待命令完成状态
+    awaitingCommandFinishRef.current = !isBlankSubmit && text.length > 0;
     setCmdInput('');
     setShowHistory(false);
     setHistoryPopupPos(null);
