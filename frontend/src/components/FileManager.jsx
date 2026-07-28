@@ -27,6 +27,7 @@ import {
   Palette, Database, Terminal, Film, Music, Archive, HardDrive, BookOpen,
   Pencil, PenLine, Download, Upload, Trash2, RefreshCw, Lock, FolderUp, SquarePen, Copy,
   Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight, Scissors,
+  MonitorSmartphone, PencilLine,
 } from 'lucide-react';
 
 // 格式化文件大小
@@ -907,7 +908,7 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
 }
 
 // Context menu component
-function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, clipboardActionArrow = '', onClose, onDownload, onEdit, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
+function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, clipboardActionArrow = '', onClose, onDownload, onEdit, onOpenSystemEditor, onOpenWithEditor, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
   const ref = useRef(null);
   const [adjusted, setAdjusted] = useState({ left: pos.x, top: pos.y });
   const isTabMenu = mode === 'tab';
@@ -975,6 +976,16 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
       {item && !item.isDirectory && isEditable(item.name) && (
         <div className="context-menu-item" onClick={onEdit}>
           <SquarePen size={14} /> {t('编辑')}
+        </div>
+      )}
+      {item && !item.isDirectory && (
+        <div className="context-menu-item" onClick={onOpenSystemEditor}>
+          <MonitorSmartphone size={14} /> {t('系统编辑器打开')}
+        </div>
+      )}
+      {item && !item.isDirectory && (
+        <div className="context-menu-item" onClick={onOpenWithEditor}>
+          <PencilLine size={14} /> {t('指定编辑器打开')}
         </div>
       )}
       {item && (
@@ -3825,12 +3836,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const openMode = ['builtin', 'system', 'external'].includes(defaultOpenMode) ? defaultOpenMode : 'builtin';
     if (openMode === 'system' || openMode === 'external') {
       try {
-        const content = await AppGo.ReadFile(sessionId, remotePath);
-        const file = { path: remotePath, name: item.name, content };
+        // 不预读 content：传空让后端用原始字节写本地临时文件，避免 ReadFile 把非
+        // UTF-8 文件（如 GBK 中文）强解为乱码。编辑器自己做编码检测。
+        const file = { path: remotePath, name: item.name };
         if (openMode === 'system') {
-          await handleOpenSystemEditor(file, content);
+          await handleOpenSystemEditor(file, '');
         } else {
-          await handleOpenWithEditor(file, content, false);
+          await handleOpenWithEditor(file, '', false);
         }
       } catch (err) {
         addToast(`${t('无法打开文件')}: ${err}`, 'error');
@@ -6238,6 +6250,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                       void handleUncompress(item);
                     } else if (isEditable(item.name)) {
                       handleEdit(item);
+                    } else {
+                      // 内置编辑器无法识别的格式：按默认打开方式用外部编辑器打开
+                      // builtin 模式下内置编辑器无法处理，回退到系统默认编辑器
+                      const file = { path: itemPath, name: item.name };
+                      if (defaultOpenMode === 'external') {
+                        void handleOpenWithEditor(file, '', false);
+                      } else {
+                        void handleOpenSystemEditor(file, '');
+                      }
                     }
                   }}
                   onContextMenu={(e) => {
@@ -6466,6 +6487,20 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           onEdit={() => {
             if (contextMenu.item) {
               void handleEdit(contextMenu.item);
+            }
+            closeContextMenu();
+          }}
+          onOpenSystemEditor={() => {
+            if (contextMenu.item && !contextMenu.item.isDirectory) {
+              const remotePath = joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name);
+              void handleOpenSystemEditor({ path: remotePath, name: contextMenu.item.name }, '');
+            }
+            closeContextMenu();
+          }}
+          onOpenWithEditor={() => {
+            if (contextMenu.item && !contextMenu.item.isDirectory) {
+              const remotePath = joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name);
+              void handleOpenWithEditor({ path: remotePath, name: contextMenu.item.name }, '', false);
             }
             closeContextMenu();
           }}

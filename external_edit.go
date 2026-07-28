@@ -177,11 +177,14 @@ func (m *ExternalEditManager) Open(sessionID, remotePath, content, editorPath st
 	if content != "" {
 		data = []byte(content)
 	} else {
-		text, err := m.app.sshManager.ReadFile(sessionID, remotePath)
+		// 用原始字节而非 ReadFile：ReadFile 会经 b.String() 把非 UTF-8 字节（如 GBK
+		// 编码的中文 lua/配置文件）强解为乱码，写入本地临时文件后编辑器打开即乱码。
+		// 直接读原始字节，本地文件与远程字节一致，编辑器自己会做编码检测。
+		rawBytes, err := m.app.sshManager.ReadFileBytes(sessionID, remotePath)
 		if err != nil {
 			return nil, err
 		}
-		data = []byte(text)
+		data = rawBytes
 	}
 	if len(data) > externalEditMaxSize {
 		return nil, fmt.Errorf("文件过大 (%.1f MB)，最大支持 5MB 外置编辑", float64(len(data))/(1024*1024))

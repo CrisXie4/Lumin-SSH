@@ -2831,6 +2831,60 @@ func (m *SSHManager) ReadFileContext(ctx context.Context, sessionId string, path
 	return b.String(), nil
 }
 
+// ReadFileBytes reads a file's raw bytes via SFTP without any string/encoding
+// conversion. Use this when the caller needs the original bytes (e.g. writing
+// to a local temp file for an external editor, so the editor can do its own
+// encoding detection instead of getting UTF-8-mangled bytes from b.String()).
+func (m *SSHManager) ReadFileBytes(sessionId string, path string) ([]byte, error) {
+	return m.ReadFileBytesContext(context.Background(), sessionId, path)
+}
+
+func (m *SSHManager) ReadFileBytesContext(ctx context.Context, sessionId string, path string) ([]byte, error) {
+	if err := ensureContextActive(ctx); err != nil {
+		return nil, err
+	}
+	sftpClient, err := m.getSFTPClient(sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := sftpClient.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	const maxFileSize = 50 * 1024 * 1024
+	if stat.Size() > maxFileSize {
+		return nil, fmt.Errorf("文件过大 (%.1f MB)，请使用终端命令查看", float64(stat.Size())/(1024*1024))
+	}
+
+	var b bytes.Buffer
+	b.Grow(int(stat.Size()))
+	buf := make([]byte, 32768)
+	for {
+		if err := ensureContextActive(ctx); err != nil {
+			return nil, err
+		}
+		n, readErr := f.Read(buf)
+		if n > 0 {
+			b.Write(buf[:n])
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return nil, readErr
+		}
+	}
+	return b.Bytes(), nil
+}
+
 func (m *SSHManager) WriteFile(sessionId string, path string, content string) error {
 	return m.WriteFileContext(context.Background(), sessionId, path, content)
 }
