@@ -6249,9 +6249,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                       void handleUncompress(item);
                     } else if (isEditable(item.name)) {
                       handleEdit(item);
-                    } else if (defaultOpenMode === 'builtin') {
-                      // 内置编辑器无法识别的格式，回退到系统默认编辑器打开
-                      void handleOpenSystemEditor({ path: itemPath, name: item.name }, '');
+                    } else {
+                      // 内置编辑器无法识别的格式：按默认打开方式用外部编辑器打开
+                      // builtin 模式下内置编辑器无法处理，回退到系统默认编辑器
+                      const file = { path: itemPath, name: item.name };
+                      if (defaultOpenMode === 'external') {
+                        void handleOpenWithEditor(file, '', false);
+                      } else {
+                        void handleOpenSystemEditor(file, '');
+                      }
                     }
                   }}
                   onContextMenu={(e) => {
