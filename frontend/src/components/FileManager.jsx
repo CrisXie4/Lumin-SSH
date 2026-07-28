@@ -3836,12 +3836,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const openMode = ['builtin', 'system', 'external'].includes(defaultOpenMode) ? defaultOpenMode : 'builtin';
     if (openMode === 'system' || openMode === 'external') {
       try {
-        const content = await AppGo.ReadFile(sessionId, remotePath);
-        const file = { path: remotePath, name: item.name, content };
+        // 不预读 content：传空让后端用原始字节写本地临时文件，避免 ReadFile 把非
+        // UTF-8 文件（如 GBK 中文）强解为乱码。编辑器自己做编码检测。
+        const file = { path: remotePath, name: item.name };
         if (openMode === 'system') {
-          await handleOpenSystemEditor(file, content);
+          await handleOpenSystemEditor(file, '');
         } else {
-          await handleOpenWithEditor(file, content, false);
+          await handleOpenWithEditor(file, '', false);
         }
       } catch (err) {
         addToast(`${t('无法打开文件')}: ${err}`, 'error');
