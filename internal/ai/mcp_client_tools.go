@@ -215,7 +215,7 @@ func parseAIMCPToolArguments(raw string) (map[string]any, error) {
 	return arguments, nil
 }
 
-func buildAIMCPToolMessage(execution *aiToolExecutionState, serverName string, toolName string, args string, response string, status string, source mcp.ServerSource, extra map[string]interface{}) map[string]interface{} {
+func buildAIMCPToolMessage(execution *aiToolExecutionState, serverName string, toolName string, args string, response string, status string, source mcp.ServerSource, profile AIProviderProfile, extra map[string]interface{}) map[string]interface{} {
 	mergedExtra := map[string]interface{}{
 		"source": string(source),
 	}
@@ -236,7 +236,7 @@ func buildAIMCPToolMessage(execution *aiToolExecutionState, serverName string, t
 	if _, exists := mergedExtra["resultTokenEstimateDisplay"]; exists {
 		return message
 	}
-	return attachAIResultTokenEstimateMeta(message, buildAIMCPToolResultContent(serverName, toolName, response))
+	return attachAIResultTokenEstimateMeta(message, buildAIMCPToolResultContent(serverName, toolName, response), profile)
 }
 
 func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
@@ -254,6 +254,7 @@ func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 		return
 	}
 	source := resolveAIMCPServerSourceByName(serverName, execution.Tool.Params["source"])
+	profile := resolveAIExecutionProfile(execution)
 	statusText := "已执行"
 	uiResultText := ""
 	rawResultText := ""
@@ -286,7 +287,7 @@ func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 			if callResult.IsError {
 				statusText = "错误"
 			} else if strings.TrimSpace(rawResultSource) != "" {
-				thresholdedResult := buildAIResultContentWithThreshold(rawResultSource, a.GetAIGlobalSettings().ToolResultTokenThreshold)
+				thresholdedResult := buildAIResultContentWithThreshold(rawResultSource, profile, a.GetAIGlobalSettings().ToolResultTokenThreshold)
 				if thresholdedResult.Oversized {
 					uiResultText = thresholdedResult.Content
 					rawResultText = thresholdedResult.Content
@@ -313,7 +314,7 @@ func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 			rawResultSource = readResult.Response
 			argsText = marshalMCPAccessResourceArgs(uri)
 			if strings.TrimSpace(rawResultSource) != "" {
-				thresholdedResult := buildAIResultContentWithThreshold(rawResultSource, a.GetAIGlobalSettings().ToolResultTokenThreshold)
+				thresholdedResult := buildAIResultContentWithThreshold(rawResultSource, profile, a.GetAIGlobalSettings().ToolResultTokenThreshold)
 				if thresholdedResult.Oversized {
 					uiResultText = thresholdedResult.Content
 					rawResultText = thresholdedResult.Content
@@ -332,7 +333,7 @@ func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 		execution.Cancel()
 	}
 	mcpExtra := map[string]interface{}{}
-	if resultTokenEstimateMeta := buildAIResultTokenEstimateMeta(buildAIMCPToolResultContent(serverName, toolLabel, rawResultSource)); len(resultTokenEstimateMeta) > 0 {
+	if resultTokenEstimateMeta := buildAIResultTokenEstimateMeta(buildAIMCPToolResultContent(serverName, toolLabel, rawResultSource), profile); len(resultTokenEstimateMeta) > 0 {
 		for key, value := range resultTokenEstimateMeta {
 			mcpExtra[key] = value
 		}
@@ -340,7 +341,7 @@ func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 	a.emitAIChatEvent(map[string]interface{}{
 		"kind":      "upsert_message",
 		"requestId": execution.RequestID,
-		"message":   buildAIMCPToolMessage(execution, serverName, toolLabel, argsText, uiResultText, statusText, source, mcpExtra),
+		"message":   buildAIMCPToolMessage(execution, serverName, toolLabel, argsText, uiResultText, statusText, source, profile, mcpExtra),
 	})
 	a.emitAIMCPToolResultMessage(execution.RequestID, execution, serverName, toolLabel, rawResultText)
 	a.emitAIChatToolExecutionPersistRequested(execution.RequestID)
@@ -580,7 +581,7 @@ func (a *App) emitAIMCPToolResultMessage(requestID string, execution *aiToolExec
 	if a == nil || strings.TrimSpace(resultText) == "" {
 		return
 	}
-	thresholdedResult := buildAIResultContentWithThreshold(resultText, a.GetAIGlobalSettings().ToolResultTokenThreshold)
+	thresholdedResult := buildAIResultContentWithThreshold(resultText, resolveAIExecutionProfile(execution), a.GetAIGlobalSettings().ToolResultTokenThreshold)
 	resultContent := thresholdedResult.Content
 	if strings.TrimSpace(resultContent) == "" {
 		resultContent = strings.TrimSpace(resultText)

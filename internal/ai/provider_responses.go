@@ -132,6 +132,13 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 	var contentBuilder strings.Builder
 	var contentParser aiReasoningTagStreamParser
 	var latestCacheObject *AIConversationOpenAIResponsesCacheObject
+	finalizeRoundResult := func() {
+		finalizeAIChatRoundResult(&result, startedAt, firstTokenAt, &contentBuilder)
+	}
+	requestCtx := ctx
+	if requestCtx == nil {
+		requestCtx = context.Background()
+	}
 
 	emitReasoningDelta := func(delta string) {
 		if delta == "" {
@@ -190,7 +197,7 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 	}
 
 	endpoint := strings.TrimRight(profile.BaseURL, "/") + "/responses"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return result, err
 	}
@@ -232,8 +239,9 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 	}
 
 	for scanner.Scan() {
-		if ctx.Err() != nil {
-			return result, ctx.Err()
+		if requestCtx.Err() != nil {
+			finalizeRoundResult()
+			return result, requestCtx.Err()
 		}
 
 		line := strings.TrimSpace(scanner.Text())
@@ -302,10 +310,12 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 	}
 
 	if err := scanner.Err(); err != nil {
+		finalizeRoundResult()
 		return result, err
 	}
-	if ctx.Err() != nil {
-		return result, ctx.Err()
+	if requestCtx.Err() != nil {
+		finalizeRoundResult()
+		return result, requestCtx.Err()
 	}
 
 	flushedBody, flushedReasoning := contentParser.Flush()

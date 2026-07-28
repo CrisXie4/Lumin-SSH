@@ -27,14 +27,19 @@ export default function AIChatMessageActions({ actions = [], style }) {
         const Icon = isCopied ? Check : normalizedAction.icon
         const title = isCopied ? '已复制' : normalizedAction.title
 
+        const isDisabled = normalizedAction.disabled === true
         return (
           <button
             key={normalizedAction.key}
             type="button"
             title={t(title)}
             aria-label={t(title)}
+            disabled={isDisabled}
             onClick={(event) => {
               event.stopPropagation()
+              if (isDisabled) {
+                return
+              }
               normalizedAction.onClick?.()
               if (normalizedAction.key === 'copy') {
                 setCopied(true)
@@ -52,7 +57,8 @@ export default function AIChatMessageActions({ actions = [], style }) {
               background: 'transparent',
               border: '1px solid transparent',
               transition: 'var(--transition)',
-              cursor: 'pointer',
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              opacity: isDisabled ? 0.45 : 1,
             }}
           >
             <Icon size={14} />

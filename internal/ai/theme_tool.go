@@ -265,6 +265,7 @@ func (a *App) runAIChatThemeToolExecution(execution *aiToolExecutionState) {
 		return
 	}
 
+	profile := resolveAIExecutionProfile(execution)
 	statusText := "已执行"
 	rawResultText := ""
 	uiResultText := ""
@@ -299,7 +300,7 @@ func (a *App) runAIChatThemeToolExecution(execution *aiToolExecutionState) {
 			resultPayload = buildAIThemeToolResultPayload(themeResult)
 			rawResultText = formatAIRawToolResultContent(resultPayload)
 			uiResultText = formatToolResultContent(resultPayload)
-			thresholdedResult := buildAIResultContentWithThreshold(rawResultText, a.GetAIGlobalSettings().ToolResultTokenThreshold)
+			thresholdedResult := buildAIResultContentWithThreshold(rawResultText, profile, a.GetAIGlobalSettings().ToolResultTokenThreshold)
 			if thresholdedResult.Oversized {
 				uiResultText = thresholdedResult.Content
 				rawResultText = thresholdedResult.Content
@@ -353,7 +354,7 @@ func (a *App) runAIChatThemeToolExecution(execution *aiToolExecutionState) {
 		"result":             sanitizeAIToolResultText(uiResultText),
 		"remainingFileEdits": getAIToolRemainingFileEdits(execution.Tool),
 	}
-	attachAIResultTokenEstimateMeta(message, buildAIChatToolResultContent(execution.Tool.Name, rawResultText))
+	attachAIResultTokenEstimateMeta(message, buildAIChatToolResultContent(execution.Tool.Name, rawResultText), profile)
 	a.emitAIChatEvent(map[string]interface{}{
 		"kind":      "upsert_message",
 		"requestId": execution.RequestID,

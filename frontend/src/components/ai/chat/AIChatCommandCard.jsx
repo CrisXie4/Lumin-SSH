@@ -1,4 +1,4 @@
-import { ChevronDown, TerminalSquare } from 'lucide-react'
+import { Check, ChevronDown, TerminalSquare, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useStickToBottom } from 'use-stick-to-bottom'
 import { useTranslation } from '../../../i18n.js'
@@ -234,6 +234,43 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
   const highlightedCommand = useMemo(() => renderCommandWithRiskHighlights(normalizedCommand, riskState.matches), [normalizedCommand, riskState.matches])
   const isMutating = extra?.isMutating === true
   const mutationPalette = useMemo(() => getCommandMutationPalette(isMutating), [isMutating])
+  const statusPalette = useMemo(() => {
+    switch (normalizedStatus) {
+      case '待审阅':
+      case '待批准':
+      case '等待处理':
+        return {
+          border: '1px solid rgba(var(--warning-rgb), 0.35)',
+          background: 'rgba(var(--warning-rgb), 0.08)',
+          color: 'var(--warning)',
+          tone: 'warning',
+        }
+      case '执行中':
+      case '后台继续':
+        return {
+          border: '1px solid rgba(var(--accent-rgb), 0.35)',
+          background: 'rgba(var(--accent-rgb), 0.08)',
+          color: 'var(--accent)',
+          tone: 'accent',
+        }
+      case '错误':
+      case '已终止':
+      case '已拒绝':
+        return {
+          border: '1px solid rgba(var(--danger-rgb), 0.35)',
+          background: 'rgba(var(--danger-rgb), 0.08)',
+          color: 'var(--danger)',
+          tone: 'danger',
+        }
+      default:
+        return {
+          border: '1px solid rgba(var(--success-rgb), 0.35)',
+          background: 'rgba(var(--success-rgb), 0.08)',
+          color: 'var(--success)',
+          tone: 'success',
+        }
+    }
+  }, [normalizedStatus])
   const commandModeLabel = isMutating ? t('修改') : t('只读')
   const targetLabel = typeof extra?.targetLabel === 'string' ? extra.targetLabel.trim() : ''
   const targetCwd = typeof extra?.targetCwd === 'string' ? extra.targetCwd.trim() : ''
@@ -270,8 +307,10 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
               {t(riskState.severity)}
             </div>
           ) : null}
-          <div style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid rgba(var(--warning-rgb), 0.35)', background: 'rgba(var(--warning-rgb), 0.08)', color: 'var(--warning)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
-            {t(normalizedStatus)}
+          <div style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4, border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }}>
+            {statusPalette.tone === 'success' ? <Check size={11} color="currentColor" strokeWidth={2.5} /> : null}
+            {statusPalette.tone === 'danger' ? <X size={11} color="currentColor" strokeWidth={2.5} /> : null}
+            <span>{t(normalizedStatus)}</span>
           </div>
           {resultTokenEstimateDisplay ? (
             <div style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid color-mix(in srgb, var(--accent) 24%, var(--border))', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface-overlay))', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>

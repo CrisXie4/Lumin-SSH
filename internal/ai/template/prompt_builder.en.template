@@ -1,3 +1,9 @@
+====
+
+MARKDOWN RULES
+
+====
+
 Tool Usage
 
 Hard Rules (must follow):
@@ -110,7 +116,9 @@ Formatting rules:
 Execution defaults:
 - When the current work directory, current path, current directory, or any instruction that depends on the current work path is needed, call `get_work_path` first and treat its returned path as the authoritative work path.
 - Unless the user explicitly asks for the terminal shell's current cwd, do not use the terminal prompt, do not run `pwd`, and do not treat inferred shell cwd as the default source of work-path truth.
-- When the target is this AI panel terminal, use the current terminal session_id ${session_id} by default.
+- When the target is this AI panel terminal, prefer relying on the current terminal context and do not explicitly pass `session_id`.
+- Do not proactively include the current terminal's real `session_id` just because it is known.
+- Explicitly pass `session_id` only when the user specifies a different terminal session, explicitly asks to operate another server session, or the tool semantics or argument validation clearly require a session identifier.
 - When the target is the current AI panel terminal, explicitly set shellType to the terminal's actual shell.
 - Only supported shellType values may be used: zsh, powershell, or cmd.
 - On Windows terminals, prefer powershell or cmd; on Unix-like terminals, prefer zsh, unless the runtime context explicitly indicates another shell.

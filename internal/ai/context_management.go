@@ -83,7 +83,11 @@ func calculateAIConversationContextTokens(conversationID string, sessionID strin
 }
 
 func calculateAIConversationContextTokensWithProfile(conversationID string, sessionID string, messages []AIConversationAPIMessage, profile AIProviderProfile) (int, error) {
-	return CountTokenBlocks(buildAIConversationContextTokenBlocksWithProfile(conversationID, sessionID, messages, profile))
+	ledger, err := buildAIConversationTokenLedger(conversationID, sessionID, messages, profile)
+	if err != nil {
+		return 0, err
+	}
+	return ledger.ContextTokens, nil
 }
 
 func buildAIConversationCondenseUIMessage(summary string, prevContextTokens int, newContextTokens int) AIConversationMessage {
@@ -197,6 +201,9 @@ func compressAIConversationToolResultText(text string, removeEnvironmentDetails 
 	if header == "" {
 		return "*", compressedBody
 	}
+	if strings.HasSuffix(header, " *") {
+		return header, compressedBody
+	}
 	return fmt.Sprintf("%s *", header), compressedBody
 }
 
@@ -244,16 +251,17 @@ func (a *App) CountAIConversationContextTokens(sessionID string, snapshotJSON st
 }
 
 func buildAISystemPromptRawTokens(conversationID string, sessionID string, profile AIProviderProfile) (int, error) {
-	return CountTokenBlocksRaw([]TokenCountBlock{
-		{
-			Type: "text",
-			Text: BuildChatSystemPromptWithProfile(nil, conversationID, sessionID, false, profile),
-		},
-	})
+	return estimateAITextTokensForProfile(BuildChatSystemPromptWithProfile(nil, conversationID, sessionID, false, profile), profile), nil
 }
 
 func buildAIConversationAPIMessageTokenBlocks(message AIConversationAPIMessage, profile AIProviderProfile) []TokenCountBlock {
-	blocks := make([]TokenCountBlock, 0, 2)
+	blocks := make([]TokenCountBlock, 0, 3)
+	if role := strings.TrimSpace(message.Role); role != "" {
+		blocks = append(blocks, TokenCountBlock{
+			Type: "text",
+			Text: role,
+		})
+	}
 	if strings.EqualFold(strings.TrimSpace(profile.Provider), "Responses") &&
 		strings.EqualFold(strings.TrimSpace(message.Role), "assistant") &&
 		message.CacheObjects != nil &&
@@ -261,7 +269,7 @@ func buildAIConversationAPIMessageTokenBlocks(message AIConversationAPIMessage, 
 		len(message.CacheObjects.OpenAIResponses.Output) > 0 {
 		responseBlocks := buildAIResponsesOutputTokenCountBlocks(message.CacheObjects.OpenAIResponses.Output)
 		if len(responseBlocks) > 0 {
-			return responseBlocks
+			return append(blocks, responseBlocks...)
 		}
 	}
 	if message.Content != "" {
@@ -288,10 +296,7 @@ func buildAIConversationTokenLedger(conversationID string, sessionID string, mes
 	entries := make([]AIConversationAPIMessageTokenEntry, 0, len(normalizedMessages))
 	totalRawTokens := systemRawTokens
 	for _, message := range normalizedMessages {
-		rawTokens, blockErr := CountTokenBlocksRaw(buildAIConversationAPIMessageTokenBlocks(message, profile))
-		if blockErr != nil {
-			return AIConversationTokenLedger{}, blockErr
-		}
+		rawTokens := estimateAIConversationMessageTokens(message, profile)
 		entries = append(entries, AIConversationAPIMessageTokenEntry{
 			MessageID: strings.TrimSpace(message.MessageID),
 			RawTokens: rawTokens,
@@ -301,7 +306,7 @@ func buildAIConversationTokenLedger(conversationID string, sessionID string, mes
 	return AIConversationTokenLedger{
 		SystemRawTokens: systemRawTokens,
 		Entries:         entries,
-		ContextTokens:   ApplyAITokenFudgeFactor(totalRawTokens),
+		ContextTokens:   totalRawTokens,
 	}, nil
 }
 
@@ -338,13 +343,9 @@ func (a *App) CountAIConversationAPIMessageRawTokens(sessionID string, conversat
 	normalizedMessages := normalizeAIConversationAPIMessages(messages)
 	entries := make([]AIConversationAPIMessageTokenEntry, 0, len(normalizedMessages))
 	for _, message := range normalizedMessages {
-		rawTokens, blockErr := CountTokenBlocksRaw(buildAIConversationAPIMessageTokenBlocks(message, profile))
-		if blockErr != nil {
-			return nil, blockErr
-		}
 		entries = append(entries, AIConversationAPIMessageTokenEntry{
 			MessageID: strings.TrimSpace(message.MessageID),
-			RawTokens: rawTokens,
+			RawTokens: estimateAIConversationMessageTokens(message, profile),
 		})
 	}
 	return entries, nil

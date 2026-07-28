@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FolderOpen, Pencil, Search } from 'lucide-react'
+import { Bot, FolderOpen, Pencil, Scissors, Search } from 'lucide-react'
 import { EventsOn } from '../../wailsjs/runtime/runtime.js'
 import * as AppGo from '../../wailsjs/go/main/App.js'
 import { useTranslation, t as translate, getLanguage } from '../i18n.js'
@@ -8,7 +8,7 @@ import AIConversationBackupSettings from './ai/AIConversationBackupSettings.jsx'
 import AIPanelSettingsOverlay from './ai/AIPanelSettingsOverlay.jsx'
 import AIComposer from './ai/AIComposer.jsx'
 import { approveAIChatTools, assignAIChatToolTerminal, cancelAIChat, continueAIChatTool, disableAIChatCollaboration, listAIChatCommandTerminalCandidates, previewAIChatToolDiff, previewAIChatToolRestore, rejectAIChatTools, rejectAIChatToolsForQueuedSubmission, resolveAIChatFollowup, restoreAIChatTool, setAIChatSkipNextAutomaticRequest, startAIChat, startAIChatCollaboration, terminateAIChatTool } from './ai/aiChatBridge.js'
-import { buildAIConversationTokenLedger, condenseAIConversationContext, countAIConversationAPIMessageRawTokens, createAIConversation, deleteAIConversation, getAIAssistantFirstReply, getAIConversation, listAIConversations, normalizeAIConversationMessageSearchResult, normalizeAIConversationSnapshot, normalizeAIConversationTaskSettings, openAIConversationFolder, preprocessAIConversationLongText, readAIConversationWrappedFile, saveAIConversation, searchAIConversationMessages, subscribeAIConversationChanges } from './ai/aiConversationBridge.js'
+import { buildAIConversationTokenLedger, condenseAIConversationContext, countAIConversationAPIMessageRawTokens, createAIConversation, createAIConversationSummarySubtask, deleteAIConversation, getAIAssistantFirstReply, getAIConversation, listAIConversations, normalizeAIConversationMessageSearchResult, normalizeAIConversationSnapshot, normalizeAIConversationTaskSettings, openAIConversationFolder, preprocessAIConversationLongText, readAIConversationWrappedFile, saveAIConversation, searchAIConversationMessages, subscribeAIConversationChanges } from './ai/aiConversationBridge.js'
 import { buildExecutionContextDetails, getExecutionContextSnapshot } from './ai/aiExecutionContext.js'
 import { getAIGlobalSettings, normalizeAIGlobalSettings, saveAIGlobalSettings } from './ai/aiGlobalSettingsBridge.js'
 import { getAIProviderState, getAIProviderTokenGroup } from './ai/aiProviderBridge.js'
@@ -19,10 +19,114 @@ import { expandFirstSlashCommandForPrompt } from './ai/aiSlashCommands.js'
 import AIChatConversation from './ai/chat/AIChatConversation.jsx'
 import { getConversationBranchAnchor } from './ai/chat/aiChatMessageTopology.js'
 import { isCallMyVipProviderHost } from './ai/providerSpecialHosts.js'
-import assistantThinkingActiveImg from '../assets/assistant-thinking-active.png'
+import { getAIProviderDefinition } from './ai/providers/index.js'
+import assistantThinkingActiveImg from '../assets/assistant-thinking-active.gif'
+import Tiptop from './Tiptop.jsx'
+
+function getAIBridge() {
+  return window?.go?.main?.AIBindings || window?.go?.main?.App || null
+}
 
 function formatMessageTime() {
   return new Date().toLocaleTimeString(getLanguage() || 'zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function padAIHistoryDateTimePart(value) {
+  return String(value).padStart(2, '0')
+}
+
+function formatAIHistoryDateTime(value) {
+  const numericValue = Number(value)
+  const date = Number.isFinite(numericValue) && numericValue > 0
+    ? new Date(numericValue)
+    : new Date(String(value || ''))
+  if (Number.isNaN(date.getTime())) {
+    return String(value || '')
+  }
+  return `${date.getFullYear()}-${padAIHistoryDateTimePart(date.getMonth() + 1)}-${padAIHistoryDateTimePart(date.getDate())} ${padAIHistoryDateTimePart(date.getHours())}:${padAIHistoryDateTimePart(date.getMinutes())}:${padAIHistoryDateTimePart(date.getSeconds())}`
+}
+
+function formatAIHistoryRelativeTime(value, language) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return ''
+  }
+  const diffMs = numericValue - Date.now()
+  const absDiffMs = Math.abs(diffMs)
+  if (absDiffMs < 60 * 1000) {
+    return translate('刚刚')
+  }
+  const divisions = [
+    { unit: 'year', ms: 1000 * 60 * 60 * 24 * 365 },
+    { unit: 'month', ms: 1000 * 60 * 60 * 24 * 30 },
+    { unit: 'week', ms: 1000 * 60 * 60 * 24 * 7 },
+    { unit: 'day', ms: 1000 * 60 * 60 * 24 },
+    { unit: 'hour', ms: 1000 * 60 * 60 },
+    { unit: 'minute', ms: 1000 * 60 },
+  ]
+  for (const division of divisions) {
+    if (absDiffMs >= division.ms) {
+      const unitValue = Math.round(diffMs / division.ms)
+      return new Intl.RelativeTimeFormat(language || 'zh-CN', { numeric: 'always' }).format(unitValue, division.unit)
+    }
+  }
+  return translate('刚刚')
+}
+
+function buildAIHistoryDisplayTimeParts(value, language) {
+  const absoluteText = formatAIHistoryDateTime(value)
+  const relativeText = formatAIHistoryRelativeTime(value, language)
+  return {
+    absoluteText,
+    relativeText,
+  }
+}
+
+function buildAIConversationSummarySubtaskContinuePrompt(summaryText, language) {
+  const trimmedSummaryText = typeof summaryText === 'string' ? summaryText.trim() : ''
+  if (!trimmedSummaryText) {
+    return ''
+  }
+  const normalizedLanguage = String(language || '').toLowerCase()
+  const handoffInstruction = normalizedLanguage.startsWith('zh')
+    ? '您是本次新的对接工程师,以上是交接文档!请继续工作,可能需要您先检查当前的基线工作进度确保交接内容属实'
+    : 'You are the new handoff engineer for this task. The content above is the handoff document. Please continue the work, and you may need to first verify the current baseline progress to ensure the handoff is accurate.'
+  return `${trimmedSummaryText}\n\n${handoffInstruction}`
+}
+
+function getAIHistoryRelativeTimeToneStyle(value) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return { color: 'var(--text-tertiary)', opacity: 0.5 }
+  }
+  const diffMs = Math.abs(Date.now() - numericValue)
+  const minuteMs = 60 * 1000
+  const hourMs = 60 * minuteMs
+  if (diffMs <= 5 * minuteMs) {
+    return { color: 'var(--success)', opacity: 1 }
+  }
+  if (diffMs <= 10 * minuteMs) {
+    return { color: 'var(--success)', opacity: 0.9 }
+  }
+  if (diffMs <= 30 * minuteMs) {
+    return { color: 'var(--accent)', opacity: 1 }
+  }
+  if (diffMs <= hourMs) {
+    return { color: 'var(--accent)', opacity: 0.9 }
+  }
+  if (diffMs <= 3 * hourMs) {
+    return { color: 'var(--text-secondary)', opacity: 1 }
+  }
+  if (diffMs <= 6 * hourMs) {
+    return { color: 'var(--text-secondary)', opacity: 0.9 }
+  }
+  if (diffMs <= 12 * hourMs) {
+    return { color: 'var(--text-tertiary)', opacity: 0.8 }
+  }
+  if (diffMs <= 24 * hourMs) {
+    return { color: 'var(--text-tertiary)', opacity: 0.7 }
+  }
+  return { color: 'var(--text-tertiary)', opacity: 0.5 }
 }
 
 function splitTerminalOutputLinesKeepNewline(content) {
@@ -31,56 +135,6 @@ function splitTerminalOutputLinesKeepNewline(content) {
   }
   const matches = String(content).match(/[^\n]*\n|[^\n]+/g)
   return Array.isArray(matches) ? matches : []
-}
-
-function processTerminalOutputLineWithCarriageReturns(line) {
-  const segments = String(line).split('\r')
-  if (segments.length === 1) {
-    return line
-  }
-  let current = Array.from(segments[0] || '')
-  for (const segment of segments.slice(1)) {
-    if (!segment) {
-      continue
-    }
-    const segmentRunes = Array.from(segment)
-    if (segmentRunes.length >= current.length) {
-      current = segmentRunes
-      continue
-    }
-    const next = [...current]
-    for (let index = 0; index < segmentRunes.length; index += 1) {
-      next[index] = segmentRunes[index]
-    }
-    current = next
-  }
-  return current.join('')
-}
-
-function processTerminalOutputCarriageReturns(input) {
-  const source = String(input || '')
-  if (!source.includes('\r')) {
-    return source
-  }
-  return source.split('\n').map(processTerminalOutputLineWithCarriageReturns).join('\n')
-}
-
-function processTerminalOutputBackspaces(input) {
-  const source = String(input || '')
-  if (!source.includes('\b')) {
-    return source
-  }
-  const output = []
-  for (const ch of Array.from(source)) {
-    if (ch === '\b') {
-      if (output.length > 0) {
-        output.pop()
-      }
-      continue
-    }
-    output.push(ch)
-  }
-  return output.join('')
 }
 
 function truncateTerminalOutputForPrompt(content, lineLimit, characterLimit) {
@@ -157,10 +211,216 @@ function applyTerminalOutputRunLengthEncoding(content) {
   return result
 }
 
+function ensureTerminalScreenRow(lines, row) {
+  while (lines.length <= row) {
+    lines.push([])
+  }
+}
+
+function trimTerminalScreenRightSpaces(line) {
+  let end = line.length
+  while (end > 0 && line[end - 1] === ' ') {
+    end -= 1
+  }
+  return end === line.length ? line : line.slice(0, end)
+}
+
+function writeTerminalScreenChar(lines, state, char) {
+  ensureTerminalScreenRow(lines, state.row)
+  const line = lines[state.row]
+  while (line.length < state.col) {
+    line.push(' ')
+  }
+  if (state.col === line.length) {
+    line.push(char)
+  } else {
+    line[state.col] = char
+  }
+  state.col += 1
+}
+
+function moveTerminalScreenCursor(lines, state, rowDelta, colDelta) {
+  state.row += rowDelta
+  if (state.row < 0) {
+    state.row = 0
+  }
+  ensureTerminalScreenRow(lines, state.row)
+  state.col += colDelta
+  if (state.col < 0) {
+    state.col = 0
+  }
+}
+
+function eraseTerminalScreenLine(lines, state, mode) {
+  ensureTerminalScreenRow(lines, state.row)
+  const line = lines[state.row]
+  if (mode === 1) {
+    const limit = Math.min(state.col, line.length)
+    for (let index = 0; index < limit; index += 1) {
+      line[index] = ' '
+    }
+    lines[state.row] = trimTerminalScreenRightSpaces(line)
+    return
+  }
+  if (mode === 2) {
+    lines[state.row] = []
+    state.col = 0
+    return
+  }
+  if (state.col < line.length) {
+    lines[state.row] = line.slice(0, state.col)
+  }
+}
+
+function parseTerminalCSIParams(raw) {
+  if (!raw) {
+    return []
+  }
+  return String(raw).split(';').map((part) => {
+    const value = Number.parseInt(String(part || '').trim(), 10)
+    return Number.isFinite(value) ? value : 0
+  })
+}
+
+function terminalCSIParamValue(params, index, fallback) {
+  if (!Array.isArray(params) || index < 0 || index >= params.length) {
+    return fallback
+  }
+  return params[index] > 0 ? params[index] : fallback
+}
+
+function processTerminalOutputANSISequence(source, startIndex, lines, state) {
+  if (startIndex + 1 >= source.length) {
+    return 1
+  }
+  const nextChar = source[startIndex + 1]
+  if (nextChar === '[') {
+    let endIndex = startIndex + 2
+    while (endIndex < source.length) {
+      const code = source.charCodeAt(endIndex)
+      if (code >= 0x40 && code <= 0x7e) {
+        let rawParams = source.slice(startIndex + 2, endIndex)
+        if (rawParams.startsWith('?') || rawParams.startsWith('>') || rawParams.startsWith('!')) {
+          rawParams = rawParams.slice(1)
+        }
+        const params = parseTerminalCSIParams(rawParams)
+        const finalChar = source[endIndex]
+        if (finalChar === 'A') {
+          moveTerminalScreenCursor(lines, state, -terminalCSIParamValue(params, 0, 1), 0)
+        } else if (finalChar === 'B') {
+          moveTerminalScreenCursor(lines, state, terminalCSIParamValue(params, 0, 1), 0)
+        } else if (finalChar === 'C') {
+          moveTerminalScreenCursor(lines, state, 0, terminalCSIParamValue(params, 0, 1))
+        } else if (finalChar === 'D') {
+          moveTerminalScreenCursor(lines, state, 0, -terminalCSIParamValue(params, 0, 1))
+        } else if (finalChar === 'G') {
+          state.col = Math.max(0, terminalCSIParamValue(params, 0, 1) - 1)
+          ensureTerminalScreenRow(lines, state.row)
+        } else if (finalChar === 'H' || finalChar === 'f') {
+          state.row = Math.max(0, terminalCSIParamValue(params, 0, 1) - 1)
+          state.col = Math.max(0, terminalCSIParamValue(params, 1, 1) - 1)
+          ensureTerminalScreenRow(lines, state.row)
+        } else if (finalChar === 'J') {
+          const mode = terminalCSIParamValue(params, 0, 0)
+          if (mode === 2 || mode === 3) {
+            lines.splice(0, lines.length, [])
+            state.row = 0
+            state.col = 0
+          }
+        } else if (finalChar === 'K') {
+          eraseTerminalScreenLine(lines, state, terminalCSIParamValue(params, 0, 0))
+        }
+        return endIndex - startIndex + 1
+      }
+      endIndex += 1
+    }
+    return source.length - startIndex
+  }
+  if (nextChar === ']') {
+    let endIndex = startIndex + 2
+    while (endIndex < source.length) {
+      if (source.charCodeAt(endIndex) === 0x07) {
+        return endIndex - startIndex + 1
+      }
+      if (source.charCodeAt(endIndex) === 0x1b && source[endIndex + 1] === '\\') {
+        return endIndex - startIndex + 2
+      }
+      endIndex += 1
+    }
+    return source.length - startIndex
+  }
+  return 2
+}
+
+function normalizeTerminalOutputScreen(input) {
+  const source = String(input || '')
+  if (!source) {
+    return ''
+  }
+  const lines = [[]]
+  const state = { row: 0, col: 0 }
+  for (let index = 0; index < source.length;) {
+    const char = source[index]
+    if (char === '\r') {
+      state.col = 0
+      index += 1
+      continue
+    }
+    if (char === '\n') {
+      state.row += 1
+      state.col = 0
+      ensureTerminalScreenRow(lines, state.row)
+      index += 1
+      continue
+    }
+    if (char === '\b') {
+      if (state.col > 0) {
+        state.col -= 1
+      }
+      index += 1
+      continue
+    }
+    if (char === '\t') {
+      let tabWidth = 4 - (state.col % 4)
+      if (tabWidth <= 0) {
+        tabWidth = 4
+      }
+      for (let step = 0; step < tabWidth; step += 1) {
+        writeTerminalScreenChar(lines, state, ' ')
+      }
+      index += 1
+      continue
+    }
+    if (source.charCodeAt(index) === 0x1b) {
+      const consumed = processTerminalOutputANSISequence(source, index, lines, state)
+      index += consumed > 0 ? consumed : 1
+      continue
+    }
+    const codePoint = source.codePointAt(index)
+    if (!Number.isFinite(codePoint)) {
+      index += 1
+      continue
+    }
+    if ((codePoint >= 0 && codePoint < 0x20) || codePoint === 0x7f) {
+      index += codePoint > 0xffff ? 2 : 1
+      continue
+    }
+    const printable = String.fromCodePoint(codePoint)
+    writeTerminalScreenChar(lines, state, printable)
+    index += printable.length
+  }
+  let lastNonEmpty = lines.length - 1
+  while (lastNonEmpty > 0 && trimTerminalScreenRightSpaces(lines[lastNonEmpty]).length === 0) {
+    lastNonEmpty -= 1
+  }
+  return lines
+    .slice(0, lastNonEmpty + 1)
+    .map((line) => trimTerminalScreenRightSpaces(line).join(''))
+    .join('\n')
+}
+
 function compressTerminalOutputForPrompt(input, lineLimit, characterLimit) {
-  let processed = String(input || '')
-  processed = processTerminalOutputCarriageReturns(processed)
-  processed = processTerminalOutputBackspaces(processed)
+  const processed = normalizeTerminalOutputScreen(input)
   return truncateTerminalOutputForPrompt(applyTerminalOutputRunLengthEncoding(processed), lineLimit, characterLimit)
 }
 
@@ -466,6 +726,25 @@ function buildReasoningDuration(payload) {
   return ''
 }
 
+function buildAIRequestModelMeta(provider) {
+  const providerName = typeof provider?.name === 'string' ? provider.name.trim() : ''
+  const providerType = typeof provider?.provider === 'string' && provider.provider.trim() ? provider.provider.trim() : 'Compatible'
+  const providerDefinition = getAIProviderDefinition(providerType)
+  const configuredModelName = typeof provider?.model === 'string' ? provider.model.trim() : ''
+  const defaultModelName = typeof providerDefinition?.defaultModel === 'string' ? providerDefinition.defaultModel.trim() : ''
+  const requestModelName = configuredModelName || defaultModelName
+  const requestModelLabel = requestModelName || providerName || providerType
+  if (!requestModelLabel) {
+    return {}
+  }
+  return {
+    requestModelLabel,
+    requestModelName,
+    requestProviderName: providerName,
+    requestProviderType: providerType,
+  }
+}
+
 function normalizeAICollaborationMode(value) {
   const nextValue = typeof value === 'string' ? value.trim() : ''
   return nextValue === 'followup' || nextValue === 'completion' || nextValue === 'forced' ? nextValue : ''
@@ -520,6 +799,12 @@ function upsertConversationSummary(list, snapshot) {
       ? snapshot.messageCount
       : Array.isArray(snapshot.messages) ? snapshot.messages.length : 0,
     promptCacheBypassTimestamp: snapshot.promptCacheBypassTimestamp || '',
+    parentConversationId: typeof snapshot.parentConversationId === 'string' ? snapshot.parentConversationId : '',
+    rootConversationId: typeof snapshot.rootConversationId === 'string' ? snapshot.rootConversationId : '',
+    relationType: typeof snapshot.relationType === 'string' ? snapshot.relationType : '',
+    relationSource: typeof snapshot.relationSource === 'string' ? snapshot.relationSource : '',
+    parentTitleSnapshot: typeof snapshot.parentTitleSnapshot === 'string' ? snapshot.parentTitleSnapshot : '',
+    archived: snapshot.archived === true,
   }
 
   const nextList = Array.isArray(list) ? [...list] : []
@@ -542,6 +827,114 @@ function upsertConversationSummary(list, snapshot) {
   })
 
   return nextList
+}
+
+function buildAIConversationDisplayList(list) {
+  const items = Array.isArray(list)
+    ? list.filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && item.id.trim())
+    : []
+  if (items.length === 0) {
+    return []
+  }
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    id: String(item.id).trim(),
+    title: typeof item.title === 'string' ? item.title : '',
+    createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
+    updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : 0,
+    parentConversationId: typeof item.parentConversationId === 'string' ? item.parentConversationId.trim() : '',
+    rootConversationId: typeof item.rootConversationId === 'string' ? item.rootConversationId.trim() : '',
+    relationType: typeof item.relationType === 'string' ? item.relationType.trim() : '',
+    relationSource: typeof item.relationSource === 'string' ? item.relationSource.trim() : '',
+    parentTitleSnapshot: typeof item.parentTitleSnapshot === 'string' ? item.parentTitleSnapshot.trim() : '',
+    archived: item.archived === true,
+  }))
+  const byId = new Map(normalizedItems.map((item) => [item.id, item]))
+  const resolveRootConversationId = (item) => {
+    if (item.rootConversationId) {
+      return item.rootConversationId
+    }
+    const visited = new Set([item.id])
+    let current = item
+    let resolvedRootId = item.id
+    while (current?.parentConversationId) {
+      const parentId = typeof current.parentConversationId === 'string' ? current.parentConversationId.trim() : ''
+      if (!parentId || visited.has(parentId)) {
+        break
+      }
+      visited.add(parentId)
+      resolvedRootId = parentId
+      if (!byId.has(parentId)) {
+        return parentId
+      }
+      current = byId.get(parentId)
+    }
+    return resolvedRootId
+  }
+  const resolveDepth = (item) => {
+    const initialParentId = typeof item.parentConversationId === 'string' ? item.parentConversationId.trim() : ''
+    if (!initialParentId) {
+      return 0
+    }
+    let depth = 0
+    let parentId = initialParentId
+    const visited = new Set([item.id])
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId)
+      depth += 1
+      if (!byId.has(parentId)) {
+        break
+      }
+      const parentItem = byId.get(parentId)
+      parentId = typeof parentItem?.parentConversationId === 'string' ? parentItem.parentConversationId.trim() : ''
+    }
+    return Math.max(1, Math.min(depth, 4))
+  }
+  const resolveParentDisplayTitle = (item) => {
+    const parentId = typeof item.parentConversationId === 'string' ? item.parentConversationId.trim() : ''
+    if (parentId && byId.has(parentId)) {
+      const parentItem = byId.get(parentId)
+      if (typeof parentItem?.title === 'string' && parentItem.title.trim()) {
+        return parentItem.title.trim()
+      }
+    }
+    return item.parentTitleSnapshot
+  }
+  const groups = new Map()
+  normalizedItems.forEach((item) => {
+    const rootId = resolveRootConversationId(item) || item.id
+    const existingGroup = groups.get(rootId) || {
+      rootId,
+      groupUpdatedAt: 0,
+      items: [],
+    }
+    existingGroup.items.push(item)
+    existingGroup.groupUpdatedAt = Math.max(existingGroup.groupUpdatedAt, item.updatedAt || 0)
+    groups.set(rootId, existingGroup)
+  })
+  return Array.from(groups.values())
+    .sort((left, right) => {
+      if (left.groupUpdatedAt !== right.groupUpdatedAt) {
+        return right.groupUpdatedAt - left.groupUpdatedAt
+      }
+      return String(right.rootId).localeCompare(String(left.rootId))
+    })
+    .flatMap((group) => group.items
+      .slice()
+      .sort((left, right) => {
+        if (left.createdAt !== right.createdAt) {
+          return left.createdAt - right.createdAt
+        }
+        if (left.updatedAt !== right.updatedAt) {
+          return right.updatedAt - left.updatedAt
+        }
+        return String(left.id).localeCompare(String(right.id))
+      })
+      .map((item) => ({
+        ...item,
+        depth: resolveDepth(item),
+        parentDisplayTitle: resolveParentDisplayTitle(item),
+      })))
 }
 
 function insertMessageBeforeAssistant(messages, requestId, nextMessage) {
@@ -971,6 +1364,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       : message
   }, [terminalLabelMap])
   const activeConversation = panelState.conversation
+  const activeConversationRelationType = typeof activeConversation?.relationType === 'string' ? activeConversation.relationType.trim() : ''
+  const activeConversationArchived = activeConversation?.archived === true
   const isThemeTuningConversation = activeConversation?.transient === true
   const runtimePhase = normalizeAIRuntimePhase(panelState.runtimePhase)
   const isStreaming = panelState.requestPhase === 'streaming'
@@ -1054,6 +1449,14 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     availableAIProviders,
     typeof aiProviderState?.currentProviderId === 'string' ? aiProviderState.currentProviderId.trim() : '',
   )
+  const resolveAIRequestModelMeta = useCallback((providerId = '', providers = null) => {
+    const normalizedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
+    const sourceProviders = Array.isArray(providers) ? providers : (Array.isArray(aiProviderState?.providers) ? aiProviderState.providers : [])
+    const matchedProvider = normalizedProviderId
+      ? sourceProviders.find((item) => item?.id === normalizedProviderId) || null
+      : null
+    return buildAIRequestModelMeta(matchedProvider)
+  }, [aiProviderState])
   const effectiveAutoApprovalSettings = useMemo(() => {
     if (!activeConversation) {
       return normalizedGlobalAISettings
@@ -1073,13 +1476,22 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   const shouldLockAssistantCollaboration = Boolean(effectiveAutoApprovalSettings.alwaysAllowFollowupQuestions)
   const collaborationLocked = Boolean(panelState.collaborationLocked) && Boolean(activeConversation)
   const collaborationActive = Boolean(panelState.collaborationActive)
+  const isSummarySubtaskCollaborationActive = collaborationActive && panelState.collaborationMode === 'summary_subtask'
+  const isArchivedAgentConversation = activeConversationArchived && activeConversationRelationType === 'agent'
+  const canQuickCondenseConversation = Boolean(activeConversation) && runtimePhase === 'ready' && !panelState.isCondensingContext && !isArchivedAgentConversation
+  const canSummaryCondenseConversation = Boolean(activeConversation) && runtimePhase === 'ready' && !panelState.isCondensingContext
+  const composerInteractionLocked = isArchivedAgentConversation && !isSummarySubtaskCollaborationActive
+  const composerInteractionLockedLabel = t('当前子代理任务已归档,仅可摘要压缩创建新的子阶段任务')
   const collaborationFollowupInteractionLocked = collaborationLocked && collaborationActive && panelState.collaborationMode === 'followup'
   const showAssistantCollaborationActiveImage = collaborationActive && Boolean(activeConversation)
   const toolResumeAvailable = Boolean(activeConversation)
+    && !isArchivedAgentConversation
     && panelState.requestPhase === 'idle'
     && runtimePhase === 'ready'
     && !panelState.queuedSubmission
     && !panelState.isFlushingQueuedSubmission
+    && !collaborationActive
+    && !panelState.isCondensingContext
     && (!panelState.lastTurnBusinessMessageKind || (panelState.lastTurnBusinessMessageKind !== 'completion' && panelState.lastTurnBusinessMessageKind !== 'followup'))
   const playAISound = useCallback((type) => {
     if (normalizedGlobalAISettings.soundEnabled === false) {
@@ -1294,7 +1706,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     if (!Number.isFinite(Number(rawTokens)) || Number(rawTokens) <= 0) {
       return 0
     }
-    return Math.ceil(Number(rawTokens) * 1.5)
+    return Math.trunc(Number(rawTokens))
   }, [])
 
   const computeAITokenLedgerContextTokens = useCallback((ledger) => {
@@ -1593,6 +2005,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       }
 
       if (payload.kind === 'collaboration_started') {
+        if (matchedPanel.collaborationMode === 'summary_subtask') {
+          return
+        }
         setComposerInputValue('')
         setComposerImages([])
         setPanelState(matchedPanelKey, (current) => ({
@@ -1634,6 +2049,20 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         setPanelState(matchedPanelKey, (current) => {
           const nextDelta = typeof payload.delta === 'string' ? payload.delta : ''
           const nextBuffer = `${typeof current.collaborationStreamBuffer === 'string' ? current.collaborationStreamBuffer : ''}${nextDelta}`
+          if (current.collaborationMode === 'summary_subtask') {
+            const displayBuffer = nextBuffer
+              .replace(/<subtask_title>[\s\S]*?<\/subtask_title>/giu, '')
+              .replace(/<subtask_summary>/giu, '')
+              .replace(/<\/subtask_summary>/giu, '')
+              .trim()
+            streamedCollaborationText = displayBuffer
+            return {
+              ...current,
+              collaborationStreamBuffer: nextBuffer,
+              collaborationStatusFirstTokenAtMs: current.collaborationStatusFirstTokenAtMs || (nextDelta.trim() ? Date.now() : 0),
+              collaborationStatusText: displayBuffer,
+            }
+          }
           const parsedCollaborationBuffer = parseAICollaborationStreamBuffer(nextBuffer)
           if (parsedCollaborationBuffer.decision === 'continue') {
             streamedCollaborationText = parsedCollaborationBuffer.bodyText
@@ -1666,12 +2095,89 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             contextTokens: normalizeAIContextTokensValue(payload.newContextTokens),
           }
         })
-        // 压缩改写了历史节点: 全量重建账本 (对每个节点重算并重新持久化压缩后的 Token)
         void rebuildAIConversationTokenLedger(nextSnapshot, matchedPanelKey)
         return
       }
 
+      if (payload.kind === 'auto_recovery_started') {
+        const recoveryRequestId = typeof payload.recoveryRequestId === 'string' ? payload.recoveryRequestId.trim() : ''
+        setComposerInputValue('')
+        setComposerImages([])
+        setPanelState(matchedPanelKey, (current) => {
+          const previousAssistantMessageId = typeof current.activeAssistantMessageId === 'string' && current.activeAssistantMessageId.trim()
+            ? current.activeAssistantMessageId.trim()
+            : (typeof current.activeRequestId === 'string' ? current.activeRequestId.trim() : '')
+          const nextMessages = (Array.isArray(current.messages) ? current.messages : []).filter((message) => {
+            if (!message || typeof message !== 'object') {
+              return true
+            }
+            if (previousAssistantMessageId && message.id === previousAssistantMessageId && message.kind === 'assistant') {
+              return false
+            }
+            if (previousAssistantMessageId && message.id === `${previousAssistantMessageId}-reasoning` && message.kind === 'reasoning') {
+              return false
+            }
+            return true
+          })
+          const nextConversation = current.conversation
+            ? {
+                ...current.conversation,
+                messages: nextMessages,
+              }
+            : current.conversation
+          return {
+            ...current,
+            conversation: nextConversation,
+            messages: nextMessages,
+            activeRequestId: recoveryRequestId || current.activeRequestId,
+            activeAssistantMessageId: '',
+            activeToolExecution: null,
+            requestPhase: 'idle',
+            runtimePhase: 'ready',
+            isCondensingContext: true,
+            collaborationLocked: true,
+            collaborationActive: true,
+            collaborationMode: 'summary_subtask',
+            collaborationStreamBuffer: '',
+            collaborationAwaitingManualFollowup: false,
+            collaborationFollowupRequestId: '',
+            collaborationPendingMode: '',
+            collaborationPendingRequestId: '',
+            collaborationInterruptedRequestId: '',
+            collaborationStatusStartedAtMs: Date.now(),
+            collaborationStatusFirstTokenAtMs: 0,
+            collaborationStatusText: typeof payload.text === 'string' ? payload.text : '',
+            collaborationStatusReasoningText: typeof payload.reasoningText === 'string' ? payload.reasoningText : '',
+          }
+        })
+        return
+      }
+
+      if (payload.kind === 'auto_recovery_status') {
+        setPanelState(matchedPanelKey, (current) => ({
+          ...current,
+          collaborationLocked: true,
+          collaborationActive: true,
+          collaborationMode: 'summary_subtask',
+          collaborationStatusText: typeof payload.text === 'string' ? payload.text : '',
+          collaborationStatusReasoningText: typeof payload.reasoningText === 'string' ? payload.reasoningText : '',
+        }))
+        return
+      }
+
+      if (payload.kind === 'auto_recovery_run_full_summary') {
+        // 统一复用“手动全量摘要”的标准入口，不再保留自动链自己的特殊 requestId/协同态初始化路径
+        // 这样子任务创建、摘要请求、继续任务都与手动全量摘要保持同一执行源
+        void runAIConversationSummarySubtaskFlow(matchedPanel.conversation || conversation, {
+          autoRecoverySubtaskHops: 1,
+        })
+        return
+      }
+
       if (payload.kind === 'collaboration_finished') {
+        if (matchedPanel.collaborationMode === 'summary_subtask') {
+          return
+        }
         const decision = normalizeAICollaborationDecision(payload.decision)
         const finalCollaborationText = typeof payload.text === 'string' ? payload.text : ''
         const isFallbackFollowup = decision === 'fallback_followup'
@@ -1836,6 +2342,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
               apiMessages: Array.isArray(current.apiMessages) ? [...current.apiMessages] : [],
             }
           }
+          // 智能压缩就地重试：正式 AI 请求开始的这一刻已不属于助理协同态。
+          // 收到 assistant_continue 且当前处于 summary_subtask 协同态时，退出协同态并回落为普通流式。
+          const shouldExitSummarySubtaskCollaboration = current.collaborationMode === 'summary_subtask'
           return {
             ...current,
             activeAssistantMessageId: payload.messageId,
@@ -1861,6 +2370,22 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             ],
             lastAssistantTurnId: payload.messageId,
             lastTurnBusinessMessageKind: '',
+            ...(shouldExitSummarySubtaskCollaboration ? {
+              isCondensingContext: false,
+              collaborationLocked: shouldLockAssistantCollaboration,
+              collaborationActive: false,
+              collaborationMode: '',
+              collaborationStreamBuffer: '',
+              collaborationAwaitingManualFollowup: false,
+              collaborationFollowupRequestId: '',
+              collaborationPendingMode: '',
+              collaborationPendingRequestId: '',
+              collaborationInterruptedRequestId: '',
+              collaborationStatusStartedAtMs: 0,
+              collaborationStatusFirstTokenAtMs: 0,
+              collaborationStatusText: '',
+              collaborationStatusReasoningText: '',
+            } : {}),
           }
         })
         if (snapshotBeforeNextRequest) {
@@ -2193,7 +2718,6 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             if (message.id === assistantMessageId && message.kind === 'assistant') {
               return {
                 ...message,
-                text: typeof payload.text === 'string' ? payload.text : translate('已拒绝执行工具调用'),
                 metrics: Array.isArray(message.metrics) ? message.metrics : [],
                 streaming: false,
                 extra: {
@@ -2382,6 +2906,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
         const metrics = buildMetrics(payload)
         const reasoningDuration = buildReasoningDuration(payload)
+        const shouldClearSummarySubtaskCollaboration = matchedPanel.collaborationMode === 'summary_subtask'
         const nextMessages = matchedPanel.messages.map((message) => {
           if (message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning') {
             return {
@@ -2423,6 +2948,10 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           ),
         }
 
+        if (shouldClearSummarySubtaskCollaboration) {
+          setComposerInputValue('')
+          setComposerImages([])
+        }
         setPanelState(matchedPanelKey, {
           ...matchedPanel,
           activeRequestId: '',
@@ -2430,16 +2959,24 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           activeToolExecution: null,
           requestPhase: 'idle',
           skipNextAutomaticRequest: false,
+          isCondensingContext: false,
           conversation: nextConversation,
           messages: nextMessages,
           apiMessages: nextConversation.apiMessages,
           recoverableToolStopReason: '',
-          collaborationLocked: false,
-          collaborationActive: false,
-          collaborationMode: '',
-          collaborationStreamBuffer: '',
-          collaborationAwaitingManualFollowup: false,
-          collaborationFollowupRequestId: '',
+          collaborationLocked: shouldClearSummarySubtaskCollaboration ? false : matchedPanel.collaborationLocked,
+          collaborationActive: shouldClearSummarySubtaskCollaboration ? false : matchedPanel.collaborationActive,
+          collaborationMode: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationMode,
+          collaborationStreamBuffer: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationStreamBuffer,
+          collaborationAwaitingManualFollowup: shouldClearSummarySubtaskCollaboration ? false : matchedPanel.collaborationAwaitingManualFollowup,
+          collaborationFollowupRequestId: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationFollowupRequestId,
+          collaborationPendingMode: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationPendingMode,
+          collaborationPendingRequestId: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationPendingRequestId,
+          collaborationInterruptedRequestId: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationInterruptedRequestId,
+          collaborationStatusStartedAtMs: shouldClearSummarySubtaskCollaboration ? 0 : matchedPanel.collaborationStatusStartedAtMs,
+          collaborationStatusFirstTokenAtMs: shouldClearSummarySubtaskCollaboration ? 0 : matchedPanel.collaborationStatusFirstTokenAtMs,
+          collaborationStatusText: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationStatusText,
+          collaborationStatusReasoningText: shouldClearSummarySubtaskCollaboration ? '' : matchedPanel.collaborationStatusReasoningText,
         })
 
         void saveConversationSnapshot(nextConversation, matchedPanelKey)
@@ -2486,6 +3023,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           toolApprovalMode: '',
           runtimePhase: 'ready',
           skipNextAutomaticRequest: false,
+          isCondensingContext: false,
           activeChangeReview: null,
           conversation: nextConversation,
           messages: nextMessages,
@@ -2531,6 +3069,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           toolApprovalMode: '',
           runtimePhase: 'ready',
           skipNextAutomaticRequest: false,
+          isCondensingContext: false,
           activeChangeReview: null,
           conversation: nextConversation,
           messages: nextMessages,
@@ -2982,7 +3521,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   }, [handleOpenConversation, locateConversationMessage, panelState.activeConversationId, resetGlobalSearchState])
 
   const handleDeleteConversation = useCallback(async (conversationId) => {
-    if (panelState.activeConversationId === conversationId) {
+    const deletingActiveConversation = panelState.activeConversationId === conversationId
+    if (deletingActiveConversation) {
       clearThemeToolPreviewPackage()
     }
     clearRestorePreview()
@@ -2992,23 +3532,24 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
     await deleteAIConversation(conversationId)
     tokenLedgerRef.current.delete(conversationId)
-    setConversationList((prev) => prev.filter((item) => item.id !== conversationId))
-    setTerminalPanels((prev) => {
-      const nextPanels = { ...prev }
-      Object.keys(nextPanels).forEach((panelKey) => {
-        const panel = nextPanels[panelKey]
-        if (panel?.activeConversationId === conversationId) {
-          nextPanels[panelKey] = createEmptyPanelState()
-        }
-      })
-      return nextPanels
-    })
     setComposerEditState((current) => (
-      current.mode !== 'new' && panelState.activeConversationId === conversationId
+      current.mode !== 'new' && deletingActiveConversation
         ? { mode: 'new', targetMessageId: '', targetMessageText: '' }
         : current
     ))
-  }, [panelState.activeConversationId, requestDeleteConfirmation, t])
+    if (deletingActiveConversation) {
+      await handleGoHome()
+      return
+    }
+    const refreshedConversations = await listAIConversations().catch(() => [])
+    setConversationList(Array.isArray(refreshedConversations) ? refreshedConversations : [])
+    const currentActiveConversationId = typeof terminalPanelsRef.current?.[panelInstanceKey]?.activeConversationId === 'string'
+      ? terminalPanelsRef.current[panelInstanceKey].activeConversationId.trim()
+      : ''
+    if (currentActiveConversationId && currentActiveConversationId !== conversationId && refreshedConversations.some((item) => item?.id === currentActiveConversationId)) {
+      await handleOpenConversation(currentActiveConversationId)
+    }
+  }, [clearRestorePreview, handleGoHome, handleOpenConversation, panelInstanceKey, panelState.activeConversationId, requestDeleteConfirmation, t])
 
   const handleProviderChange = useCallback(async (providerId) => {
     const normalizedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
@@ -3264,6 +3805,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       sendOptions = sendOptionsOrEditState
     }
 
+    const normalizedRuntimeOptions = runtimeOptions && typeof runtimeOptions === 'object' ? runtimeOptions : {}
     const nextText = typeof text === 'string' ? text.trim() : ''
     const messageImages = normalizeMessageImages(sendOptions?.images ?? composerImages)
     if (!nextText && messageImages.length === 0) {
@@ -3272,18 +3814,24 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
 
     clearRestorePreview()
 
+    const targetConversationFromOptions = normalizedRuntimeOptions?.targetConversationSnapshot && typeof normalizedRuntimeOptions.targetConversationSnapshot === 'object'
+      ? normalizedRuntimeOptions.targetConversationSnapshot
+      : null
     const activeConversationToolScope = typeof activeConversation?.toolScope === 'string' ? activeConversation.toolScope.trim() : ''
     const activeConversationToolScopeSlot = typeof activeConversation?.toolScopeSlot === 'string' ? activeConversation.toolScopeSlot.trim() : ''
-    const effectiveToolScope = typeof runtimeOptions?.toolScope === 'string' && runtimeOptions.toolScope.trim()
-      ? runtimeOptions.toolScope.trim()
+    const effectiveToolScope = typeof normalizedRuntimeOptions?.toolScope === 'string' && normalizedRuntimeOptions.toolScope.trim()
+      ? normalizedRuntimeOptions.toolScope.trim()
       : activeConversationToolScope
-    const effectiveToolScopeSlot = typeof runtimeOptions?.toolScopeSlot === 'string' && runtimeOptions.toolScopeSlot.trim()
-      ? runtimeOptions.toolScopeSlot.trim()
+    const effectiveToolScopeSlot = typeof normalizedRuntimeOptions?.toolScopeSlot === 'string' && normalizedRuntimeOptions.toolScopeSlot.trim()
+      ? normalizedRuntimeOptions.toolScopeSlot.trim()
       : activeConversationToolScopeSlot
     const isThemeTuningConversation = effectiveToolScope === 'theme_tuning'
-    let targetConversationSnapshot = runtimeOptions?.forceNewConversation === true ? null : activeConversation
+    let targetConversationSnapshot = normalizedRuntimeOptions?.forceNewConversation === true ? null : (targetConversationFromOptions || activeConversation)
     if (targetConversationSnapshot?.transient === true && !effectiveToolScope) {
       targetConversationSnapshot = null
+    }
+    if (targetConversationSnapshot?.archived === true && targetConversationSnapshot?.relationType === 'agent') {
+      return false
     }
     const activeComposerState = overrideEditState || composerEditState
     const isEditingExistingMessage = activeComposerState?.mode === 'edit' && activeComposerState?.targetMessageId
@@ -3424,12 +3972,14 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
 
     const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const baseApiMessages = Array.isArray(baseConversation.apiMessages) ? baseConversation.apiMessages : []
+    const requestModelMeta = resolveAIRequestModelMeta(resolvedProviderId, latestProviders)
     const userMessage = {
       id: `user-${requestId}`,
       kind: 'user',
       text: nextText,
       images: messageImages,
       time: formatMessageTime(),
+      extra: requestModelMeta,
     }
     const nextApiMessages = [
       ...baseApiMessages,
@@ -3473,7 +4023,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
 
     let assistantFirstReplyText = ''
-    if (shouldInjectAssistantFirstReply) {
+    if (!normalizedRuntimeOptions.skipAssistantFirstReply && shouldInjectAssistantFirstReply) {
       assistantFirstReplyText = (await getAIAssistantFirstReply(getLanguage())).trim()
     }
     recordPerfStage('首字预取')
@@ -3496,6 +4046,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       lastTurnBusinessMessageKind: '',
       requestPhase: 'streaming',
       runtimePhase: 'api_request',
+      isCondensingContext: normalizedRuntimeOptions.keepCondensingContext === true,
       collaborationLocked: shouldLockAssistantCollaboration,
       collaborationActive: false,
       collaborationMode: '',
@@ -3522,6 +4073,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         isDemon: Boolean(isDevilMode),
         toolScope: effectiveToolScope || undefined,
         toolScopeSlot: effectiveToolScopeSlot || undefined,
+        autoRecoverySubtaskHops: Number.isFinite(Number(normalizedRuntimeOptions.autoRecoverySubtaskHops))
+          ? Math.max(0, Math.trunc(Number(normalizedRuntimeOptions.autoRecoverySubtaskHops)))
+          : undefined,
         messages: requestMessages,
       })
       recordPerfStage('发起请求')
@@ -3579,7 +4133,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       await saveConversationSnapshot(erroredConversation, panelInstanceKey)
       return false
     }
-  }, [activeConversation, aiProviderState, availableAIProviders, buildConversationWithProviderId, composerEditState, composerImages, effectiveAutoApprovalEnabled, getAIAssistantFirstReply, globalAISettings, isDevilMode, isQueueBlocked, normalizedGlobalAISettings.slashCommands, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, requestConversationSmoothScrollToBottom, resetComposerEditState, resolveAvailableProviderId, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId, terminalOutputCharacterLimit, terminalOutputLineLimit, truncateConversationAfterMessage])
+  }, [activeConversation, aiProviderState, availableAIProviders, buildConversationWithProviderId, composerEditState, composerImages, effectiveAutoApprovalEnabled, getAIAssistantFirstReply, globalAISettings, isDevilMode, isQueueBlocked, normalizedGlobalAISettings.slashCommands, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, requestConversationSmoothScrollToBottom, resetComposerEditState, resolveAIRequestModelMeta, resolveAvailableProviderId, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId, terminalOutputCharacterLimit, terminalOutputLineLimit, truncateConversationAfterMessage])
 
   const handleFollowupResponse = useCallback(async (payload) => {
     if (!payload || typeof payload !== 'object') {
@@ -3625,12 +4179,15 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     const followupMessageId = typeof followupMessage?.id === 'string' ? followupMessage.id.trim() : ''
     const timestamp = Date.now()
     const userMessageId = `${followupMessageId || requestId}-followup-answer-${timestamp}`
+    const followupProviderId = typeof currentConversation?.settings?.currentProviderId === 'string' ? currentConversation.settings.currentProviderId.trim() : ''
+    const requestModelMeta = resolveAIRequestModelMeta(followupProviderId)
     const userMessage = {
       id: userMessageId,
       kind: 'user',
       text: readableText,
       images: followupImages,
       time: formatMessageTime(),
+      extra: requestModelMeta,
     }
     const resolvedMessages = currentMessages.map((message) => {
       if (!followupMessageId || message?.id !== followupMessageId || message?.kind !== 'followup') {
@@ -3781,7 +4338,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       await saveConversationSnapshot(erroredConversation, panelInstanceKey)
       return false
     }
-  }, [activeConversation, effectiveAutoApprovalEnabled, isDevilMode, panelInstanceKey, requestConversationSmoothScrollToBottom, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId])
+  }, [activeConversation, effectiveAutoApprovalEnabled, isDevilMode, panelInstanceKey, requestConversationSmoothScrollToBottom, resolveAIRequestModelMeta, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId])
 
   const handleConversationUserMessage = useCallback(async (payload) => {
     if (payload && typeof payload === 'object' && payload.kind === 'followup-response') {
@@ -3869,7 +4426,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   }, [activeConversation, handleSendMessage, isQueueBlocked, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, setPanelState])
 
   const handleRetryAssistantMessage = useCallback(async (messageId) => {
-    if (!activeConversation) {
+    if (!activeConversation || isArchivedAgentConversation) {
       return false
     }
     clearRestorePreview()
@@ -4088,7 +4645,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   }, [activeConversation, composerEditState.targetMessageId, panelInstanceKey, requestConversationSmoothScrollToBottom, requestDeleteConfirmation, resetComposerEditState, saveConversationSnapshot, setPanelState, t, truncateConversationAfterMessage])
 
   const handleCondenseContext = useCallback(async () => {
-    if (!activeConversation || runtimePhase !== 'ready' || panelState.isCondensingContext) {
+    if (!activeConversation || isArchivedAgentConversation || runtimePhase !== 'ready' || panelState.isCondensingContext) {
       return
     }
     setPanelState(panelInstanceKey, (current) => ({
@@ -4116,16 +4673,129 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
   }, [activeConversation, panelInstanceKey, panelState.isCondensingContext, rebuildAIConversationTokenLedger, runtimePhase, setPanelState, terminalId])
 
-  const resumeAIChatFromConversation = useCallback(async (conversationSnapshot, targetPanelKey = panelInstanceKey, recoverableToolStopReason = '') => {
+  const continueAIConversationSummarySubtask = useCallback(async (conversationSnapshot, continueText, options = {}) => {
+    const nextConversationSnapshot = normalizeAIConversationSnapshot(conversationSnapshot)
+    const normalizedContinueText = typeof continueText === 'string' ? continueText.trim() : ''
+    const normalizedOptions = options && typeof options === 'object' ? options : {}
+    const finalContinueText = buildAIConversationSummarySubtaskContinuePrompt(normalizedContinueText, getLanguage())
+    if (!nextConversationSnapshot?.id || !finalContinueText) {
+      return false
+    }
+    return handleSendMessage(finalContinueText, { images: [] }, null, {
+      forceImmediate: true,
+      targetConversationSnapshot: nextConversationSnapshot,
+      autoRecoverySubtaskHops: Number.isFinite(Number(normalizedOptions.autoRecoverySubtaskHops))
+        ? Math.max(0, Math.trunc(Number(normalizedOptions.autoRecoverySubtaskHops)))
+        : undefined,
+    })
+  }, [handleSendMessage])
+
+  const runAIConversationSummarySubtaskFlow = useCallback(async (conversationSnapshot, options = {}) => {
+    const nextConversationSnapshot = normalizeAIConversationSnapshot(conversationSnapshot)
+    const normalizedOptions = options && typeof options === 'object' ? options : {}
+    const summaryRequestId = typeof normalizedOptions.requestId === 'string' && normalizedOptions.requestId.trim()
+      ? normalizedOptions.requestId.trim()
+      : `summary-subtask-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const preserveExistingCollaboration = normalizedOptions.preserveExistingCollaboration === true
+    if (!nextConversationSnapshot?.id) {
+      return false
+    }
+    if (!preserveExistingCollaboration) {
+      setComposerInputValue('')
+      setComposerImages([])
+      setPanelState(panelInstanceKey, (current) => ({
+        ...current,
+        activeRequestId: summaryRequestId,
+        isCondensingContext: true,
+        collaborationLocked: true,
+        collaborationActive: true,
+        collaborationMode: 'summary_subtask',
+        collaborationStreamBuffer: '',
+        collaborationAwaitingManualFollowup: false,
+        collaborationFollowupRequestId: '',
+        collaborationPendingMode: '',
+        collaborationPendingRequestId: '',
+        collaborationInterruptedRequestId: '',
+        collaborationStatusStartedAtMs: Date.now(),
+        collaborationStatusFirstTokenAtMs: 0,
+        collaborationStatusText: '',
+        collaborationStatusReasoningText: '',
+      }))
+    }
+    try {
+      const subtaskResult = await createAIConversationSummarySubtask(nextConversationSnapshot.id, terminalId, summaryRequestId)
+      const childSnapshot = normalizeAIConversationSnapshot(subtaskResult?.snapshot || subtaskResult)
+      const continueText = typeof subtaskResult?.continueText === 'string' ? subtaskResult.continueText.trim() : ''
+      if (!childSnapshot?.id || !continueText) {
+        throw new Error(t('摘要创建子任务失败'))
+      }
+      const accepted = await continueAIConversationSummarySubtask(childSnapshot, continueText, {
+        autoRecoverySubtaskHops: Number.isFinite(Number(normalizedOptions.autoRecoverySubtaskHops))
+          ? Math.max(0, Math.trunc(Number(normalizedOptions.autoRecoverySubtaskHops)))
+          : undefined,
+      })
+      if (!accepted) {
+        throw new Error(t('摘要创建子任务失败'))
+      }
+      return true
+    } catch (error) {
+      const interruptedRequestId = typeof terminalPanelsRef.current?.[panelInstanceKey]?.collaborationInterruptedRequestId === 'string'
+        ? terminalPanelsRef.current[panelInstanceKey].collaborationInterruptedRequestId.trim()
+        : ''
+      if (interruptedRequestId !== summaryRequestId) {
+        const message = error instanceof Error && error.message ? error.message : t('摘要创建子任务失败')
+        await showAlert(message)
+      }
+      setPanelState(panelInstanceKey, (current) => ({
+        ...current,
+        activeRequestId: '',
+        isCondensingContext: false,
+        collaborationLocked: false,
+        collaborationActive: false,
+        collaborationMode: '',
+        collaborationStreamBuffer: '',
+        collaborationAwaitingManualFollowup: false,
+        collaborationFollowupRequestId: '',
+        collaborationPendingMode: '',
+        collaborationPendingRequestId: '',
+        collaborationInterruptedRequestId: '',
+        collaborationStatusStartedAtMs: 0,
+        collaborationStatusFirstTokenAtMs: 0,
+        collaborationStatusText: '',
+        collaborationStatusReasoningText: '',
+      }))
+      return false
+    }
+  }, [continueAIConversationSummarySubtask, panelInstanceKey, setComposerImages, setComposerInputValue, setPanelState, showAlert, t, terminalId])
+
+  const handleCondenseContextFullSummary = useCallback(async () => {
+    if (!activeConversation || runtimePhase !== 'ready' || panelState.isCondensingContext) {
+      return
+    }
+    void runAIConversationSummarySubtaskFlow(activeConversation)
+  }, [activeConversation, panelState.isCondensingContext, runAIConversationSummarySubtaskFlow, runtimePhase])
+
+  const resumeAIChatFromConversation = useCallback(async (conversationSnapshot, targetPanelKey = panelInstanceKey, options = {}) => {
     if (!conversationSnapshot || !effectiveProviderId) {
       return false
     }
+    const normalizedOptions = options && typeof options === 'object' ? options : {}
     const requestApiMessages = Array.isArray(conversationSnapshot.apiMessages) ? conversationSnapshot.apiMessages : []
     if (requestApiMessages.length === 0) {
       return false
     }
     const requestMessages = buildRequestMessages(requestApiMessages)
     const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const keepCollaborationActive = normalizedOptions.keepCollaborationActive === true
+    const collaborationMode = keepCollaborationActive
+      ? (typeof normalizedOptions.collaborationMode === 'string' && normalizedOptions.collaborationMode.trim() ? normalizedOptions.collaborationMode.trim() : 'summary_subtask')
+      : ''
+    const collaborationStatusText = typeof normalizedOptions.collaborationStatusText === 'string' ? normalizedOptions.collaborationStatusText : ''
+    const collaborationStatusReasoningText = typeof normalizedOptions.collaborationStatusReasoningText === 'string' ? normalizedOptions.collaborationStatusReasoningText : ''
+    const recoverableToolStopReason = typeof normalizedOptions.recoverableToolStopReason === 'string' ? normalizedOptions.recoverableToolStopReason : ''
+    const autoRecoverySubtaskHops = Number.isFinite(Number(normalizedOptions.autoRecoverySubtaskHops))
+      ? Math.max(0, Math.trunc(Number(normalizedOptions.autoRecoverySubtaskHops)))
+      : 0
     const assistantMessage = {
       id: requestId,
       turnId: requestId,
@@ -4171,19 +4841,19 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       recoverableToolStopReason: '',
       lastAssistantTurnId: requestId,
       lastTurnBusinessMessageKind: '',
-      collaborationLocked: shouldLockAssistantCollaboration,
-      collaborationActive: false,
-      collaborationMode: '',
+      isCondensingContext: keepCollaborationActive,
+      collaborationLocked: keepCollaborationActive ? true : shouldLockAssistantCollaboration,
+      collaborationActive: keepCollaborationActive,
+      collaborationMode,
       collaborationStreamBuffer: '',
       collaborationAwaitingManualFollowup: false,
       collaborationFollowupRequestId: '',
       collaborationInterruptedRequestId: '',
-      collaborationStatusStartedAtMs: 0,
+      collaborationStatusStartedAtMs: keepCollaborationActive ? Date.now() : 0,
       collaborationStatusFirstTokenAtMs: 0,
-      collaborationStatusText: '',
-      collaborationStatusReasoningText: '',
+      collaborationStatusText: keepCollaborationActive ? collaborationStatusText : '',
+      collaborationStatusReasoningText: keepCollaborationActive ? collaborationStatusReasoningText : '',
     })
-
 
     try {
       await startAIChat(requestId, {
@@ -4194,6 +4864,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         isDemon: Boolean(isDevilMode),
         toolScope: typeof conversationSnapshot?.toolScope === 'string' && conversationSnapshot.toolScope.trim() ? conversationSnapshot.toolScope.trim() : undefined,
         toolScopeSlot: typeof conversationSnapshot?.toolScopeSlot === 'string' && conversationSnapshot.toolScopeSlot.trim() ? conversationSnapshot.toolScopeSlot.trim() : undefined,
+        autoRecoverySubtaskHops,
         messages: requestMessages,
       })
       return true
@@ -4237,6 +4908,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         skipNextAutomaticRequest: false,
         resumeAfterCancelRequestId: '',
         recoverableToolStopReason,
+        isCondensingContext: false,
         activeChangeReview: null,
         collaborationLocked: false,
         collaborationActive: false,
@@ -4387,10 +5059,14 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
 
   const handleInterruptCollaboration = useCallback(async () => {
     let targetRequestId = ''
+    let targetMode = ''
     setPanelState(panelInstanceKey, (current) => {
       targetRequestId = current.activeRequestId || ''
+      targetMode = typeof current.collaborationMode === 'string' ? current.collaborationMode.trim() : ''
       return {
         ...current,
+        activeRequestId: targetMode === 'summary_subtask' ? '' : current.activeRequestId,
+        isCondensingContext: targetMode === 'summary_subtask' ? false : current.isCondensingContext,
         collaborationLocked: false,
         collaborationActive: false,
         collaborationMode: '',
@@ -4400,11 +5076,19 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         collaborationPendingMode: '',
         collaborationPendingRequestId: '',
         collaborationInterruptedRequestId: targetRequestId,
+        collaborationStatusStartedAtMs: 0,
+        collaborationStatusFirstTokenAtMs: 0,
+        collaborationStatusText: '',
+        collaborationStatusReasoningText: '',
       }
     })
     if (targetRequestId) {
       try {
-        await disableAIChatCollaboration(targetRequestId)
+        if (targetMode === 'summary_subtask') {
+          await cancelAIChat(targetRequestId)
+        } else {
+          await disableAIChatCollaboration(targetRequestId)
+        }
       } catch {}
     }
   }, [panelInstanceKey, setPanelState])
@@ -4559,7 +5243,10 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
               </div>
             ) : (
               <div style={{ display: 'grid' }}>
-                {globalSearchResults.map((result) => (
+                {globalSearchResults.map((result) => {
+                  const historyTimeParts = buildAIHistoryDisplayTimeParts(result.updatedAt || 0, getLanguage() || 'zh-CN')
+                  const historyRelativeToneStyle = getAIHistoryRelativeTimeToneStyle(result.updatedAt || 0)
+                  return (
                   <button
                     key={`${result.conversationId}:${result.messageId}`}
                     type="button"
@@ -4582,10 +5269,16 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                       <div style={{ minWidth: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{result.conversationTitle}</div>
                       <div style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-tertiary)' }}>{result.role === 'user' ? t('用户') : t('AI')}</div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(result.updatedAt || 0).toLocaleString(getLanguage() || 'zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
+                      <span>{historyTimeParts.absoluteText}</span>
+                      {historyTimeParts.relativeText ? (
+                        <span style={historyRelativeToneStyle}>({historyTimeParts.relativeText})</span>
+                      ) : null}
+                    </div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{result.snippet}</div>
                   </button>
-                ))}
+                  )
+                })}
               </div>
             )
           ) : (
@@ -4605,10 +5298,18 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         </div>
       )
     } else {
-      content = conversationList.map((item) => {
+      content = buildAIConversationDisplayList(conversationList).map((item) => {
         const isFolderHovered = hoveredConversationActionKey === `${item.id}:folder`
         const isRenameHovered = hoveredConversationActionKey === `${item.id}:rename`
         const isDeleteHovered = hoveredConversationActionKey === `${item.id}:delete`
+        const isAgentSubtask = item.relationType === 'agent'
+        const isArchivedAgentSubtask = isAgentSubtask && item.archived === true
+        const isSummarySubtask = item.relationType === 'phase' && item.relationSource === 'summary_condense'
+        const historyTimeParts = buildAIHistoryDisplayTimeParts(item.updatedAt, getLanguage() || 'zh-CN')
+        const historyRelativeToneStyle = getAIHistoryRelativeTimeToneStyle(item.updatedAt)
+        const displayTitle = typeof item.title === 'string'
+          ? item.title.replace(/\s*·\s*摘要子任务\s*$/u, '').replace(/\s*·\s*子代理任务\s*$/u, '').trim()
+          : ''
         return (
           <div
             key={item.id}
@@ -4620,6 +5321,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
               background: panelState.activeConversationId === item.id ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
               borderLeft: panelState.activeConversationId === item.id ? '2px solid var(--accent)' : '2px solid transparent',
               transition: 'var(--transition)',
+              opacity: item.archived === true ? 0.72 : 1,
             }}
           >
             <button
@@ -4638,11 +5340,60 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                 cursor: 'pointer',
               }}
             >
-              <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 2 }}>
-                <div style={{ fontSize: 13, fontWeight: panelState.activeConversationId === item.id ? 600 : 500, color: 'var(--text-primary)', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+              <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 2, paddingLeft: item.depth > 0 ? `${item.depth * 12}px` : 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{new Date(item.updatedAt).toLocaleString(getLanguage() || 'zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.messageCount} {t('消息')}</div>
+                  {isAgentSubtask ? (
+                    <Tiptop text={t('子代理任务')} placement="top">
+                      <span
+                        aria-label={t('子代理任务')}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 999,
+                          border: isArchivedAgentSubtask ? '1px solid var(--border)' : '1px solid rgba(var(--accent-rgb), 0.22)',
+                          background: isArchivedAgentSubtask ? 'var(--surface-sunken)' : 'rgba(var(--accent-rgb), 0.10)',
+                          color: isArchivedAgentSubtask ? 'var(--text-tertiary)' : 'var(--accent)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Bot size={11} />
+                      </span>
+                    </Tiptop>
+                  ) : null}
+                  {isSummarySubtask ? (
+                    <Tiptop text={t('摘要子任务')} placement="top">
+                      <span
+                        aria-label={t('摘要子任务')}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 999,
+                          border: '1px solid rgba(var(--accent-rgb), 0.22)',
+                          background: 'rgba(var(--accent-rgb), 0.10)',
+                          color: 'var(--accent)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Scissors size={11} />
+                      </span>
+                    </Tiptop>
+                  ) : null}
+                  <div style={{ minWidth: 0, fontSize: 13, fontWeight: panelState.activeConversationId === item.id ? 600 : 500, color: isArchivedAgentSubtask ? 'var(--text-secondary)' : 'var(--text-primary)', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || item.title}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 0 }}>
+                    <span>{historyTimeParts.absoluteText}</span>
+                    {historyTimeParts.relativeText ? (
+                      <span style={historyRelativeToneStyle}>({historyTimeParts.relativeText})</span>
+                    ) : null}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>·{item.messageCount}</div>
                 </div>
               </div>
             </button>
@@ -4832,8 +5583,12 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         contextTokens={panelState.contextTokens}
         apiMessageCount={Array.isArray(panelState.apiMessages) ? panelState.apiMessages.length : 0}
         isCondensingContext={Boolean(panelState.isCondensingContext)}
-        canCondenseContext={Boolean(activeConversation) && runtimePhase === 'ready' && !panelState.isCondensingContext}
+        canCondenseContext={canQuickCondenseConversation || canSummaryCondenseConversation}
+        canQuickCondenseContext={canQuickCondenseConversation}
+        canSummaryCondenseContext={canSummaryCondenseConversation}
         onCondenseContext={handleCondenseContext}
+        onCondenseContextFullSummary={handleCondenseContextFullSummary}
+        fullSummaryCondenseAvailable={true}
       />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div data-ai-chat-stage="true" style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -5008,6 +5763,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           onSend={handleComposerSendMessage}
           onCancel={handleCancelMessage}
           onStopAndResume={handleStopAndResumeMessage}
+          conversationInputLocked={composerInteractionLocked}
+          conversationInputLockedLabel={composerInteractionLockedLabel}
           isSending={isStreaming}
           currentProviderId={effectiveProviderId}
           onCurrentProviderChange={handleProviderChange}
@@ -5017,6 +5774,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           queuedSubmissionKind={panelState.queuedSubmission?.kind || ''}
           collaborationLocked={collaborationLocked}
           collaborationActive={collaborationActive}
+          collaborationMode={panelState.collaborationMode}
           collaborationStatus={collaborationActive ? {
             startedAtMs: panelState.collaborationStatusStartedAtMs,
             firstTokenAtMs: panelState.collaborationStatusFirstTokenAtMs,

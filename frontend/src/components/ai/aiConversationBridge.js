@@ -81,6 +81,12 @@ export function normalizeAIConversationSummary(summary) {
     toolProtocol: typeof summary?.toolProtocol === 'string' && summary.toolProtocol.trim() ? summary.toolProtocol.trim() : 'xml',
     messageCount: typeof summary?.messageCount === 'number' ? summary.messageCount : 0,
     promptCacheBypassTimestamp: normalizeAIPromptCacheBypassTimestamp(summary?.promptCacheBypassTimestamp),
+    parentConversationId: typeof summary?.parentConversationId === 'string' ? summary.parentConversationId.trim() : '',
+    rootConversationId: typeof summary?.rootConversationId === 'string' ? summary.rootConversationId.trim() : '',
+    relationType: typeof summary?.relationType === 'string' ? summary.relationType.trim() : '',
+    relationSource: typeof summary?.relationSource === 'string' ? summary.relationSource.trim() : '',
+    parentTitleSnapshot: typeof summary?.parentTitleSnapshot === 'string' ? summary.parentTitleSnapshot.trim() : '',
+    archived: summary?.archived === true,
   }
 }
 
@@ -206,6 +212,12 @@ export function normalizeAIConversationSnapshot(snapshot) {
     status: typeof snapshot?.status === 'string' && snapshot.status.trim() ? snapshot.status.trim() : 'idle',
     toolProtocol: typeof snapshot?.toolProtocol === 'string' && snapshot.toolProtocol.trim() ? snapshot.toolProtocol.trim() : 'xml',
     promptCacheBypassTimestamp: normalizeAIPromptCacheBypassTimestamp(snapshot?.promptCacheBypassTimestamp),
+    parentConversationId: typeof snapshot?.parentConversationId === 'string' ? snapshot.parentConversationId.trim() : '',
+    rootConversationId: typeof snapshot?.rootConversationId === 'string' ? snapshot.rootConversationId.trim() : '',
+    relationType: typeof snapshot?.relationType === 'string' ? snapshot.relationType.trim() : '',
+    relationSource: typeof snapshot?.relationSource === 'string' ? snapshot.relationSource.trim() : '',
+    parentTitleSnapshot: typeof snapshot?.parentTitleSnapshot === 'string' ? snapshot.parentTitleSnapshot.trim() : '',
+    archived: snapshot?.archived === true,
     messages: Array.isArray(snapshot?.messages) ? snapshot.messages.map(normalizeAIConversationMessage) : [],
     apiMessages: Array.isArray(snapshot?.apiMessages) ? snapshot.apiMessages.map(normalizeAIConversationAPIMessage) : [],
     settings: normalizeAIConversationTaskSettings(snapshot?.settings),
@@ -345,6 +357,46 @@ export async function condenseAIConversationContext(conversationId, sessionId) {
   const snapshot = normalizeAIConversationSnapshot(result?.snapshot || result)
   publishAIConversationUpsert(snapshot)
   return result?.snapshot ? { ...result, snapshot } : snapshot
+}
+
+export async function previewAIConversationContextCondense(conversationId, sessionId) {
+  const bridge = getAppBridge()
+  if (!bridge?.PreviewAIConversationContextCondense) {
+    throw new Error(t('上下文压缩预演能力未就绪'))
+  }
+  const result = await bridge.PreviewAIConversationContextCondense(conversationId, sessionId)
+  const snapshot = normalizeAIConversationSnapshot(result?.snapshot || result)
+  return result?.snapshot ? { ...result, snapshot } : snapshot
+}
+
+export async function probeAIProviderLiveness(conversationId, sessionId, requestId = '') {
+  const bridge = getAppBridge()
+  if (!bridge?.ProbeAIProviderLiveness) {
+    throw new Error(t('AI测活能力未就绪'))
+  }
+  return (await bridge.ProbeAIProviderLiveness(
+    conversationId,
+    sessionId,
+    typeof requestId === 'string' ? requestId : '',
+  )) === true
+}
+
+export async function createAIConversationSummarySubtask(conversationId, sessionId, requestId = '') {
+  const bridge = getAppBridge()
+  if (!bridge?.CreateAIConversationSummarySubtask) {
+    throw new Error(t('摘要创建子任务能力未就绪'))
+  }
+  const result = await bridge.CreateAIConversationSummarySubtask(
+    conversationId,
+    sessionId,
+    typeof requestId === 'string' ? requestId : '',
+  )
+  const snapshot = normalizeAIConversationSnapshot(result?.snapshot || result)
+  publishAIConversationUpsert(snapshot)
+  return {
+    snapshot,
+    continueText: typeof result?.continueText === 'string' ? result.continueText : '',
+  }
 }
 
 export async function openAIConversationFolder(conversationId) {

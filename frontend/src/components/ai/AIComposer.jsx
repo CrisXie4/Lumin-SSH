@@ -291,6 +291,9 @@ export default function AIComposer({
   onCancelEdit,
   collaborationLocked = false,
   collaborationActive = false,
+  collaborationMode = '',
+  conversationInputLocked = false,
+  conversationInputLockedLabel = '',
   collaborationStatus = null,
   dismissSignal = 0,
 }) {
@@ -354,13 +357,18 @@ export default function AIComposer({
       ]
   const isCollaborationBlocked = collaborationLocked === true
   const isQueuedSubmissionBlocked = isCollaborationBlocked || (queueBlocked && typeof queuedSubmissionKind === 'string' && queuedSubmissionKind.trim().length > 0)
+  const isComposerInteractionLocked = conversationInputLocked === true && !(collaborationActive && collaborationMode === 'summary_subtask')
+  const isComposerBlocked = isQueuedSubmissionBlocked || isComposerInteractionLocked
+  const composerInteractionLockedLabel = typeof conversationInputLockedLabel === 'string' && conversationInputLockedLabel.trim() ? conversationInputLockedLabel.trim() : t('子代理任务')
   const recommendedTerminalCandidate = terminalAssignmentCandidates.find((candidate) => candidate?.recommended) || terminalAssignmentCandidates[0] || null
   const secondaryTerminalCandidates = recommendedTerminalCandidate
     ? terminalAssignmentCandidates.filter((candidate) => candidate?.sessionId !== recommendedTerminalCandidate.sessionId)
     : terminalAssignmentCandidates
   const activeTerminalAssignmentCandidate = terminalAssignmentCandidates[terminalAssignmentSelectedIndex] || recommendedTerminalCandidate || null
   const queuedSubmissionVisualLabel = isCollaborationBlocked
-    ? (collaborationActive ? `${t('助理协同')} · ${t('执行中')}` : t('助理协同'))
+    ? (collaborationMode === 'summary_subtask'
+        ? `${t('助理协同')} · ${t('执行中')}`
+        : (collaborationActive ? `${t('助理协同')} · ${t('执行中')}` : t('助理协同')))
     : queuedSubmissionKind === 'edit'
       ? t('已排队编辑')
       : queuedSubmissionKind === 'retry_assistant' || queuedSubmissionKind === 'retry_user'
@@ -368,13 +376,13 @@ export default function AIComposer({
         : t('已排队发送')
   const alwaysAllowAssistantCollaboration = Boolean(autoApprovalSettings?.alwaysAllowFollowupQuestions)
   const canToggleAssistantCollaboration = typeof onPatchAutoApprovalSettings === 'function'
-  const canInterruptAssistantCollaboration = alwaysAllowAssistantCollaboration && collaborationLocked === true && typeof onInterruptCollaboration === 'function'
+  const canInterruptAssistantCollaboration = collaborationLocked === true && typeof onInterruptCollaboration === 'function' && (alwaysAllowAssistantCollaboration || collaborationMode === 'summary_subtask')
   const queuedSubmissionCancelHint = isCollaborationBlocked
     ? (canInterruptAssistantCollaboration ? t('打断') : '')
     : t('再次点击取消')
   const skipNextAutomaticRequestTitle = skipNextAutomaticRequest ? t('取消跳过下一次自动请求') : t('跳过下一次自动请求')
   const canClickQueuedSubmissionOverlay = isCollaborationBlocked ? canInterruptAssistantCollaboration : typeof onCancelQueuedSubmission === 'function'
-  const showToolResumeBar = toolResumeAvailable === true && typeof onResumeTask === 'function'
+  const showToolResumeBar = toolResumeAvailable === true && typeof onResumeTask === 'function' && !isComposerInteractionLocked
 
   const collaborationStatusAssistant = useMemo(() => {
     const startedAtMs = Number(collaborationStatus?.startedAtMs)
@@ -448,6 +456,15 @@ export default function AIComposer({
   useLayoutEffect(() => {
     updateHighlights()
   }, [updateHighlights])
+
+  useLayoutEffect(() => {
+    if (!collaborationActive || collaborationMode !== 'summary_subtask' || !textareaRef.current) {
+      return
+    }
+    const textarea = textareaRef.current
+    textarea.scrollTop = textarea.scrollHeight
+    syncHighlightScroll()
+  }, [collaborationActive, collaborationMode, syncHighlightScroll, value])
 
   useLayoutEffect(() => {
     if (intendedCursorPosition === null || !textareaRef.current) {
@@ -594,10 +611,10 @@ export default function AIComposer({
   }, [terminalSessionId])
 
   useEffect(() => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       closeInlineMenus()
     }
-  }, [closeInlineMenus, isQueuedSubmissionBlocked])
+  }, [closeInlineMenus, isComposerBlocked])
 
   useEffect(() => {
     if (!terminalAssignmentRequired) {
@@ -661,7 +678,7 @@ export default function AIComposer({
 
   useEffect(() => {
     const handleQuoteSelection = (event) => {
-      if (isQueuedSubmissionBlocked) {
+      if (isComposerBlocked) {
         return
       }
       const selectedText = typeof event?.detail?.text === 'string' ? event.detail.text : ''
@@ -681,10 +698,10 @@ export default function AIComposer({
     }
     window.addEventListener('ai-quote-selection', handleQuoteSelection)
     return () => window.removeEventListener('ai-quote-selection', handleQuoteSelection)
-  }, [closeInlineMenus, focusTextAreaAt, isQueuedSubmissionBlocked, setValue, value])
+  }, [closeInlineMenus, focusTextAreaAt, isComposerBlocked, setValue, value])
 
   const loadSlashCommandSuggestions = useCallback((nextText, nextCursorPosition) => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       closeSlashCommandMenu()
       return false
     }
@@ -702,10 +719,10 @@ export default function AIComposer({
     })
     closeMentionMenu()
     return true
-  }, [closeMentionMenu, closeSlashCommandMenu, isQueuedSubmissionBlocked, normalizedSlashCommands])
+  }, [closeMentionMenu, closeSlashCommandMenu, isComposerBlocked, normalizedSlashCommands])
 
   const loadMentionSuggestions = useCallback(async (nextText, nextCursorPosition, forcedType = undefined) => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       closeMentionMenu()
       return
     }
@@ -787,7 +804,7 @@ export default function AIComposer({
         selectedIndex: -1,
       }))
     }
-  }, [closeMentionMenu, currentCwd, isQueuedSubmissionBlocked, mentionMenu.selectedType, mentionTopLevelItems, terminalSessionId])
+  }, [closeMentionMenu, currentCwd, isComposerBlocked, mentionMenu.selectedType, mentionTopLevelItems, terminalSessionId])
 
   const scheduleMentionSuggestions = useCallback((nextText, nextCursorPosition, forcedType = undefined) => {
     clearMentionDebounce()
@@ -799,7 +816,7 @@ export default function AIComposer({
   }, [clearMentionDebounce, loadMentionSuggestions, loadSlashCommandSuggestions])
 
   const appendImageFiles = useCallback(async (files) => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       return
     }
     const imageFiles = Array.from(files || []).filter((file) => file && typeof file.type === 'string' && file.type.startsWith('image/'))
@@ -816,14 +833,14 @@ export default function AIComposer({
       return
     }
     setImages((prev) => [...prev, ...validImages])
-  }, [isQueuedSubmissionBlocked, normalizedImages.length, setImages])
+  }, [isComposerBlocked, normalizedImages.length, setImages])
 
   const handleSelectImages = useCallback(() => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       return
     }
     fileInputRef.current?.click()
-  }, [isQueuedSubmissionBlocked])
+  }, [isComposerBlocked])
 
   const handleImageInputChange = useCallback(async (event) => {
     try {
@@ -834,7 +851,7 @@ export default function AIComposer({
   }, [appendImageFiles])
 
   const handleInsertRemotePathFromClipboard = useCallback(async () => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       return
     }
     const clipboardText = await readClipboardText()
@@ -852,7 +869,7 @@ export default function AIComposer({
     setValue(newValue)
     focusTextAreaAt(mentionIndex + mentionValue.length + 1)
     closeInlineMenus()
-  }, [closeInlineMenus, focusTextAreaAt, isQueuedSubmissionBlocked, readClipboardText, setValue, value])
+  }, [closeInlineMenus, focusTextAreaAt, isComposerBlocked, readClipboardText, setValue, value])
 
   const handleRemoveImage = useCallback((targetIndex) => {
     setImages((prev) => prev.filter((_, index) => index !== targetIndex))
@@ -896,7 +913,7 @@ export default function AIComposer({
   }, [closeInlineMenus, focusTextAreaAt, loadMentionSuggestions, setValue, value])
 
   const handlePaste = useCallback(async (event) => {
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       return
     }
     const imageFiles = Array.from(event.clipboardData?.items || [])
@@ -912,22 +929,22 @@ export default function AIComposer({
       insertTextAtSelection(pastedText)
     }
     await appendImageFiles(imageFiles)
-  }, [appendImageFiles, insertTextAtSelection, isQueuedSubmissionBlocked])
+  }, [appendImageFiles, insertTextAtSelection, isComposerBlocked])
 
   const handleDragEnter = useCallback((event) => {
     event.preventDefault()
-    if (!isQueuedSubmissionBlocked) {
+    if (!isComposerBlocked) {
       setIsDraggingOver(true)
     }
-  }, [isQueuedSubmissionBlocked])
+  }, [isComposerBlocked])
 
   const handleDragOver = useCallback((event) => {
     event.preventDefault()
-    if (!isQueuedSubmissionBlocked) {
+    if (!isComposerBlocked) {
       event.dataTransfer.dropEffect = 'copy'
       setIsDraggingOver(true)
     }
-  }, [isQueuedSubmissionBlocked])
+  }, [isComposerBlocked])
 
   const handleDragLeave = useCallback((event) => {
     event.preventDefault()
@@ -939,11 +956,11 @@ export default function AIComposer({
   const handleDrop = useCallback(async (event) => {
     event.preventDefault()
     setIsDraggingOver(false)
-    if (isQueuedSubmissionBlocked) {
+    if (isComposerBlocked) {
       return
     }
     await appendImageFiles(event.dataTransfer?.files || [])
-  }, [appendImageFiles, isQueuedSubmissionBlocked])
+  }, [appendImageFiles, isComposerBlocked])
 
   async function loadTerminalAssignmentCandidates() {
     if (typeof onListCommandTerminalCandidates !== 'function') {
@@ -1007,7 +1024,7 @@ export default function AIComposer({
 
   const handleSubmit = async () => {
     const text = value.trim()
-    if (isQueuedSubmissionBlocked || (!text && normalizedImages.length === 0) || !currentProviderId) {
+    if (isComposerBlocked || (!text && normalizedImages.length === 0) || !currentProviderId) {
       return
     }
     const accepted = await onSend?.(text, { images: normalizedImages })
@@ -1405,22 +1422,22 @@ export default function AIComposer({
           collaborationStatusReasoning.length > 0 ? (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) auto',
-                alignItems: 'start',
-                gap: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 8,
                 padding: '8px 12px 0',
               }}>
-              <div style={{ minWidth: 0, maxWidth: 'min(52%, 360px)' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <AIChatRequestStatusRow assistant={collaborationStatusAssistant} reasoning={collaborationStatusReasoning} />
+              </div>
+              <div style={{ width: '100%', minWidth: 0 }}>
                 <AIChatReasoningBlock
                   text={collaborationStatusReasoning[0]?.text || ''}
                   duration=""
                   isStreaming={true}
                   isLast={true}
                 />
-              </div>
-              <div style={{ justifySelf: 'end', alignSelf: 'start' }}>
-                <AIChatRequestStatusRow assistant={collaborationStatusAssistant} reasoning={collaborationStatusReasoning} />
               </div>
             </div>
           ) : (
@@ -1642,6 +1659,40 @@ export default function AIComposer({
               </span>
             </div>
           ) : null}
+          {isComposerInteractionLocked && !isQueuedSubmissionBlocked ? (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 29,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0, 0, 0, 0.18)',
+                padding: '0 24px',
+                textAlign: 'center',
+                color: 'var(--text-primary)',
+                cursor: 'default',
+              }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                maxWidth: 360,
+                borderRadius: 999,
+                border: '1px solid var(--border)',
+                background: 'var(--surface-overlay)',
+                padding: '8px 12px',
+                fontSize: 12,
+                lineHeight: 1,
+                boxShadow: 'var(--shadow-lg)',
+              }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {composerInteractionLockedLabel}
+                </span>
+              </span>
+            </div>
+          ) : null}
           <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {editModeLabel ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px 0', fontSize: 11, color: 'var(--text-tertiary)' }}>
@@ -1701,7 +1752,7 @@ export default function AIComposer({
                 onScroll={syncHighlightScroll}
                 placeholder={`@ ${t('支持远端文件,远端文件夹,当前终端输出;右键图片按钮粘贴远端绝对路径;支持粘贴/拖拽本地图片')}`}
                 spellCheck={false}
-                readOnly={isQueuedSubmissionBlocked}
+                readOnly={isQueuedSubmissionBlocked || isComposerInteractionLocked}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -1777,7 +1828,7 @@ export default function AIComposer({
           <div style={{ width: 50, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 8px', flexShrink: 0 }}>
             <ActionButton
               title={t('添加图片')}
-              disabled={isQueuedSubmissionBlocked}
+              disabled={isComposerBlocked}
               onClick={handleSelectImages}
               onContextMenu={(event) => {
                 event.preventDefault()
@@ -1788,14 +1839,14 @@ export default function AIComposer({
             <ActionButton
               title={skipNextAutomaticRequestTitle}
               primary={skipNextAutomaticRequest}
-              disabled={typeof onToggleSkipNextAutomaticRequest !== 'function'}
+              disabled={typeof onToggleSkipNextAutomaticRequest !== 'function' || isComposerInteractionLocked}
               onClick={() => onToggleSkipNextAutomaticRequest?.(!skipNextAutomaticRequest)}>
               <ListEnd size={16} />
             </ActionButton>
             <ActionButton
               title={isSending ? t('停止生成') : t('发送')}
               primary={true}
-              disabled={isQueuedSubmissionBlocked || (!isSending && !canSend)}
+              disabled={isComposerBlocked || (!isSending && !canSend)}
               onClick={isSending ? onCancel : handleSubmit}
               onContextMenu={isSending && typeof onStopAndResume === 'function'
                 ? (event) => {

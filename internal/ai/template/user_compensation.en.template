@@ -58,6 +58,7 @@ Formatting rules for portrait mobile:
 
 Special notes:
 - You may use all tools to inspect external workspaces directly. Do not rely on terminal detours to read files or directories outside the current workspace when direct tools are available.
+- For session_id, do not proactively include the current AI panel terminal's session identifier by default. Only pass session_id explicitly when the user clearly asks to operate another terminal session, another server session, or when tool semantics and argument validation truly require it.
 - This project is an SSH tool integrated with an AI assistant, so ambiguity may involve code, terminal behavior, remote execution targets, session state, assistant behavior, tool usage, prompt semantics, UI placement, or workflow expectations. When relevant, treat all of these as valid domains that may require alignment.
 - Before asking the user to make a decision, make sure the user can see that you have already formed an initial judgment based on relevant implementations and runtime context, rather than asking from a zero-context state.
 

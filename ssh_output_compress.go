@@ -1,14 +1,16 @@
 package main
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
 
 const defaultTerminalOutputLineLimit = 500
 const defaultTerminalOutputCharacterLimit = 35000
 
 func compressTerminalOutput(input string, lineLimit int, characterLimit int) string {
-	processed := input
-	processed = processCarriageReturns(processed)
-	processed = processBackspaces(processed)
+	processed := normalizeTerminalOutputScreen(input)
 	return truncateTerminalOutput(applyRunLengthEncoding(processed), lineLimit, characterLimit)
 }
 
@@ -83,54 +85,247 @@ func applyRunLengthEncoding(content string) string {
 	return result.String()
 }
 
-func processCarriageReturns(input string) string {
-	if !strings.ContainsRune(input, '\r') {
-		return input
+func normalizeTerminalOutputScreen(input string) string {
+	if input == "" {
+		return ""
 	}
-	lines := strings.Split(input, "\n")
-	for i, line := range lines {
-		lines[i] = processLineWithCarriageReturns(line)
+	lines := [][]rune{[]rune{}}
+	row := 0
+	col := 0
+	for index := 0; index < len(input); {
+		switch input[index] {
+		case '\r':
+			col = 0
+			index++
+		case '\n':
+			row++
+			col = 0
+			ensureTerminalScreenRow(&lines, row)
+			index++
+		case '\b':
+			if col > 0 {
+				col--
+			}
+			index++
+		case '\t':
+			tabWidth := 4 - (col % 4)
+			if tabWidth <= 0 {
+				tabWidth = 4
+			}
+			for step := 0; step < tabWidth; step++ {
+				writeTerminalScreenRune(&lines, &row, &col, ' ')
+			}
+			index++
+		case 0x1b:
+			consumed := consumeTerminalEscapeSequence(input, index, &lines, &row, &col)
+			if consumed <= 0 {
+				index++
+				continue
+			}
+			index += consumed
+		default:
+			if input[index] < 0x20 || input[index] == 0x7f {
+				index++
+				continue
+			}
+			ch, size := utf8.DecodeRuneInString(input[index:])
+			if ch == utf8.RuneError && size == 1 {
+				index++
+				continue
+			}
+			writeTerminalScreenRune(&lines, &row, &col, ch)
+			index += size
+		}
 	}
-	return strings.Join(lines, "\n")
+	lastNonEmpty := len(lines) - 1
+	for lastNonEmpty > 0 && len(trimTerminalScreenRightSpaces(lines[lastNonEmpty])) == 0 {
+		lastNonEmpty--
+	}
+	parts := make([]string, 0, lastNonEmpty+1)
+	for index := 0; index <= lastNonEmpty; index++ {
+		parts = append(parts, string(trimTerminalScreenRightSpaces(lines[index])))
+	}
+	return strings.Join(parts, "\n")
 }
 
-func processLineWithCarriageReturns(line string) string {
-	segments := strings.Split(line, "\r")
-	if len(segments) == 1 {
+func consumeTerminalEscapeSequence(input string, index int, lines *[][]rune, row *int, col *int) int {
+	if index+1 >= len(input) {
+		return 1
+	}
+	switch input[index+1] {
+	case '[':
+		end := index + 2
+		for end < len(input) {
+			ch := input[end]
+			if ch >= 0x40 && ch <= 0x7e {
+				rawParams := input[index+2 : end]
+				if strings.HasPrefix(rawParams, "?") || strings.HasPrefix(rawParams, ">") || strings.HasPrefix(rawParams, "!") {
+					rawParams = rawParams[1:]
+				}
+				params := parseTerminalCSIParams(rawParams)
+				applyTerminalCSISequence(lines, row, col, ch, params)
+				return end - index + 1
+			}
+			end++
+		}
+		return len(input) - index
+	case ']':
+		end := index + 2
+		for end < len(input) {
+			if input[end] == 0x07 {
+				return end - index + 1
+			}
+			if input[end] == 0x1b && end+1 < len(input) && input[end+1] == '\\' {
+				return end - index + 2
+			}
+			end++
+		}
+		return len(input) - index
+	default:
+		return 2
+	}
+}
+
+func applyTerminalCSISequence(lines *[][]rune, row *int, col *int, final byte, params []int) {
+	switch final {
+	case 'A':
+		moveTerminalScreenCursor(lines, row, col, -terminalCSIParamValue(params, 0, 1), 0)
+	case 'B':
+		moveTerminalScreenCursor(lines, row, col, terminalCSIParamValue(params, 0, 1), 0)
+	case 'C':
+		moveTerminalScreenCursor(lines, row, col, 0, terminalCSIParamValue(params, 0, 1))
+	case 'D':
+		moveTerminalScreenCursor(lines, row, col, 0, -terminalCSIParamValue(params, 0, 1))
+	case 'G':
+		*col = maxTerminalCursorPosition(terminalCSIParamValue(params, 0, 1) - 1)
+		ensureTerminalScreenRow(lines, *row)
+	case 'H', 'f':
+		targetRow := maxTerminalCursorPosition(terminalCSIParamValue(params, 0, 1) - 1)
+		targetCol := maxTerminalCursorPosition(terminalCSIParamValue(params, 1, 1) - 1)
+		*row = targetRow
+		*col = targetCol
+		ensureTerminalScreenRow(lines, *row)
+	case 'J':
+		mode := terminalCSIParamValue(params, 0, 0)
+		if mode == 2 || mode == 3 {
+			*lines = [][]rune{[]rune{}}
+			*row = 0
+			*col = 0
+		}
+	case 'K':
+		eraseTerminalScreenLine(lines, row, col, terminalCSIParamValue(params, 0, 0))
+	case 'm':
+		return
+	}
+}
+
+func moveTerminalScreenCursor(lines *[][]rune, row *int, col *int, rowDelta int, colDelta int) {
+	*row += rowDelta
+	if *row < 0 {
+		*row = 0
+	}
+	ensureTerminalScreenRow(lines, *row)
+	*col += colDelta
+	if *col < 0 {
+		*col = 0
+	}
+}
+
+func ensureTerminalScreenRow(lines *[][]rune, row int) {
+	for len(*lines) <= row {
+		*lines = append(*lines, []rune{})
+	}
+}
+
+func writeTerminalScreenRune(lines *[][]rune, row *int, col *int, ch rune) {
+	ensureTerminalScreenRow(lines, *row)
+	line := (*lines)[*row]
+	if *col > len(line) {
+		line = append(line, []rune(strings.Repeat(" ", *col-len(line)))...)
+	}
+	if *col == len(line) {
+		line = append(line, ch)
+	} else {
+		line[*col] = ch
+	}
+	(*lines)[*row] = line
+	*col++
+}
+
+func eraseTerminalScreenLine(lines *[][]rune, row *int, col *int, mode int) {
+	ensureTerminalScreenRow(lines, *row)
+	line := (*lines)[*row]
+	switch mode {
+	case 1:
+		limit := *col
+		if limit > len(line) {
+			limit = len(line)
+		}
+		for index := 0; index < limit; index++ {
+			line[index] = ' '
+		}
+		(*lines)[*row] = trimTerminalScreenRightSpaces(line)
+	case 2:
+		(*lines)[*row] = []rune{}
+		*col = 0
+	default:
+		if *col < len(line) {
+			line = append([]rune{}, line[:*col]...)
+		}
+		(*lines)[*row] = line
+	}
+}
+
+func trimTerminalScreenRightSpaces(line []rune) []rune {
+	end := len(line)
+	for end > 0 && line[end-1] == ' ' {
+		end--
+	}
+	if end == len(line) {
 		return line
 	}
-	current := []rune(segments[0])
-	for _, segment := range segments[1:] {
-		if segment == "" {
-			continue
-		}
-		segmentRunes := []rune(segment)
-		if len(segmentRunes) >= len(current) {
-			current = segmentRunes
-			continue
-		}
-		next := append([]rune(nil), current...)
-		copy(next, segmentRunes)
-		current = next
-	}
-	return string(current)
+	return append([]rune(nil), line[:end]...)
 }
 
-func processBackspaces(input string) string {
-	if !strings.ContainsRune(input, '\b') {
-		return input
+func parseTerminalCSIParams(raw string) []int {
+	if raw == "" {
+		return nil
 	}
-	output := make([]rune, 0, len([]rune(input)))
-	for _, ch := range input {
-		if ch == '\b' {
-			if len(output) > 0 {
-				output = output[:len(output)-1]
-			}
-			continue
-		}
-		output = append(output, ch)
+	parts := strings.Split(raw, ";")
+	params := make([]int, 0, len(parts))
+	for _, part := range parts {
+		params = append(params, parseTerminalCSIParam(part, 0))
 	}
-	return string(output)
+	return params
+}
+
+func parseTerminalCSIParam(raw string, fallback int) int {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(trimmed)
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func terminalCSIParamValue(params []int, index int, fallback int) int {
+	if index < 0 || index >= len(params) {
+		return fallback
+	}
+	if params[index] == 0 {
+		return fallback
+	}
+	return params[index]
+}
+
+func maxTerminalCursorPosition(value int) int {
+	if value < 0 {
+		return 0
+	}
+	return value
 }
 
 func splitLinesKeepNewline(content string) []string {

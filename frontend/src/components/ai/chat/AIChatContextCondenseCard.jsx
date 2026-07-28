@@ -36,12 +36,15 @@ function formatCondenseSummary(text, t) {
 
 export default function AIChatContextCondenseCard({ message }) {
   const { t } = useTranslation()
+  const isDerivedSubtask = message?.extra?.derivedSubtask === true
+  const parentTitleSnapshot = typeof message?.extra?.parentTitleSnapshot === 'string' ? message.extra.parentTitleSnapshot.trim() : ''
   const rawSummary = typeof message?.text === 'string' ? message.text.trim() : ''
-  const summary = rawSummary ? formatCondenseSummary(rawSummary, t) : ''
+  const summary = rawSummary ? (isDerivedSubtask ? rawSummary : formatCondenseSummary(rawSummary, t)) : ''
   const prevTokens = Number(message?.extra?.prevContextTokens)
   const newTokens = Number(message?.extra?.newContextTokens)
   const hasTokenMetrics = Number.isFinite(prevTokens) && prevTokens >= 0 && Number.isFinite(newTokens) && newTokens >= 0
-  const savedTokens = hasTokenMetrics ? Math.max(0, Math.round(prevTokens - newTokens)) : 0
+  const sourceText = isDerivedSubtask && parentTitleSnapshot ? t('继续自: {title}', { title: parentTitleSnapshot }) : ''
+  const title = isDerivedSubtask ? t('已创建摘要子任务') : t('上下文已智能压缩')
 
   return (
     <div
@@ -59,7 +62,7 @@ export default function AIChatContextCondenseCard({ message }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <Scissors size={14} color="var(--accent)" />
-          <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('上下文已智能压缩')}</span>
+          <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{title}</span>
         </div>
         {hasTokenMetrics ? (
           <span style={{ flexShrink: 0, color: 'var(--accent)', fontSize: 12, fontWeight: 700 }}>
@@ -67,6 +70,11 @@ export default function AIChatContextCondenseCard({ message }) {
           </span>
         ) : null}
       </div>
+      {sourceText ? (
+        <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          {sourceText}
+        </div>
+      ) : null}
       {summary ? (
         <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {summary}

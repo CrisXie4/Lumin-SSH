@@ -1,4 +1,4 @@
-import { ChevronDown, FileCode2, FileText, RotateCcw, SquarePen } from 'lucide-react'
+import { Check, ChevronDown, FileCode2, FileText, RotateCcw, SquarePen, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import Tiptop from '../../Tiptop.jsx'
 import { useTranslation } from '../../../i18n.js'
@@ -458,12 +458,14 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
           border: '1px solid rgba(var(--warning-rgb), 0.35)',
           background: 'rgba(var(--warning-rgb), 0.08)',
           color: 'var(--warning)',
+          tone: 'warning',
         }
       case '执行中':
         return {
           border: '1px solid rgba(var(--accent-rgb), 0.35)',
           background: 'rgba(var(--accent-rgb), 0.08)',
           color: 'var(--accent)',
+          tone: 'accent',
         }
       case '错误':
       case '已终止':
@@ -472,12 +474,14 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
           border: '1px solid rgba(var(--danger-rgb), 0.35)',
           background: 'rgba(var(--danger-rgb), 0.08)',
           color: 'var(--danger)',
+          tone: 'danger',
         }
       default:
         return {
           border: '1px solid rgba(var(--success-rgb), 0.35)',
           background: 'rgba(var(--success-rgb), 0.08)',
           color: 'var(--success)',
+          tone: 'success',
         }
     }
   }, [normalizedStatus])
@@ -596,8 +600,10 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {status ? (
-            <div style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', ...statusPalette }}>
-              {t(normalizedStatus)}
+            <div style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4, border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }}>
+              {statusPalette.tone === 'success' ? <Check size={11} color="currentColor" strokeWidth={2.5} /> : null}
+              {statusPalette.tone === 'danger' ? <X size={11} color="currentColor" strokeWidth={2.5} /> : null}
+              <span>{t(normalizedStatus)}</span>
             </div>
           ) : null}
           {resultTokenEstimateDisplay ? (
