@@ -1597,7 +1597,7 @@ func (m *SSHManager) UploadLocalPathsCompressed(sessionId string, uploadID strin
 		m.emitCompressedUploadProgress(sessionId, uploadID, "verifying", 99, 100, 0, 0, "", "automatic remote repair completed, continuing extract")
 	}
 	m.emitCompressedUploadProgress(sessionId, uploadID, "extracting", 99, 0, 0, 0, fileName, "extracting archive on remote server")
-	if err := m.UncompressItem(sessionId, remoteArchive); err != nil {
+	if err := m.UncompressUploadedArchive(sessionId, remoteArchive); err != nil {
 		_ = m.DeleteItem(sessionId, remoteArchive, false)
 		task.clearRemoteArchive()
 		return fmt.Errorf("remote extract failed after automatic repair\narchive: %s\nremote target: %s\nreason: %w", remoteArchive, remoteDir, err)

@@ -3533,6 +3533,45 @@ func (m *SSHManager) UncompressItem(sessionId string, remotePath string) error {
 	return m.UncompressItemWithStrategy(sessionId, remotePath, smartUncompressConflictStrategyAutoRename)
 }
 
+func (m *SSHManager) UncompressUploadedArchive(sessionId string, remotePath string) error {
+	client, _, err := m.getClientEntry(sessionId)
+	if err != nil {
+		return err
+	}
+
+	remotePath = strings.TrimSpace(remotePath)
+	if remotePath == "" {
+		return fmt.Errorf("missing remote path")
+	}
+	remoteDir := pathpkg.Dir(remotePath)
+	base := pathpkg.Base(remotePath)
+	safeDir := shellQuotePath(remoteDir)
+	safeBase := shellQuotePath(base)
+
+	var cmd string
+	lowerBase := strings.ToLower(base)
+	switch {
+	case strings.HasSuffix(lowerBase, ".zip"):
+		cmd = fmt.Sprintf("cd %s && unzip -o %s", safeDir, safeBase)
+	case strings.HasSuffix(lowerBase, ".tar.gz") || strings.HasSuffix(lowerBase, ".tgz"):
+		cmd = fmt.Sprintf("cd %s && tar -xzf %s", safeDir, safeBase)
+	case strings.HasSuffix(lowerBase, ".tar"):
+		cmd = fmt.Sprintf("cd %s && tar -xf %s", safeDir, safeBase)
+	case strings.HasSuffix(lowerBase, ".tar.bz2") || strings.HasSuffix(lowerBase, ".tbz2"):
+		cmd = fmt.Sprintf("cd %s && tar -xjf %s", safeDir, safeBase)
+	case strings.HasSuffix(lowerBase, ".gz"):
+		cmd = fmt.Sprintf("cd %s && gunzip -f -k %s", safeDir, safeBase)
+	default:
+		return fmt.Errorf("unsupported archive format")
+	}
+
+	out, err := m.executeCmdWithClient(client, cmd)
+	if err != nil {
+		return fmt.Errorf("uncompress uploaded archive failed: %w, output: %s", err, out)
+	}
+	return nil
+}
+
 func (m *SSHManager) UncompressItemWithStrategy(sessionId string, remotePath string, conflictStrategy string) error {
 	client, sftpClient, err := m.getClientEntry(sessionId)
 	if err != nil {
