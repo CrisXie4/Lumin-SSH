@@ -634,6 +634,7 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
   const handleCardDrop = useCallback((targetId, event) => {
     if (!draggingCardId) return;
     event.preventDefault();
+    event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
     const position = dropIndicator?.targetId === targetId
       ? dropIndicator.position
@@ -933,8 +934,32 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
     process: <ProcessSection t={t} info={info} onShowAllProcesses={handleShowAllProcesses} dragHandleProps={getSectionDragHandleProps('process')} />,
   };
 
+  const handlePanelDragOver = (event) => {
+    if (!draggingCardId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handlePanelDrop = (event) => {
+    if (!draggingCardId || !dropIndicator) {
+      resetCardDragState();
+      return;
+    }
+    event.preventDefault();
+    const nextOrder = reorderProbeCard(cardOrder, draggingCardId, dropIndicator.targetId, dropIndicator.position);
+    if (nextOrder.join('|') !== cardOrder.join('|')) {
+      setCardOrder(nextOrder);
+      persistProbeCardOrder(nextOrder);
+    }
+    resetCardDragState();
+  };
+
   return (
-    <div className={`probe-panel${draggingCardId ? ' probe-panel-card-dragging' : ''}`}>
+    <div
+      className={`probe-panel${draggingCardId ? ' probe-panel-card-dragging' : ''}`}
+      onDragOver={handlePanelDragOver}
+      onDrop={handlePanelDrop}
+    >
       <ProbeHeader t={t} info={info} displayIP={displayIP} hideIP={hideIP} setHideIP={setHideIP} addToast={addToast} />
       {cardOrder.map((cardId) => {
         const cardNode = orderedSections[cardId];
