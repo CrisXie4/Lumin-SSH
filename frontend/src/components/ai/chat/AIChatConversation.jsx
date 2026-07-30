@@ -176,14 +176,13 @@ function getTouchClientY(event) {
   return Number.isFinite(value) ? value : null
 }
 
-export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }) {
+export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', conversationId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }) {
   const { t } = useTranslation()
   const containerRef = useRef(null)
   const virtuosoRef = useRef(null)
   const scrollerElementRef = useRef(null)
   const followIntentRef = useRef(true)
   const scrollAnimationFrameRef = useRef(0)
-  const hasHydratedRef = useRef(false)
   const lastContainerHeightRef = useRef(0)
   const lastTouchClientYRef = useRef(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
@@ -205,17 +204,6 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     if (groupedMessages.length === 0) {
       return
     }
-    const scroller = scrollerElementRef.current
-    if (behavior === 'auto' && scroller instanceof HTMLElement) {
-      scroller.scrollTop = scroller.scrollHeight
-      window.requestAnimationFrame(() => {
-        const nextScroller = scrollerElementRef.current
-        if (nextScroller instanceof HTMLElement) {
-          nextScroller.scrollTop = nextScroller.scrollHeight
-        }
-      })
-      return
-    }
     if (typeof virtuosoRef.current?.scrollToIndex === 'function') {
       virtuosoRef.current.scrollToIndex({
         index: groupedMessages.length - 1,
@@ -224,6 +212,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       })
       return
     }
+    const scroller = scrollerElementRef.current
     if (scroller instanceof HTMLElement) {
       if (typeof scroller.scrollTo === 'function') {
         scroller.scrollTo({ top: scroller.scrollHeight, behavior })
@@ -257,17 +246,21 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   useEffect(() => {
     if (groupedMessages.length === 0) {
       followIntentRef.current = true
-      hasHydratedRef.current = false
       lastContainerHeightRef.current = 0
       setShowScrollToBottom(false)
       return
     }
-    if (!hasHydratedRef.current) {
-      hasHydratedRef.current = true
-      return
-    }
     scheduleScrollToBottom('auto')
   }, [groupedMessages, scheduleScrollToBottom])
+
+  useEffect(() => {
+    if (groupedMessages.length === 0) {
+      return
+    }
+    followIntentRef.current = true
+    setShowScrollToBottom(false)
+    scheduleScrollToBottom('auto', true)
+  }, [conversationId, scheduleScrollToBottom])
 
   useEffect(() => {
     if (!scrollToBottomSignal || groupedMessages.length === 0) {
@@ -529,8 +522,9 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         }}
         style={{ height: '100%', overflowX: 'hidden' }}
         data={groupedMessages}
+        alignToBottom={true}
         increaseViewportBy={{ top: 1200, bottom: 800 }}
-        initialTopMostItemIndex={Math.max(groupedMessages.length - 1, 0)}
+        initialTopMostItemIndex={{ index: Math.max(groupedMessages.length - 1, 0), align: 'end' }}
         atBottomThreshold={70}
         followOutput={(isAtBottom) => (isAtBottom || followIntentRef.current ? 'auto' : false)}
         atBottomStateChange={(isAtBottom) => {

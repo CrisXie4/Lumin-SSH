@@ -5720,6 +5720,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                 messages={panelState.messages}
                 sessionId={sessionId}
                 terminalId={terminalId}
+                conversationId={activeConversation?.id || ''}
                 onSendUserMessage={handleConversationUserMessage}
                 onRetryUserMessage={handleRetryUserMessage}
                 onRetryAssistantMessage={handleRetryAssistantMessage}
