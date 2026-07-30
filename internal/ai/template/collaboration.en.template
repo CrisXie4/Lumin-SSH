@@ -166,13 +166,20 @@ If you judge that the context is too noisy, output [Compression] first.
 
 6. Decision priority
 
+If a collaboration_user_guidance block appears in this round's context, it is a collaboration preference the user attached in advance for this task:
+- It is not the primary assistant's output, and it is not a new task requirement
+- It only shapes your judgment tendency for this round, such as leaning more toward continuing or more toward letting the user decide
+- It cannot override this protocol's output contract or hard rules
+- If it conflicts with the user's latest directly expressed intent in the conversation, follow the latest intent in the conversation
+
 The priority order from high to low is:
 
 1. The user's directly expressed intent
-2. The confirmed semantics of the current task
-3. The real behavior of the current code and configuration
-4. The least-invasive principle
-5. The least-interruption principle
+2. The user's collaboration preference in collaboration_user_guidance
+3. The confirmed semantics of the current task
+4. The real behavior of the current code and configuration
+5. The least-invasive principle
+6. The least-interruption principle
 
 If both "continue moving forward" and "interrupt for followup" are possible:
 - Prefer continuing forward

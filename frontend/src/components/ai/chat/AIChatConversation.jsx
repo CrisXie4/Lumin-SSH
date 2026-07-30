@@ -522,7 +522,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         }}
         style={{ height: '100%', overflowX: 'hidden' }}
         data={groupedMessages}
-        alignToBottom={true}
+        alignToBottom={false}
         increaseViewportBy={{ top: 1200, bottom: 800 }}
         initialTopMostItemIndex={{ index: Math.max(groupedMessages.length - 1, 0), align: 'end' }}
         atBottomThreshold={70}

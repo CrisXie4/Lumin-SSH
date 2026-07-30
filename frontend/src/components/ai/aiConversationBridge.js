@@ -111,6 +111,7 @@ export function normalizeAIConversationTaskSettings(settings) {
     alwaysAllowModeSwitch: Boolean(settings?.alwaysAllowModeSwitch),
     alwaysAllowSubtasks: Boolean(settings?.alwaysAllowSubtasks),
     alwaysAllowFollowupQuestions: Boolean(settings?.alwaysAllowFollowupQuestions),
+    collaborationExtraPrompt: typeof settings?.collaborationExtraPrompt === 'string' ? settings.collaborationExtraPrompt.replace(/\r\n/g, '\n').trim() : '',
   }
 }
 

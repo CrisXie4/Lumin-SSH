@@ -4,6 +4,7 @@ import * as AppGo from '../../../wailsjs/go/main/App.js'
 import { ClipboardGetText } from '../../../wailsjs/runtime/runtime.js'
 import { useTranslation, t as translate } from '../../i18n.js'
 import AIAutoApproveDropdown from './AIAutoApproveDropdown.jsx'
+import AICollaborationPromptDropdown from './AICollaborationPromptDropdown.jsx'
 import AIProviderSelector from './AIProviderSelector.jsx'
 import Tiptop from '../Tiptop.jsx'
 import {
@@ -292,6 +293,11 @@ export default function AIComposer({
   collaborationLocked = false,
   collaborationActive = false,
   collaborationMode = '',
+  collaborationExtraPrompt = '',
+  onCollaborationExtraPromptChange,
+  collaborationPromptPresets = [],
+  onCollaborationPromptPresetsChange,
+  collaborationPromptScopeIsTask = false,
   conversationInputLocked = false,
   conversationInputLockedLabel = '',
   collaborationStatus = null,
@@ -310,6 +316,8 @@ export default function AIComposer({
   const mentionDebounceRef = useRef(null)
   const mentionRequestRef = useRef(0)
   const terminalAssignmentRef = useRef(null)
+  const collaborationToggleRef = useRef(null)
+  const [collaborationPromptOpen, setCollaborationPromptOpen] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [justDeletedSpaceAfterMention, setJustDeletedSpaceAfterMention] = useState(false)
   const [intendedCursorPosition, setIntendedCursorPosition] = useState(null)
@@ -375,6 +383,11 @@ export default function AIComposer({
         ? t('已排队重试')
         : t('已排队发送')
   const alwaysAllowAssistantCollaboration = Boolean(autoApprovalSettings?.alwaysAllowFollowupQuestions)
+  const handleToggleAssistantCollaboration = () => {
+    const nextEnabled = !alwaysAllowAssistantCollaboration
+    onPatchAutoApprovalSettings?.({ alwaysAllowFollowupQuestions: nextEnabled })
+    setCollaborationPromptOpen(nextEnabled)
+  }
   const canToggleAssistantCollaboration = typeof onPatchAutoApprovalSettings === 'function'
   const canInterruptAssistantCollaboration = collaborationLocked === true && typeof onInterruptCollaboration === 'function' && (alwaysAllowAssistantCollaboration || collaborationMode === 'summary_subtask')
   const queuedSubmissionCancelHint = isCollaborationBlocked
@@ -631,6 +644,12 @@ export default function AIComposer({
     closeInlineMenus()
     setTerminalAssignmentOpen(false)
   }, [closeInlineMenus, dismissSignal])
+
+  useEffect(() => {
+    if (!alwaysAllowAssistantCollaboration) {
+      setCollaborationPromptOpen(false)
+    }
+  }, [alwaysAllowAssistantCollaboration])
 
   useEffect(() => {
     if (!terminalAssignmentOpen) {
@@ -1873,13 +1892,31 @@ export default function AIComposer({
               disabled={false}
               dismissSignal={dismissSignal}
             />
+            <AICollaborationPromptDropdown
+              open={collaborationPromptOpen && alwaysAllowAssistantCollaboration}
+              onOpenChange={setCollaborationPromptOpen}
+              extraPrompt={collaborationExtraPrompt}
+              onExtraPromptChange={onCollaborationExtraPromptChange}
+              presets={collaborationPromptPresets}
+              onPresetsChange={onCollaborationPromptPresetsChange}
+              anchorRef={collaborationToggleRef}
+              scopeIsTask={collaborationPromptScopeIsTask}
+              dismissSignal={dismissSignal}
+            />
             <Tiptop text={t('建议长程任务开启')}>
               <button
+                ref={collaborationToggleRef}
                 type="button"
                 aria-label={t('助理协同')}
                 aria-pressed={alwaysAllowAssistantCollaboration}
                 disabled={!canToggleAssistantCollaboration}
-                onClick={() => onPatchAutoApprovalSettings?.({ alwaysAllowFollowupQuestions: !alwaysAllowAssistantCollaboration })}
+                onClick={handleToggleAssistantCollaboration}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  if (alwaysAllowAssistantCollaboration) {
+                    setCollaborationPromptOpen((previous) => !previous)
+                  }
+                }}
                 style={{
                   height: 28,
                   display: 'inline-flex',
