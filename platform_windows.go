@@ -5,6 +5,7 @@ package main
 import (
 	_ "embed"
 	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 
@@ -339,12 +340,20 @@ func applyPlatformOptions(opts *options.App, configManager *ConfigManager) {
 		webviewGpuDisabled = configManager.GetWebviewGpuDisabled()
 	}
 
+	// 固定 WebView2 用户数据目录，避免便携包改名后按 exe 名在 %AppData% 下多出
+	// Lumin-x.y.z-portable.exe/EBWebView。业务配置仍在 %AppData%\Lumin\config。
+	webviewUserDataPath := ""
+	if appData, err := os.UserConfigDir(); err == nil {
+		webviewUserDataPath = filepath.Join(appData, "Lumin", "webview")
+		_ = os.MkdirAll(webviewUserDataPath, 0700)
+	}
+
 	opts.Windows = &windows.Options{
 		WebviewIsTransparent:              true,
 		WindowIsTranslucent:               true,
 		DisableWindowIcon:                 false,
 		DisableFramelessWindowDecorations: false,
-		WebviewUserDataPath:               "",
+		WebviewUserDataPath:               webviewUserDataPath,
 		ZoomFactor:                        1.0,
 		WebviewGpuIsDisabled:              webviewGpuDisabled,
 		Theme:                             windows.Dark,
