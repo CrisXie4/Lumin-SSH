@@ -340,11 +340,11 @@ func applyPlatformOptions(opts *options.App, configManager *ConfigManager) {
 		webviewGpuDisabled = configManager.GetWebviewGpuDisabled()
 	}
 
-	// 固定 WebView2 用户数据目录，避免便携包改名后按 exe 名在 %AppData% 下多出
-	// Lumin-x.y.z-portable.exe/EBWebView。业务配置仍在 %AppData%\Lumin\config。
+	// 固定 WebView2 用户数据根目录为 %AppData%\Lumin，避免便携包改名后按 exe 名多出
+	// Lumin-x.y.z-portable.exe/EBWebView。引擎会在其下自建 EBWebView，与 config 同级。
 	webviewUserDataPath := ""
 	if appData, err := os.UserConfigDir(); err == nil {
-		webviewUserDataPath = filepath.Join(appData, "Lumin", "webview")
+		webviewUserDataPath = filepath.Join(appData, "Lumin")
 		_ = os.MkdirAll(webviewUserDataPath, 0700)
 	}
 
