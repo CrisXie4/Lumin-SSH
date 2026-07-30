@@ -15,6 +15,12 @@ type AISlashCommand struct {
 	Prompt string `json:"prompt"`
 }
 
+type AICollaborationPromptPreset struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
 type AIProxyNode struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -39,7 +45,9 @@ type AIGlobalSettings struct {
 	AlwaysAllowExecuteAllCommands       bool             `json:"alwaysAllowExecuteAllCommands"`
 	AllowedCommands                     []string         `json:"allowedCommands,omitempty"`
 	DeniedCommands                      []string         `json:"deniedCommands,omitempty"`
-	SlashCommands                       []AISlashCommand `json:"slashCommands,omitempty"`
+	SlashCommands                       []AISlashCommand              `json:"slashCommands,omitempty"`
+	CollaborationPromptPresets          []AICollaborationPromptPreset `json:"collaborationPromptPresets,omitempty"`
+	CollaborationExtraPrompt            string                        `json:"collaborationExtraPrompt,omitempty"`
 	AlwaysAllowMcp                      bool             `json:"alwaysAllowMcp"`
 	AlwaysAllowModeSwitch               bool             `json:"alwaysAllowModeSwitch"`
 	AlwaysAllowSubtasks                 bool             `json:"alwaysAllowSubtasks"`
@@ -98,6 +106,38 @@ func isValidAISlashCommandName(value string) bool {
 		return false
 	}
 	return true
+}
+
+func normalizeAICollaborationPromptPresets(presets []AICollaborationPromptPreset) []AICollaborationPromptPreset {
+	if presets == nil {
+		return []AICollaborationPromptPreset{}
+	}
+	normalized := make([]AICollaborationPromptPreset, 0, len(presets))
+	seen := make(map[string]struct{}, len(presets))
+	for index, preset := range presets {
+		text := strings.TrimSpace(strings.ReplaceAll(preset.Text, "\r\n", "\n"))
+		if text == "" {
+			continue
+		}
+		id := strings.TrimSpace(preset.ID)
+		if id == "" {
+			id = fmt.Sprintf("collab-preset-%d-%d", time.Now().UnixMilli(), index+1)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		title := strings.TrimSpace(preset.Title)
+		if title == "" {
+			title = text
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, AICollaborationPromptPreset{
+			ID:    id,
+			Title: title,
+			Text:  text,
+		})
+	}
+	return normalized
 }
 
 func normalizeAISlashCommands(commands []AISlashCommand) []AISlashCommand {
@@ -284,6 +324,8 @@ func LoadAIProxyNodes(configDir string) []AIProxyNode {
 func normalizeAIGlobalSettings(settings AIGlobalSettings) AIGlobalSettings {
 	settings.CurrentProviderID = strings.TrimSpace(settings.CurrentProviderID)
 	settings.SlashCommands = normalizeAISlashCommands(settings.SlashCommands)
+	settings.CollaborationPromptPresets = normalizeAICollaborationPromptPresets(settings.CollaborationPromptPresets)
+	settings.CollaborationExtraPrompt = strings.TrimSpace(strings.ReplaceAll(settings.CollaborationExtraPrompt, "\r\n", "\n"))
 	settings.AllowedCommands = normalizeAIStringList(settings.AllowedCommands)
 	settings.DeniedCommands = normalizeAIStringList(settings.DeniedCommands)
 	settings.AlwaysAllowExecuteAllCommands = containsAICommandWildcard(settings.AllowedCommands)

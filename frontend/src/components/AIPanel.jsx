@@ -3699,6 +3699,18 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
   }, [activeConversation, globalAISettings, panelInstanceKey, panelState.activeRequestId, saveConversationSnapshot, setPanelState])
 
+  const handleCollaborationExtraPromptChange = useCallback(async (nextValue) => {
+    await handlePatchAutoApprovalSettings({ collaborationExtraPrompt: typeof nextValue === 'string' ? nextValue : '' })
+  }, [handlePatchAutoApprovalSettings])
+
+  const handleCollaborationPromptPresetsChange = useCallback(async (nextPresets) => {
+    const nextGlobalSettings = await saveAIGlobalSettings({
+      ...normalizeAIGlobalSettings(globalAISettings),
+      collaborationPromptPresets: Array.isArray(nextPresets) ? nextPresets : [],
+    })
+    setGlobalAISettings(nextGlobalSettings)
+  }, [globalAISettings])
+
   const handleSaveAIPanelGlobalSettings = useCallback(async (patch) => {
     const nextSettings = await saveAIGlobalSettings({
       ...normalizedGlobalAISettings,
@@ -5793,6 +5805,11 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           persistProviderSelection={shouldPersistProviderSelection}
           autoApprovalSettings={effectiveAutoApprovalSettings}
           onPatchAutoApprovalSettings={handlePatchAutoApprovalSettings}
+          collaborationExtraPrompt={effectiveAutoApprovalSettings.collaborationExtraPrompt || ''}
+          onCollaborationExtraPromptChange={handleCollaborationExtraPromptChange}
+          collaborationPromptPresets={normalizedGlobalAISettings.collaborationPromptPresets}
+          onCollaborationPromptPresetsChange={handleCollaborationPromptPresetsChange}
+          collaborationPromptScopeIsTask={Boolean(activeConversation)}
           onInterruptCollaboration={handleInterruptCollaboration}
           approvalRequired={isAwaitingToolApproval}
           toolRunning={isToolRunning}

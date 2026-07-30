@@ -15,6 +15,8 @@ const DEFAULT_AI_GLOBAL_SETTINGS = {
   allowedCommands: [],
   deniedCommands: [],
   slashCommands: [],
+  collaborationPromptPresets: [],
+  collaborationExtraPrompt: '',
   alwaysAllowMcp: false,
   alwaysAllowModeSwitch: false,
   alwaysAllowSubtasks: false,
@@ -121,6 +123,33 @@ function normalizeProxyNode(node, index = 0) {
   }
 }
 
+export function normalizeAICollaborationPromptPresets(values) {
+  if (!Array.isArray(values)) {
+    return []
+  }
+  const seen = new Set()
+  const normalized = []
+  values.forEach((value, index) => {
+    const text = typeof value?.text === 'string' ? value.text.replace(/\r\n/g, '\n').trim() : ''
+    if (!text) {
+      return
+    }
+    const rawId = typeof value?.id === 'string' ? value.id.trim() : ''
+    const id = rawId || `collab-preset-${Date.now()}-${index + 1}`
+    if (seen.has(id)) {
+      return
+    }
+    const rawTitle = typeof value?.title === 'string' ? value.title.trim() : ''
+    seen.add(id)
+    normalized.push({
+      id,
+      title: rawTitle || text,
+      text,
+    })
+  })
+  return normalized
+}
+
 function normalizeProxyNodes(values) {
   if (!Array.isArray(values)) {
     return []
@@ -146,6 +175,7 @@ export function normalizeAIGlobalSettings(settings) {
   const allowedCommands = normalizeStringList(settings?.allowedCommands)
   const deniedCommands = normalizeStringList(settings?.deniedCommands)
   const slashCommands = normalizeAISlashCommands(settings?.slashCommands)
+  const collaborationPromptPresets = normalizeAICollaborationPromptPresets(settings?.collaborationPromptPresets)
   const proxyNodes = normalizeProxyNodes(settings?.proxyNodes)
   const rawAIRequestProxyId = typeof settings?.aiRequestProxyId === 'string' ? settings.aiRequestProxyId.trim() : ''
   const aiRequestProxyId = proxyNodes.some((node) => node.id === rawAIRequestProxyId) ? rawAIRequestProxyId : ''
@@ -170,6 +200,8 @@ export function normalizeAIGlobalSettings(settings) {
     allowedCommands,
     deniedCommands,
     slashCommands,
+    collaborationPromptPresets,
+    collaborationExtraPrompt: typeof settings?.collaborationExtraPrompt === 'string' ? settings.collaborationExtraPrompt.replace(/\r\n/g, '\n').trim() : '',
     alwaysAllowMcp: Boolean(settings?.alwaysAllowMcp),
     alwaysAllowModeSwitch: Boolean(settings?.alwaysAllowModeSwitch),
     alwaysAllowSubtasks: Boolean(settings?.alwaysAllowSubtasks),

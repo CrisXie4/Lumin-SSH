@@ -129,6 +129,16 @@ func (a *App) isAIChatCollaborationEnabledForBatch(batch *aiPendingToolBatch) bo
 	return a.getAIAutoApprovalSettingsForConversation(batch.Payload.ConversationID).AlwaysAllowFollowupQuestions
 }
 
+func (a *App) resolveAICollaborationExtraPrompt(batch *aiPendingToolBatch, mode aiCollaborationMode) string {
+	if a == nil || batch == nil {
+		return ""
+	}
+	if mode != aiCollaborationModeFollowup && mode != aiCollaborationModeCompletion {
+		return ""
+	}
+	return strings.TrimSpace(a.getAIAutoApprovalSettingsForConversation(batch.Payload.ConversationID).CollaborationExtraPrompt)
+}
+
 func (a *App) shouldUseAIChatCollaboration(batch *aiPendingToolBatch) bool {
 	if a == nil || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return false
@@ -460,7 +470,7 @@ func buildAIChatRequestMessagesFromConversationAPI(apiMessages []AIConversationA
 	return normalizeAIChatRequestMessages(requestMessages)
 }
 
-func buildAICollaborationRequestMessages(batch *aiPendingToolBatch, mode aiCollaborationMode, compressionAttempts int, retryCount int) []AIChatRequestMessage {
+func buildAICollaborationRequestMessages(batch *aiPendingToolBatch, mode aiCollaborationMode, compressionAttempts int, retryCount int, extraPrompt string) []AIChatRequestMessage {
 	if batch == nil {
 		return nil
 	}
@@ -547,6 +557,16 @@ func buildAICollaborationRequestMessages(batch *aiPendingToolBatch, mode aiColla
 		)
 	}
 	lines = append(lines, "</collaboration_request>")
+	if trimmedExtraPrompt := strings.TrimSpace(extraPrompt); trimmedExtraPrompt != "" {
+		requestMessages = append(requestMessages, AIChatRequestMessage{
+			Role: "user",
+			Content: strings.Join([]string{
+				"<collaboration_user_guidance>",
+				trimmedExtraPrompt,
+				"</collaboration_user_guidance>",
+			}, "\n"),
+		})
+	}
 	requestMessages = append(requestMessages, AIChatRequestMessage{
 		Role:    "user",
 		Content: strings.Join(lines, "\n"),
@@ -825,7 +845,7 @@ func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, stat
 	payload := batch.Payload
 	payload.SystemPromptOverride = buildAICollaborationPrompt()
 	payload.StreamEventPrefix = aiCollaborationStreamEventPrefix
-	requestMessages := buildAICollaborationRequestMessages(batch, state.Mode, state.CompressionAttempts, state.RetryCount)
+	requestMessages := buildAICollaborationRequestMessages(batch, state.Mode, state.CompressionAttempts, state.RetryCount, a.resolveAICollaborationExtraPrompt(batch, state.Mode))
 	collaborationProfile := withAIDisabledWebSearch(batch.Profile)
 	roundResult, err := a.requestAIProviderChatRound(ctx, trimmedRequestID, payload, collaborationProfile, requestMessages)
 	if ctx != nil && ctx.Err() != nil {

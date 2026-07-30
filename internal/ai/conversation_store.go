@@ -29,6 +29,7 @@ type AIConversationTaskSettings struct {
 	AlwaysAllowModeSwitch               bool     `json:"alwaysAllowModeSwitch"`
 	AlwaysAllowSubtasks                 bool     `json:"alwaysAllowSubtasks"`
 	AlwaysAllowFollowupQuestions        bool     `json:"alwaysAllowFollowupQuestions"`
+	CollaborationExtraPrompt            string   `json:"collaborationExtraPrompt,omitempty"`
 }
 
 type AIConversationFollowUpOption struct {
@@ -151,11 +152,13 @@ func defaultAIConversationTaskSettings(globalSettings AIGlobalSettings) AIConver
 		AlwaysAllowModeSwitch:               globalSettings.AlwaysAllowModeSwitch,
 		AlwaysAllowSubtasks:                 globalSettings.AlwaysAllowSubtasks,
 		AlwaysAllowFollowupQuestions:        globalSettings.AlwaysAllowFollowupQuestions,
+		CollaborationExtraPrompt:            strings.TrimSpace(globalSettings.CollaborationExtraPrompt),
 	}
 }
 
 func normalizeAIConversationTaskSettings(settings AIConversationTaskSettings) AIConversationTaskSettings {
 	settings.CurrentProviderID = strings.TrimSpace(settings.CurrentProviderID)
+	settings.CollaborationExtraPrompt = strings.TrimSpace(strings.ReplaceAll(settings.CollaborationExtraPrompt, "\r\n", "\n"))
 	settings.AllowedCommands = normalizeAIStringList(settings.AllowedCommands)
 	settings.DeniedCommands = normalizeAIStringList(settings.DeniedCommands)
 	settings.AlwaysAllowExecuteAllCommands = containsAICommandWildcard(settings.AllowedCommands)
