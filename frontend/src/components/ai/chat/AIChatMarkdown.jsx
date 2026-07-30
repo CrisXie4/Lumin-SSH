@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from '../../../i18n.js'
-import { clampMenuPosition } from '../../../utils/menuPosition.js'
+import { openGlobalContextMenu } from '../../../utils/contextMenu.js'
+import * as runtime from '../../../../wailsjs/runtime/runtime.js'
 
 function openExternalLink(event, href) {
   const nextHref = typeof href === 'string' ? href.trim() : ''
@@ -36,6 +37,20 @@ function getSelectedTextWithinContainer(container) {
     return ''
   }
   return selectedText
+}
+
+async function copyTextToClipboard(text) {
+  const nextText = typeof text === 'string' ? text.trim() : ''
+  if (!nextText) {
+    return
+  }
+  try {
+    await runtime.ClipboardSetText(nextText)
+    return
+  } catch {}
+  try {
+    await navigator.clipboard.writeText(nextText)
+  } catch {}
 }
 
 const markdownComponents = {
@@ -134,48 +149,45 @@ const markdownComponents = {
 export default function AIChatMarkdown({ text, enableQuoteContextMenu = false }) {
   const { t } = useTranslation()
   const containerRef = useRef(null)
-  const menuRef = useRef(null)
-  const [contextMenu, setContextMenu] = useState(null)
-
-  const handleQuoteSelection = useCallback(() => {
-    const selectedText = typeof contextMenu?.selectedText === 'string' ? contextMenu.selectedText.trim() : ''
-    if (!selectedText || typeof window === 'undefined') {
-      return
-    }
-    window.dispatchEvent(new CustomEvent('ai-quote-selection', {
-      detail: { text: selectedText },
-    }))
-    setContextMenu(null)
-  }, [contextMenu])
-
-  useEffect(() => {
-    if (!contextMenu) {
-      return undefined
-    }
-    const handlePointerDown = (event) => {
-      const target = event.target
-      if (target instanceof Node && menuRef.current?.contains(target)) {
-        return
-      }
-      setContextMenu(null)
-    }
-    window.addEventListener('pointerdown', handlePointerDown, true)
-    return () => window.removeEventListener('pointerdown', handlePointerDown, true)
-  }, [contextMenu])
 
   const handleContextMenu = useCallback((event) => {
-    if (!enableQuoteContextMenu) {
+    if (!enableQuoteContextMenu || typeof window === 'undefined') {
       return
     }
     event.preventDefault()
     event.stopPropagation()
     const selectedText = getSelectedTextWithinContainer(containerRef.current)
-    const position = clampMenuPosition(event.clientX, event.clientY, 168, 54)
-    setContextMenu({
-      ...position,
-      selectedText,
+    openGlobalContextMenu({
+      x: Number(event.clientX) || 0,
+      y: Number(event.clientY) || 0,
+      estimatedWidth: 176,
+      estimatedHeight: 84,
+      items: [
+        {
+          key: 'copy',
+          label: t('复制'),
+          shortcut: 'Ctrl+C',
+          disabled: !selectedText,
+          onSelect: async () => {
+            await copyTextToClipboard(selectedText)
+          },
+        },
+        {
+          key: 'quote',
+          label: t('引用'),
+          disabled: !selectedText,
+          onSelect: () => {
+            if (!selectedText) {
+              return
+            }
+            window.dispatchEvent(new CustomEvent('ai-quote-selection', {
+              detail: { text: selectedText },
+            }))
+          },
+        },
+      ],
     })
-  }, [enableQuoteContextMenu])
+  }, [enableQuoteContextMenu, t])
 
   return (
     <div
@@ -185,21 +197,6 @@ export default function AIChatMarkdown({ text, enableQuoteContextMenu = false })
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={markdownComponents}>
         {text || ''}
       </ReactMarkdown>
-      {contextMenu ? (
-        <div
-          ref={menuRef}
-          className="context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onMouseDown={(event) => {
-            event.stopPropagation()
-          }}>
-          <div
-            className={`context-menu-item${contextMenu.selectedText ? '' : ' disabled'}`}
-            onClick={contextMenu.selectedText ? handleQuoteSelection : undefined}>
-            <span className="item-label">{t('引用')}</span>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
