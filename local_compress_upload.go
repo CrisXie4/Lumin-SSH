@@ -283,10 +283,10 @@ func (m *SSHManager) abortCompressedUploadTaskByID(uploadID string, task *compre
 		return
 	}
 	task.cancel()
-	task.cleanup(m)
 	if uploadID != "" {
 		compressedUploadTasks.Delete(uploadID)
 	}
+	go task.cleanup(m)
 }
 
 func (m *SSHManager) AbortCompressedUpload(identifier string) error {
@@ -1071,6 +1071,11 @@ func (m *SSHManager) uploadLocalFileWithContext(ctx context.Context, sshClient *
 	tempPath := destPath + ".luminpart." + newUploadObjectID("upload_file")
 
 	pool := newSFTPUploadPool(sshClient, maxConcurrent)
+	if sessionId, ok := ctx.Value("compressedUploadSessionId").(string); ok && strings.TrimSpace(sessionId) != "" {
+		pool.onChannelDelta = func(delta int) {
+			m.trackUploadChannelDelta(sessionId, delta)
+		}
+	}
 	defer pool.Close()
 
 	// Pre-create remote temp file
@@ -1189,6 +1194,9 @@ func (m *SSHManager) uploadLocalFileWithContext(ctx context.Context, sshClient *
 					return
 				case job, ok := <-jobs:
 					if !ok {
+						return
+					}
+					if workerCtx.Err() != nil {
 						return
 					}
 					// Check error

@@ -85,11 +85,20 @@ type ChmodDialogSettings struct {
 	LastModified          int64  `json:"last_modified,omitempty"`
 }
 
+type TransferTuningSettings struct {
+	MaxPacketKiB          int  `json:"maxPacketKiB,omitempty"`
+	MaxRequestsPerFile    int  `json:"maxRequestsPerFile,omitempty"`
+	ConcurrentWrites      bool `json:"concurrentWrites,omitempty"`
+	ApplyToSharedClient   bool `json:"applyToSharedClient,omitempty"`
+	Configured            bool `json:"configured,omitempty"`
+}
+
 type FileManagerSettings struct {
-	ChmodDialog                     ChmodDialogSettings `json:"chmodDialog,omitempty"`
-	DoubleClickUncompressArchive   bool                `json:"doubleClickUncompressArchive,omitempty"`
-	SmartUncompressConflictStrategy string             `json:"smartUncompressConflictStrategy,omitempty"`
-	AutoRefreshDisabled            bool                `json:"autoRefreshDisabled,omitempty"`
+	ChmodDialog                     ChmodDialogSettings    `json:"chmodDialog,omitempty"`
+	DoubleClickUncompressArchive   bool                   `json:"doubleClickUncompressArchive,omitempty"`
+	SmartUncompressConflictStrategy string                `json:"smartUncompressConflictStrategy,omitempty"`
+	AutoRefreshDisabled            bool                   `json:"autoRefreshDisabled,omitempty"`
+	TransferTuning                 TransferTuningSettings `json:"transferTuning,omitempty"`
 }
 
 type AppSettings struct {
@@ -1724,6 +1733,43 @@ func sanitizeChmodDialogMode(mode string) string {
 	return filtered
 }
 
+const (
+	defaultTransferMaxPacketKiB       = 128
+	defaultTransferMaxRequestsPerFile = 16
+	minTransferMaxPacketKiB           = 32
+	maxTransferMaxPacketKiB           = 512
+	minTransferMaxRequestsPerFile     = 1
+	maxTransferMaxRequestsPerFile     = 1024
+	// sshChannelWindowBytes 对齐 golang.org/x/crypto/ssh 的 channelWindowSize(64 * 32KiB)。
+	// 该窗口在库内硬编码不可配置，决定了单条 SSH channel 上在途数据量的物理上限；
+	// 超出窗口的请求只能排队等待窗口回补，不会带来额外吞吐。
+	sshChannelWindowBytes = 64 * 32 * 1024
+)
+
+func clampIntSetting(value int, minValue int, maxValue int, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func normalizeTransferTuningSettings(settings TransferTuningSettings) TransferTuningSettings {
+	normalized := settings
+	normalized.MaxPacketKiB = clampIntSetting(settings.MaxPacketKiB, minTransferMaxPacketKiB, maxTransferMaxPacketKiB, defaultTransferMaxPacketKiB)
+	normalized.MaxRequestsPerFile = clampIntSetting(settings.MaxRequestsPerFile, minTransferMaxRequestsPerFile, maxTransferMaxRequestsPerFile, defaultTransferMaxRequestsPerFile)
+	if !settings.Configured {
+		normalized.ConcurrentWrites = true
+		normalized.ApplyToSharedClient = true
+	}
+	return normalized
+}
+
 func normalizeFileManagerSmartUncompressConflictStrategy(value string) string {
 	switch strings.TrimSpace(value) {
 	case "overwrite":
@@ -1747,6 +1793,7 @@ func (c *ConfigManager) getFileManagerSettingsLocked() FileManagerSettings {
 	}
 	settings.ChmodDialog.Mode = sanitizeChmodDialogMode(settings.ChmodDialog.Mode)
 	settings.SmartUncompressConflictStrategy = normalizeFileManagerSmartUncompressConflictStrategy(settings.SmartUncompressConflictStrategy)
+	settings.TransferTuning = normalizeTransferTuningSettings(settings.TransferTuning)
 	return settings
 }
 
@@ -1826,7 +1873,36 @@ func (c *ConfigManager) GetFileManagerSettings() map[string]interface{} {
 		"doubleClickUncompressArchive":   settings.DoubleClickUncompressArchive,
 		"smartUncompressConflictStrategy": settings.SmartUncompressConflictStrategy,
 		"autoRefreshDisabled":            settings.AutoRefreshDisabled,
+		"transferMaxPacketKiB":           settings.TransferTuning.MaxPacketKiB,
+		"transferMaxRequestsPerFile":     settings.TransferTuning.MaxRequestsPerFile,
+		"transferConcurrentWrites":       settings.TransferTuning.ConcurrentWrites,
+		"transferApplyToSharedClient":    settings.TransferTuning.ApplyToSharedClient,
 	}
+}
+
+func (c *ConfigManager) GetTransferTuningSettings() TransferTuningSettings {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.getFileManagerSettingsLocked().TransferTuning
+}
+
+func (c *ConfigManager) SaveTransferTuningSettings(maxPacketKiB int, maxRequestsPerFile int, concurrentWrites bool, applyToSharedClient bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	settings := c.getFileManagerSettingsLocked()
+	settings.TransferTuning = normalizeTransferTuningSettings(TransferTuningSettings{
+		MaxPacketKiB:        maxPacketKiB,
+		MaxRequestsPerFile:  maxRequestsPerFile,
+		ConcurrentWrites:    concurrentWrites,
+		ApplyToSharedClient: applyToSharedClient,
+		Configured:          true,
+	})
+	err := c.saveFileManagerSettingsLocked(settings)
+	if err == nil {
+		c.bumpSnapshotTime()
+		go c.AutoSync()
+	}
+	return err
 }
 
 func (c *ConfigManager) SaveChmodDialogSettings(mode string, includeSubdirectories bool) error {

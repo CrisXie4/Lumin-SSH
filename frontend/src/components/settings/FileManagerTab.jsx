@@ -69,8 +69,26 @@ export default function FileManagerTab({
   onFileManagerUploadMaxChunksPerFileChange,
   fileManagerUploadGlobalInflightLimit,
   onFileManagerUploadGlobalInflightLimitChange,
+  transferMaxPacketKiB,
+  onTransferMaxPacketKiBChange,
+  transferMaxRequestsPerFile,
+  onTransferMaxRequestsPerFileChange,
+  transferConcurrentWrites,
+  onToggleTransferConcurrentWrites,
+  transferApplyToSharedClient,
+  onToggleTransferApplyToSharedClient,
 }) {
   const withDefaultValue = (text, value) => `${text} ${$t('默认值：{value}，仅影响下一次上传任务', { value })}`;
+  const withTransferDefaultValue = (text, value) => `${text} ${$t('默认值：{value}，仅影响下一次传输任务', { value })}`;
+  const renderChannelImpactHint = (text) => (
+    <span style={{ display: 'block', marginTop: 2, color: 'var(--warning)' }}>{text}</span>
+  );
+  const renderWarningDescription = (baseText, warningText) => (
+    <>
+      <span>{baseText}</span>
+      {renderChannelImpactHint(warningText)}
+    </>
+  );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       <div>
@@ -285,7 +303,7 @@ export default function FileManagerTab({
         </div>
       </div>
       <div>
-        <h3 style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 12, fontWeight: 600 }}>{$t('上传并发')}</h3>
+        <h3 style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 12, fontWeight: 600 }}>{$t('传输并发')}</h3>
         <div className="form-group" style={{ background: 'var(--surface-overlay)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
           <SettingRow
             title={$t('单文件分块大小 (KiB)')}
@@ -294,21 +312,54 @@ export default function FileManagerTab({
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
-            title={$t('多文件并发上传最大数量')}
-            description={withDefaultValue($t('控制同一时间允许并发上传的文件数量'), '6')}
+            title={$t('最大传输任务数量')}
+            description={renderWarningDescription(
+              withTransferDefaultValue($t('控制当前会话内同时进行的上传和下载任务数量,每个文件或文件夹都算一个任务'), '6'),
+              $t('增大后可能提高同一会话内的 SFTP/SSH 通道占用')
+            )}
             action={<input className="input" type="number" value={fileManagerUploadMaxFiles} onChange={onFileManagerUploadMaxFilesChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
             title={$t('单文件分块传输最大数量')}
-            description={withDefaultValue($t('控制单个文件在同一时间允许并发传输的分块数量'), '8')}
+            description={renderWarningDescription(
+              withDefaultValue($t('控制单个文件在同一时间允许并发传输的分块数量'), '8'),
+              $t('在压缩传输或原生单文件传输场景下,增大后可能提高同一会话内的 SFTP/SSH 通道占用')
+            )}
             action={<input className="input" type="number" value={fileManagerUploadMaxChunksPerFile} onChange={onFileManagerUploadMaxChunksPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
             title={$t('全局在途块上限')}
-            description={withDefaultValue($t('控制所有上传任务共享的在途分块总数'), '24')}
+            description={renderWarningDescription(
+              withDefaultValue($t('控制所有上传任务共享的在途分块总数'), '24'),
+              $t('在前端分块上传场景下,增大后可能提高同一会话内的 SFTP/SSH 通道占用')
+            )}
             action={<input className="input" type="number" value={fileManagerUploadGlobalInflightLimit} onChange={onFileManagerUploadGlobalInflightLimitChange} style={{ width: 160, textAlign: 'right' }} />}
+          />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <SettingRow
+            title={$t('SFTP 单包大小 (KiB)')}
+            description={withTransferDefaultValue($t('单个 SFTP 数据包的载荷上限,高延迟链路上调大可显著提速;如果服务器不接受会自动回退'), '128 KiB')}
+            action={<input className="input" type="number" value={transferMaxPacketKiB} onChange={onTransferMaxPacketKiBChange} style={{ width: 160, textAlign: 'right' }} />}
+          />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <SettingRow
+            title={$t('SFTP 单文件请求流水线深度')}
+            description={withTransferDefaultValue($t('单个文件同时保持在链路上的 SFTP 请求数量;实际生效值会按 SSH 通道窗口自动收窄,填写超出窗口的数值不会提速,只会额外占用资源'), '16')}
+            action={<input className="input" type="number" value={transferMaxRequestsPerFile} onChange={onTransferMaxRequestsPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
+          />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <SettingRow
+            title={$t('SFTP 并发写入')}
+            description={$t('开启后单次写入内部并行发包,不再逐包等待服务器确认;关闭则退回逐包串行,速度会明显变慢')}
+            action={<ToggleSwitch checked={transferConcurrentWrites} onChange={onToggleTransferConcurrentWrites} />}
+          />
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <SettingRow
+            title={$t('下载与文件操作也使用上述调优')}
+            description={$t('开启后下载,文件列表,读写文件都使用同一套调优参数;如果服务器兼容性较差可关闭,仅上传使用调优')}
+            action={<ToggleSwitch checked={transferApplyToSharedClient} onChange={onToggleTransferApplyToSharedClient} />}
           />
         </div>
       </div>

@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ai "luminssh-go/internal/ai"
@@ -621,6 +622,7 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	m.sessions[sessionId] = sd
 	m.connTerminals[connKey] = append(m.connTerminals[connKey], sessionId)
 	m.mu.Unlock()
+	m.emitSSHChannelUsage(connKey)
 
 	go m.pipeOutput(sessionId, stdout, historyStream)
 	go m.pipeOutput(sessionId, stderr, nil)
@@ -632,8 +634,15 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	return nil
 }
 
+func (m *SSHManager) newSharedSFTPClient(client *ssh.Client) (*sftp.Client, error) {
+	if resolveTransferTuning().ApplyToSharedClient {
+		return newTunedSFTPClient(client)
+	}
+	return sftp.NewClient(client)
+}
+
 func (m *SSHManager) initSFTPClient(sessionId string, connKey string, conn Connection, client *ssh.Client) {
-	sftpClient, err := sftp.NewClient(client)
+	sftpClient, err := m.newSharedSFTPClient(client)
 	m.mu.Lock()
 	entry, ok := m.clients[connKey]
 	if !ok || entry.Client != client {
@@ -649,6 +658,10 @@ func (m *SSHManager) initSFTPClient(sessionId string, connKey string, conn Conne
 		entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
 	}
 	m.mu.Unlock()
+	m.emitSSHChannelUsage(connKey)
+	if err == nil {
+		go m.probeSSHMaxSessions(connKey)
+	}
 
 	if err != nil && m.ctx != nil {
 		runtime.EventsEmit(m.ctx, "ssh-status", map[string]interface{}{
@@ -781,6 +794,7 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	delete(m.probeDeployed, connKey)
 	delete(m.probeFailed, connKey)
 	m.mu.Unlock()
+	globalSSHChannelUsage.forget(connKey)
 
 	if reason == "" {
 		reason = "transport"
@@ -1179,6 +1193,16 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	// 收集需要关闭的资源（避免在锁内执行可能阻塞的 Close 操作）
 	stdin := s.Stdin
 	sshSess := s.Session
+
+	// 从 connTerminals 中移除
+	terminals := m.connTerminals[connKey]
+	for i, t := range terminals {
+		if t == sessionId {
+			m.connTerminals[connKey] = append(terminals[:i], terminals[i+1:]...)
+			break
+		}
+	}
+	defer m.emitSSHChannelUsage(connKey)
 
 	var netConnToClose net.Conn
 	var sftpToClose *sftp.Client
@@ -3853,36 +3877,83 @@ type progressReader struct {
 func (p *progressReader) Read(data []byte) (int, error) {
 	n, err := p.Reader.Read(data)
 	if n > 0 {
-		p.current += int64(n)
-		now := time.Now()
-		if now.Sub(p.lastEmit) > 200*time.Millisecond || p.current >= p.total {
-			pct := float64(0)
-			if p.total > 0 {
-				pct = float64(p.current) / float64(p.total) * 100
-				if pct > 100 {
-					pct = 100
-				}
-			}
-			if p.ctx != nil {
-				runtime.EventsEmit(p.ctx, p.eventName, pct)
-			}
-			p.lastEmit = now
+		p.advance(int64(n))
+	}
+	return n, err
+}
+
+func (p *progressReader) advance(delta int64) {
+	p.current += delta
+	now := time.Now()
+	if now.Sub(p.lastEmit) > 200*time.Millisecond || p.current >= p.total {
+		p.emit(p.current)
+		p.lastEmit = now
+	}
+}
+
+func (p *progressReader) emit(current int64) {
+	pct := float64(0)
+	if p.total > 0 {
+		pct = float64(current) / float64(p.total) * 100
+		if pct > 100 {
+			pct = 100
 		}
+	}
+	if p.ctx != nil {
+		runtime.EventsEmit(p.ctx, p.eventName, pct)
+	}
+}
+
+// progressWriter 只累加原子计数，不在 Write 内触发 Wails 事件。
+// 传输数据流水线（尤其 sftp 的 File.WriteTo 串行 Reduce 阶段）以此 Write 为唯一出口，
+// 在其中做同步 IPC 会冻结整条流水线。
+type progressWriter struct {
+	io.Writer
+	copied atomic.Int64
+}
+
+func (p *progressWriter) Write(data []byte) (int, error) {
+	n, err := p.Writer.Write(data)
+	if n > 0 {
+		p.copied.Add(int64(n))
 	}
 	return n, err
 }
 
 // copyWithProgress 复制数据并通过 Wails 事件报告进度
 func (m *SSHManager) copyWithProgress(dst io.Writer, src io.Reader, sessionId string, totalSize int64) error {
-	pr := &progressReader{
-		Reader:    src,
+	tracker := &progressReader{
 		ctx:       m.ctx,
 		eventName: "transfer-progress-" + sessionId,
 		total:     totalSize,
 		lastEmit:  time.Now(),
 	}
-	buf := make([]byte, 2*1024*1024)
-	_, err := io.CopyBuffer(dst, pr, buf)
+	writer := &progressWriter{Writer: dst}
+	reporterDone := make(chan struct{})
+	reporterFinished := make(chan struct{})
+	go func() {
+		defer close(reporterFinished)
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		lastReported := int64(-1)
+		for {
+			select {
+			case <-reporterDone:
+				return
+			case <-ticker.C:
+				current := writer.copied.Load()
+				if current == lastReported {
+					continue
+				}
+				lastReported = current
+				tracker.emit(current)
+			}
+		}
+	}()
+	_, err := io.Copy(writer, src)
+	close(reporterDone)
+	<-reporterFinished
+	tracker.emit(writer.copied.Load())
 	return err
 }
 

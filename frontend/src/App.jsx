@@ -456,6 +456,7 @@ export default function App() {
   const sessionsRef = useRef([]);
   useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   const cancelledConnectionsRef = useRef(new Set());
+  const disconnectingServerIdsRef = useRef(new Map());
   const [activeSessionId, setActiveSessionId] = useState(null);
   // 批量选择
   const [batchSelectionMode, setBatchSelectionMode] = useState(false);
@@ -513,6 +514,7 @@ export default function App() {
     return () => { clearTimeout(timer); document.removeEventListener('click', close); };
   }, [tabContextMenu, terminalTabContextMenu]);
   const [connectingServers, setConnectingServers] = useState([]); // [{ server, sessionId, startTime }]
+  const [sshChannelUsage, setSshChannelUsage] = useState({}); // sessionId -> { terminals, sharedSftp, uploadPool, total, maxSessions }
   const connectingServersRef = useRef([]);
   useEffect(() => { connectingServersRef.current = connectingServers; }, [connectingServers]);
   const [toasts, setToasts] = useState([]);
@@ -641,6 +643,57 @@ export default function App() {
   // ponytail: 9 处 setSessions(prev => prev.map(s => s.id === id ? { ...s, status } : s)) 提取为帮助函数
   const updateSessionStatus = useCallback((id, status) => {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+  }, []);
+  const markConnectionCancelled = useCallback((terminalIds) => {
+    const ids = Array.from(new Set(
+      (Array.isArray(terminalIds) ? terminalIds : [terminalIds])
+        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .filter(Boolean)
+    ));
+    ids.forEach((id) => {
+      cancelledConnectionsRef.current.add(id);
+      setTimeout(() => { cancelledConnectionsRef.current.delete(id); }, 30000);
+    });
+    return ids;
+  }, []);
+  const awaitDisconnectTerminals = useCallback((terminalIds) => {
+    const ids = Array.from(new Set(
+      (Array.isArray(terminalIds) ? terminalIds : [terminalIds])
+        .map((id) => (typeof id === 'string' ? id.trim() : ''))
+        .filter(Boolean)
+    ));
+    if (ids.length === 0) {
+      return Promise.resolve([]);
+    }
+    return Promise.allSettled(ids.map((id) => AppGo.DisconnectSSH(id)));
+  }, []);
+  const disconnectSessionTerminals = useCallback((terminalIds) => {
+    const ids = markConnectionCancelled(terminalIds);
+    return awaitDisconnectTerminals(ids);
+  }, [awaitDisconnectTerminals, markConnectionCancelled]);
+  const registerServerDisconnect = useCallback((serverId, disconnectPromise) => {
+    const normalizedServerId = typeof serverId === 'string' ? serverId.trim() : '';
+    if (!normalizedServerId || !disconnectPromise) {
+      return;
+    }
+    let trackedPromise = null;
+    trackedPromise = Promise.resolve(disconnectPromise).catch(() => {}).finally(() => {
+      if (disconnectingServerIdsRef.current.get(normalizedServerId) === trackedPromise) {
+        disconnectingServerIdsRef.current.delete(normalizedServerId);
+      }
+    });
+    disconnectingServerIdsRef.current.set(normalizedServerId, trackedPromise);
+  }, []);
+  const waitForServerDisconnect = useCallback(async (serverId) => {
+    const normalizedServerId = typeof serverId === 'string' ? serverId.trim() : '';
+    if (!normalizedServerId) {
+      return;
+    }
+    const pendingDisconnect = disconnectingServerIdsRef.current.get(normalizedServerId);
+    if (!pendingDisconnect) {
+      return;
+    }
+    await pendingDisconnect;
   }, []);
 
   // ponytail: 3 处 s.terminals?.length > 0 ? s.terminals : [{ id: s.id }] 提取为帮助函数
@@ -2645,15 +2698,17 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
   // ── 取消连接 ──────────────────────────────────────────────
   const handleCancelConnection = useCallback((sessionId) => {
     if (!sessionId) return;
-    cancelledConnectionsRef.current.add(sessionId);
-    // 30 秒后自动清理，避免 Set 无限增长（错误若未到达则永久残留）
-    setTimeout(() => { cancelledConnectionsRef.current.delete(sessionId); }, 30000);
-    AppGo.DisconnectSSH(sessionId).catch(() => {});
+    const session = sessionsRef.current.find((item) => item.id === sessionId);
+    const termIds = session?.terminals?.length ? session.terminals.map((term) => term.id) : [sessionId];
+    const disconnectPromise = disconnectSessionTerminals(termIds);
+    if (session?.serverId) {
+      registerServerDisconnect(session.serverId, disconnectPromise);
+    }
     setSessions(prev => prev.filter(s => s.id !== sessionId));
     setActiveSessionId(null);
     setActiveTerminalId(null);
     setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
-  }, []);
+  }, [disconnectSessionTerminals, registerServerDisconnect]);
 
   // ── 切换到下一个可用 session ──────────────────────────────
   const resolveSessionContentTab = useCallback((sessionId) => {
@@ -2819,7 +2874,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         ? session.terminals
         : [{ id: session.id }];
       const disconnectIds = new Set([session.id, ...priorTerminals.map((term) => term.id).filter(Boolean)]);
-      await Promise.all([...disconnectIds].map((id) => AppGo.DisconnectSSH(id).catch(() => {})));
+      await awaitDisconnectTerminals([...disconnectIds]);
 
       await AppGo.ConnectSSH(session.id, session.serverId);
 
@@ -2877,7 +2932,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       }
       return null;
     }
-  }, [addToast, t, postConnectSetup]);
+  }, [addToast, awaitDisconnectTerminals, t, postConnectSetup]);
 
   useEffect(() => {
     if (!serversLoaded || !rememberWorkspaceLoaded || workspaceRestoreStartedRef.current) {
@@ -3368,6 +3423,29 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     };
   }, [addToast, t]);
 
+  // ── 监听 SSH 通道占用事件 ─────────────────────────────────
+  useEffect(() => {
+    const unbind = EventsOn('ssh-channel-usage', (payload) => {
+      const data = payload && typeof payload === 'object' ? payload : null;
+      if (!data) return;
+      const sessionIds = Array.isArray(data.sessionIds) ? data.sessionIds.filter(Boolean) : [];
+      if (sessionIds.length === 0) return;
+      const usage = {
+        terminals: Number(data.terminals) || 0,
+        sharedSftp: Number(data.sharedSftp) || 0,
+        uploadPool: Number(data.uploadPool) || 0,
+        total: Number(data.total) || 0,
+        maxSessions: Number(data.maxSessions) || 10,
+      };
+      setSshChannelUsage((prev) => {
+        const next = { ...prev };
+        sessionIds.forEach((id) => { next[id] = usage; });
+        return next;
+      });
+    });
+    return () => { if (unbind) unbind(); };
+  }, []);
+
   // ── 监听 SSH 连接状态事件 ─────────────────────────────────
   useEffect(() => {
     const unbind = EventsOn('ssh-status', (data) => {
@@ -3452,6 +3530,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     markWorkspaceRestoreNavigationOverride();
     // 用户主动点连即记入最近，已连接仅切换焦点时也置顶
     recordRecentConnection(server?.id);
+    await waitForServerDisconnect(server?.id);
     const existing = sessionsRef.current.find((s) => s.serverId === server.id && s.status !== 'closed' && s.status !== 'error');
     if (existing) {
       setActiveSessionId(existing.id);
@@ -3545,7 +3624,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     } catch (err) {
       handleConnectError(sessionId, err);
     }
-  }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, t, workspacePersistenceLevel]);
+  }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, t, waitForServerDisconnect, workspacePersistenceLevel]);
 
   const connectLocal = useCallback((name, shellPath) => {
     markWorkspaceRestoreNavigationOverride();
@@ -3641,12 +3720,9 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       });
     }
     const termIds = session?.terminals ? session.terminals.map(t => t.id) : [sessionId];
-    termIds.forEach(id => {
-      cancelledConnectionsRef.current.add(id);
-      setTimeout(() => { cancelledConnectionsRef.current.delete(id); }, 30000);
-    });
-    for (const id of termIds) {
-      AppGo.DisconnectSSH(id).catch(() => {});
+    const disconnectPromise = disconnectSessionTerminals(termIds);
+    if (session?.serverId) {
+      registerServerDisconnect(session.serverId, disconnectPromise);
     }
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== sessionId);
@@ -3671,7 +3747,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     if (connectingServersRef.current.some((s) => s.sessionId === sessionId)) {
       setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
     }
-  }, [persistServerWorkspaceSessionSnapshot]);
+  }, [disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, switchToNextSession]);
 
   const closeSession = useCallback(async (sessionId, e) => {
     e?.stopPropagation();
@@ -3706,13 +3782,11 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       });
     });
     const allTermIds = all.flatMap(s => s.terminals?.length > 0 ? s.terminals.map(t => t.id) : [s.id]);
-    allTermIds.forEach(id => {
-      cancelledConnectionsRef.current.add(id);
-      setTimeout(() => { cancelledConnectionsRef.current.delete(id); }, 30000);
-    });
-    for (const id of allTermIds) {
-      AppGo.DisconnectSSH(id).catch(() => {});
-    }
+    const disconnectPromise = disconnectSessionTerminals(allTermIds);
+    all
+      .map((session) => session?.serverId)
+      .filter(Boolean)
+      .forEach((serverId) => registerServerDisconnect(serverId, disconnectPromise));
     window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => {});
     setSessions([]);
     setTerminalPaneLayouts({});
@@ -3720,7 +3794,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     setActiveSessionId(null);
     setActiveTerminalId(null);
     setConnectingServers([]);
-  }, [persistServerWorkspaceSessionSnapshot, t]);
+  }, [disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, t]);
 
   // ── 在当前服务器上新建终端标签 ──────────────────────────────
   const openNewTerminal = useCallback(async (sessionId) => {
@@ -3845,7 +3919,10 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         contentTab: activeSessionIdRef.current === sessionId ? contentTabRef.current : (lastContentTabRef.current[sessionId] || 'terminal'),
       });
     }
-    AppGo.DisconnectSSH(terminalId).catch(() => {});
+    const disconnectPromise = disconnectSessionTerminals([terminalId]);
+    if (remaining.length === 0 && session?.serverId) {
+      registerServerDisconnect(session.serverId, disconnectPromise);
+    }
 
     setSessions((prev) => {
       const next = prev.map((s) => {
@@ -3875,7 +3952,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     if (activeSessionIdRef.current === sessionId && activeTerminalIdRef.current === terminalId) {
       setActiveTerminalId(resolveSessionRootTerminalId({ ...session, terminals: remaining }, lastTerminalRef.current[sessionId]));
     }
-  }, [persistServerWorkspaceSessionSnapshot, resolveSessionRootTerminalId, switchToNextSession]);
+  }, [disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, resolveSessionRootTerminalId, switchToNextSession]);
 
   const dispatchTerminalPaneResize = useCallback(() => {
     setTimeout(() => {
@@ -4104,7 +4181,10 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       return next;
     });
 
-    ids.forEach((id) => AppGo.DisconnectSSH(id).catch(() => {}));
+    const disconnectPromise = disconnectSessionTerminals(ids);
+    if (remainingTerminals.length === 0 && session?.serverId) {
+      registerServerDisconnect(session.serverId, disconnectPromise);
+    }
 
     if (remainingTerminals.length === 0) {
       persistServerWorkspaceSessionSnapshot(session, {
@@ -4138,7 +4218,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       setActiveTerminalId(nextActiveTabId || null);
     }
     dispatchTerminalPaneResize();
-  }, [dispatchTerminalPaneResize, persistServerWorkspaceSessionSnapshot, resolveSessionRootTerminalId, switchToNextSession]);
+  }, [disconnectSessionTerminals, dispatchTerminalPaneResize, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, resolveSessionRootTerminalId, switchToNextSession]);
 
   const closeTerminalPane = useCallback((layoutId, paneId, e) => {
     e?.stopPropagation();
@@ -5768,6 +5848,48 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                       }}
                     >
                       <span className={`status-dot ${s.status === 'connecting' ? 'connecting' : s.status === 'connected' ? 'online' : 'offline'}`} />
+                      {(() => {
+                        const usage = sshChannelUsage[s.id];
+                        if (!usage || usage.total <= 0 || s.status !== 'connected') return null;
+                        const maxSessions = usage.maxSessions > 0 ? usage.maxSessions : 10;
+                        const nearLimit = usage.total >= Math.max(1, maxSessions - 2);
+                        return (
+                          <Tiptop
+                            placement="bottom"
+                            text={(
+                              <>
+                                <div>{t('服务器连接通道占用')}</div>
+                                <div style={{ marginTop: 2, opacity: 0.82, fontSize: 11 }}>{t('终端 {count} 个', { count: usage.terminals })}</div>
+                                <div style={{ opacity: 0.82, fontSize: 11 }}>{t('共享文件通道 {count} 个', { count: usage.sharedSftp })}</div>
+                                <div style={{ opacity: 0.82, fontSize: 11 }}>{t('上传通道 {count} 个', { count: usage.uploadPool })}</div>
+                                <div style={{ marginTop: 2, fontSize: 11 }}>{t('合计 {total} / 上限 {max}', { total: usage.total, max: maxSessions })}</div>
+                                <div style={{ marginTop: 2, opacity: 0.7, fontSize: 11 }}>{t('接近服务器通道上限后将无法建立新的终端或传输')}</div>
+                              </>
+                            )}
+                          >
+                            <span
+                              className="no-drag"
+                              style={{
+                                minWidth: 15,
+                                height: 15,
+                                padding: '0 4px',
+                                borderRadius: 999,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                lineHeight: '15px',
+                                textAlign: 'center',
+                                flexShrink: 0,
+                                cursor: 'default',
+                                background: nearLimit ? 'var(--warning-dim)' : 'var(--surface-sunken)',
+                                color: nearLimit ? 'var(--warning)' : 'var(--text-tertiary)',
+                                border: `1px solid ${nearLimit ? 'var(--warning)' : 'var(--border)'}`,
+                              }}
+                            >
+                              {usage.total}
+                            </span>
+                          </Tiptop>
+                        );
+                      })()}
                       <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {s.serverName}
                       </span>

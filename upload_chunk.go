@@ -22,6 +22,7 @@ type sftpUploadPool struct {
 	idleClients []*sftp.Client
 	created     int
 	closed      bool
+	onChannelDelta func(int)
 }
 
 type chunkedUploadTask struct {
@@ -46,6 +47,58 @@ type chunkedUploadFile struct {
 	mu           sync.Mutex
 }
 
+var transferTuningResolver func() TransferTuningSettings
+
+func setTransferTuningResolver(resolver func() TransferTuningSettings) {
+	transferTuningResolver = resolver
+}
+
+func resolveTransferTuning() TransferTuningSettings {
+	if transferTuningResolver == nil {
+		return normalizeTransferTuningSettings(TransferTuningSettings{})
+	}
+	return normalizeTransferTuningSettings(transferTuningResolver())
+}
+
+// resolveWindowBoundedRequests 把单文件在途请求数收窄到 SSH channel window 之内。
+// 在途数据量的上限由 SSH channel window 决定，而不是由并发度决定；一旦并发度超过
+// window/packet，多出来的请求只能排队等待窗口回补，不产生额外吞吐，只额外占用
+// goroutine 与内存。该函数只收窄不放大，用户填写的值仍是上限。
+func resolveWindowBoundedRequests(tuning TransferTuningSettings) int {
+	packetBytes := tuning.MaxPacketKiB * 1024
+	if packetBytes <= 0 {
+		packetBytes = defaultTransferMaxPacketKiB * 1024
+	}
+	bounded := sshChannelWindowBytes / packetBytes
+	if bounded < 1 {
+		bounded = 1
+	}
+	if tuning.MaxRequestsPerFile > 0 && tuning.MaxRequestsPerFile < bounded {
+		return tuning.MaxRequestsPerFile
+	}
+	return bounded
+}
+
+func buildTunedSFTPOptions(tuning TransferTuningSettings) []sftp.ClientOption {
+	return []sftp.ClientOption{
+		sftp.MaxPacketUnchecked(tuning.MaxPacketKiB * 1024),
+		sftp.MaxConcurrentRequestsPerFile(resolveWindowBoundedRequests(tuning)),
+		sftp.UseConcurrentWrites(tuning.ConcurrentWrites),
+	}
+}
+
+func newTunedSFTPClient(sshClient *ssh.Client) (*sftp.Client, error) {
+	tuning := resolveTransferTuning()
+	client, err := sftp.NewClient(sshClient, buildTunedSFTPOptions(tuning)...)
+	if err == nil {
+		return client, nil
+	}
+	if tuning.MaxPacketKiB <= minTransferMaxPacketKiB {
+		return nil, err
+	}
+	return sftp.NewClient(sshClient)
+}
+
 func newSFTPUploadPool(sshClient *ssh.Client, maxClients int) *sftpUploadPool {
 	if maxClients < 1 {
 		maxClients = 1
@@ -61,16 +114,23 @@ func newSFTPUploadPool(sshClient *ssh.Client, maxClients int) *sftpUploadPool {
 func (p *sftpUploadPool) Acquire() (*sftp.Client, error) {
 	for {
 		p.mu.Lock()
-		for !p.closed && p.created >= p.maxClients {
+		for !p.closed && len(p.idleClients) == 0 && p.created >= p.maxClients {
 			p.cond.Wait()
 		}
 		if p.closed {
 			p.mu.Unlock()
 			return nil, fmt.Errorf("upload pool closed")
 		}
+		if idleCount := len(p.idleClients); idleCount > 0 {
+			client := p.idleClients[idleCount-1]
+			p.idleClients = p.idleClients[:idleCount-1]
+			p.mu.Unlock()
+			return client, nil
+		}
 		p.created++
 		p.mu.Unlock()
-		client, err := sftp.NewClient(p.sshClient)
+		p.notifyChannelDelta(1)
+		client, err := newTunedSFTPClient(p.sshClient)
 		if err == nil {
 			return client, nil
 		}
@@ -78,6 +138,7 @@ func (p *sftpUploadPool) Acquire() (*sftp.Client, error) {
 		if p.created > 0 {
 			p.created--
 		}
+		p.notifyChannelDelta(-1)
 		closed := p.closed
 		p.cond.Broadcast()
 		p.mu.Unlock()
@@ -94,14 +155,35 @@ func (p *sftpUploadPool) Acquire() (*sftp.Client, error) {
 }
 
 func (p *sftpUploadPool) Release(client *sftp.Client) {
+	p.releaseClient(client, false)
+}
+
+func (p *sftpUploadPool) Discard(client *sftp.Client) {
+	p.releaseClient(client, true)
+}
+
+func (p *sftpUploadPool) notifyChannelDelta(delta int) {
+	if p.onChannelDelta != nil && delta != 0 {
+		p.onChannelDelta(delta)
+	}
+}
+
+func (p *sftpUploadPool) releaseClient(client *sftp.Client, broken bool) {
 	if client == nil {
 		return
 	}
-	_ = client.Close()
 	p.mu.Lock()
-	if p.created > 0 {
-		p.created--
+	if p.closed || broken {
+		if p.created > 0 {
+			p.created--
+		}
+		p.cond.Broadcast()
+		p.mu.Unlock()
+		_ = client.Close()
+		p.notifyChannelDelta(-1)
+		return
 	}
+	p.idleClients = append(p.idleClients, client)
 	p.cond.Broadcast()
 	p.mu.Unlock()
 }
@@ -115,11 +197,16 @@ func (p *sftpUploadPool) Close() {
 	p.closed = true
 	idleClients := append([]*sftp.Client(nil), p.idleClients...)
 	p.idleClients = nil
+	releasedCount := p.created
+	p.created = 0
 	p.mu.Unlock()
 	for _, client := range idleClients {
 		_ = client.Close()
 	}
 	p.cond.Broadcast()
+	if releasedCount > 0 {
+		p.notifyChannelDelta(-releasedCount)
+	}
 }
 
 func newUploadObjectID(prefix string) string {
@@ -187,10 +274,14 @@ func (m *SSHManager) BeginChunkedUploadTask(sessionId string, remoteDir string, 
 		return "", err
 	}
 	taskID := newUploadObjectID("upload_task")
+	pool := newSFTPUploadPool(client, maxClients)
+	pool.onChannelDelta = func(delta int) {
+		m.trackUploadChannelDelta(sessionId, delta)
+	}
 	task := &chunkedUploadTask{
 		sessionId:     sessionId,
 		remoteBaseDir: normalizeRemoteUploadDir(remoteDir),
-		pool:          newSFTPUploadPool(client, maxClients),
+		pool:          pool,
 		files:         make(map[string]*chunkedUploadFile),
 	}
 	m.uploadMu.Lock()
@@ -285,20 +376,31 @@ func (m *SSHManager) UploadChunkBase64(taskID string, fileID string, chunkIndex 
 	if err != nil {
 		return err
 	}
-	defer task.pool.Release(client)
+	clientBroken := false
+	defer func() {
+		if clientBroken {
+			task.pool.Discard(client)
+			return
+		}
+		task.pool.Release(client)
+	}()
 	fileHandle, err := client.OpenFile(fileState.tempPath, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
+		clientBroken = true
 		return err
 	}
 	written, writeErr := fileHandle.WriteAt(content, offset)
 	closeErr := fileHandle.Close()
 	if writeErr != nil {
+		clientBroken = true
 		return writeErr
 	}
 	if closeErr != nil {
+		clientBroken = true
 		return closeErr
 	}
 	if written != len(content) {
+		clientBroken = true
 		return io.ErrShortWrite
 	}
 	fileState.mu.Lock()
@@ -346,9 +448,17 @@ func (m *SSHManager) CompleteChunkedUploadFile(taskID string, fileID string) err
 		fileState.mu.Unlock()
 		return err
 	}
-	defer task.pool.Release(client)
+	clientBroken := false
+	defer func() {
+		if clientBroken {
+			task.pool.Discard(client)
+			return
+		}
+		task.pool.Release(client)
+	}()
 	fileHandle, err := client.OpenFile(fileState.tempPath, os.O_WRONLY)
 	if err != nil {
+		clientBroken = true
 		fileState.mu.Lock()
 		fileState.completed = false
 		fileState.mu.Unlock()
@@ -357,12 +467,14 @@ func (m *SSHManager) CompleteChunkedUploadFile(taskID string, fileID string) err
 	truncateErr := fileHandle.Truncate(fileState.size)
 	closeErr := fileHandle.Close()
 	if truncateErr != nil {
+		clientBroken = true
 		fileState.mu.Lock()
 		fileState.completed = false
 		fileState.mu.Unlock()
 		return truncateErr
 	}
 	if closeErr != nil {
+		clientBroken = true
 		fileState.mu.Lock()
 		fileState.completed = false
 		fileState.mu.Unlock()

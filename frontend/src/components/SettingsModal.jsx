@@ -826,6 +826,10 @@ export default function SettingsModal({
   const [fileManagerUploadMaxFiles, setFileManagerUploadMaxFiles] = useState(localStorage.getItem('fileManagerUploadMaxFiles') || '6');
   const [fileManagerUploadMaxChunksPerFile, setFileManagerUploadMaxChunksPerFile] = useState(localStorage.getItem('fileManagerUploadMaxChunksPerFile') || '8');
   const [fileManagerUploadGlobalInflightLimit, setFileManagerUploadGlobalInflightLimit] = useState(localStorage.getItem('fileManagerUploadGlobalInflightLimit') || '24');
+  const [transferMaxPacketKiB, setTransferMaxPacketKiB] = useState('128');
+  const [transferMaxRequestsPerFile, setTransferMaxRequestsPerFile] = useState('16');
+  const [transferConcurrentWrites, setTransferConcurrentWrites] = useState(true);
+  const [transferApplyToSharedClient, setTransferApplyToSharedClient] = useState(true);
   const [fileManagerChmodAutoApplyLastSettings, setFileManagerChmodAutoApplyLastSettings] = useState(false);
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
@@ -1006,6 +1010,39 @@ export default function SettingsModal({
     setter(next);
     if (next === '') localStorage.removeItem(key);
     else localStorage.setItem(key, next);
+  };
+  const persistTransferTuning = (overrides = {}) => {
+    const next = {
+      maxPacketKiB: parseInt(transferMaxPacketKiB, 10) || 128,
+      maxRequestsPerFile: parseInt(transferMaxRequestsPerFile, 10) || 16,
+      concurrentWrites: transferConcurrentWrites,
+      applyToSharedClient: transferApplyToSharedClient,
+      ...overrides,
+    };
+    AppGo.SaveTransferTuningSettings(
+      next.maxPacketKiB,
+      next.maxRequestsPerFile,
+      next.concurrentWrites,
+      next.applyToSharedClient,
+    ).catch(() => {});
+  };
+  const handleTransferNumberChange = (setter, field) => (e) => {
+    const next = e.target.value;
+    setter(next);
+    const parsed = parseInt(next, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      persistTransferTuning({ [field]: parsed });
+    }
+  };
+  const handleToggleTransferConcurrentWrites = () => {
+    const next = !transferConcurrentWrites;
+    setTransferConcurrentWrites(next);
+    persistTransferTuning({ concurrentWrites: next });
+  };
+  const handleToggleTransferApplyToSharedClient = () => {
+    const next = !transferApplyToSharedClient;
+    setTransferApplyToSharedClient(next);
+    persistTransferTuning({ applyToSharedClient: next });
   };
   const handleFileManagerDefaultOpenModeChange = (value) => {
     const mode = ['builtin', 'system', 'external'].includes(value) ? value : 'builtin';
@@ -1269,6 +1306,14 @@ export default function SettingsModal({
             : 'auto_rename'
         );
         setFileManagerAutoRefreshDisabled(settings.autoRefreshDisabled === true);
+        if (Number.isFinite(Number(settings.transferMaxPacketKiB)) && Number(settings.transferMaxPacketKiB) > 0) {
+          setTransferMaxPacketKiB(String(settings.transferMaxPacketKiB));
+        }
+        if (Number.isFinite(Number(settings.transferMaxRequestsPerFile)) && Number(settings.transferMaxRequestsPerFile) > 0) {
+          setTransferMaxRequestsPerFile(String(settings.transferMaxRequestsPerFile));
+        }
+        setTransferConcurrentWrites(settings.transferConcurrentWrites !== false);
+        setTransferApplyToSharedClient(settings.transferApplyToSharedClient !== false);
       })
       .catch(() => {});
 
@@ -1903,6 +1948,14 @@ export default function SettingsModal({
                 onFileManagerUploadMaxChunksPerFileChange={handleFileManagerUploadSettingChange('fileManagerUploadMaxChunksPerFile', setFileManagerUploadMaxChunksPerFile)}
                 fileManagerUploadGlobalInflightLimit={fileManagerUploadGlobalInflightLimit}
                 onFileManagerUploadGlobalInflightLimitChange={handleFileManagerUploadSettingChange('fileManagerUploadGlobalInflightLimit', setFileManagerUploadGlobalInflightLimit)}
+                transferMaxPacketKiB={transferMaxPacketKiB}
+                onTransferMaxPacketKiBChange={handleTransferNumberChange(setTransferMaxPacketKiB, 'maxPacketKiB')}
+                transferMaxRequestsPerFile={transferMaxRequestsPerFile}
+                onTransferMaxRequestsPerFileChange={handleTransferNumberChange(setTransferMaxRequestsPerFile, 'maxRequestsPerFile')}
+                transferConcurrentWrites={transferConcurrentWrites}
+                onToggleTransferConcurrentWrites={handleToggleTransferConcurrentWrites}
+                transferApplyToSharedClient={transferApplyToSharedClient}
+                onToggleTransferApplyToSharedClient={handleToggleTransferApplyToSharedClient}
               />
             )}
             {activeTab === 'runtimeEnvironment' && (
