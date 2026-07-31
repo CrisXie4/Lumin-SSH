@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	pathpkg "path"
 	"path/filepath"
 	"runtime/debug"
@@ -89,6 +90,23 @@ type SessionData struct {
 	TerminalInitPath    string
 	CurrentCwd          string
 	PromptReady         bool
+	// Local terminal & Serial support
+	IsLocal         bool
+	IsSerial        bool
+	LocalPTYWindows any
+	LocalPTYUnix    *os.File
+	SerialPort      io.ReadWriteCloser
+	Cmd             *exec.Cmd
+	WSLDistro       string
+	LocalSFTPSrv    *localSFTPServer // embedded SFTP server; non-nil when file manager is available
+	OSCCwdParser    *oscCwdParser    // WSL-only: parses ESC]733;<b64>BEL CWD markers from the ConPTY stream
+	// Gen is a per-session-instance generation counter incremented each time a
+	// local/serial session reuses the same sessionId (fast reconnect). Background
+	// goroutines (the serial read loop, the local cmd-waiter, pipeLocalOutput)
+	// capture gen at startup and, on teardown, only clean up if the entry still
+	// carries the same gen — otherwise a newer instance has replaced it and the
+	// old goroutine must leave the map alone to avoid killing the new session.
+	Gen uint64
 }
 
 type SSHManager struct {
@@ -107,6 +125,10 @@ type SSHManager struct {
 	pendingMu        sync.Mutex
 	uploadMu         sync.Mutex
 	bufPool          sync.Pool
+	// nextGen is the monotonic source of SessionData.Gen values, used to tell
+	// apart two local/serial sessions that reused the same sessionId (fast
+	// reconnect). Guarded by mu.
+	nextGen uint64
 }
 
 // dialAddr 拼接 host:port，自动处理 IPv6 地址
@@ -850,6 +872,24 @@ func (m *SSHManager) disconnectAndNotify(sessionId string, reason string) {
 	})
 }
 
+// disconnectCurrentGen tears down the session for sessionId, but only if the
+// entry currently in the map is still the same generation (gen) the caller
+// started with. Local/serial sessions reuse the same sessionId on fast
+// reconnect, so a stale background goroutine (e.g. the previous serial read
+// loop) would otherwise find the *new* session under that id and kill it.
+// If a newer instance has taken over, this is a no-op.
+func (m *SSHManager) disconnectCurrentGen(sessionId string, gen uint64) {
+	m.mu.RLock()
+	cur, ok := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if !ok || cur.Gen != gen {
+		return
+	}
+	if m.Disconnect(sessionId) && m.ctx != nil {
+		runtime.EventsEmit(m.ctx, "ssh-disconnected", sessionId)
+	}
+}
+
 func (m *SSHManager) pipeOutput(sessionId string, r io.Reader, historyStream *commandHistoryStream) {
 	bufPtr := m.bufPool.Get().(*[]byte)
 	defer m.bufPool.Put(bufPtr)
@@ -920,6 +960,91 @@ func (m *SSHManager) pipeOutput(sessionId string, r io.Reader, historyStream *co
 			return
 		}
 	}
+}
+
+// pipeLocalOutput pumps bytes from a local PTY/pipe to the frontend. For WSL
+// sessions it runs the bytes through an oscCwdParser (which strips the OSC 733
+// CWD markers emitted by the PROMPT_COMMAND hook and decodes the CWD), so the
+// file manager can follow the shell's working directory. cptyHandle is the
+// Windows ConPTY handle (opaque); stdoutPipe is the fallback non-ConPTY reader.
+// Exactly one of them is non-nil.
+func (m *SSHManager) pipeLocalOutput(sessionId string, cptyHandle any, stdoutPipe io.Reader) {
+	go func() {
+		bufPtr := m.bufPool.Get().(*[]byte)
+		defer m.bufPool.Put(bufPtr)
+		buf := *bufPtr
+
+		for {
+			var n int
+			var err error
+			if c, ok := cptyHandle.(interface{ Read([]byte) (int, error) }); ok && c != nil {
+				n, err = c.Read(buf)
+			} else {
+				if stdoutPipe == nil {
+					return
+				}
+				n, err = stdoutPipe.Read(buf)
+			}
+			if n <= 0 {
+				if err != nil {
+					return
+				}
+				continue
+			}
+
+			m.mu.RLock()
+			// Disconnect removes the session from the map; guard against the
+			// pipe goroutine still reading after teardown (nil map value panic).
+			curSd, hasSd := m.sessions[sessionId]
+			m.mu.RUnlock()
+			if !hasSd {
+				return
+			}
+			oscParser := curSd.OSCCwdParser
+
+			var data []byte
+			if oscParser != nil {
+				visible, cwd, promptSeen := oscParser.Process(buf[:n])
+				data = visible
+				if cwd != "" || promptSeen {
+					shouldEmitCwd := false
+					m.mu.Lock()
+					if s, ok := m.sessions[sessionId]; ok {
+						if cwd != "" && s.CurrentCwd != cwd {
+							s.CurrentCwd = cwd
+							shouldEmitCwd = true
+						}
+						if promptSeen && s.RemoteHistoryActive {
+							s.PromptReady = true
+						}
+					}
+					m.mu.Unlock()
+					if shouldEmitCwd && m.ctx != nil {
+						runtime.EventsEmit(m.ctx, "ssh-terminal-cwd-"+sessionId, cwd)
+					}
+				}
+			} else {
+				data = make([]byte, n)
+				copy(data, buf[:n])
+			}
+
+			if len(data) == 0 {
+				if err != nil {
+					return
+				}
+				continue
+			}
+			m.emitSessionOutput(sessionId, data)
+			if m.app != nil {
+				m.app.WriteWsOutput(sessionId, data)
+			} else if m.ctx != nil {
+				runtime.EventsEmit(m.ctx, "terminal-data-"+sessionId, string(data))
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
 }
 
 // getClientEntry 查找 session 对应的共享客户端
@@ -1031,40 +1156,78 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	// 清理可能残留的主机密钥变更待确认条目（用户关掉弹窗未响应时）
 	delete(m.pendingHostKeys, sessionId)
 
+	isLocal := s.IsLocal
+	isSerial := s.IsSerial
+
 	// 收集需要关闭的资源（避免在锁内执行可能阻塞的 Close 操作）
 	stdin := s.Stdin
 	sshSess := s.Session
 
-	// 从 connTerminals 中移除
-	terminals := m.connTerminals[connKey]
-	for i, t := range terminals {
-		if t == sessionId {
-			m.connTerminals[connKey] = append(terminals[:i], terminals[i+1:]...)
-			break
-		}
-	}
-
 	var netConnToClose net.Conn
 	var sftpToClose *sftp.Client
 	var clientToClose *ssh.Client
-	if len(m.connTerminals[connKey]) == 0 {
-		if entry, ok := m.clients[connKey]; ok {
-			netConnToClose = entry.NetConn
-			sftpToClose = entry.SFTP
-			clientToClose = entry.Client
-			if entry.SFTPReady != nil {
-				entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
+
+	if !isLocal && !isSerial {
+		// 从 connTerminals 中移除
+		terminals := m.connTerminals[connKey]
+		for i, t := range terminals {
+			if t == sessionId {
+				m.connTerminals[connKey] = append(terminals[:i], terminals[i+1:]...)
+				break
 			}
-			delete(m.clients, connKey)
-			delete(m.connTerminals, connKey)
-			delete(m.probeDeployed, connKey)
-			delete(m.probeFailed, connKey)
+		}
+
+		if len(m.connTerminals[connKey]) == 0 {
+			if entry, ok := m.clients[connKey]; ok {
+				netConnToClose = entry.NetConn
+				sftpToClose = entry.SFTP
+				clientToClose = entry.Client
+				if entry.SFTPReady != nil {
+					entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
+				}
+				delete(m.clients, connKey)
+				delete(m.connTerminals, connKey)
+				delete(m.probeDeployed, connKey)
+				delete(m.probeFailed, connKey)
+			}
 		}
 	}
 	m.mu.Unlock() // 尽早释放锁，避免 Close 阻塞影响其他操作
 
 	// 2. 在锁外关闭资源（服务器挂了时这些操作可能阻塞，但不会锁住其他 goroutine）
-	if stdin != nil {
+	if isLocal {
+		// Close the embedded SFTP server and remove its client entry from the map.
+		// The sshClientEntry's SFTP client and underlying ssh.Client were dialed
+		// into the in-process server; LocalSFTPSrv.Close only stops the listener,
+		// so we must also close them or the per-session TCP conn + goroutines leak.
+		if s.ConnKey != "" {
+			m.mu.Lock()
+			localEntry, entryOk := m.clients[s.ConnKey]
+			if entryOk {
+				delete(m.clients, s.ConnKey)
+			}
+			m.mu.Unlock()
+			if entryOk {
+				if localEntry.SFTP != nil {
+					closeWithTimeout(localEntry.SFTP, 3*time.Second)
+				}
+				if localEntry.Client != nil {
+					closeWithTimeout(localEntry.Client, 3*time.Second)
+				}
+			}
+		}
+		if s.LocalSFTPSrv != nil {
+			_ = s.LocalSFTPSrv.Close()
+		}
+		m.CloseLocal(s)
+	} else if isSerial {
+		if s.SerialPort != nil {
+			_ = s.SerialPort.Close()
+			s.SerialPort = nil
+		}
+	}
+
+	if stdin != nil && !isLocal && !isSerial {
 		stdin.Close()
 	}
 	if sshSess != nil {
@@ -1290,6 +1453,11 @@ func (m *SSHManager) GetTerminalCwd(sessionId string) (string, error) {
 		m.mu.RUnlock()
 		return cwd, nil
 	}
+	// For local sessions, query OS process tree instead of SSH.
+	if sessionData.IsLocal {
+		m.mu.RUnlock()
+		return m.getLocalCwdForSession(sessionData)
+	}
 	m.mu.RUnlock()
 
 	client, _, err := m.getClientEntry(sessionId)
@@ -1326,6 +1494,86 @@ func (m *SSHManager) GetTerminalCwd(sessionId string) (string, error) {
 		cwd = "/"
 	}
 	return cwd, nil
+}
+
+// getLocalCwdForSession returns the CWD for a local terminal session by
+// querying the OS process tree (platform-specific implementation).
+// It snapshots s.Cmd under the lock because CloseLocal may nil it concurrently
+// (the Unix localGetCwd path reads the shell pid from s.Cmd).
+func (m *SSHManager) getLocalCwdForSession(s *SessionData) (string, error) {
+	if s == nil {
+		home, _ := os.UserHomeDir()
+		return home, nil
+	}
+	m.mu.RLock()
+	cmd := s.Cmd
+	m.mu.RUnlock()
+	return localGetCwd(s, cmd)
+}
+
+// getLocalFullProcessList returns the process list for a local session.
+// On Unix/WSL it runs ps; on Windows-native shells it is not yet supported.
+func getLocalFullProcessList(s *SessionData) ([]map[string]interface{}, error) {
+	info, err := getLocalSystemInfoImpl(s, false)
+	if err != nil {
+		return nil, err
+	}
+	if procs, ok := info["processes"]; ok {
+		if list, ok := procs.([]map[string]interface{}); ok {
+			return list, nil
+		}
+	}
+	return nil, nil
+}
+
+// StartLocalCwdMonitor starts a background polling loop to track the CWD of local sessions
+// (WSL and Unix shells) and notify the frontend of updates.
+func (m *SSHManager) StartLocalCwdMonitor(sessionId string) {
+	go func() {
+		ticker := time.NewTicker(1200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-m.ctx.Done():
+				return
+			case <-ticker.C:
+				m.mu.RLock()
+				s, ok := m.sessions[sessionId]
+				m.mu.RUnlock()
+				// Sessions that report CWD via a marker stream (WSL via
+				// RemoteHistoryActive, PowerShell via an OSCCwdParser) are driven by
+				// pipeLocalOutput instead of this poll loop. Without this guard the
+				// poller would overwrite their CurrentCwd with the home-dir fallback.
+				// CMD/Unix-local still rely on this poll loop.
+				if !ok || !s.IsLocal || s.RemoteHistoryActive || s.OSCCwdParser != nil {
+					return
+				}
+				cwd, err := m.getLocalCwdForSession(s)
+				if err != nil {
+					continue
+				}
+				cwd = strings.TrimSpace(cwd)
+				if cwd == "" {
+					continue
+				}
+				m.mu.Lock()
+				// Re-verify session is still active
+				s, ok = m.sessions[sessionId]
+				if !ok {
+					m.mu.Unlock()
+					return
+				}
+				changed := s.CurrentCwd != cwd
+				if changed {
+					s.CurrentCwd = cwd
+				}
+				m.mu.Unlock()
+				if changed && m.ctx != nil {
+					runtime.EventsEmit(m.ctx, "ssh-terminal-cwd-"+sessionId, cwd)
+				}
+			}
+		}
+	}()
 }
 
 // WriteBytes sends raw bytes to the SSH PTY stdin (used by WebSocket handler)
@@ -1441,8 +1689,14 @@ func (m *SSHManager) Resize(sessionId string, cols, rows int) {
 	s, ok := m.sessions[sessionId]
 	m.mu.RUnlock()
 	if ok {
-		if err := s.Session.WindowChange(rows, cols); err != nil {
-			log.Printf("[Resize] WindowChange failed for %s: %v", sessionId, err)
+		if s.IsLocal {
+			m.ResizeLocal(s, cols, rows)
+		} else if s.IsSerial {
+			// No resize for serial port
+		} else if s.Session != nil {
+			if err := s.Session.WindowChange(rows, cols); err != nil {
+				log.Printf("[Resize] WindowChange failed for %s: %v", sessionId, err)
+			}
 		}
 	}
 }
@@ -1653,6 +1907,13 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 			result = nil
 		}
 	}()
+	// Local sessions (WSL/PowerShell/native terminal) run the probe script directly.
+	m.mu.RLock()
+	localSd, localOk := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if localOk && localSd.IsLocal {
+		return getLocalSystemInfoImpl(localSd, includeNetworkConnections)
+	}
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return nil, err
@@ -1700,6 +1961,12 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 		return nil, fmt.Errorf("probe script execution failed: %s", strings.Join(detailParts, " | "))
 	}
 
+	return parseProbeOutput(out, includeNetworkConnections)
+}
+
+// parseProbeOutput parses the stdout of dynamicProbeScript and returns the
+// structured data map used by the frontend panels. Shared by SSH and local sessions.
+func parseProbeOutput(out string, includeNetworkConnections bool) (map[string]interface{}, error) {
 	// ── Split on ---CPU2--- to get two halves ──────────────────────────
 	halves := strings.SplitN(out, "---CPU2---", 2)
 	if len(halves) < 2 {
@@ -2368,6 +2635,14 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 
 // GetFullProcessList 获取服务器上所有进程列表（无 head 限制）
 func (m *SSHManager) GetFullProcessList(sessionId string) ([]map[string]interface{}, error) {
+	// For local sessions run ps directly.
+	m.mu.RLock()
+	sd, sdOk := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if sdOk && sd.IsLocal {
+		return getLocalFullProcessList(sd)
+	}
+
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return nil, err
@@ -2378,6 +2653,11 @@ func (m *SSHManager) GetFullProcessList(sessionId string) ([]map[string]interfac
 		return nil, err
 	}
 
+	return parseFullProcessListOutput(out)
+}
+
+// parseFullProcessListOutput parses ps output into structured process maps.
+func parseFullProcessListOutput(out string) ([]map[string]interface{}, error) {
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	var processes []map[string]interface{}
 	for _, l := range lines {
@@ -2426,6 +2706,13 @@ func (m *SSHManager) KillProcess(sessionId string, pid string) error {
 	if _, err := strconv.Atoi(pid); err != nil {
 		return fmt.Errorf("invalid pid: %s", pid)
 	}
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		return localKillProcess(sd, pid)
+	}
+
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return err
@@ -2439,6 +2726,13 @@ func (m *SSHManager) GetProcessEnv(sessionId string, pid string) ([]string, erro
 	if _, err := strconv.Atoi(pid); err != nil {
 		return nil, fmt.Errorf("invalid pid: %s", pid)
 	}
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		return localGetProcessEnv(sd, pid)
+	}
+
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return nil, err
@@ -2467,6 +2761,13 @@ func (m *SSHManager) GetServerStaticInfo(sessionId string) (result map[string]in
 			result = nil
 		}
 	}()
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		return getLocalServerStaticInfoImpl(sd)
+	}
+
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return nil, err
@@ -2484,6 +2785,11 @@ ip route get 1.1.1.1 2>/dev/null | grep -oE 'src [0-9.]+' | awk '{print $2}' || 
 		return nil, err
 	}
 
+	return parseServerStaticInfoOutput(out)
+}
+
+// parseServerStaticInfoOutput parses static query outputs into OS details map.
+func parseServerStaticInfoOutput(out string) (map[string]interface{}, error) {
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 
 	osName := "Linux"
@@ -3091,11 +3397,11 @@ func rmRfCmd(path string) string {
 const remoteCmdLongTimeout = 30 * time.Minute
 
 const (
-	smartUncompressConflictStrategyOverwrite = "overwrite"
+	smartUncompressConflictStrategyOverwrite  = "overwrite"
 	smartUncompressConflictStrategyAutoRename = "auto_rename"
-	smartUncompressConflictStrategyPrompt = "prompt"
-	smartUncompressModeDirect = "direct"
-	smartUncompressModeFolder = "folder"
+	smartUncompressConflictStrategyPrompt     = "prompt"
+	smartUncompressModeDirect                 = "direct"
+	smartUncompressModeFolder                 = "folder"
 )
 
 type smartUncompressPlan struct {
@@ -3336,6 +3642,19 @@ func (m *SSHManager) DeleteItemShellContext(ctx context.Context, sessionId strin
 	if isDangerousPath(path) {
 		return fmt.Errorf("refusing to delete dangerous path: %q", path)
 	}
+	// Local sessions (WSL/PowerShell) have an embedded SFTP-only server with no
+	// shell channel, so the rm -rf command below would fail. Delete via SFTP
+	// (RemoveAll handles both files and directories) instead.
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		sftpClient, err := m.getSFTPClient(sessionId)
+		if err != nil {
+			return err
+		}
+		return sftpClient.RemoveAll(path)
+	}
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return err
@@ -3369,6 +3688,24 @@ func (m *SSHManager) BatchDeleteItemShellContext(ctx context.Context, sessionId 
 	}
 	if len(safePaths) == 0 {
 		return nil
+	}
+	// Local sessions (WSL/PowerShell) have an embedded SFTP-only server with no
+	// shell channel; delete each path via SFTP RemoveAll instead of rm -rf.
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		sftpClient, err := m.getSFTPClient(sessionId)
+		if err != nil {
+			return err
+		}
+		var firstErr error
+		for _, p := range safePaths {
+			if err := sftpClient.RemoveAll(p); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
+		return firstErr
 	}
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
@@ -3423,6 +3760,18 @@ func (m *SSHManager) CopyItemContext(ctx context.Context, sessionId string, srcP
 	if isDangerousPath(srcPath) || isDangerousPath(dstPath) {
 		return fmt.Errorf("refusing to copy dangerous path")
 	}
+	// Local sessions (WSL/PowerShell) have an embedded SFTP-only server with no
+	// shell channel, so cp -a would fail. Copy via SFTP instead.
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		sftpClient, err := m.getSFTPClient(sessionId)
+		if err != nil {
+			return err
+		}
+		return copyViaSFTP(sftpClient, srcPath, dstPath)
+	}
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
 		return err
@@ -3447,6 +3796,22 @@ func (m *SSHManager) MoveItemContext(ctx context.Context, sessionId string, srcP
 	}
 	if isDangerousPath(srcPath) || isDangerousPath(dstPath) {
 		return fmt.Errorf("refusing to move dangerous path")
+	}
+	// Local sessions (WSL/PowerShell) have an embedded SFTP-only server with no
+	// shell channel, so mv would fail. Move via SFTP Rename instead.
+	m.mu.RLock()
+	sd, hasSd := m.sessions[sessionId]
+	m.mu.RUnlock()
+	if hasSd && sd.IsLocal {
+		sftpClient, err := m.getSFTPClient(sessionId)
+		if err != nil {
+			return err
+		}
+		// Prefer PosixRename (atomic); fall back to Rename if unsupported.
+		if err := sftpClient.PosixRename(srcPath, dstPath); err != nil {
+			return sftpClient.Rename(srcPath, dstPath)
+		}
+		return nil
 	}
 	client, _, err := m.getClientEntry(sessionId)
 	if err != nil {
@@ -3707,11 +4072,11 @@ func (m *SSHManager) PreviewSmartUncompressItem(sessionId string, remotePath str
 		return nil, err
 	}
 	return map[string]interface{}{
-		"mode":        plan.Mode,
-		"reason":      plan.Reason,
-		"targetName":  plan.TargetName,
-		"targetPath":  plan.TargetPath,
-		"targetKind":  plan.TargetKind,
+		"mode":         plan.Mode,
+		"reason":       plan.Reason,
+		"targetName":   plan.TargetName,
+		"targetPath":   plan.TargetPath,
+		"targetKind":   plan.TargetKind,
 		"targetExists": plan.TargetExists,
 	}, nil
 }
