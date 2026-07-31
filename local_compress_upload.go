@@ -283,10 +283,10 @@ func (m *SSHManager) abortCompressedUploadTaskByID(uploadID string, task *compre
 		return
 	}
 	task.cancel()
-	task.cleanup(m)
 	if uploadID != "" {
 		compressedUploadTasks.Delete(uploadID)
 	}
+	go task.cleanup(m)
 }
 
 func (m *SSHManager) AbortCompressedUpload(identifier string) error {
@@ -1189,6 +1189,9 @@ func (m *SSHManager) uploadLocalFileWithContext(ctx context.Context, sshClient *
 					return
 				case job, ok := <-jobs:
 					if !ok {
+						return
+					}
+					if workerCtx.Err() != nil {
 						return
 					}
 					// Check error

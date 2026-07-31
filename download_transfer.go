@@ -153,36 +153,43 @@ func (m *SSHManager) emitDownloadTransferProgress(sessionId string, downloadID s
 	})
 }
 
-func copyReaderWithProgressContext(ctx context.Context, dst io.Writer, src io.Reader, totalSize int64, onProgress func(int64, int64)) error {
-	buf := make([]byte, 2*1024*1024)
-	var copied int64
-	lastEmit := time.Time{}
-	for {
-		if err := ensureContextActive(ctx); err != nil {
-			return err
-		}
-		n, readErr := src.Read(buf)
-		if n > 0 {
-			written, writeErr := dst.Write(buf[:n])
-			if writeErr != nil {
-				return writeErr
-			}
-			copied += int64(written)
-			now := time.Now()
-			if onProgress != nil && (now.Sub(lastEmit) > 200*time.Millisecond || copied >= totalSize) {
-				onProgress(copied, totalSize)
-				lastEmit = now
-			}
-		}
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			return readErr
+type downloadProgressWriter struct {
+	ctx        context.Context
+	dst        io.Writer
+	totalSize  int64
+	onProgress func(int64, int64)
+	copied     int64
+	lastEmit   time.Time
+}
+
+func (w *downloadProgressWriter) Write(p []byte) (int, error) {
+	if err := ensureContextActive(w.ctx); err != nil {
+		return 0, err
+	}
+	written, err := w.dst.Write(p)
+	if written > 0 {
+		w.copied += int64(written)
+		now := time.Now()
+		if w.onProgress != nil && (now.Sub(w.lastEmit) > 200*time.Millisecond || w.copied >= w.totalSize) {
+			w.onProgress(w.copied, w.totalSize)
+			w.lastEmit = now
 		}
 	}
+	return written, err
+}
+
+func copyReaderWithProgressContext(ctx context.Context, dst io.Writer, src io.Reader, totalSize int64, onProgress func(int64, int64)) error {
+	writer := &downloadProgressWriter{
+		ctx:        ctx,
+		dst:        dst,
+		totalSize:  totalSize,
+		onProgress: onProgress,
+	}
+	if _, err := io.Copy(writer, src); err != nil {
+		return err
+	}
 	if onProgress != nil {
-		onProgress(copied, totalSize)
+		onProgress(writer.copied, totalSize)
 	}
 	return ensureContextActive(ctx)
 }

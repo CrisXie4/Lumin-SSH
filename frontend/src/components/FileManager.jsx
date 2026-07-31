@@ -690,10 +690,13 @@ function runWithLimitSettled(items, limit, handler) {
     .catch((reason) => ({ status: 'rejected', reason }))));
 }
 
-async function uploadChunkWithRetry(label, uploadFn, onAttempt) {
+async function uploadChunkWithRetry(label, uploadFn, onAttempt, shouldAbort) {
   let firstError = null;
   let lastError = null;
   for (let attempt = 1; attempt <= MAX_CHUNK_UPLOAD_RETRIES; attempt++) {
+    if (shouldAbort?.()) {
+      throw new Error(UPLOAD_ABORT_SENTINEL);
+    }
     try {
       onAttempt?.(attempt, null);
       return await uploadFn();
@@ -2635,6 +2638,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const offCompressed = EventsOn(`compressed-upload-progress-${sessionId}`, (payload = {}) => {
       const uploadId = typeof payload.uploadId === 'string' ? payload.uploadId.trim() : '';
       if (!uploadId) return;
+      if (abortedUploadIdsRef.current.has(uploadId)) return;
       updateSessionUploadQueue(sessionGroupId, (current) => current.map((item) => {
         if (item.id !== uploadId) return item;
         const nextPhase = payload.phase || item.phase || 'preparing';
@@ -2663,6 +2667,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const offDownload = EventsOn(`download-transfer-progress-${sessionId}`, (payload = {}) => {
       const downloadId = typeof payload.downloadId === 'string' ? payload.downloadId.trim() : '';
       if (!downloadId) return;
+      if (abortedUploadIdsRef.current.has(downloadId)) return;
       updateSessionUploadQueue(sessionGroupId, (current) => current.map((item) => {
         if (item.id !== downloadId) return item;
         const nextStatus = payload.status || item.status || 'uploading';
@@ -3251,9 +3256,10 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         let fileId = '';
         let fileUploadedBytes = 0;
         try {
-          patchQueueItem(queueId, { status: 'uploading', updatedAt: Date.now() });
+          patchQueueItem(queueId, { status: 'uploading', taskId, updatedAt: Date.now() });
           const totalChunks = file.size > 0 ? Math.ceil(file.size / chunkSizeBytes) : 0;
           fileId = await AppGo.BeginChunkedUploadFile(taskId, relativePath, file.size, totalChunks);
+          patchQueueItem(queueId, { fileId, updatedAt: Date.now() });
           const chunkIndexes = Array.from({ length: totalChunks }, (_, index) => index);
           const chunkResults = await runWithLimitSettled(chunkIndexes, maxChunksPerFile, async (chunkIndex) => {
             const start = chunkIndex * chunkSizeBytes;
@@ -3272,7 +3278,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   error: error ? String(error) : '',
                   updatedAt: Date.now(),
                 });
-              });
+              }, () => abortedUploadIdsRef.current.has(queueId));
               patchQueueChunk(queueId, chunkIndex, { status: 'completed', error: '', updatedAt: Date.now() });
               const delta = end - start;
               uploadedBytes += delta;

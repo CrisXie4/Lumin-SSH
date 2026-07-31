@@ -610,8 +610,15 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	return nil
 }
 
+func (m *SSHManager) newSharedSFTPClient(client *ssh.Client) (*sftp.Client, error) {
+	if resolveTransferTuning().ApplyToSharedClient {
+		return newTunedSFTPClient(client)
+	}
+	return sftp.NewClient(client)
+}
+
 func (m *SSHManager) initSFTPClient(sessionId string, connKey string, conn Connection, client *ssh.Client) {
-	sftpClient, err := sftp.NewClient(client)
+	sftpClient, err := m.newSharedSFTPClient(client)
 	m.mu.Lock()
 	entry, ok := m.clients[connKey]
 	if !ok || entry.Client != client {
@@ -3471,36 +3478,52 @@ type progressReader struct {
 func (p *progressReader) Read(data []byte) (int, error) {
 	n, err := p.Reader.Read(data)
 	if n > 0 {
-		p.current += int64(n)
-		now := time.Now()
-		if now.Sub(p.lastEmit) > 200*time.Millisecond || p.current >= p.total {
-			pct := float64(0)
-			if p.total > 0 {
-				pct = float64(p.current) / float64(p.total) * 100
-				if pct > 100 {
-					pct = 100
-				}
+		p.advance(int64(n))
+	}
+	return n, err
+}
+
+func (p *progressReader) advance(delta int64) {
+	p.current += delta
+	now := time.Now()
+	if now.Sub(p.lastEmit) > 200*time.Millisecond || p.current >= p.total {
+		pct := float64(0)
+		if p.total > 0 {
+			pct = float64(p.current) / float64(p.total) * 100
+			if pct > 100 {
+				pct = 100
 			}
-			if p.ctx != nil {
-				runtime.EventsEmit(p.ctx, p.eventName, pct)
-			}
-			p.lastEmit = now
 		}
+		if p.ctx != nil {
+			runtime.EventsEmit(p.ctx, p.eventName, pct)
+		}
+		p.lastEmit = now
+	}
+}
+
+// progressWriter 包装目标 Writer 上报进度，避免包装源 Reader 时屏蔽其 WriteTo 快速路径。
+type progressWriter struct {
+	io.Writer
+	tracker *progressReader
+}
+
+func (p *progressWriter) Write(data []byte) (int, error) {
+	n, err := p.Writer.Write(data)
+	if n > 0 {
+		p.tracker.advance(int64(n))
 	}
 	return n, err
 }
 
 // copyWithProgress 复制数据并通过 Wails 事件报告进度
 func (m *SSHManager) copyWithProgress(dst io.Writer, src io.Reader, sessionId string, totalSize int64) error {
-	pr := &progressReader{
-		Reader:    src,
+	tracker := &progressReader{
 		ctx:       m.ctx,
 		eventName: "transfer-progress-" + sessionId,
 		total:     totalSize,
 		lastEmit:  time.Now(),
 	}
-	buf := make([]byte, 2*1024*1024)
-	_, err := io.CopyBuffer(dst, pr, buf)
+	_, err := io.Copy(&progressWriter{Writer: dst, tracker: tracker}, src)
 	return err
 }
 

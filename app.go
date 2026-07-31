@@ -136,6 +136,7 @@ func (a *App) startup(ctx context.Context) {
 	a.sshManager.ctx = ctx // Give SSH manager access to Wails events
 	a.sshManager.app = a   // Give SSH manager access to WebSocket registry
 	a.configManager.wailsCtx = ctx
+	setTransferTuningResolver(a.configManager.GetTransferTuningSettings)
 	if err := a.ensureMainLivenessLock(); err != nil {
 		log.Printf("failed to acquire main liveness lock: %v", err)
 	}
@@ -870,6 +871,10 @@ func (a *App) GetChmodDialogSettings() map[string]interface{} {
 
 func (a *App) GetFileManagerSettings() map[string]interface{} {
 	return a.configManager.GetFileManagerSettings()
+}
+
+func (a *App) SaveTransferTuningSettings(maxPacketKiB int, maxRequestsPerFile int, concurrentWrites bool, applyToSharedClient bool) error {
+	return a.configManager.SaveTransferTuningSettings(maxPacketKiB, maxRequestsPerFile, concurrentWrites, applyToSharedClient)
 }
 
 // SaveChmodDialogSettings persists chmod dialog preferences
