@@ -1208,29 +1208,18 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	var sftpToClose *sftp.Client
 	var clientToClose *ssh.Client
 
-	if !isLocal && !isSerial {
-		// 从 connTerminals 中移除
-		terminals := m.connTerminals[connKey]
-		for i, t := range terminals {
-			if t == sessionId {
-				m.connTerminals[connKey] = append(terminals[:i], terminals[i+1:]...)
-				break
+	if len(m.connTerminals[connKey]) == 0 {
+		if entry, ok := m.clients[connKey]; ok {
+			netConnToClose = entry.NetConn
+			sftpToClose = entry.SFTP
+			clientToClose = entry.Client
+			if entry.SFTPReady != nil {
+				entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
 			}
-		}
-
-		if len(m.connTerminals[connKey]) == 0 {
-			if entry, ok := m.clients[connKey]; ok {
-				netConnToClose = entry.NetConn
-				sftpToClose = entry.SFTP
-				clientToClose = entry.Client
-				if entry.SFTPReady != nil {
-					entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
-				}
-				delete(m.clients, connKey)
-				delete(m.connTerminals, connKey)
-				delete(m.probeDeployed, connKey)
-				delete(m.probeFailed, connKey)
-			}
+			delete(m.clients, connKey)
+			delete(m.connTerminals, connKey)
+			delete(m.probeDeployed, connKey)
+			delete(m.probeFailed, connKey)
 		}
 	}
 	m.mu.Unlock() // 尽早释放锁，避免 Close 阻塞影响其他操作
