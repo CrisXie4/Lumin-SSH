@@ -19,7 +19,7 @@ import {
 import Tiptop from './Tiptop.jsx';
 import '@xterm/xterm/css/xterm.css';
 import { useTranslation } from '../i18n.js';
-import defaultTermBg from '../assets/term_bg.png';
+import defaultTermBg from '../assets/term_bg.webp';
 import { Z } from '../constants/zIndex';
 import { getTerminalTheme, getAppThemeMode, isDarkTerminalSurface } from '../utils/theme.js';
 import { getResolvedProgramFontPreferences } from '../utils/programFonts.js';

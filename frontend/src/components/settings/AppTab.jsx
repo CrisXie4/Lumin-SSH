@@ -8,9 +8,9 @@ import {
   APP_GITHUB_RELEASES_URL,
   APP_GITHUB_REPO_URL,
 } from '../../config.js';
-import logoImg from '../../assets/logo.png';
-import logoLightImg from '../../assets/logo_q.png';
-import logoDarkImg from '../../assets/logo_s.png';
+import logoImg from '../../assets/logo.webp';
+import logoLightImg from '../../assets/logo_q.webp';
+import logoDarkImg from '../../assets/logo_s.webp';
 import { Z } from '../../constants/zIndex';
 import { AboutLink } from './SharedComponents';
 

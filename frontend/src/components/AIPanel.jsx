@@ -20,7 +20,7 @@ import AIChatConversation from './ai/chat/AIChatConversation.jsx'
 import { getConversationBranchAnchor } from './ai/chat/aiChatMessageTopology.js'
 import { isCallMyVipProviderHost } from './ai/providerSpecialHosts.js'
 import { getAIProviderDefinition } from './ai/providers/index.js'
-import assistantThinkingActiveImg from '../assets/assistant-thinking-active.gif'
+import assistantThinkingActiveImg from '../assets/assistant-thinking-active.webm'
 import Tiptop from './Tiptop.jsx'
 
 function getAIBridge() {
@@ -5750,9 +5750,12 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             </>
           ) : renderedConversationList}
           {showAssistantCollaborationActiveImage ? (
-            <img
+            <video
               src={assistantThinkingActiveImg}
-              alt=""
+              autoPlay
+              loop
+              muted
+              playsInline
               aria-hidden="true"
               style={{
                 position: 'absolute',

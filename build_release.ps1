@@ -25,7 +25,7 @@ if (Test-Path $configPath) {
 $env:PATH = "$goPath;$nsisPath;" + $env:PATH
 
 Write-Host "`n[1/2] Compiling Portable Edition..." -ForegroundColor Yellow
-wails build -clean -upx
+wails build -clean -upx -ldflags "-s -w"
 if ($LASTEXITCODE -ne 0) { Write-Error "Portable build failed"; exit 1 }
 
 $portableDest = "$portablePath\Lumin_Portable_V$version.exe"
@@ -33,7 +33,7 @@ Write-Host "Output portable to: $portableDest" -ForegroundColor Green
 Copy-Item -Path "build\bin\Lumin.exe" -Destination $portableDest -Force
 
 Write-Host "`n[2/2] Compiling Setup Edition..." -ForegroundColor Yellow
-wails build -clean -nsis -upx
+wails build -clean -nsis -upx -ldflags "-s -w"
 if ($LASTEXITCODE -ne 0) { Write-Error "Setup build failed"; exit 1 }
 
 $setupDest = "$exePath\Lumin_Setup_V$version.exe"

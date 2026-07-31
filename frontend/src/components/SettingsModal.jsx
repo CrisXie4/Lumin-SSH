@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
 import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t } from '../i18n.js';
 import { getModKey } from '../utils/platform.js';
-import logoImg from '../assets/logo.png';
+import logoImg from '../assets/logo.webp';
 import { APP_BUILD_TIME, APP_VERSION } from '../config.js';
 import { formatUpdateError, useUpdateChecker } from '../hooks/useUpdateChecker.js';
 import { Sun, Monitor, Moon, Keyboard, Cloud, Info, Database, Folder, X, RefreshCw, Globe, Palette, Lock, SlidersHorizontal } from 'lucide-react';

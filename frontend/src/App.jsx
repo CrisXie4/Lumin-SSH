@@ -38,9 +38,9 @@ import { restoreAIChatTool } from './components/ai/aiChatBridge.js';
 import { Bot, Settings, House, Minus, Square, X, Plus, Monitor, RefreshCw, Folder, ScrollText, Cpu, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, Globe, Rocket, Copy, PenLine, Sun, Moon } from 'lucide-react';
 import { Z } from './constants/zIndex';
 
-import logoImg from './assets/logo.png';
-import logoLightImg from './assets/logo_q.png';
-import logoDarkImg from './assets/logo_s.png';
+import logoImg from './assets/logo.webp';
+import logoLightImg from './assets/logo_q.webp';
+import logoDarkImg from './assets/logo_s.webp';
 
 function withAlpha(color, alpha, fallback) {
   if (typeof color !== 'string') {

@@ -7,7 +7,7 @@ import './index.css';
 import { applyProgramFontPreferences } from './utils/programFonts.js';
 import { applyStoredThemePackage, loadThemePackages } from './utils/theme.js';
 // favicon 与 UI logo 共用同一源，避免 public/favicon.png 再拷一份
-import logoFavicon from './assets/logo.png';
+import logoFavicon from './assets/logo.webp';
 
 (() => {
   let link = document.querySelector("link[rel='icon']");
