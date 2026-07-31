@@ -7130,6 +7130,16 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         />
       )}
 
+      {showSerialModal && (
+        <SerialConfigModal
+          onClose={() => setShowSerialModal(false)}
+          onConnect={(config) => {
+            setShowSerialModal(false);
+            connectSerial(config);
+          }}
+        />
+      )}
+
       {showSettings && (
         <SettingsModal
           initialTab={settingsInitialTab}
@@ -7150,16 +7160,6 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           onClose={() => { setShowCredentials(false); loadServers(); }}
           onChange={loadServers}
           addToast={addToast}
-        />
-      )}
-
-      {showSerialModal && (
-        <SerialConfigModal
-          onClose={() => setShowSerialModal(false)}
-          onConnect={(config) => {
-            setShowSerialModal(false);
-            connectSerial(config);
-          }}
         />
       )}
 
