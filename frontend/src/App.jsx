@@ -30,6 +30,7 @@ import { formatUpdateError, useUpdateChecker } from './hooks/useUpdateChecker.js
 import ConnectingCard from './components/ConnectingCard.jsx';
 import UpdateModal from './components/UpdateModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import SerialConfigModal from './components/SerialConfigModal.jsx';
 import ImportExportDialog from './components/ImportExportDialog.jsx';
 import ExportSelectedDialog from './components/ExportSelectedDialog.jsx';
 import Tiptop from './components/Tiptop.jsx';
@@ -414,6 +415,16 @@ function normalizeWorkspaceContentTab(value) {
     : 'terminal';
 }
 
+// Windows-native local shells (PowerShell/CMD) have no probe backend (the monitor
+// probe is a POSIX sh script run via WSL/Unix only), so system monitoring, process
+// and network panels are unavailable for them — mirrors backend WSLDistro=="" gating.
+// WSL/Unix-local sessions are supported and unaffected.
+function isUnsupportedMonitorSession(session) {
+  if (!session?.isLocal) return false;
+  const shell = (session.shellPath || '').toLowerCase();
+  return shell.includes('powershell') || shell.includes('pwsh') || shell.includes('cmd');
+}
+
 function remapSessionWorkspaceLayouts(layouts, idMap, targetSessionId) {
   const sourceMap = idMap && typeof idMap === 'object' ? idMap : {};
   const next = {};
@@ -487,6 +498,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState('general');
   const [showCredentials, setShowCredentials] = useState(false);
+  const [showSerialModal, setShowSerialModal] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState(null);
   const [terminalTabContextMenu, setTerminalTabContextMenu] = useState(null);
   useEffect(() => {
@@ -2557,8 +2569,11 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           return prevServers;
         });
       }
-      // 启用监控
-      setMonitoringEnabled((prev) => ({ ...prev, [sessionId]: true }));
+      // 启用监控（PowerShell/CMD 无 probe 后端，跳过以避免无效轮询与误导标记）
+      const sess = sessionsRef.current.find((s) => s.id === sessionId);
+      if (!isUnsupportedMonitorSession(sess)) {
+        setMonitoringEnabled((prev) => ({ ...prev, [sessionId]: true }));
+      }
     } catch (_) {}
   }, [recordRecentConnection]);
 
@@ -2700,6 +2715,11 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     const tab = normalizeWorkspaceContentTab(lastContentTabRef.current[sessionId] || 'terminal');
     // 文件管理器已停靠时，files 页签不可用，回落终端
     if (tab === 'files' && fileManagerPosition !== 'tab') return 'terminal';
+    // 串口会话不支持文件管理/进程/网络（无 SFTP/probe），回落终端
+    const sess = sessionsRef.current.find((s) => s.id === sessionId);
+    if (sess?.isSerial && (tab === 'files' || tab === 'process' || tab === 'network')) return 'terminal';
+    // PowerShell/CMD 无 probe 后端，进程/网络监控不可用（文件管理仍可用），回落终端
+    if (isUnsupportedMonitorSession(sess) && (tab === 'process' || tab === 'network')) return 'terminal';
     return tab;
   }, [fileManagerPosition]);
 
@@ -2784,6 +2804,66 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
   const reconnectSession = useCallback(async (session, requestingTerminalId, options = {}) => {
     const deferState = options?.deferState === true;
     updateSessionStatus(session.id, 'connecting');
+
+    if (session.isLocal) {
+      const serverObj = { id: session.serverId, name: session.serverName, host: 'localhost' };
+      setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
+      try {
+        await window.go.main.App.ConnectLocal(session.id, session.serverName, session.shellPath, '');
+        // 本地/串口复用同一 sessionId 重连：自增 wsRebuildKey 让 Terminal 重建 WebSocket
+        if (!deferState) {
+          setSessions((prev) =>
+            prev.map((s) => (s.id === session.id ? { ...s, status: 'connected', wsRebuildKey: (s.wsRebuildKey || 0) + 1 } : s))
+          );
+        }
+        setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
+        return { oldToNew: { [session.id]: session.id }, newTerminals: session.terminals };
+      } catch (err) {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === session.id ? { ...s, status: 'error' } : s))
+        );
+        setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
+        if (!deferState) {
+          addToast(`${t('重新连接失败')}: ${err}`, 'error', 5000);
+        }
+        return null;
+      }
+    }
+
+    if (session.isSerial) {
+      const serverObj = { id: session.serverId, name: session.serverName, host: session.serialConfig?.port || '' };
+      setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
+      try {
+        const config = session.serialConfig;
+        await window.go.main.App.ConnectSerial(
+          session.id,
+          session.serverName,
+          config.port,
+          config.baudRate,
+          config.dataBits,
+          config.stopBits,
+          config.parity
+        );
+        // 本地/串口复用同一 sessionId 重连：自增 wsRebuildKey 让 Terminal 重建 WebSocket
+        if (!deferState) {
+          setSessions((prev) =>
+            prev.map((s) => (s.id === session.id ? { ...s, status: 'connected', wsRebuildKey: (s.wsRebuildKey || 0) + 1 } : s))
+          );
+        }
+        setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
+        return { oldToNew: { [session.id]: session.id }, newTerminals: session.terminals };
+      } catch (err) {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === session.id ? { ...s, status: 'error' } : s))
+        );
+        setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
+        if (!deferState) {
+          addToast(`${t('重新连接失败')}: ${err}`, 'error', 5000);
+        }
+        return null;
+      }
+    }
+
     const serverObj = serversRef.current.find((sv) => sv.id === session.serverId);
     if (serverObj) {
       setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
@@ -3545,6 +3625,87 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       handleConnectError(sessionId, err);
     }
   }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, t, waitForServerDisconnect, workspacePersistenceLevel]);
+
+  const connectLocal = useCallback((name, shellPath) => {
+    markWorkspaceRestoreNavigationOverride();
+    const sessionId = `session_${Date.now()}`;
+    const newSession = {
+      id: sessionId,
+      serverId: `local_${shellPath}`,
+      serverName: name,
+      host: 'localhost',
+      status: 'connecting',
+      terminals: [{ id: sessionId, label: name }],
+      isLocal: true,
+      shellPath: shellPath,
+      wsRebuildKey: 0,
+    };
+    const nextSessions = [...sessionsRef.current, newSession];
+    sessionsRef.current = nextSessions;
+    setSessions(nextSessions);
+    setActiveSessionId(sessionId);
+    setActiveTerminalId(sessionId);
+    setContentTab('terminal');
+    setConnectingServers((prev) => [...prev, { server: { id: newSession.serverId, name: name, host: 'localhost' }, sessionId, startTime: Date.now() }]);
+
+    window.go.main.App.ConnectLocal(sessionId, name, shellPath, '')
+      .then(() => {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, status: 'connected' } : s))
+        );
+        setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
+        // 与 SSH 连接保持一致：连接成功后查询静态信息并自动启用系统监控。
+        // postConnectSetup 内部对 serverId 相关调用有兜底，本地 serverId 无副作用。
+        void postConnectSetup(sessionId, newSession.serverId);
+      })
+      .catch((err) => {
+        handleConnectError(sessionId, err);
+      });
+  }, [handleConnectError, markWorkspaceRestoreNavigationOverride, postConnectSetup]);
+
+  const connectSerial = useCallback((config) => {
+    markWorkspaceRestoreNavigationOverride();
+    const sessionId = `session_${Date.now()}`;
+    const displayName = `${config.port}@${config.baudRate}`;
+    const newSession = {
+      id: sessionId,
+      serverId: `serial_${config.port}`,
+      serverName: displayName,
+      host: config.port,
+      status: 'connecting',
+      terminals: [{ id: sessionId, label: displayName }],
+      isSerial: true,
+      serialConfig: config,
+      wsRebuildKey: 0,
+    };
+    const nextSessions = [...sessionsRef.current, newSession];
+    sessionsRef.current = nextSessions;
+    setSessions(nextSessions);
+    setActiveSessionId(sessionId);
+    setActiveTerminalId(sessionId);
+    setContentTab('terminal');
+    setConnectingServers((prev) => [...prev, { server: { id: newSession.serverId, name: displayName, host: config.port }, sessionId, startTime: Date.now() }]);
+
+    window.go.main.App.ConnectSerial(
+      sessionId,
+      displayName,
+      config.port,
+      config.baudRate,
+      config.dataBits,
+      config.stopBits,
+      config.parity
+    )
+      .then(() => {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, status: 'connected' } : s))
+        );
+        setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
+      })
+      .catch((err) => {
+        handleConnectError(sessionId, err);
+      });
+  }, [handleConnectError, markWorkspaceRestoreNavigationOverride]);
+
 
   // ── Close session ──────────────────────────────────────────
   // ponytail: 内部关闭逻辑，不带确认弹窗，供 closeSession 和右键菜单共用
@@ -4665,7 +4826,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     }).filter(Boolean);
   }, [fileManagerDockPreview, getFileManagerDockConfirmRect]);
   const isCreatingTerminal = creatingTerminalSessionId !== null;
-  const probeSessions = useMemo(() => sessions.filter((s) => (
+  const probeSessions = useMemo(() => sessions.filter((s) => !s.isSerial && !isUnsupportedMonitorSession(s) && (
     s.status === 'connected' || (s.status === 'closed' && monitoringEnabled[s.id])
   )), [monitoringEnabled, sessions]);
   const shouldShowProbePanel = probeSessions.some((s) => s.id === activeSessionId);
@@ -4856,6 +5017,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         host: savedServer.host,
         status: 'connecting',
         terminals: [{ id: sessionId, label: `${t('终端')}1` }],
+        wsRebuildKey: 0,
       };
 
       const nextSessions = [...sessionsRef.current, newSession];
@@ -6014,6 +6176,9 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
               if (!prev) return true;
               return false;
             })}
+            onConnectLocal={connectLocal}
+            onConnectSerial={connectSerial}
+            setShowSerialModal={setShowSerialModal}
           />
         </div>
 
@@ -6196,7 +6361,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                       <div className={`file-manager-dock-preview-dropzone file-manager-dock-preview-dropzone-inline${fileManagerDockConfirmTarget === 'tab' ? ' active' : ''}`} />
                     </div>
                   )}
-                  {fileManagerPosition === 'tab' && (
+                  {fileManagerPosition === 'tab' && !activeSession?.isSerial && (
                     <button
                       className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'files' ? 'active' : ''}`}
                       onMouseDown={(e) => startDrag(e, 'tab')}
@@ -6209,20 +6374,24 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                       {t('文件管理')}
                     </button>
                   )}
-                  <button
-                    className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'process' ? 'active' : ''}`}
-                    onClick={() => setContentTab(contentTab === 'process' ? 'terminal' : 'process')}
-                  >
-                    <Cpu size={14} />
-                    {t('进程管理')}
-                  </button>
-                  <button
-                    className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'network' ? 'active' : ''}`}
-                    onClick={() => setContentTab(contentTab === 'network' ? 'terminal' : 'network')}
-                  >
-                    <Globe size={14} />
-                    {t('网络监控')}
-                  </button>
+                  {activeSession?.isSerial || isUnsupportedMonitorSession(activeSession) ? null : (
+                    <button
+                      className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'process' ? 'active' : ''}`}
+                      onClick={() => setContentTab(contentTab === 'process' ? 'terminal' : 'process')}
+                    >
+                      <Cpu size={14} />
+                      {t('进程管理')}
+                    </button>
+                  )}
+                  {activeSession?.isSerial || isUnsupportedMonitorSession(activeSession) ? null : (
+                    <button
+                      className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'network' ? 'active' : ''}`}
+                      onClick={() => setContentTab(contentTab === 'network' ? 'terminal' : 'network')}
+                    >
+                      <Globe size={14} />
+                      {t('网络监控')}
+                    </button>
+                  )}
                   <button
                     className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'history' ? 'active' : ''}`}
                     onClick={() => setContentTab(contentTab === 'history' ? 'terminal' : 'history')}
@@ -6253,7 +6422,8 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                 <div id="editor-main-content" style={{ flex: 1, position: 'relative', overflow: 'hidden', order: 1 }}>
                   {sessions.map((s) => {
                     const shouldMountFileManager = s.status === 'connected'
-                      && mountedSessions.has(s.id);
+                      && mountedSessions.has(s.id)
+                      && !s.isSerial;
                     const showSplitFileManager = shouldMountFileManager
                       && contentTab !== 'process'
                       && contentTab !== 'network'
@@ -6619,6 +6789,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                                             showCommands={showQuickCommands && isTermVisible}
                                             onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                             quickCmdsRef={quickCmdsRef}
+                                            wsRebuildKey={s.wsRebuildKey || 0}
                                           />
                                         </ErrorBoundary>
                                       </div>
@@ -6648,6 +6819,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                                         showCommands={showQuickCommands && activeSessionId === s.id && activeTerminalId === t.id}
                                         onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                         quickCmdsRef={quickCmdsRef}
+                                        wsRebuildKey={s.wsRebuildKey || 0}
                                       />
                                     </ErrorBoundary>
                                   </div>
@@ -6684,7 +6856,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                               />
                             </div>
                           )}
-                          {s.status === 'connected' && mountedSessions.has(s.id) && (
+                          {s.status === 'connected' && mountedSessions.has(s.id) && !s.isSerial && !isUnsupportedMonitorSession(s) && (
                             <div style={{ display: contentTab === 'process' ? 'flex' : 'none', height: '100%', flex: 1, minWidth: 0, minHeight: 0 }}>
                               <ProcessPage
                                 sessionId={s.id}
@@ -6693,7 +6865,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                               />
                             </div>
                           )}
-                          {s.status === 'connected' && mountedSessions.has(s.id) && (
+                          {s.status === 'connected' && mountedSessions.has(s.id) && !s.isSerial && !isUnsupportedMonitorSession(s) && (
                             <div style={{ display: contentTab === 'network' ? 'flex' : 'none', height: '100%', flex: 1, minWidth: 0, minHeight: 0 }}>
                               <NetworkPage
                                 sessionId={s.id}
@@ -6978,6 +7150,16 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           onClose={() => { setShowCredentials(false); loadServers(); }}
           onChange={loadServers}
           addToast={addToast}
+        />
+      )}
+
+      {showSerialModal && (
+        <SerialConfigModal
+          onClose={() => setShowSerialModal(false)}
+          onConnect={(config) => {
+            setShowSerialModal(false);
+            connectSerial(config);
+          }}
         />
       )}
 
