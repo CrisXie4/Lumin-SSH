@@ -241,6 +241,7 @@ func aiProvidersEqual(a, b []ai.AIProviderProfile) bool {
 func normalizeAIGlobalSettingsForCompare(settings ai.AIGlobalSettings) ai.AIGlobalSettings {
 	settings.CurrentProviderID = strings.TrimSpace(settings.CurrentProviderID)
 	settings.AIRequestProxyID = strings.TrimSpace(settings.AIRequestProxyID)
+	settings.CollaborationExtraPrompt = strings.TrimSpace(strings.ReplaceAll(settings.CollaborationExtraPrompt, "\r\n", "\n"))
 	settings.ProxyNodes = nil
 	settings.UpdatedAt = 0
 	if settings.AllowedCommands == nil {
@@ -251,6 +252,10 @@ func normalizeAIGlobalSettingsForCompare(settings ai.AIGlobalSettings) ai.AIGlob
 	}
 	if settings.SlashCommands == nil {
 		settings.SlashCommands = []ai.AISlashCommand{}
+	}
+	// omitempty 上传后远端缺失字段解成 nil；本地 Load 会规范成空切片。比较必须等价，否则每次启动都误判 cloudChanged。
+	if settings.CollaborationPromptPresets == nil {
+		settings.CollaborationPromptPresets = []ai.AICollaborationPromptPreset{}
 	}
 	return settings
 }
@@ -285,6 +290,9 @@ func aiGlobalSettingsDiffSummary(a, b *ai.AIGlobalSettings) string {
 	}
 	if !reflect.DeepEqual(aa.AllowedCommands, bb.AllowedCommands) || !reflect.DeepEqual(aa.DeniedCommands, bb.DeniedCommands) || !reflect.DeepEqual(aa.SlashCommands, bb.SlashCommands) {
 		parts = append(parts, fmt.Sprintf("commands allowed=%d/%d denied=%d/%d slash=%d/%d", len(aa.AllowedCommands), len(bb.AllowedCommands), len(aa.DeniedCommands), len(bb.DeniedCommands), len(aa.SlashCommands), len(bb.SlashCommands)))
+	}
+	if !reflect.DeepEqual(aa.CollaborationPromptPresets, bb.CollaborationPromptPresets) || aa.CollaborationExtraPrompt != bb.CollaborationExtraPrompt {
+		parts = append(parts, fmt.Sprintf("collaboration presets=%d/%d extra=%q/%q", len(aa.CollaborationPromptPresets), len(bb.CollaborationPromptPresets), aa.CollaborationExtraPrompt, bb.CollaborationExtraPrompt))
 	}
 	if len(parts) == 0 && !reflect.DeepEqual(aa, bb) {
 		parts = append(parts, "other fields differ")

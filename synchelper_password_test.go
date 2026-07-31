@@ -1271,6 +1271,34 @@ func TestConnsEqualNormalizesAndroidDefaultProxyFields(t *testing.T) {
 	}
 }
 
+func TestAIGlobalSettingsEqualTreatsNilCollaborationPresetsAsEmpty(t *testing.T) {
+	// 本地 Load 会把缺失字段规范成空切片；远端 omitempty 缺失字段解成 nil。
+	// 若比较不归一，每次启动都会误判 AI 全局设置变化并重复上传。
+	local := &ai.AIGlobalSettings{
+		CurrentProviderID:          "p1",
+		AlwaysAllowExecute:         true,
+		CollaborationPromptPresets: []ai.AICollaborationPromptPreset{},
+		CollaborationExtraPrompt:   "  extra\r\n ",
+		UpdatedAt:                  100,
+	}
+	remote := &ai.AIGlobalSettings{
+		CurrentProviderID:          "p1",
+		AlwaysAllowExecute:         true,
+		CollaborationPromptPresets: nil,
+		CollaborationExtraPrompt:   "extra",
+		UpdatedAt:                  200,
+	}
+	if !aiGlobalSettingsEqual(local, remote) {
+		t.Fatalf("nil collaboration presets 应与空切片等价，diff=%s", aiGlobalSettingsDiffSummary(local, remote))
+	}
+	if !snapshotEqual(
+		&SyncSnapshot{AIGlobalSettings: local, HasAIGlobalSettings: true},
+		&SyncSnapshot{AIGlobalSettings: remote, HasAIGlobalSettings: true},
+	) {
+		t.Fatal("快照比较也应忽略 collaboration presets 的 nil/空切片差异")
+	}
+}
+
 func TestCredsEqualNormalizesEmptyPrivateKey(t *testing.T) {
 	a := []Credential{{ID: "c", Name: "n", AuthMethod: "password", Username: "u", Password: "p", LastModified: 1}}
 	b := []Credential{{ID: "c", Name: "n", AuthMethod: "password", Username: "u", Password: "p", PrivateKey: "", Passphrase: "", LastModified: 1}}
