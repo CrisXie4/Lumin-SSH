@@ -60,10 +60,29 @@ func resolveTransferTuning() TransferTuningSettings {
 	return normalizeTransferTuningSettings(transferTuningResolver())
 }
 
+// resolveWindowBoundedRequests 把单文件在途请求数收窄到 SSH channel window 之内。
+// 在途数据量的上限由 SSH channel window 决定，而不是由并发度决定；一旦并发度超过
+// window/packet，多出来的请求只能排队等待窗口回补，不产生额外吞吐，只额外占用
+// goroutine 与内存。该函数只收窄不放大，用户填写的值仍是上限。
+func resolveWindowBoundedRequests(tuning TransferTuningSettings) int {
+	packetBytes := tuning.MaxPacketKiB * 1024
+	if packetBytes <= 0 {
+		packetBytes = defaultTransferMaxPacketKiB * 1024
+	}
+	bounded := sshChannelWindowBytes / packetBytes
+	if bounded < 1 {
+		bounded = 1
+	}
+	if tuning.MaxRequestsPerFile > 0 && tuning.MaxRequestsPerFile < bounded {
+		return tuning.MaxRequestsPerFile
+	}
+	return bounded
+}
+
 func buildTunedSFTPOptions(tuning TransferTuningSettings) []sftp.ClientOption {
 	return []sftp.ClientOption{
 		sftp.MaxPacketUnchecked(tuning.MaxPacketKiB * 1024),
-		sftp.MaxConcurrentRequestsPerFile(tuning.MaxRequestsPerFile),
+		sftp.MaxConcurrentRequestsPerFile(resolveWindowBoundedRequests(tuning)),
 		sftp.UseConcurrentWrites(tuning.ConcurrentWrites),
 	}
 }

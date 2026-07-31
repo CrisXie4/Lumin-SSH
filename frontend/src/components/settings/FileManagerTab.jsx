@@ -312,9 +312,9 @@ export default function FileManagerTab({
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
-            title={$t('多文件并发上传最大数量')}
+            title={$t('最大传输任务数量')}
             description={renderWarningDescription(
-              withDefaultValue($t('控制同一时间允许并发上传的文件数量'), '6'),
+              withTransferDefaultValue($t('控制当前会话内同时进行的上传和下载任务数量,每个文件或文件夹都算一个任务'), '6'),
               $t('增大后可能提高同一会话内的 SFTP/SSH 通道占用')
             )}
             action={<input className="input" type="number" value={fileManagerUploadMaxFiles} onChange={onFileManagerUploadMaxFilesChange} style={{ width: 160, textAlign: 'right' }} />}
@@ -346,7 +346,7 @@ export default function FileManagerTab({
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
           <SettingRow
             title={$t('SFTP 单文件请求流水线深度')}
-            description={withTransferDefaultValue($t('单个文件同时保持在链路上的 SFTP 请求数量,调大可填满高带宽链路'), '128')}
+            description={withTransferDefaultValue($t('单个文件同时保持在链路上的 SFTP 请求数量;实际生效值会按 SSH 通道窗口自动收窄,填写超出窗口的数值不会提速,只会额外占用资源'), '16')}
             action={<input className="input" type="number" value={transferMaxRequestsPerFile} onChange={onTransferMaxRequestsPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />

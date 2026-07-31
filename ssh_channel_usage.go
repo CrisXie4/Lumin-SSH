@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -219,8 +218,4 @@ func (m *SSHManager) GetSSHChannelUsage(sessionId string) map[string]interface{}
 		"total":       usage.Total,
 		"maxSessions": usage.MaxSessions,
 	}
-}
-
-func formatSSHChannelUsageSummary(usage sshChannelUsage) string {
-	return fmt.Sprintf("%d/%d", usage.Total, usage.MaxSessions)
 }

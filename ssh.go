@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ai "luminssh-go/internal/ai"
@@ -3494,30 +3495,36 @@ func (p *progressReader) advance(delta int64) {
 	p.current += delta
 	now := time.Now()
 	if now.Sub(p.lastEmit) > 200*time.Millisecond || p.current >= p.total {
-		pct := float64(0)
-		if p.total > 0 {
-			pct = float64(p.current) / float64(p.total) * 100
-			if pct > 100 {
-				pct = 100
-			}
-		}
-		if p.ctx != nil {
-			runtime.EventsEmit(p.ctx, p.eventName, pct)
-		}
+		p.emit(p.current)
 		p.lastEmit = now
 	}
 }
 
-// progressWriter 包装目标 Writer 上报进度，避免包装源 Reader 时屏蔽其 WriteTo 快速路径。
+func (p *progressReader) emit(current int64) {
+	pct := float64(0)
+	if p.total > 0 {
+		pct = float64(current) / float64(p.total) * 100
+		if pct > 100 {
+			pct = 100
+		}
+	}
+	if p.ctx != nil {
+		runtime.EventsEmit(p.ctx, p.eventName, pct)
+	}
+}
+
+// progressWriter 只累加原子计数，不在 Write 内触发 Wails 事件。
+// 传输数据流水线（尤其 sftp 的 File.WriteTo 串行 Reduce 阶段）以此 Write 为唯一出口，
+// 在其中做同步 IPC 会冻结整条流水线。
 type progressWriter struct {
 	io.Writer
-	tracker *progressReader
+	copied atomic.Int64
 }
 
 func (p *progressWriter) Write(data []byte) (int, error) {
 	n, err := p.Writer.Write(data)
 	if n > 0 {
-		p.tracker.advance(int64(n))
+		p.copied.Add(int64(n))
 	}
 	return n, err
 }
@@ -3530,7 +3537,32 @@ func (m *SSHManager) copyWithProgress(dst io.Writer, src io.Reader, sessionId st
 		total:     totalSize,
 		lastEmit:  time.Now(),
 	}
-	_, err := io.Copy(&progressWriter{Writer: dst, tracker: tracker}, src)
+	writer := &progressWriter{Writer: dst}
+	reporterDone := make(chan struct{})
+	reporterFinished := make(chan struct{})
+	go func() {
+		defer close(reporterFinished)
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		lastReported := int64(-1)
+		for {
+			select {
+			case <-reporterDone:
+				return
+			case <-ticker.C:
+				current := writer.copied.Load()
+				if current == lastReported {
+					continue
+				}
+				lastReported = current
+				tracker.emit(current)
+			}
+		}
+	}()
+	_, err := io.Copy(writer, src)
+	close(reporterDone)
+	<-reporterFinished
+	tracker.emit(writer.copied.Load())
 	return err
 }
 

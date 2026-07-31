@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -153,13 +154,17 @@ func (m *SSHManager) emitDownloadTransferProgress(sessionId string, downloadID s
 	})
 }
 
+// downloadProgressWriter 只做磁盘写入与原子计数，绝不在 Write 内触发进度上报。
+// pkg/sftp 的 File.WriteTo 采用严格按 offset 串行的 Reduce 阶段，w.Write 是整条下载
+// 流水线的唯一出口；一旦在这里调用 runtime.EventsEmit（同步 IPC 到 WebView）或抢占
+// 带锁的 MCP 传输存储，所有并发读 worker 都会堵在投递上，调度协程随之停止派发，
+// 表现为进度长时间停在 0 之后极慢推进。上传路径之所以不受影响，是因为它的进度上报
+// 发生在多个并行 worker 内部，单个 worker 被阻塞不会冻结整条流水线。
 type downloadProgressWriter struct {
-	ctx        context.Context
-	dst        io.Writer
-	totalSize  int64
-	onProgress func(int64, int64)
-	copied     int64
-	lastEmit   time.Time
+	ctx       context.Context
+	dst       io.Writer
+	totalSize int64
+	copied    atomic.Int64
 }
 
 func (w *downloadProgressWriter) Write(p []byte) (int, error) {
@@ -168,28 +173,60 @@ func (w *downloadProgressWriter) Write(p []byte) (int, error) {
 	}
 	written, err := w.dst.Write(p)
 	if written > 0 {
-		w.copied += int64(written)
-		now := time.Now()
-		if w.onProgress != nil && (now.Sub(w.lastEmit) > 200*time.Millisecond || w.copied >= w.totalSize) {
-			w.onProgress(w.copied, w.totalSize)
-			w.lastEmit = now
-		}
+		w.copied.Add(int64(written))
 	}
 	return written, err
 }
 
+// startDownloadProgressReporter 用独立协程按固定间隔上报进度，把 IPC 开销从数据
+// 流水线的关键路径上彻底移出。返回的 stop 函数会结束协程。
+func startDownloadProgressReporter(ctx context.Context, writer *downloadProgressWriter, totalSize int64, onProgress func(int64, int64)) func() {
+	if onProgress == nil {
+		return func() {}
+	}
+	done := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		lastReported := int64(-1)
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				current := writer.copied.Load()
+				if current == lastReported {
+					continue
+				}
+				lastReported = current
+				onProgress(current, totalSize)
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		<-finished
+	}
+}
+
 func copyReaderWithProgressContext(ctx context.Context, dst io.Writer, src io.Reader, totalSize int64, onProgress func(int64, int64)) error {
 	writer := &downloadProgressWriter{
-		ctx:        ctx,
-		dst:        dst,
-		totalSize:  totalSize,
-		onProgress: onProgress,
+		ctx:       ctx,
+		dst:       dst,
+		totalSize: totalSize,
 	}
-	if _, err := io.Copy(writer, src); err != nil {
-		return err
+	stopReporter := startDownloadProgressReporter(ctx, writer, totalSize, onProgress)
+	_, copyErr := io.Copy(writer, src)
+	stopReporter()
+	if copyErr != nil {
+		return copyErr
 	}
 	if onProgress != nil {
-		onProgress(writer.copied, totalSize)
+		onProgress(writer.copied.Load(), totalSize)
 	}
 	return ensureContextActive(ctx)
 }
