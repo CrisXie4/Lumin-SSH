@@ -66,7 +66,7 @@ export default function SerialConfigModal({ onClose, onConnect }) {
                 <div>
                   <input
                     className="input"
-                    placeholder="e.g. COM3 or /dev/ttyUSB0"
+                    placeholder={t('例如：COM3 或 /dev/ttyUSB0')}
                     value={form.port}
                     onChange={(e) => setForm({ ...form, port: e.target.value })}
                     required
@@ -148,11 +148,11 @@ export default function SerialConfigModal({ onClose, onConnect }) {
                 onChange={(e) => setForm({ ...form, parity: e.target.value })}
                 style={{ width: '100%' }}
               >
-                <option value="none">None</option>
-                <option value="odd">Odd</option>
-                <option value="even">Even</option>
-                <option value="mark">Mark</option>
-                <option value="space">Space</option>
+                <option value="none">{t('无校验')}</option>
+                <option value="odd">{t('奇校验')}</option>
+                <option value="even">{t('偶校验')}</option>
+                <option value="mark">{t('标记校验')}</option>
+                <option value="space">{t('空格校验')}</option>
               </select>
             </div>
           </div>
