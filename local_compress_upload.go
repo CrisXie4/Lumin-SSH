@@ -1071,6 +1071,11 @@ func (m *SSHManager) uploadLocalFileWithContext(ctx context.Context, sshClient *
 	tempPath := destPath + ".luminpart." + newUploadObjectID("upload_file")
 
 	pool := newSFTPUploadPool(sshClient, maxConcurrent)
+	if sessionId, ok := ctx.Value("compressedUploadSessionId").(string); ok && strings.TrimSpace(sessionId) != "" {
+		pool.onChannelDelta = func(delta int) {
+			m.trackUploadChannelDelta(sessionId, delta)
+		}
+	}
 	defer pool.Close()
 
 	// Pre-create remote temp file

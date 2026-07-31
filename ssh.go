@@ -599,6 +599,7 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	m.sessions[sessionId] = sd
 	m.connTerminals[connKey] = append(m.connTerminals[connKey], sessionId)
 	m.mu.Unlock()
+	m.emitSSHChannelUsage(connKey)
 
 	go m.pipeOutput(sessionId, stdout, historyStream)
 	go m.pipeOutput(sessionId, stderr, nil)
@@ -634,6 +635,10 @@ func (m *SSHManager) initSFTPClient(sessionId string, connKey string, conn Conne
 		entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
 	}
 	m.mu.Unlock()
+	m.emitSSHChannelUsage(connKey)
+	if err == nil {
+		go m.probeSSHMaxSessions(connKey)
+	}
 
 	if err != nil && m.ctx != nil {
 		runtime.EventsEmit(m.ctx, "ssh-status", map[string]interface{}{
@@ -766,6 +771,7 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	delete(m.probeDeployed, connKey)
 	delete(m.probeFailed, connKey)
 	m.mu.Unlock()
+	globalSSHChannelUsage.forget(connKey)
 
 	if reason == "" {
 		reason = "transport"
@@ -1050,6 +1056,7 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 			break
 		}
 	}
+	defer m.emitSSHChannelUsage(connKey)
 
 	var netConnToClose net.Conn
 	var sftpToClose *sftp.Client

@@ -814,6 +814,11 @@ func (a *App) GetTerminalCwd(sessionId string) (string, error) {
 	return a.sshManager.GetTerminalCwd(sessionId)
 }
 
+// GetSSHChannelUsage 返回当前会话占用的 SSH 通道数量明细
+func (a *App) GetSSHChannelUsage(sessionId string) map[string]interface{} {
+	return a.sshManager.GetSSHChannelUsage(sessionId)
+}
+
 // ListDir lists directory contents via SFTP
 func (a *App) ListDir(sessionId string, path string) ([]map[string]interface{}, error) {
 	return a.sshManager.ListDir(sessionId, path)

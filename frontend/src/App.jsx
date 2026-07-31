@@ -501,6 +501,7 @@ export default function App() {
     return () => { clearTimeout(timer); document.removeEventListener('click', close); };
   }, [tabContextMenu, terminalTabContextMenu]);
   const [connectingServers, setConnectingServers] = useState([]); // [{ server, sessionId, startTime }]
+  const [sshChannelUsage, setSshChannelUsage] = useState({}); // sessionId -> { terminals, sharedSftp, uploadPool, total, maxSessions }
   const connectingServersRef = useRef([]);
   useEffect(() => { connectingServersRef.current = connectingServers; }, [connectingServers]);
   const [toasts, setToasts] = useState([]);
@@ -3288,6 +3289,29 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     };
   }, [addToast, t]);
 
+  // ── 监听 SSH 通道占用事件 ─────────────────────────────────
+  useEffect(() => {
+    const unbind = EventsOn('ssh-channel-usage', (payload) => {
+      const data = payload && typeof payload === 'object' ? payload : null;
+      if (!data) return;
+      const sessionIds = Array.isArray(data.sessionIds) ? data.sessionIds.filter(Boolean) : [];
+      if (sessionIds.length === 0) return;
+      const usage = {
+        terminals: Number(data.terminals) || 0,
+        sharedSftp: Number(data.sharedSftp) || 0,
+        uploadPool: Number(data.uploadPool) || 0,
+        total: Number(data.total) || 0,
+        maxSessions: Number(data.maxSessions) || 10,
+      };
+      setSshChannelUsage((prev) => {
+        const next = { ...prev };
+        sessionIds.forEach((id) => { next[id] = usage; });
+        return next;
+      });
+    });
+    return () => { if (unbind) unbind(); };
+  }, []);
+
   // ── 监听 SSH 连接状态事件 ─────────────────────────────────
   useEffect(() => {
     const unbind = EventsOn('ssh-status', (data) => {
@@ -5606,6 +5630,48 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                       }}
                     >
                       <span className={`status-dot ${s.status === 'connecting' ? 'connecting' : s.status === 'connected' ? 'online' : 'offline'}`} />
+                      {(() => {
+                        const usage = sshChannelUsage[s.id];
+                        if (!usage || usage.total <= 0 || s.status !== 'connected') return null;
+                        const maxSessions = usage.maxSessions > 0 ? usage.maxSessions : 10;
+                        const nearLimit = usage.total >= Math.max(1, maxSessions - 2);
+                        return (
+                          <Tiptop
+                            placement="bottom"
+                            text={(
+                              <>
+                                <div>{t('服务器连接通道占用')}</div>
+                                <div style={{ marginTop: 2, opacity: 0.82, fontSize: 11 }}>{t('终端 {count} 个', { count: usage.terminals })}</div>
+                                <div style={{ opacity: 0.82, fontSize: 11 }}>{t('共享文件通道 {count} 个', { count: usage.sharedSftp })}</div>
+                                <div style={{ opacity: 0.82, fontSize: 11 }}>{t('上传通道 {count} 个', { count: usage.uploadPool })}</div>
+                                <div style={{ marginTop: 2, fontSize: 11 }}>{t('合计 {total} / 上限 {max}', { total: usage.total, max: maxSessions })}</div>
+                                <div style={{ marginTop: 2, opacity: 0.7, fontSize: 11 }}>{t('接近服务器通道上限后将无法建立新的终端或传输')}</div>
+                              </>
+                            )}
+                          >
+                            <span
+                              className="no-drag"
+                              style={{
+                                minWidth: 15,
+                                height: 15,
+                                padding: '0 4px',
+                                borderRadius: 999,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                lineHeight: '15px',
+                                textAlign: 'center',
+                                flexShrink: 0,
+                                cursor: 'default',
+                                background: nearLimit ? 'var(--warning-dim)' : 'var(--surface-sunken)',
+                                color: nearLimit ? 'var(--warning)' : 'var(--text-tertiary)',
+                                border: `1px solid ${nearLimit ? 'var(--warning)' : 'var(--border)'}`,
+                              }}
+                            >
+                              {usage.total}
+                            </span>
+                          </Tiptop>
+                        );
+                      })()}
                       <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {s.serverName}
                       </span>

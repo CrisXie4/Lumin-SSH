@@ -22,6 +22,7 @@ type sftpUploadPool struct {
 	idleClients []*sftp.Client
 	created     int
 	closed      bool
+	onChannelDelta func(int)
 }
 
 type chunkedUploadTask struct {
@@ -109,6 +110,7 @@ func (p *sftpUploadPool) Acquire() (*sftp.Client, error) {
 		}
 		p.created++
 		p.mu.Unlock()
+		p.notifyChannelDelta(1)
 		client, err := newTunedSFTPClient(p.sshClient)
 		if err == nil {
 			return client, nil
@@ -117,6 +119,7 @@ func (p *sftpUploadPool) Acquire() (*sftp.Client, error) {
 		if p.created > 0 {
 			p.created--
 		}
+		p.notifyChannelDelta(-1)
 		closed := p.closed
 		p.cond.Broadcast()
 		p.mu.Unlock()
@@ -140,6 +143,12 @@ func (p *sftpUploadPool) Discard(client *sftp.Client) {
 	p.releaseClient(client, true)
 }
 
+func (p *sftpUploadPool) notifyChannelDelta(delta int) {
+	if p.onChannelDelta != nil && delta != 0 {
+		p.onChannelDelta(delta)
+	}
+}
+
 func (p *sftpUploadPool) releaseClient(client *sftp.Client, broken bool) {
 	if client == nil {
 		return
@@ -152,6 +161,7 @@ func (p *sftpUploadPool) releaseClient(client *sftp.Client, broken bool) {
 		p.cond.Broadcast()
 		p.mu.Unlock()
 		_ = client.Close()
+		p.notifyChannelDelta(-1)
 		return
 	}
 	p.idleClients = append(p.idleClients, client)
@@ -168,11 +178,16 @@ func (p *sftpUploadPool) Close() {
 	p.closed = true
 	idleClients := append([]*sftp.Client(nil), p.idleClients...)
 	p.idleClients = nil
+	releasedCount := p.created
+	p.created = 0
 	p.mu.Unlock()
 	for _, client := range idleClients {
 		_ = client.Close()
 	}
 	p.cond.Broadcast()
+	if releasedCount > 0 {
+		p.notifyChannelDelta(-releasedCount)
+	}
 }
 
 func newUploadObjectID(prefix string) string {
@@ -240,10 +255,14 @@ func (m *SSHManager) BeginChunkedUploadTask(sessionId string, remoteDir string, 
 		return "", err
 	}
 	taskID := newUploadObjectID("upload_task")
+	pool := newSFTPUploadPool(client, maxClients)
+	pool.onChannelDelta = func(delta int) {
+		m.trackUploadChannelDelta(sessionId, delta)
+	}
 	task := &chunkedUploadTask{
 		sessionId:     sessionId,
 		remoteBaseDir: normalizeRemoteUploadDir(remoteDir),
-		pool:          newSFTPUploadPool(client, maxClients),
+		pool:          pool,
 		files:         make(map[string]*chunkedUploadFile),
 	}
 	m.uploadMu.Lock()
