@@ -4897,7 +4897,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           {probePanelPosition === 'left' ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </div>
       )}
-      {aiKeepAliveSessions.map((s) => (
+      {aiKeepAliveSessions.flatMap((s) => (
         getEffectiveTerminals(s).map((t) => {
           const isPanelActive =
             showAIPanel
