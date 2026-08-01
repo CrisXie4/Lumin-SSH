@@ -5006,6 +5006,15 @@ body.theme-light .dashboard-server-editor {
   --term-context-shadow: 0 8px 32px rgba(0,5,20,0.6), 0 2px 8px rgba(0,5,20,0.4);
 }
 
+.terminal-output-default-mouse-cursor,
+.terminal-output-default-mouse-cursor .xterm,
+.terminal-output-default-mouse-cursor .xterm *,
+.terminal-output-default-mouse-cursor .xterm-screen,
+.terminal-output-default-mouse-cursor .xterm-rows,
+.terminal-output-default-mouse-cursor .xterm-viewport {
+  cursor: default !important;
+}
+
 /* ── 终端弹窗通用样式 ── */
 .term-popup {
   position: fixed;

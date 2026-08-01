@@ -12,8 +12,10 @@ import SettingsModal from './components/SettingsModal.jsx';
 import { isRecoveryPasswordError, syncWithRecoveryPassword } from './utils/recoveryPasswordSync.js';
 import {
   getAllSessionFileManagerWorkspaces,
+  getSessionFileManagerWorkspace,
   remapSessionFileManagerWorkspaces,
   replaceAllSessionFileManagerWorkspaces,
+  setSessionFileManagerWorkspace,
 } from './utils/fileWorkbench.js';
 import CredentialsModal from './components/CredentialsModal.jsx';
 import Toast from './components/Toast.jsx';
@@ -391,6 +393,76 @@ function remapSessionFileManagerWorkspaceMap(workspaces, idMap) {
     next[sourceMap[terminalId] || terminalId] = workspace;
   });
   return next;
+}
+
+function cloneSessionFileManagerWorkspaceState(workspace) {
+  if (!workspace || typeof workspace !== 'object') {
+    return null;
+  }
+  const clonePane = (pane) => ({
+    tabId: typeof pane?.tabId === 'string' ? pane.tabId : '',
+    path: typeof pane?.path === 'string' ? pane.path : '',
+    sortField: typeof pane?.sortField === 'string' ? pane.sortField : 'name',
+    sortDir: pane?.sortDir === 'desc' ? 'desc' : 'asc',
+    selectedPaths: Array.isArray(pane?.selectedPaths) ? [...pane.selectedPaths] : [],
+    scrollTop: Number.isFinite(Number(pane?.scrollTop)) ? Number(pane.scrollTop) : 0,
+  });
+  return {
+    activeTabId: typeof workspace.activeTabId === 'string' ? workspace.activeTabId : '',
+    activePane: workspace.activePane === 'right' ? 'right' : 'left',
+    panes: {
+      left: clonePane(workspace.panes?.left),
+      right: clonePane(workspace.panes?.right),
+    },
+    tabs: Array.isArray(workspace.tabs)
+      ? workspace.tabs
+        .filter((tab) => tab && typeof tab === 'object')
+        .map((tab) => ({
+          ...tab,
+          selectedPaths: Array.isArray(tab.selectedPaths) ? [...tab.selectedPaths] : [],
+        }))
+      : [],
+  };
+}
+
+function escapeTerminalClonePosixPath(value) {
+  return String(value || '').replace(/'/g, "'\\''");
+}
+
+function escapeTerminalCloneWindowsPath(value) {
+  return String(value || '').replace(/"/g, '""');
+}
+
+function buildTerminalCloneCwdCommand(cwd) {
+  const normalizedCwd = typeof cwd === 'string' ? cwd.trim() : '';
+  if (!normalizedCwd) {
+    return '';
+  }
+  const windowsDriveMatch = normalizedCwd.match(/^([A-Za-z]:)[\\/]/);
+  if (windowsDriveMatch) {
+    const drive = windowsDriveMatch[1];
+    return `${drive}\r\ncd "${escapeTerminalCloneWindowsPath(normalizedCwd)}"\r\n`;
+  }
+  if (normalizedCwd.startsWith('\\\\')) {
+    return `pushd "${escapeTerminalCloneWindowsPath(normalizedCwd)}"\r\n`;
+  }
+  return `cd -- '${escapeTerminalClonePosixPath(normalizedCwd)}'\r`;
+}
+
+function getTerminalTabDoubleClickAction() {
+  if (typeof localStorage === 'undefined') {
+    return '';
+  }
+  const enabled = localStorage.getItem('terminalTabDoubleClickActionEnabled');
+  const legacyDuplicateEnabled = localStorage.getItem('terminalTabDoubleClickDuplicate') === 'true';
+  if (enabled === 'false') {
+    return '';
+  }
+  if (enabled !== 'true' && !legacyDuplicateEnabled) {
+    return '';
+  }
+  const action = localStorage.getItem('terminalTabDoubleClickAction');
+  return action === 'close' ? 'close' : 'duplicate';
 }
 
 function pickSessionFileManagerWorkspaces(session) {
@@ -3836,7 +3908,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
   }, [disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, t]);
 
   // ── 在当前服务器上新建终端标签 ──────────────────────────────
-  const openNewTerminal = useCallback(async (sessionId) => {
+  const openNewTerminal = useCallback(async (sessionId, options = {}) => {
     markWorkspaceRestoreNavigationOverride();
     if (creatingTerminalRef.current) return;
 
@@ -3847,6 +3919,19 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     setCreatingTerminalSessionId(sessionId);
 
     const baseTermId = session.terminals?.[0]?.id || sessionId;
+    const sourceTerminalId = typeof options?.sourceTerminalId === 'string' && options.sourceTerminalId.trim()
+      ? options.sourceTerminalId.trim()
+      : baseTermId;
+    const cloneFileManagerWorkspace = options?.cloneFileManagerWorkspace === true;
+    const cloneCwd = options?.cloneCwd === true;
+    const sourceWorkspace = cloneFileManagerWorkspace
+      ? cloneSessionFileManagerWorkspaceState(getSessionFileManagerWorkspace(sourceTerminalId))
+      : null;
+    const sourceCwdPromise = cloneCwd
+      ? Promise.resolve(AppGo.GetTerminalCwd(sourceTerminalId))
+        .then((value) => String(value || '').trim())
+        .catch(() => '')
+      : Promise.resolve('');
 
     let maxNum = 0;
     (session.terminals || []).forEach(term => {
@@ -3868,19 +3953,30 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           : s
       ));
       sessionsRef.current = nextSessions;
-      // 新标签在列表末尾：预置滚到最大位置（挂载后再 clamp）
-      // 注意：scroll helpers 定义在后面，这里直接写 ref，避免 TDZ
       terminalSubTabScrollBySessionRef.current[sessionId] = Number.MAX_SAFE_INTEGER;
       setSessions(nextSessions);
       setActiveTerminalId(newTermId);
       setContentTab('terminal');
       lastTerminalRef.current[sessionId] = newTermId;
+      if (sourceWorkspace) {
+        setSessionFileManagerWorkspace(newTermId, sourceWorkspace);
+      }
+      void sourceCwdPromise.then((sourceCwd) => {
+        const command = buildTerminalCloneCwdCommand(sourceCwd);
+        if (!command) {
+          return;
+        }
+        window.setTimeout(() => {
+          try {
+            AppGo.WriteTerminal(newTermId, command);
+          } catch {}
+        }, 80);
+      });
       persistWorkspaceSnapshotRef.current({
         sessions: nextSessions,
         activeSessionId: sessionId,
         activeTerminalId: newTermId,
       });
-      // 等标签 DOM 挂上后再滚到最新
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const el = terminalSubTabScrollRef.current;
@@ -6367,6 +6463,23 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                               activeTerminalId: term.id,
                             });
                           }}
+                          onDoubleClick={(e) => {
+                            if (term.type !== 'terminal') return;
+                            if (shouldIgnoreTerminalDockClick()) return;
+                            const doubleClickAction = getTerminalTabDoubleClickAction();
+                            if (!doubleClickAction) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (doubleClickAction === 'close') {
+                              closeTerminal(activeSession.id, term.id, e);
+                              return;
+                            }
+                            void openNewTerminal(activeSession.id, {
+                              sourceTerminalId: term.id,
+                              cloneFileManagerWorkspace: true,
+                              cloneCwd: true,
+                            });
+                          }}
                         >
                           <Monitor size={11} />
                           <span>{term.label}</span>
@@ -6379,6 +6492,9 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                                   return;
                                 }
                                 closeTerminal(activeSession.id, term.id, e);
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
                               }}
                             ><X size={10} /></span>
                           )}

@@ -21,12 +21,13 @@ const (
 )
 
 type commandHistoryStream struct {
-	visibleCarry []byte
-	payloadCarry []byte
-	inMarker     bool
-	markerKind   byte
-	lastCommand  string
-	lastCwd      string
+	visibleCarry     []byte
+	payloadCarry     []byte
+	inMarker         bool
+	markerKind       byte
+	lastCommand      string
+	lastCwd          string
+	terminalEncoding string
 }
 
 func (s *commandHistoryStream) resetMarkerState() {
@@ -36,7 +37,7 @@ func (s *commandHistoryStream) resetMarkerState() {
 }
 
 func newCommandHistoryStream() *commandHistoryStream {
-	return &commandHistoryStream{}
+	return &commandHistoryStream{terminalEncoding: "utf-8"}
 }
 
 func (s *commandHistoryStream) Process(chunk []byte) ([]byte, []string, string, bool) {
@@ -80,14 +81,12 @@ func (s *commandHistoryStream) Process(chunk []byte) ([]byte, []string, string, 
 			s.payloadCarry = append(s.payloadCarry, data[i:end]...)
 			promptSeen = true
 			if s.markerKind == markerKindCommand {
-				if command := decodeHistoryMarkerPayload(s.payloadCarry); command != "" && command != s.lastCommand {
+				if command := decodeHistoryMarkerPayload(s.payloadCarry, s.terminalEncoding); command != "" && command != s.lastCommand {
 					commands = append(commands, command)
 					s.lastCommand = command
 				}
 			} else if s.markerKind == markerKindCwd {
-				// Re-emit cwd on every prompt so waiting command executions can detect idle
-				// even when the shell returns to the same directory.
-				if nextCwd := decodeCwdMarkerPayload(s.payloadCarry); nextCwd != "" {
+				if nextCwd := decodeCwdMarkerPayload(s.payloadCarry, s.terminalEncoding); nextCwd != "" {
 					cwd = nextCwd
 					s.lastCwd = nextCwd
 				}
@@ -161,7 +160,7 @@ func isInteractiveHistoryPrompt(command string) bool {
 	return false
 }
 
-func decodeHistoryMarkerPayload(payload []byte) string {
+func decodeHistoryMarkerPayload(payload []byte, terminalEncoding string) string {
 	if len(payload) == 0 {
 		return ""
 	}
@@ -171,14 +170,14 @@ func decodeHistoryMarkerPayload(payload []byte) string {
 		return ""
 	}
 
-	command := strings.TrimSpace(string(decoded))
+	command := strings.TrimSpace(decodeTerminalText(decoded, terminalEncoding))
 	if isInteractiveHistoryPrompt(command) {
 		return ""
 	}
 	return command
 }
 
-func decodeCwdMarkerPayload(payload []byte) string {
+func decodeCwdMarkerPayload(payload []byte, terminalEncoding string) string {
 	if len(payload) == 0 {
 		return ""
 	}
@@ -188,7 +187,7 @@ func decodeCwdMarkerPayload(payload []byte) string {
 		return ""
 	}
 
-	cwd := strings.TrimSpace(string(decoded))
+	cwd := strings.TrimSpace(decodeTerminalText(decoded, terminalEncoding))
 	if cwd == "" || !strings.HasPrefix(cwd, "/") {
 		return ""
 	}

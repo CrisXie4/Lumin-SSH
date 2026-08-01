@@ -28,6 +28,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/ianaindex"
+	"golang.org/x/text/transform"
 )
 
 // ErrHostKeyChanged 在远程主机密钥发生变化时返回，需要用户确认
@@ -93,6 +96,7 @@ type SessionData struct {
 	GroupSessionId      string // 对子终端有效：父会话 sessionId（用于历史事件归组）
 	ShellPath           string
 	TerminalInitPath    string
+	TerminalEncoding    string
 	CurrentCwd          string
 	PromptReady         bool
 	// Local terminal & Serial support
@@ -164,6 +168,58 @@ func NewSSHManager() *SSHManager {
 	}
 }
 
+func terminalEncodingCodec(terminalEncoding string) encoding.Encoding {
+	normalized := normalizeTerminalEncoding(terminalEncoding)
+	if normalized == "utf-8" {
+		return nil
+	}
+	codec, err := ianaindex.IANA.Encoding(normalized)
+	if err != nil || codec == nil {
+		return nil
+	}
+	return codec
+}
+
+func wrapTerminalOutputReader(reader io.Reader, terminalEncoding string) io.Reader {
+	codec := terminalEncodingCodec(terminalEncoding)
+	if reader == nil || codec == nil {
+		return reader
+	}
+	return transform.NewReader(reader, codec.NewDecoder())
+}
+
+func decodeTerminalBytesToUTF8(data []byte, terminalEncoding string) ([]byte, error) {
+	codec := terminalEncodingCodec(terminalEncoding)
+	if len(data) == 0 || codec == nil {
+		return data, nil
+	}
+	decoded, _, err := transform.Bytes(codec.NewDecoder(), data)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func decodeTerminalText(data []byte, terminalEncoding string) string {
+	decoded, err := decodeTerminalBytesToUTF8(data, terminalEncoding)
+	if err != nil {
+		return ""
+	}
+	return string(decoded)
+}
+
+func encodeTerminalInputBytes(data []byte, terminalEncoding string) ([]byte, error) {
+	codec := terminalEncodingCodec(terminalEncoding)
+	if len(data) == 0 || codec == nil {
+		return data, nil
+	}
+	encoded, _, err := transform.Bytes(codec.NewEncoder(), data)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
+
 // ponytail: 判断是否为瞬态网络错误（连接重置、EOF、超时等），这类错误可重试
 func isTransientNetError(err error) bool {
 	if err == nil {
@@ -223,6 +279,7 @@ func (m *SSHManager) runPostAuthStep(ctx context.Context, cancel context.CancelF
 func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 	// 去除密码首尾空白（防止复制粘贴带入不可见字符）
 	conn.Password = strings.TrimSpace(conn.Password)
+	conn.TerminalEncoding = normalizeTerminalEncoding(conn.TerminalEncoding)
 	// 诊断：密码为空时记录日志，帮助定位"记住密码后重启密码错误"问题
 	if conn.AuthMethod == "password" && conn.Password == "" {
 		log.Printf("[Connect] WARNING: password is empty for %s@%s:%d (connId=%s)", conn.Username, conn.Host, conn.Port, conn.ID)
@@ -486,7 +543,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 	err := m.runPostAuthStep(postAuthCtx, cancelPostAuth, sessionId, client, clientCreated, func() error {
 		shellPath = detectRemoteShell(client)
 		launchCmd, remoteHistoryActive := buildShellLaunchCommand(shellPath, conn.TerminalInitPath)
-		return m.setupSession(postAuthCtx, client, connKey, sessionId, "", launchCmd, remoteHistoryActive, shellPath, conn.TerminalInitPath)
+		return m.setupSession(postAuthCtx, client, connKey, sessionId, "", launchCmd, remoteHistoryActive, shellPath, conn.TerminalInitPath, conn.TerminalEncoding)
 	})
 	if err != nil {
 		// setupSession 失败（如 PTY 请求失败）：仅清理本路径创建的 session；
@@ -535,7 +592,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 }
 
 // setupSession 创建 shell session 的共享逻辑
-func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connKey, sessionId, groupSessionId, launchCmd string, remoteHistoryActive bool, shellPath string, terminalInitPath string) error {
+func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connKey, sessionId, groupSessionId, launchCmd string, remoteHistoryActive bool, shellPath string, terminalInitPath string, terminalEncoding string) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -596,6 +653,7 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	var historyStream *commandHistoryStream
 	if remoteHistoryActive {
 		historyStream = newCommandHistoryStream()
+		historyStream.terminalEncoding = normalizeTerminalEncoding(terminalEncoding)
 	}
 
 	m.mu.Lock()
@@ -618,6 +676,7 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 		RemoteHistoryActive: remoteHistoryActive,
 		ShellPath:           strings.TrimSpace(shellPath),
 		TerminalInitPath:    strings.TrimSpace(terminalInitPath),
+		TerminalEncoding:    normalizeTerminalEncoding(terminalEncoding),
 		PromptReady:         !remoteHistoryActive,
 	}
 	if groupSessionId != "" {
@@ -930,18 +989,21 @@ func (m *SSHManager) pipeOutput(sessionId string, r io.Reader, historyStream *co
 	defer m.bufPool.Put(bufPtr)
 	buf := *bufPtr
 
-	// 查找 GroupSessionId（子终端时使用父会话 ID 归组历史事件）
 	eventSessionId := sessionId
+	terminalEncoding := "utf-8"
 	m.mu.RLock()
-	if s, ok := m.sessions[sessionId]; ok && s.GroupSessionId != "" {
-		eventSessionId = s.GroupSessionId
+	if s, ok := m.sessions[sessionId]; ok {
+		if s.GroupSessionId != "" {
+			eventSessionId = s.GroupSessionId
+		}
+		terminalEncoding = normalizeTerminalEncoding(s.TerminalEncoding)
 	}
 	m.mu.RUnlock()
 
-	// 直接读取并通过 WebSocket 发送，不再批处理缓冲
-	// WebSocket 过 TCP loopback 延迟极低，无需批处理
+	reader := wrapTerminalOutputReader(r, terminalEncoding)
+
 	for {
-		n, err := r.Read(buf)
+		n, err := reader.Read(buf)
 		if n > 0 {
 			var data []byte
 			if historyStream != nil {
@@ -1330,6 +1392,7 @@ func (m *SSHManager) OpenTerminal(sessionId string) (string, error) {
 	}
 	connKey := existing.ConnKey
 	remoteHistoryActive := existing.RemoteHistoryActive
+	terminalEncoding := existing.TerminalEncoding
 	m.mu.RUnlock()
 
 	// 生成新 session ID
@@ -1341,7 +1404,7 @@ func (m *SSHManager) OpenTerminal(sessionId string) (string, error) {
 
 	launchCmd, remoteHistoryActive := buildShellLaunchCommand(existing.ShellPath, existing.TerminalInitPath)
 
-	err := m.setupSession(context.Background(), entry.Client, connKey, newId, sessionId, launchCmd, remoteHistoryActive, existing.ShellPath, existing.TerminalInitPath)
+	err := m.setupSession(context.Background(), entry.Client, connKey, newId, sessionId, launchCmd, remoteHistoryActive, existing.ShellPath, existing.TerminalInitPath, terminalEncoding)
 	if err != nil {
 		return "", err
 	}
@@ -1641,15 +1704,24 @@ func (m *SSHManager) WriteBytes(sessionId string, data []byte) {
 	m.mu.Lock()
 	s, ok := m.sessions[sessionId]
 	var stdin io.WriteCloser
+	terminalEncoding := "utf-8"
 	if ok && s != nil {
 		if s.RemoteHistoryActive && len(data) > 0 {
 			s.PromptReady = false
 		}
 		stdin = s.Stdin
+		terminalEncoding = normalizeTerminalEncoding(s.TerminalEncoding)
 	}
 	m.mu.Unlock()
 	if stdin != nil {
-		_, _ = stdin.Write(data)
+		payload := data
+		encoded, err := encodeTerminalInputBytes(data, terminalEncoding)
+		if err != nil {
+			log.Printf("[WriteBytes] encode terminal input failed for %s: %v", sessionId, err)
+		} else {
+			payload = encoded
+		}
+		_, _ = stdin.Write(payload)
 	}
 }
 

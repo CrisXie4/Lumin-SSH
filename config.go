@@ -25,6 +25,7 @@ import (
 
 	"github.com/studio-b12/gowebdav"
 	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/text/encoding/ianaindex"
 
 	ai "luminssh-go/internal/ai"
 	runtimeenv "luminssh-go/module/runtimeenv"
@@ -37,6 +38,25 @@ func parseIntOrDefault(s string, def int) int {
 	}
 	v, _ := strconv.Atoi(s)
 	return v
+}
+
+func normalizeTerminalEncoding(value string) string {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return "utf-8"
+	}
+	if strings.EqualFold(normalized, "utf8") || strings.EqualFold(normalized, "utf-8") {
+		return "utf-8"
+	}
+	encodingValue, err := ianaindex.IANA.Encoding(normalized)
+	if err != nil || encodingValue == nil {
+		return "utf-8"
+	}
+	name, err := ianaindex.IANA.Name(encodingValue)
+	if err != nil || strings.TrimSpace(name) == "" {
+		return "utf-8"
+	}
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
 // Connection struct
@@ -55,6 +75,7 @@ type Connection struct {
 	CredentialID        string `json:"credentialId,omitempty"` // ponytail: 非空时用 Credential 认证，忽略内联字段
 	TerminalInitPath    string `json:"terminalInitPath,omitempty"`
 	FileManagerInitPath string `json:"fileManagerInitPath,omitempty"`
+	TerminalEncoding    string `json:"terminalEncoding,omitempty"`
 	AllowLegacySSHRSA   bool   `json:"allowLegacySshRsa,omitempty"`
 	ProxyMode           string `json:"proxyMode,omitempty"`
 	ProxyNodeID         string `json:"proxyNodeId,omitempty"`
@@ -382,6 +403,7 @@ func (c *ConfigManager) getConnectionsLocked() []Connection {
 		conns[i].PrivateKey = c.decryptOrPassthrough(conns[i].PrivateKey)
 		conns[i].ProxyPassword = c.decrypt(conns[i].ProxyPassword)
 		sanitizeConnectionProxyConfig(&conns[i])
+		conns[i].TerminalEncoding = normalizeTerminalEncoding(conns[i].TerminalEncoding)
 	}
 	return conns
 }
@@ -433,6 +455,7 @@ func (c *ConfigManager) GetConnectionsMasked() []Connection {
 
 func (c *ConfigManager) SaveConnection(conn Connection, noSync bool) Connection {
 	sanitizeConnectionProxyConfig(&conn)
+	conn.TerminalEncoding = normalizeTerminalEncoding(conn.TerminalEncoding)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conns := c.getConnectionsLocked()

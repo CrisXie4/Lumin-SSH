@@ -282,6 +282,7 @@ func parseConnectionsExport(data []byte) (*connectionsExport, error) {
 		if exp.Connections[i].AuthMethod == "" {
 			exp.Connections[i].AuthMethod = "password"
 		}
+		exp.Connections[i].TerminalEncoding = normalizeTerminalEncoding(exp.Connections[i].TerminalEncoding)
 	}
 	return &exp, nil
 }
@@ -298,25 +299,27 @@ func buildImportTemplate(lang string) SyncSnapshot {
 	return SyncSnapshot{
 		Connections: []Connection{
 			{
-				ID:         "",
-				Name:       name1,
-				Host:       "1.2.3.4",
-				Port:       22,
-				Username:   "root",
-				Password:   "your-password-here",
-				AuthMethod: "password",
-				Group:      "web-servers",
+				ID:               "",
+				Name:             name1,
+				Host:             "1.2.3.4",
+				Port:             22,
+				Username:         "root",
+				Password:         "your-password-here",
+				AuthMethod:       "password",
+				Group:            "web-servers",
+				TerminalEncoding: "utf-8",
 			},
 			{
-				ID:         "",
-				Name:       name2,
-				Host:       "5.6.7.8",
-				Port:       22,
-				Username:   "ubuntu",
-				AuthMethod: "privateKey",
-				PrivateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nyour-private-key-content-here\n-----END OPENSSH PRIVATE KEY-----",
-				Passphrase: "optional-key-passphrase",
-				Group:      "db-servers",
+				ID:               "",
+				Name:             name2,
+				Host:             "5.6.7.8",
+				Port:             22,
+				Username:         "ubuntu",
+				AuthMethod:       "privateKey",
+				PrivateKey:       "-----BEGIN OPENSSH PRIVATE KEY-----\nyour-private-key-content-here\n-----END OPENSSH PRIVATE KEY-----",
+				Passphrase:       "optional-key-passphrase",
+				Group:            "db-servers",
+				TerminalEncoding: "utf-8",
 			},
 		},
 		Credentials: []Credential{},
@@ -418,5 +421,6 @@ func normalizeImportSnapshot(snap *SyncSnapshot) {
 		if snap.Connections[i].AuthMethod == "" {
 			snap.Connections[i].AuthMethod = "password"
 		}
+		snap.Connections[i].TerminalEncoding = normalizeTerminalEncoding(snap.Connections[i].TerminalEncoding)
 	}
 }

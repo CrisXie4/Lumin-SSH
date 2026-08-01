@@ -23,6 +23,7 @@ export default function AppearanceTab({
   terminalLocalEcho, onTerminalLocalEchoChange,
   terminalTimestamps, onTerminalTimestampsChange,
   terminalCommandBlocks, onTerminalCommandBlocksChange,
+  terminalDefaultMouseCursor, onTerminalDefaultMouseCursorChange,
   themePackages,
   themePackageSettings,
   themeMode, onThemeChange,
@@ -259,6 +260,14 @@ export default function AppearanceTab({
               <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('左侧显示可折叠命令块，点击收起输出')}</div>
             </div>
             <ToggleSwitch checked={terminalCommandBlocks} onChange={() => onTerminalCommandBlocksChange(!terminalCommandBlocks)} />
+          </div>
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('终端输出保持默认鼠标指针')}</div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('开启后, 终端输出区域使用系统默认鼠标指针, 不显示工字型文本光标')}</div>
+            </div>
+            <ToggleSwitch checked={terminalDefaultMouseCursor} onChange={() => onTerminalDefaultMouseCursorChange(!terminalDefaultMouseCursor)} />
           </div>
         </div>
       </div>
