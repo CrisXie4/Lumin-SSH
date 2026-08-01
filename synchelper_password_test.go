@@ -1327,3 +1327,18 @@ func TestNormalizeConnectionForSyncClearsDirectProxyDefaults(t *testing.T) {
 		t.Fatalf("direct 应清空 proxyType/port, got type=%q port=%d", c.ProxyType, c.ProxyPort)
 	}
 }
+
+// 远端缺 terminalEncoding（安卓旧包）与本地 utf-8 必须判等，否则每轮同步都白传一次
+func TestConnsEqualIgnoresMissingTerminalEncoding(t *testing.T) {
+	local := []Connection{{ID: "1", Host: "h", Username: "u", TerminalEncoding: "utf-8"}}
+	remote := []Connection{{ID: "1", Host: "h", Username: "u"}}
+	if !connsEqual(local, remote) {
+		t.Fatal("缺 terminalEncoding 应与 utf-8 判等")
+	}
+	if c := normalizeConnectionForSync(Connection{ID: "1", TerminalEncoding: " GBK "}); c.TerminalEncoding != "gbk" {
+		t.Fatalf("terminalEncoding 应归一为 gbk, got %q", c.TerminalEncoding)
+	}
+	if connsEqual(local, []Connection{{ID: "1", Host: "h", Username: "u", TerminalEncoding: "gbk"}}) {
+		t.Fatal("terminalEncoding 真变更必须检测为不同")
+	}
+}

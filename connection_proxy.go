@@ -97,6 +97,8 @@ func normalizeConnectionForSync(conn Connection) Connection {
 	conn.CredentialID = strings.TrimSpace(conn.CredentialID)
 	conn.TerminalInitPath = strings.TrimSpace(conn.TerminalInitPath)
 	conn.FileManagerInitPath = strings.TrimSpace(conn.FileManagerInitPath)
+	// 空值归一到 utf-8，与本地读取路径一致；否则远端缺字段会被判成真变更，反复上传
+	conn.TerminalEncoding = normalizeTerminalEncoding(conn.TerminalEncoding)
 	sanitizeConnectionProxyConfig(&conn)
 	return conn
 }
