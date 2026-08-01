@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Balíček motivu zkopírován do světlého",
   "主题包已复制到深色": "Balíček motivu zkopírován do tmavého",
   "主题包复制失败": "Kopírování balíčku motivu selhalo",
+  "固定到终端": "Připnout k terminálu",
+  "取消在终端固定显示命令": "Odepnout příkazy z terminálu",
+  "暂无快捷命令, 可在「命令」面板添加": "Zatím žádné rychlé příkazy – přidejte je v panelu „Příkazy“",
+  "在终端固定显示命令, 点击后确认发送": "Připnout příkazy nad vstupní pole; kliknutím se potvrdí odeslání",
+  "发送快捷命令": "Odeslat rychlý příkaz",
+  "将要发送": "Bude odesláno",
+  "搜索": "Hledat",
 };

@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Tema paketi açık temaya kopyalandı",
   "主题包已复制到深色": "Tema paketi koyu temaya kopyalandı",
   "主题包复制失败": "Tema paketi kopyalanamadı",
+  "固定到终端": "Terminale sabitle",
+  "取消在终端固定显示命令": "Komutların terminale sabitlenmesini kaldır",
+  "暂无快捷命令, 可在「命令」面板添加": "Henüz hızlı komut yok — «Komutlar» panelinden ekleyin",
+  "在终端固定显示命令, 点击后确认发送": "Komutları giriş alanının üstüne sabitle; tıklayınca onay istenir",
+  "发送快捷命令": "Hızlı komut gönder",
+  "将要发送": "Gönderilecek",
+  "搜索": "Ara",
 };

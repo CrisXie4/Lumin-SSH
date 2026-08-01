@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Pakiet motywu skopiowany do jasnego",
   "主题包已复制到深色": "Pakiet motywu skopiowany do ciemnego",
   "主题包复制失败": "Kopiowanie pakietu motywu nie powiodło się",
+  "固定到终端": "Przypnij do terminala",
+  "取消在终端固定显示命令": "Odepnij polecenia od terminala",
+  "暂无快捷命令, 可在「命令」面板添加": "Brak szybkich poleceń — dodaj je w panelu „Polecenia”",
+  "在终端固定显示命令, 点击后确认发送": "Przypnij polecenia nad polem wpisywania; klik otwiera potwierdzenie",
+  "发送快捷命令": "Wyślij szybkie polecenie",
+  "将要发送": "Zostanie wysłane",
+  "搜索": "Szukaj",
 };

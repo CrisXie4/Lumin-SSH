@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Pachetul de temă a fost copiat în deschis",
   "主题包已复制到深色": "Pachetul de temă a fost copiat în întunecat",
   "主题包复制失败": "Copierea pachetului de temă a eșuat",
+  "固定到终端": "Fixează în terminal",
+  "取消在终端固定显示命令": "Anulează fixarea comenzilor în terminal",
+  "暂无快捷命令, 可在「命令」面板添加": "Încă nu există comenzi rapide — adaugă-le în panoul „Comenzi”",
+  "在终端固定显示命令, 点击后确认发送": "Fixează comenzile deasupra câmpului; clic pentru confirmare și trimitere",
+  "发送快捷命令": "Trimite comanda rapidă",
+  "将要发送": "Se va trimite",
+  "搜索": "Caută",
 };

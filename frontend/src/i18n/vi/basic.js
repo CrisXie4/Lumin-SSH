@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Đã sao chép gói chủ đề sang sáng",
   "主题包已复制到深色": "Đã sao chép gói chủ đề sang tối",
   "主题包复制失败": "Sao chép gói chủ đề thất bại",
+  "固定到终端": "Ghim vào terminal",
+  "取消在终端固定显示命令": "Bỏ ghim lệnh khỏi terminal",
+  "暂无快捷命令, 可在「命令」面板添加": "Chưa có lệnh nhanh — thêm trong bảng «Lệnh»",
+  "在终端固定显示命令, 点击后确认发送": "Ghim lệnh phía trên ô nhập; nhấp để xác nhận và gửi",
+  "发送快捷命令": "Gửi lệnh nhanh",
+  "将要发送": "Sẽ gửi",
+  "搜索": "Tìm kiếm",
 };

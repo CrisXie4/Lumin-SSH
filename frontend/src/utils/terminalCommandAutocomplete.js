@@ -38,6 +38,8 @@ function flattenQuickCommandItems(items, groups = [], acc = []) {
       name: String(item.name || '').trim() || command,
       command,
       groupPath: groups.join(' / '),
+      // 快捷命令条发送时需要，缺省视为需要回车
+      addCR: item.addCR !== false,
     })
   })
 

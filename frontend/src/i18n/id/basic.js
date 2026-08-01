@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Paket tema disalin ke terang",
   "主题包已复制到深色": "Paket tema disalin ke gelap",
   "主题包复制失败": "Gagal menyalin paket tema",
+  "固定到终端": "Sematkan ke terminal",
+  "取消在终端固定显示命令": "Lepas sematan perintah dari terminal",
+  "暂无快捷命令, 可在「命令」面板添加": "Belum ada perintah cepat — tambahkan di panel «Perintah»",
+  "在终端固定显示命令, 点击后确认发送": "Sematkan perintah di atas kolom input; klik untuk konfirmasi dan kirim",
+  "发送快捷命令": "Kirim perintah cepat",
+  "将要发送": "Akan dikirim",
+  "搜索": "Cari",
 };

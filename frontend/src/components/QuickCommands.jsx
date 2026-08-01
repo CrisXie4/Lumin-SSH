@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
-import { Folder, FolderPlus, Zap, Save, Pencil, Trash2, Rocket, SquarePen, X } from 'lucide-react';
+import { Folder, FolderPlus, Zap, Save, Pencil, Trash2, Rocket, SquarePen, X, List } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
 import { useTranslation } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
@@ -21,6 +21,8 @@ async function loadCommands() {
 async function saveCommands(list) {
   try {
     await AppGo.SaveQuickCommands(JSON.stringify(list));
+    // 通知终端快捷命令条刷新
+    window.dispatchEvent(new CustomEvent('quick-commands-changed'));
   } catch (e) {
     console.error('[QuickCommands] saveCommands failed:', e);
   }
@@ -246,6 +248,10 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
   const [selectedPath, setSelectedPath] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [sendTarget, setSendTarget] = useState('current'); // 'current' | 'all'
+  // 固定命令条：命令常驻显示在终端输入框上方（与 Terminal.jsx 共用 localStorage 键）
+  const [showCmdBar, setShowCmdBar] = useState(
+    () => localStorage.getItem('terminalQuickCmdBar') === 'true'
+  );
   // 命令编辑器（悬浮页，替代原底部快速命令栏）
   const [showCmdEditor, setShowCmdEditor] = useState(false);
   const [cmdEditorText, setCmdEditorText] = useState('');
@@ -744,7 +750,9 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
         const list = structuredClone(commands);
         const r = resolvePath(list, path);
         r.parent.splice(r.idx, 1);
+        // 保持直接调用：失败要能抛出走下面的「删除失败」回滚，不能用吞异常的 saveCommands
         await AppGo.SaveQuickCommands(JSON.stringify(list));
+        window.dispatchEvent(new CustomEvent('quick-commands-changed'));
         setCommands(list);
         setSelectedPath(null);
         if (addToast) addToast(t('已删除'), 'success', 1500);
@@ -959,6 +967,28 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
             borderColor: 'var(--accent)',
           } : undefined}
         >{t('命令编辑器')}</button>
+        {/* 固定命令条开关：把命令常驻显示在终端输入框上方 */}
+        <Tiptop text={showCmdBar ? t('取消在终端固定显示命令') : t('在终端固定显示命令, 点击后确认发送')}>
+          <button
+            type="button"
+            className={`btn btn-secondary btn-sm${showCmdBar ? ' active' : ''}`}
+            aria-pressed={showCmdBar}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              closeContextMenu();
+              const next = !showCmdBar;
+              setShowCmdBar(next);
+              localStorage.setItem('terminalQuickCmdBar', String(next));
+              window.dispatchEvent(new CustomEvent('quick-cmd-bar-changed', { detail: next }));
+            }}
+            style={showCmdBar ? {
+              color: 'var(--text-primary)',
+              background: 'var(--surface-active)',
+              borderColor: 'var(--accent)',
+            } : undefined}
+          ><List size={14} /> {t('固定到终端')}</button>
+        </Tiptop>
         <div style={{ flex: 1 }} />
         {onClose && (
           <button

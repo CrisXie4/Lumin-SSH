@@ -211,7 +211,7 @@ func TestSessionWaitDisconnectsSession(t *testing.T) {
 	manager := NewSSHManager()
 	manager.clients["server"] = &sshClientEntry{Client: client, NetConn: netConn}
 	manager.connTerminals["server"] = []string{}
-	if err := manager.setupSession(context.Background(), client, "server", "terminal", "", "", false, "", ""); err != nil {
+	if err := manager.setupSession(context.Background(), client, "server", "terminal", "", "", false, "", "", ""); err != nil {
 		t.Fatal(err)
 	}
 

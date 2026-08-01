@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Themapakket gekopieerd naar licht",
   "主题包已复制到深色": "Themapakket gekopieerd naar donker",
   "主题包复制失败": "Themapakket kopiëren mislukt",
+  "固定到终端": "Vastmaken aan terminal",
+  "取消在终端固定显示命令": "Opdrachten losmaken van de terminal",
+  "暂无快捷命令, 可在「命令」面板添加": "Nog geen snelle opdrachten — voeg ze toe in het paneel ‘Opdrachten’",
+  "在终端固定显示命令, 点击后确认发送": "Opdrachten boven het invoerveld vastmaken; klik om te bevestigen",
+  "发送快捷命令": "Snelle opdracht verzenden",
+  "将要发送": "Wordt verzonden",
+  "搜索": "Zoeken",
 };

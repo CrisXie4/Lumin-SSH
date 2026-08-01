@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Tema copiado para claro",
   "主题包已复制到深色": "Tema copiado para escuro",
   "主题包复制失败": "Falha ao copiar o tema",
+  "固定到终端": "Fixar no terminal",
+  "取消在终端固定显示命令": "Desafixar comandos do terminal",
+  "暂无快捷命令, 可在「命令」面板添加": "Nenhum comando rápido — adicione no painel “Comandos”",
+  "在终端固定显示命令, 点击后确认发送": "Fixar comandos acima da entrada; clique para confirmar e enviar",
+  "发送快捷命令": "Enviar comando rápido",
+  "将要发送": "Será enviado",
+  "搜索": "Pesquisar",
 };

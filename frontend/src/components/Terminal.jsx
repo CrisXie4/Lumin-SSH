@@ -364,6 +364,24 @@ function normalizeTerminalPasteText(text) {
     .replace(/\n/g, '\r')
 }
 
+/** 提取命令里的 [p#N 参数名] 占位符，与 QuickCommands.jsx 的 extractParams 保持一致 */
+function extractQuickCmdParams(command) {
+  const re = /\[p#(\d)(?:\s+([^\]]*))?\]/g
+  const map = new Map()
+  let m
+  while ((m = re.exec(String(command ?? ''))) !== null) {
+    const num = Number(m[1])
+    const label = (m[2] || '').trim()
+    if (!map.has(num) || label) map.set(num, label)
+  }
+  return [...map.entries()].map(([num, label]) => ({ num, label })).sort((a, b) => a.num - b.num)
+}
+
+/** 用参数值替换占位符，未填的参数替换为空串 */
+function fillQuickCmdParams(command, values) {
+  return String(command ?? '').replace(/\[p#(\d)(?:\s+([^\]]*))?\]/g, (_m, n) => values[Number(n)] || '')
+}
+
 // 命令栏按钮样式辅助函数
 const btnStyle = (color) => ({
   border: '1px solid var(--border)',
@@ -455,6 +473,16 @@ export default function Terminal({
   });
   const commandAutocompleteListRef            = useRef(null);
   const [commandAutocompletePopupPos, setCommandAutocompletePopupPos] = useState(null);
+  // ── 快捷命令条：输入框上方一排按钮，点击后弹确认框再发送（对齐安卓端） ──
+  const [quickCmdBarVisible, setQuickCmdBarVisible] = useState(
+    () => localStorage.getItem('terminalQuickCmdBar') === 'true'
+  );
+  const [quickCmdBarItems, setQuickCmdBarItems] = useState([]);
+  const [quickCmdSearch, setQuickCmdSearch] = useState('');
+  const [quickCmdSearchOpen, setQuickCmdSearchOpen] = useState(false);
+  const quickCmdSearchRef = useRef(null);
+  // 待确认命令：{ item, values } 或 null（点命令条按钮后弹确认框，对齐安卓端）
+  const [pendingQuickCmd, setPendingQuickCmd] = useState(null);
 
   // ── 点击历史弹窗外关闭（document 捕获阶段 mousedown） ──
   // 必须用 capture：命令按钮 / 底部快捷命令面板会 stopPropagation，
@@ -2463,6 +2491,23 @@ export default function Terminal({
   const isClosed     = status === 'closed';
   const statusColor  = isConnected ? 'var(--success)' : isConnecting ? 'var(--warning)' : isError ? 'var(--danger)' : 'var(--text-tertiary)';
   const cmdTrimmed   = cmdInput.trim();
+
+  // 命令条搜索：收起时一并清空关键词，避免留下不可见的过滤条件
+  const closeQuickCmdSearch = useCallback(() => {
+    setQuickCmdSearchOpen(false);
+    setQuickCmdSearch('');
+  }, []);
+
+  // 命令条搜索：按名称/命令/分组过滤，大小写不敏感
+  const filteredQuickCmdItems = useMemo(() => {
+    const kw = quickCmdSearch.trim().toLowerCase();
+    if (!kw) return quickCmdBarItems;
+    return quickCmdBarItems.filter((item) => (
+      item.name.toLowerCase().includes(kw)
+      || item.command.toLowerCase().includes(kw)
+      || (item.groupPath || '').toLowerCase().includes(kw)
+    ));
+  }, [quickCmdBarItems, quickCmdSearch]);
   const [multiLineWrapEnabled, setMultiLineWrapEnabled] = useState(() => localStorage.getItem('terminalMultiLineWrapEnabled') !== 'false');
 
   const syncCommandInputHeight = useCallback(() => {
@@ -2637,6 +2682,41 @@ export default function Terminal({
   const copyCommand = () => {
     if (!cmdTrimmed) return;
     navigator.clipboard.writeText(cmdInput).catch(() => {});
+  };
+
+  // ── 快捷命令条：点按钮先弹确认框（对齐安卓端 QuickCommandConfirmDialog） ──
+  const openQuickCmdConfirm = (item) => {
+    if (!item?.command) return;
+    const values = {};
+    extractQuickCmdParams(item.command).forEach((p) => { values[p.num] = ''; });
+    setPendingQuickCmd({ item, values });
+  };
+
+  // 确认后发送：addCR 语义对齐安卓端 sendQuickCommand
+  const sendQuickCmdConfirmed = () => {
+    const pending = pendingQuickCmd;
+    if (!pending || !isConnected) return;
+    const filled = fillQuickCmdParams(pending.item.command, pending.values);
+    const text = filled.replace(/\r\n?/g, '\n').trim();
+    if (!text) return;
+    setPendingQuickCmd(null);
+    const lineCount = text.split('\n').length;
+    const payload = pending.item.addCR === false
+      ? text
+      : multiLineWrapEnabled && lineCount > 1
+        ? buildWrappedMultiLineCommand(text)
+        : text + '\r';
+    AppGo.WriteTerminal(sessionId, payload).catch((err) => {
+      console.error('WriteTerminal failed:', err);
+    });
+    termRef.current?.scrollToBottom();
+    if (text.length > 1 && !/^\d+$/.test(text) && !isInteractivePromptText(text)) {
+      window.dispatchEvent(new CustomEvent('ssh-command-history', {
+        detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
+      }));
+    }
+    awaitingPasswordRef.current = false;
+    awaitingCommandFinishRef.current = pending.item.addCR !== false;
   };
 
   const deleteHistoryItem = (id) => {
@@ -2902,6 +2982,56 @@ export default function Terminal({
       closeCommandAutocomplete();
     }
   }, [closeCommandAutocomplete, showCommands, showHistory]);
+
+  // ── 快捷命令条：可见时加载列表，命令增删改后刷新 ──
+  useEffect(() => {
+    const handleBarToggle = (e) => setQuickCmdBarVisible(e.detail !== false);
+    window.addEventListener('quick-cmd-bar-changed', handleBarToggle);
+    return () => window.removeEventListener('quick-cmd-bar-changed', handleBarToggle);
+  }, []);
+
+  // 确认框：Esc 关闭（挂 document，焦点丢失时也能关）
+  useEffect(() => {
+    if (!pendingQuickCmd) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setPendingQuickCmd(null);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [pendingQuickCmd]);
+
+  // 搜索框展开后自动聚焦，省去再点一次
+  useEffect(() => {
+    if (quickCmdSearchOpen) quickCmdSearchRef.current?.focus();
+  }, [quickCmdSearchOpen]);
+
+  useEffect(() => {
+    if (!quickCmdBarVisible) {
+      setQuickCmdBarItems([]);
+      setQuickCmdSearch('');
+      setQuickCmdSearchOpen(false);
+      return undefined;
+    }
+    let alive = true;
+    const load = () => {
+      AppGo.GetQuickCommands()
+        .then((raw) => {
+          if (alive) setQuickCmdBarItems(normalizeQuickCommandItems(raw));
+        })
+        .catch(() => {
+          if (alive) setQuickCmdBarItems([]);
+        });
+    };
+    load();
+    window.addEventListener('quick-commands-changed', load);
+    return () => {
+      alive = false;
+      window.removeEventListener('quick-commands-changed', load);
+    };
+  }, [quickCmdBarVisible]);
 
   useEffect(() => {
     if (!cmdInput.trim()) {
@@ -3196,6 +3326,75 @@ export default function Terminal({
           />
           </div>
       </div>
+
+      {/* ── 快捷命令条（输入框上方，横向滚动，点击后弹确认框） ── */}
+      {quickCmdBarVisible && (
+        <div
+          className="term-quick-cmd-bar"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="term-quick-cmd-list">
+            {quickCmdBarItems.length === 0 ? (
+              <span className="term-quick-cmd-empty">{t('暂无快捷命令, 可在「命令」面板添加')}</span>
+            ) : filteredQuickCmdItems.length === 0 ? (
+              <span className="term-quick-cmd-empty">{t('无匹配结果')}</span>
+            ) : filteredQuickCmdItems.map((item, i) => (
+              <Tiptop key={`${item.name}-${i}`} text={item.groupPath ? `${item.command} · ${item.groupPath}` : item.command}>
+                <button
+                  type="button"
+                  className="term-quick-cmd-btn"
+                  onClick={() => openQuickCmdConfirm(item)}
+                  disabled={!isConnected}
+                  aria-label={item.name}
+                >
+                  {item.name}
+                </button>
+              </Tiptop>
+            ))}
+          </div>
+          {quickCmdBarItems.length > 0 && (
+            <div className="term-quick-cmd-search-area">
+              {quickCmdSearchOpen ? (
+                <div className="term-quick-cmd-search">
+                  <Search size={12} />
+                  <input
+                    ref={quickCmdSearchRef}
+                    type="text"
+                    value={quickCmdSearch}
+                    onChange={(e) => setQuickCmdSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      // 有内容先清空，已空再收起：Esc 不会一下丢掉搜索框
+                      if (e.key !== 'Escape') return;
+                      e.stopPropagation();
+                      if (quickCmdSearch) setQuickCmdSearch('');
+                      else closeQuickCmdSearch();
+                    }}
+                    onBlur={() => { if (!quickCmdSearch) closeQuickCmdSearch(); }}
+                    placeholder={t('搜索')}
+                    spellCheck={false}
+                    aria-label={t('搜索命令...')}
+                  />
+                  <button
+                    type="button"
+                    onClick={closeQuickCmdSearch}
+                    aria-label={t('关闭')}
+                  ><X size={11} /></button>
+                </div>
+              ) : (
+                <Tiptop text={t('搜索命令...')}>
+                  <button
+                    type="button"
+                    className="term-quick-cmd-search-btn"
+                    onClick={() => setQuickCmdSearchOpen(true)}
+                    aria-label={t('搜索命令...')}
+                    aria-expanded={false}
+                  ><Search size={13} /></button>
+                </Tiptop>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── 底部命令输入栏 ── */}
       <div className="term-input-bar">
@@ -3666,6 +3865,73 @@ export default function Terminal({
             </div>
           </div>
       )}
+
+      {/* ── 快捷命令二次确认框（对齐安卓端 QuickCommandConfirmDialog） ── */}
+      {pendingQuickCmd && (() => {
+        const params = extractQuickCmdParams(pendingQuickCmd.item.command);
+        const filled = fillQuickCmdParams(pendingQuickCmd.item.command, pendingQuickCmd.values);
+        return (
+          <>
+            {/* 遮罩不响应点击：只能用「取消」或 Esc 关闭，避免误点丢失已填参数 */}
+            <div
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{ position: 'fixed', inset: 0, zIndex: Z.DIALOG_BACKDROP, background: 'rgba(0,0,0,0.4)' }}
+            />
+            <div
+              className="term-quick-cmd-dialog"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="term-quick-cmd-dialog-title">{t('发送快捷命令')}</div>
+              <div className="term-quick-cmd-dialog-name">{pendingQuickCmd.item.name}</div>
+
+              {params.map((p, i) => (
+                <div key={p.num} style={{ marginBottom: 10 }}>
+                  <label className="term-quick-cmd-dialog-label">
+                    {p.label || `${t('参数')}${p.num}`}
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={pendingQuickCmd.values[p.num] || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPendingQuickCmd((prev) => (prev
+                        ? { ...prev, values: { ...prev.values, [p.num]: value } }
+                        : prev));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        sendQuickCmdConfirmed();
+                      }
+                    }}
+                    autoFocus={i === 0}
+                    placeholder={p.label || `p#${p.num}`}
+                    style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                  />
+                </div>
+              ))}
+
+              <label className="term-quick-cmd-dialog-label">{t('将要发送')}</label>
+              <div className="term-quick-cmd-dialog-preview">{filled}</div>
+
+              <div className="term-quick-cmd-dialog-actions">
+                <button className="btn btn-secondary btn-sm" onClick={() => setPendingQuickCmd(null)}>
+                  {t('取消')}
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={sendQuickCmdConfirmed}
+                  disabled={!isConnected || !filled.trim()}
+                  autoFocus={params.length === 0}
+                >
+                  {t('发送')}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── 右键上下文菜单（增强版：图标 + 边界检测 + disabled 状态） ── */}
       {contextMenu && (

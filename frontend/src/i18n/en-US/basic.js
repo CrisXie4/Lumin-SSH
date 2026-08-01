@@ -1711,4 +1711,11 @@ export default {
   "主题包已复制到浅色": "Theme package copied to light",
   "主题包已复制到深色": "Theme package copied to dark",
   "主题包复制失败": "Failed to copy theme package",
+  "固定到终端": "Pin to terminal",
+  "取消在终端固定显示命令": "Unpin commands from the terminal",
+  "暂无快捷命令, 可在「命令」面板添加": "No quick commands yet — add them in the Commands panel",
+  "在终端固定显示命令, 点击后确认发送": "Pin commands above the terminal input; click to confirm and send",
+  "发送快捷命令": "Send quick command",
+  "将要发送": "Will send",
+  "搜索": "Search",
 };
