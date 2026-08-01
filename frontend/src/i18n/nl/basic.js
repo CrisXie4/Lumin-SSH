@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "U hoeft geen software of afhankelijkheden te installeren",
   "不修改系统配置，不常驻后台": "Wijzigt de systeemconfiguratie niet en bevindt zich niet op de achtergrond.",
   "断开连接后自动停止采集": "Stop automatisch met verzamelen na het loskoppelen",
-  "注入中...": "Injecteren...",
   "确认开启": "Bevestig om te openen",
   "正在采集系统信息...": "Systeeminformatie verzamelen...",
   "写入失败，请重试": "Schrijven mislukt. Probeer het opnieuw",

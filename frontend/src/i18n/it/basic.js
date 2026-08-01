@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "Non è necessario installare alcun software o dipendenze",
   "不修改系统配置，不常驻后台": "Non modifica la configurazione del sistema e non risiede in background.",
   "断开连接后自动停止采集": "Interrompe automaticamente la raccolta dopo la disconnessione",
-  "注入中...": "Iniettare...",
   "确认开启": "Conferma per aprire",
   "正在采集系统信息...": "Raccolta informazioni di sistema...",
   "写入失败，请重试": "Scrittura non riuscita, riprova",

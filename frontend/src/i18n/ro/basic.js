@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "Nu este nevoie să instalați niciun software sau dependențe",
   "不修改系统配置，不常驻后台": "Nu modifică configurația sistemului și nu se află în fundal.",
   "断开连接后自动停止采集": "Opriți automat colectarea după deconectare",
-  "注入中...": "Se injectează...",
   "确认开启": "Confirmați pentru a deschide",
   "正在采集系统信息...": "Se colectează informații despre sistem...",
   "写入失败，请重试": "Scrierea a eșuat, vă rugăm să încercați din nou",

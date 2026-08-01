@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "Není třeba instalovat žádný software ani závislosti",
   "不修改系统配置，不常驻后台": "Nemění konfiguraci systému a není umístěn na pozadí.",
   "断开连接后自动停止采集": "Po odpojení automaticky zastaví sběr",
-  "注入中...": "Injekce...",
   "确认开启": "Potvrďte otevření",
   "正在采集系统信息...": "Shromažďují se informace o systému...",
   "写入失败，请重试": "Zápis se nezdařil, zkuste to prosím znovu",

@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "Herhangi bir yazılım veya bağımlılık yüklemenize gerek yok",
   "不修改系统配置，不常驻后台": "Sistem yapılandırmasını değiştirmez ve arka planda bulunmaz.",
   "断开连接后自动停止采集": "Bağlantıyı kestikten sonra toplamayı otomatik olarak durdur",
-  "注入中...": "Enjekte ediliyor...",
   "确认开启": "Açmayı onayla",
   "正在采集系统信息...": "Sistem bilgileri toplanıyor...",
   "写入失败，请重试": "Yazma başarısız oldu, lütfen tekrar deneyin",

@@ -17,8 +17,9 @@ const pctColor = (pct, warn = 60, danger = 85) => pct >= danger ? 'var(--danger)
 const createEmptyHist = () => ({ cpu: Array(HISTORY_SIZE).fill(0), up: Array(HISTORY_SIZE).fill(0), down: Array(HISTORY_SIZE).fill(0) });
 const PROBE_CARD_ORDER_KEY = 'probePanelCardOrder';
 const PROBE_CARD_ORDER_CHANGED_EVENT = 'probeCardOrderChanged';
-const PROBE_CARD_LONG_PRESS_MS = 0;
 const DEFAULT_PROBE_CARD_ORDER = ['overview', 'cpu', 'memory', 'network', 'disk', 'process'];
+const PROBE_HIDE_IP_KEY = 'probeHideIP';
+const PROBE_HIDE_IP_CHANGED_EVENT = 'probeHideIPChanged';
 
 const normalizeProbeCardOrder = (value) => {
   const source = Array.isArray(value) ? value : [];
@@ -57,6 +58,15 @@ const reorderProbeCard = (order, activeId, targetId, position) => {
   if (targetIndex === -1) return order;
   next.splice(position === 'after' ? targetIndex + 1 : targetIndex, 0, activeId);
   return next;
+};
+
+const readProbeHideIP = () => localStorage.getItem(PROBE_HIDE_IP_KEY) === 'true';
+
+// ponytail: 所有会话的面板同时挂载（非当前会话仅 display:none），
+// 故隐藏 IP 必须广播，否则只有点击的那个面板会变。
+const persistProbeHideIP = (hide) => {
+  localStorage.setItem(PROBE_HIDE_IP_KEY, String(hide));
+  window.dispatchEvent(new CustomEvent(PROBE_HIDE_IP_CHANGED_EVENT, { detail: hide }));
 };
 
 // ── Sparkline SVG ──────────────────────────────────────────────────────────
@@ -129,12 +139,10 @@ const SectionHeader = React.memo(function SectionHeader({ icon, title, badge, ac
   return (
     <div className="probe-section-header">
       <div
-        className={`probe-section-handle${dragHandleProps ? ' probe-section-handle-sortable' : ''}${dragHandleProps?.pressing ? ' is-pressing' : ''}${dragHandleProps?.dragReady ? ' is-ready' : ''}${dragHandleProps?.dragging ? ' is-dragging' : ''}`}
+        className={`probe-section-handle${dragHandleProps ? ' probe-section-handle-sortable' : ''}${dragHandleProps?.dragReady ? ' is-ready' : ''}${dragHandleProps?.dragging ? ' is-dragging' : ''}`}
         draggable={dragHandleProps?.draggable || false}
         onPointerDown={dragHandleProps?.onPointerDown}
-        onPointerMove={dragHandleProps?.onPointerMove}
         onPointerUp={dragHandleProps?.onPointerUp}
-        onPointerLeave={dragHandleProps?.onPointerLeave}
         onPointerCancel={dragHandleProps?.onPointerCancel}
         onDragStart={dragHandleProps?.onDragStart}
         onDragEnd={dragHandleProps?.onDragEnd}
@@ -228,17 +236,45 @@ const ftotal = (mb) => formatTransferTotal(mb);
 
 function isInternalIP(ip) {
   if (!ip) return true;
-  const parts = ip.trim().split('.');
+  const addr = ip.trim();
+  // IPv6：回环 ::1、链路本地 fe80::/10、唯一本地 fc00::/7
+  if (addr.includes(':')) {
+    const lower = addr.toLowerCase();
+    if (lower === '::1' || lower === '::') return true;
+    const head = parseInt(lower.split(':')[0] || '0', 16);
+    if (Number.isNaN(head)) return true;
+    if (head >= 0xfe80 && head <= 0xfebf) return true;
+    if (head >= 0xfc00 && head <= 0xfdff) return true;
+    return false;
+  }
+  const parts = addr.split('.');
   if (parts.length !== 4) return true;
-  if (parts[0] === '10') return true;
-  if (parts[0] === '127') return true;
-  if (parts[0] === '172' && parseInt(parts[1]) >= 16 && parseInt(parts[1]) <= 31) return true;
-  if (parts[0] === '192' && parts[1] === '168') return true;
+  const octets = parts.map((part) => parseInt(part, 10));
+  if (octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  if (octets[0] === 10) return true;
+  if (octets[0] === 127) return true;
+  if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return true;
+  if (octets[0] === 192 && octets[1] === 168) return true;
+  if (octets[0] === 169 && octets[1] === 254) return true; // 链路本地
   return false;
 }
 
-function ProbeHeader({ t, info, displayIP, hideIP, setHideIP, addToast }) {
+// ponytail: 掩码按地址形态走，否则 IPv6/主机名会被套上 IPv4 形状的 ***.***.***.***
+const maskAddress = (addr) => {
+  if (!addr) return '';
+  if (addr.includes(':')) return '****:****:****:****';
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(addr)) return '***.***.***.***';
+  return '*'.repeat(Math.min(addr.length, 16));
+};
+
+function ProbeHeader({ t, info, displayIP, hideIP, addToast }) {
   const osParts = info.os?.split(' ') || ['Linux'];
+  // ponytail: 隐藏时 toast 不回显 IP，否则点一下复制就把刚藏起来的地址暴露在屏幕上
+  const handleCopyIP = () => {
+    navigator.clipboard.writeText(displayIP)
+      .then(() => addToast?.(hideIP ? t('已复制') : `${t('已复制')} ${displayIP}`, 'success'))
+      .catch(() => addToast?.(t('复制失败'), 'error'));
+  };
   return (
     <Card className="probe-header-card">
       <div className="probe-host-row">
@@ -249,12 +285,12 @@ function ProbeHeader({ t, info, displayIP, hideIP, setHideIP, addToast }) {
       </div>
       {displayIP && (
         <div className="probe-ip-actions">
-          <span className="probe-ip-chip" title={hideIP ? '' : displayIP}>{hideIP ? '***.***.***.***' : displayIP}</span>
+          <span className="probe-ip-chip" title={hideIP ? '' : displayIP}>{hideIP ? maskAddress(displayIP) : displayIP}</span>
           <Tiptop text={t('复制 IP')} placement="bottom">
-            <button onClick={() => { navigator.clipboard.writeText(displayIP); addToast?.(t('已复制') + ' ' + displayIP, 'success'); }} aria-label={t('复制 IP')} className="probe-icon-btn"><Clipboard size={13} /></button>
+            <button onClick={handleCopyIP} aria-label={t('复制 IP')} className="probe-icon-btn"><Clipboard size={13} /></button>
           </Tiptop>
           <Tiptop text={hideIP ? t('显示 IP') : t('隐藏 IP')} placement="bottom">
-            <button onClick={() => setHideIP(p => { const next = !p; localStorage.setItem('probeHideIP', next); return next; })} aria-label={hideIP ? t('显示 IP') : t('隐藏 IP')} className="probe-icon-btn">{hideIP ? <Eye size={13} /> : <EyeOff size={13} />}</button>
+            <button onClick={() => persistProbeHideIP(!hideIP)} aria-label={hideIP ? t('显示 IP') : t('隐藏 IP')} className="probe-icon-btn">{hideIP ? <Eye size={13} /> : <EyeOff size={13} />}</button>
           </Tiptop>
         </div>
       )}
@@ -474,8 +510,7 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
   const histRef = useRef(hist);
   histRef.current = hist;
   const [showConfirm, setShowConfirm] = useState(false);
-  const [enabling, setEnabling] = useState(false);
-  const [hideIP, setHideIP] = useState(() => localStorage.getItem('probeHideIP') === 'true');
+  const [hideIP, setHideIP] = useState(readProbeHideIP);
   const [cpuExpanded, setCpuExpanded] = useState(false);
   const [diskExpanded, setDiskExpanded] = useState(false);
   const [probeError, setProbeError] = useState(null);
@@ -488,12 +523,9 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
   const activeSessionIdRef = useRef(sessionId);
   const onSnapshotRef = useRef(onSnapshot);
   const [cardOrder, setCardOrder] = useState(readProbeCardOrder);
-  const [pressingCardId, setPressingCardId] = useState(null);
   const [dragReadyId, setDragReadyId] = useState(null);
   const [draggingCardId, setDraggingCardId] = useState(null);
   const [dropIndicator, setDropIndicator] = useState(null);
-  const dragPressTimerRef = useRef(null);
-  const dragPressMetaRef = useRef(null);
   const dragGhostRef = useRef(null);
   useEffect(() => { activeSessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onSnapshotRef.current = onSnapshot; }, [onSnapshot]);
@@ -505,10 +537,10 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
     return () => window.removeEventListener(PROBE_CARD_ORDER_CHANGED_EVENT, handleOrderChanged);
   }, []);
 
-  const clearCardPressTimer = useCallback(() => {
-    if (!dragPressTimerRef.current) return;
-    clearTimeout(dragPressTimerRef.current);
-    dragPressTimerRef.current = null;
+  useEffect(() => {
+    const handleHideIPChanged = (event) => setHideIP(!!event.detail);
+    window.addEventListener(PROBE_HIDE_IP_CHANGED_EVENT, handleHideIPChanged);
+    return () => window.removeEventListener(PROBE_HIDE_IP_CHANGED_EVENT, handleHideIPChanged);
   }, []);
 
   const clearCardDragGhost = useCallback(() => {
@@ -520,87 +552,41 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
   }, []);
 
   const resetCardDragState = useCallback(() => {
-    clearCardPressTimer();
-    dragPressMetaRef.current = null;
-    setPressingCardId(null);
     setDragReadyId(null);
     setDraggingCardId(null);
     setDropIndicator(null);
     clearCardDragGhost();
-  }, [clearCardDragGhost, clearCardPressTimer]);
+  }, [clearCardDragGhost]);
 
-  useEffect(() => () => {
-    clearCardPressTimer();
-    clearCardDragGhost();
-  }, [clearCardDragGhost, clearCardPressTimer]);
+  useEffect(() => clearCardDragGhost, [clearCardDragGhost]);
 
   useEffect(() => {
     if (!dragReadyId || draggingCardId) return;
-    const handlePointerRelease = () => {
-      clearCardPressTimer();
-      dragPressMetaRef.current = null;
-      setPressingCardId(null);
-      setDragReadyId(null);
-    };
+    const handlePointerRelease = () => setDragReadyId(null);
     window.addEventListener('pointerup', handlePointerRelease);
     window.addEventListener('pointercancel', handlePointerRelease);
     return () => {
       window.removeEventListener('pointerup', handlePointerRelease);
       window.removeEventListener('pointercancel', handlePointerRelease);
     };
-  }, [clearCardPressTimer, dragReadyId, draggingCardId]);
+  }, [dragReadyId, draggingCardId]);
 
+  // ponytail: 按下即可拖，无长按延迟；松手由上面的 pointerup 兜底清理
   const handleCardHandlePointerDown = useCallback((cardId, event) => {
     if (event.button !== 0) return;
-    clearCardPressTimer();
-    dragPressMetaRef.current = { cardId, startX: event.clientX, startY: event.clientY };
-    if (PROBE_CARD_LONG_PRESS_MS <= 0) {
-      setPressingCardId(null);
-      setDragReadyId(cardId);
-      return;
-    }
-    setPressingCardId(cardId);
-    setDragReadyId(null);
-    dragPressTimerRef.current = setTimeout(() => {
-      dragPressTimerRef.current = null;
-      if (dragPressMetaRef.current?.cardId === cardId) {
-        setDragReadyId(cardId);
-      }
-    }, PROBE_CARD_LONG_PRESS_MS);
-  }, [clearCardPressTimer]);
-
-  const handleCardHandlePointerMove = useCallback((cardId, event) => {
-    const meta = dragPressMetaRef.current;
-    if (!meta || meta.cardId !== cardId || dragReadyId === cardId) return;
-    if (Math.abs(event.clientX - meta.startX) > 6 || Math.abs(event.clientY - meta.startY) > 6) {
-      clearCardPressTimer();
-      dragPressMetaRef.current = null;
-      setPressingCardId(null);
-    }
-  }, [clearCardPressTimer, dragReadyId]);
+    setDragReadyId(cardId);
+  }, []);
 
   const handleCardHandlePointerUp = useCallback((cardId) => {
     if (draggingCardId === cardId) return;
-    clearCardPressTimer();
-    dragPressMetaRef.current = null;
-    setPressingCardId(null);
     if (dragReadyId === cardId) setDragReadyId(null);
-  }, [clearCardPressTimer, dragReadyId, draggingCardId]);
-
-  const handleCardHandlePointerLeave = useCallback((cardId) => {
-    if (dragReadyId === cardId || draggingCardId === cardId) return;
-    clearCardPressTimer();
-    dragPressMetaRef.current = null;
-    setPressingCardId(null);
-  }, [clearCardPressTimer, dragReadyId, draggingCardId]);
+  }, [dragReadyId, draggingCardId]);
 
   const handleCardDragStart = useCallback((cardId, event) => {
     if (dragReadyId !== cardId) {
       event.preventDefault();
       return;
     }
-    dragPressMetaRef.current = null;
-    setPressingCardId(null);
     setDraggingCardId(cardId);
     setDropIndicator(null);
     event.dataTransfer.effectAllowed = 'move';
@@ -649,17 +635,14 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
 
   const getSectionDragHandleProps = useCallback((cardId) => ({
     draggable: dragReadyId === cardId,
-    pressing: pressingCardId === cardId && dragReadyId !== cardId,
     dragReady: dragReadyId === cardId,
     dragging: draggingCardId === cardId,
     onPointerDown: (event) => handleCardHandlePointerDown(cardId, event),
-    onPointerMove: (event) => handleCardHandlePointerMove(cardId, event),
     onPointerUp: () => handleCardHandlePointerUp(cardId),
-    onPointerLeave: () => handleCardHandlePointerLeave(cardId),
     onPointerCancel: () => handleCardHandlePointerUp(cardId),
     onDragStart: (event) => handleCardDragStart(cardId, event),
     onDragEnd: handleCardDragEnd,
-  }), [dragReadyId, draggingCardId, handleCardDragEnd, handleCardDragStart, handleCardHandlePointerDown, handleCardHandlePointerLeave, handleCardHandlePointerMove, handleCardHandlePointerUp]);
+  }), [dragReadyId, draggingCardId, handleCardDragEnd, handleCardDragStart, handleCardHandlePointerDown, handleCardHandlePointerUp]);
 
   // 切换服务器时立即清空旧数据和静态缓存
   useEffect(() => {
@@ -692,8 +675,8 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
           ip: data.ip || '',
         };
       } catch (_) {
-        if (!mounted || !activeRef.current || activeSessionIdRef.current !== sessionId) return;
-        staticInfoRef.current = { os: 'Linux', timezone: 'UTC', cpuModel: '', ip: '' };
+        // ponytail: 失败时不写缓存，否则守卫 staticInfoRef 会让这台服务器永久停留在兜底值。
+        // fetchInfo 内已有同样的兜底，显示效果一致，但下次面板切回来会重试。
       }
     })();
     return () => { mounted = false; };
@@ -786,22 +769,26 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
 
   useEffect(() => {
     if (!enabled || !active) return;
-    fetchInfo();
     // ponytail: 递归 setTimeout 替代 setInterval，确保上一次 fetchInfo 完成后才排下一次，
-    // 避免慢网络下多个 SystemInfo 并发在飞（请求堆叠 + 加剧竞态）
+    // 避免慢网络下多个 SystemInfo 并发在飞（请求堆叠 + 加剧竞态）。
+    // stopped 用闭包标志而非 ref：定时器触发后 ref 仍存着已烧掉的 ID，
+    // 改间隔恰好落在 await 窗口时，旧链会误判自己仍然有效而重复排下一次（两条链并行、频率翻倍）。
+    let stopped = false;
     const scheduleNext = () => {
+      if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
       probeTimerRef.current = setTimeout(async () => {
         await fetchInfo();
-        if (probeTimerRef.current !== null && activeRef.current) scheduleNext();
+        if (!stopped && activeRef.current) scheduleNext();
       }, getProbeInterval() * 1000);
     };
+    fetchInfo();
     scheduleNext();
     const onIntervalChange = () => {
-      if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
-      if (activeRef.current) scheduleNext();
+      if (!stopped && activeRef.current) scheduleNext();
     };
     window.addEventListener('probeIntervalChanged', onIntervalChange);
     return () => {
+      stopped = true;
       if (probeTimerRef.current) {
         clearTimeout(probeTimerRef.current);
         probeTimerRef.current = null;
@@ -810,21 +797,14 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
     };
   }, [fetchInfo, enabled, active]);
 
-  const handleConfirm = async () => {
+  // ponytail: onEnable 是父组件的同步 setState，不会 reject，
+  // 探针注入失败由 fetchInfo 连续 3 次出错的路径报错，这里无需 try/catch。
+  const handleConfirm = () => {
     setShowConfirm(false);
-    setEnabling(true);
-    try {
-      await onEnable();
-      setProbeError(false);
-      setProbeErrorDetail('');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err || '');
-      setProbeError(true);
-      setProbeErrorDetail(errorMessage);
-      console.error('Probe enable failed:', err);
-    } finally {
-      setEnabling(false);
-    }
+    setProbeError(false);
+    setProbeErrorDetail('');
+    probeErrorCountRef.current = 0;
+    onEnable();
   };
 
   // ── Not enabled: show welcome panel ──────────────────────────────────
@@ -867,9 +847,7 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
               </div>
               <div className="probe-confirm-actions">
                 <button onClick={() => setShowConfirm(false)} className="btn btn-secondary btn-sm">{t('取消')}</button>
-                <button onClick={handleConfirm} disabled={enabling} className="btn btn-primary btn-sm">
-                  {enabling ? t('注入中...') : t('确认开启')}
-                </button>
+                <button onClick={handleConfirm} className="btn btn-primary btn-sm">{t('确认开启')}</button>
               </div>
             </div>
           </div>
@@ -960,7 +938,7 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
       onDragOver={handlePanelDragOver}
       onDrop={handlePanelDrop}
     >
-      <ProbeHeader t={t} info={info} displayIP={displayIP} hideIP={hideIP} setHideIP={setHideIP} addToast={addToast} />
+      <ProbeHeader t={t} info={info} displayIP={displayIP} hideIP={hideIP} addToast={addToast} />
       {cardOrder.map((cardId) => {
         const cardNode = orderedSections[cardId];
         if (!cardNode) return null;

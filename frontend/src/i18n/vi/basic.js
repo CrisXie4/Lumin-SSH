@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "Không cần cài đặt bất kỳ phần mềm hoặc phụ thuộc nào",
   "不修改系统配置，不常驻后台": "Không sửa đổi cấu hình hệ thống và không nằm ở chế độ nền.",
   "断开连接后自动停止采集": "Tự động dừng thu thập sau khi ngắt kết nối",
-  "注入中...": "Đang tiêm...",
   "确认开启": "Xác nhận để mở",
   "正在采集系统信息...": "Thu thập thông tin hệ thống...",
   "写入失败，请重试": "Viết không thành công, vui lòng thử lại",

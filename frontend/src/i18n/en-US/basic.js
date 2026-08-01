@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "No software or dependencies needed",
   "不修改系统配置，不常驻后台": "No system config changes, no daemon",
   "断开连接后自动停止采集": "Auto-stops collection on disconnect",
-  "注入中...": "Injecting...",
   "确认开启": "Confirm Enable",
   "正在采集系统信息...": "Collecting system info...",
   "写入失败，请重试": "Write failed, please retry",

@@ -267,7 +267,6 @@ export default {
   "无需安装任何软件或依赖": "Tidak perlu menginstal perangkat lunak atau ketergantungan apa pun",
   "不修改系统配置，不常驻后台": "Tidak mengubah konfigurasi sistem dan tidak berada di latar belakang.",
   "断开连接后自动停止采集": "Secara otomatis berhenti mengumpulkan setelah memutuskan sambungan",
-  "注入中...": "Menyuntik...",
   "确认开启": "Konfirmasikan untuk membuka",
   "正在采集系统信息...": "Mengumpulkan informasi sistem...",
   "写入失败，请重试": "Gagal menulis, silakan coba lagi",
