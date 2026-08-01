@@ -688,11 +688,22 @@ func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword
 		a.configManager.SaveConnection(conn, true)
 	}
 
-	// 清理旧会话
+	// 清理旧会话。Disconnect 会清掉「只接受本次」的临时密钥授权，
+	// 但换密码重连仍是同一会话，须跨重连保留，否则主机密钥确认会二次弹出。
+	tempKey, hadTempKey := a.sshManager.TempAcceptedKey(sessionId)
 	a.sshManager.Disconnect(sessionId)
+	if hadTempKey {
+		a.sshManager.RestoreTempAcceptedKey(sessionId, tempKey)
+	}
 
 	// 重新连接
-	return a.sshManager.Connect(sessionId, resolved)
+	err = a.sshManager.Connect(sessionId, resolved)
+	// 重连失败且非认证失败（认证失败会再弹密码框继续重试）时清除临时密钥，
+	// 与 AcceptHostKeyChange 的失败处理保持一致，避免残留导致静默绕过校验。
+	if hadTempKey && err != nil && !errors.Is(err, ErrAuthFailed) {
+		a.sshManager.ClearTempAcceptedKey(sessionId)
+	}
+	return err
 }
 
 // DisconnectSSH closes an SSH connection

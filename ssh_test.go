@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"net"
 	"slices"
 	"sync"
@@ -280,5 +281,90 @@ func TestOutputTapConcurrentClose(t *testing.T) {
 	}()
 	wait.Wait()
 	for range channel {
+	}
+}
+
+// 复现「只接受本次 → 密码错误 → 填对密码 → 主机密钥确认二次弹出」。
+// Disconnect 会清掉临时密钥授权，但换密码重连仍是同一会话，须跨重连保留。
+func TestTempAcceptedKeySurvivesPasswordReconnect(t *testing.T) {
+	manager := NewSSHManager()
+	const sessionId = "terminal"
+	const fingerprint = "SHA256:test-fingerprint"
+
+	// 用户选了「只接受本次」
+	manager.RestoreTempAcceptedKey(sessionId, fingerprint)
+
+	// 登记会话让 Disconnect 走到真正的清理分支。留一个兄弟终端占用同一
+	// client，避免走到关闭共享连接的分支（空 ssh.Client 无法 Close）。
+	manager.clients["server"] = &sshClientEntry{Client: &ssh.Client{}}
+	manager.connTerminals["server"] = []string{sessionId, "sibling"}
+	manager.sessions[sessionId] = &SessionData{ConnKey: "server"}
+	manager.sessions["sibling"] = &SessionData{ConnKey: "server"}
+
+	// ReconnectWithPassword 的做法：Disconnect 前后保存并恢复
+	saved, had := manager.TempAcceptedKey(sessionId)
+	if !had || saved != fingerprint {
+		t.Fatalf("应能读回临时密钥，实际 had=%v fp=%q", had, saved)
+	}
+	manager.Disconnect(sessionId)
+
+	if _, stillThere := manager.TempAcceptedKey(sessionId); stillThere {
+		t.Fatal("Disconnect 应清掉临时密钥（这正是需要跨重连恢复的原因）")
+	}
+	manager.RestoreTempAcceptedKey(sessionId, saved)
+
+	// 重连后主机密钥校验应仍被临时授权放行，不再二次要求确认
+	got, ok := manager.TempAcceptedKey(sessionId)
+	if !ok || got != fingerprint {
+		t.Fatalf("换密码重连后临时密钥授权应保留，实际 ok=%v fp=%q", ok, got)
+	}
+
+	// 重连最终失败（非认证失败）时须清除，避免残留静默绕过校验
+	manager.ClearTempAcceptedKey(sessionId)
+	if _, leaked := manager.TempAcceptedKey(sessionId); leaked {
+		t.Fatal("清除后不应残留临时密钥")
+	}
+}
+
+// 握手失败的会话从未进入 m.sessions，Disconnect 会在 ok 判断处提前返回。
+// 临时密钥与待确认条目必须先于该返回清理，否则「只接受本次 → 密码错误 →
+// 取消」这条路径会永久残留条目。
+func TestDisconnectClearsTempKeyForNeverEstablishedSession(t *testing.T) {
+	manager := NewSSHManager()
+	const sessionId = "never-established"
+
+	manager.tempAcceptedKeys[sessionId] = "SHA256:test-fingerprint"
+	manager.pendingHostKeys[sessionId] = &PendingHostKey{Hostname: "example.com"}
+
+	// 没有 m.sessions 条目，Disconnect 返回 false（幂等语义不变）
+	if manager.Disconnect(sessionId) {
+		t.Fatal("未建立的会话断开应返回 false")
+	}
+
+	manager.mu.RLock()
+	_, tempLeaked := manager.tempAcceptedKeys[sessionId]
+	_, pendingLeaked := manager.pendingHostKeys[sessionId]
+	manager.mu.RUnlock()
+
+	if tempLeaked {
+		t.Fatal("未建立的会话断开后临时密钥泄漏")
+	}
+	if pendingLeaked {
+		t.Fatal("未建立的会话断开后待确认条目泄漏")
+	}
+}
+
+// 认证失败必须是可判定的 sentinel，否则「只接受本次」会在密码输错时
+// 连带丢弃临时授权，导致主机密钥确认二次弹出。
+func TestAuthFailedIsIdentifiableSentinel(t *testing.T) {
+	if !errors.Is(ErrAuthFailed, ErrAuthFailed) {
+		t.Fatal("ErrAuthFailed 应可被 errors.Is 判定")
+	}
+	// 前端按文案 includes('认证失败') 分流，文案不能改
+	if ErrAuthFailed.Error() != "认证失败" {
+		t.Fatalf("文案变更会破坏前端认证失败分流，实际 %q", ErrAuthFailed.Error())
+	}
+	if errors.Is(ErrHostKeyChanged, ErrAuthFailed) {
+		t.Fatal("主机密钥变更不应被判定为认证失败")
 	}
 }

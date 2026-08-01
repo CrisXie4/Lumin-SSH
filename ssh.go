@@ -33,6 +33,10 @@ import (
 // ErrHostKeyChanged 在远程主机密钥发生变化时返回，需要用户确认
 var ErrHostKeyChanged = errors.New("host key has changed")
 
+// ErrAuthFailed 在 SSH 认证失败时返回。此时连接本身是通的、主机密钥已校验过，
+// 用户补上正确密码即可重试，因此不应连带丢弃「只接受本次」的临时密钥授权。
+var ErrAuthFailed = errors.New("认证失败")
+
 var sshHostKeyAlgorithms = []string{
 	"ssh-ed25519",
 	"ecdsa-sha2-nistp256",
@@ -427,7 +431,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 							"error":     errStr,
 						})
 					}
-					return fmt.Errorf("认证失败")
+					return ErrAuthFailed
 				}
 
 				// 瞬态错误关闭连接后重试
@@ -1174,6 +1178,11 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 
 	// 1. 在锁内完成 map 清理，收集需要关闭的资源
 	m.mu.Lock()
+	// 临时密钥与待确认条目的生命周期不依赖 m.sessions：握手失败（认证错误、
+	// 用户取消主机密钥确认）的会话从未进入 m.sessions，若放在下面的提前返回
+	// 之后清理就会永久残留。故先于 ok 判断清掉。
+	delete(m.tempAcceptedKeys, sessionId)
+	delete(m.pendingHostKeys, sessionId)
 	s, ok := m.sessions[sessionId]
 	if !ok {
 		m.mu.Unlock()
@@ -1182,10 +1191,6 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	disconnected = true
 	connKey := s.ConnKey
 	delete(m.sessions, sessionId)
-	// 清理该会话临时接受的主机密钥记录，避免无限累积
-	delete(m.tempAcceptedKeys, sessionId)
-	// 清理可能残留的主机密钥变更待确认条目（用户关掉弹窗未响应时）
-	delete(m.pendingHostKeys, sessionId)
 
 	isLocal := s.IsLocal
 	isSerial := s.IsSerial
@@ -1368,6 +1373,29 @@ func initKnownHostsCallback() (ssh.HostKeyCallback, error) {
 	return cb, nil
 }
 
+// TempAcceptedKey 读取该会话「只接受本次」记录的指纹。
+// 供 ReconnectWithPassword 在 Disconnect 前后跨重连保留授权。
+func (m *SSHManager) TempAcceptedKey(sessionId string) (string, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	fp, ok := m.tempAcceptedKeys[sessionId]
+	return fp, ok
+}
+
+// RestoreTempAcceptedKey 恢复该会话的临时密钥授权。
+func (m *SSHManager) RestoreTempAcceptedKey(sessionId string, fingerprint string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tempAcceptedKeys[sessionId] = fingerprint
+}
+
+// ClearTempAcceptedKey 清除该会话的临时密钥授权。
+func (m *SSHManager) ClearTempAcceptedKey(sessionId string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.tempAcceptedKeys, sessionId)
+}
+
 // AcceptHostKeyChange 处理用户对主机密钥变更的确认
 // action: 0=取消, 1=仅本次接受, 2=接受并保存至 known_hosts
 func (m *SSHManager) AcceptHostKeyChange(sessionId string, action int) error {
@@ -1389,8 +1417,10 @@ func (m *SSHManager) AcceptHostKeyChange(sessionId string, action int) error {
 		m.tempAcceptedKeys[sessionId] = pending.NewFingerprint
 		m.mu.Unlock()
 		err := m.Connect(sessionId, pending.Conn)
-		// Connect 失败时清除临时密钥，避免下次连接静默绕过主机密钥校验
-		if err != nil {
+		// Connect 失败时清除临时密钥，避免下次连接静默绕过主机密钥校验。
+		// 认证失败除外：主机密钥此刻已校验通过，用户补对密码就会走
+		// ReconnectWithPassword 重连，此时清掉会导致主机密钥确认二次弹出。
+		if err != nil && !errors.Is(err, ErrAuthFailed) {
 			m.mu.Lock()
 			delete(m.tempAcceptedKeys, sessionId)
 			m.mu.Unlock()
