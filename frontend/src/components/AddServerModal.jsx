@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, Plus, X, Monitor, Key, FolderOpen, SquarePen, KeyRound, Globe } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
 import { useTranslation } from '../i18n.js';
+import { TERMINAL_ENCODING_GROUPS } from '../constants/terminalEncodings.js';
+import SearchableGroupedSelect from './SearchableGroupedSelect.jsx';
 import { getAIGlobalSettings } from './ai/aiGlobalSettingsBridge.js';
 
 const PROXY_NODES_CHANGED_EVENT = 'lumin:proxy-nodes-changed';
@@ -17,6 +19,7 @@ const defaultForm = {
   passphrase: '',
   terminalInitPath: '',
   fileManagerInitPath: '',
+  terminalEncoding: 'utf-8',
   allowLegacySshRsa: false,
   proxyMode: 'direct',
   proxyNodeId: '',
@@ -72,6 +75,7 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
         proxyPort: server.proxyPort ? String(server.proxyPort) : '1080',
         proxyUsername: server.proxyUsername || '',
         proxyPassword: '',
+        terminalEncoding: server.terminalEncoding || 'utf-8',
       });
       setShowProxyPassword(false);
     } else {
@@ -133,6 +137,7 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
       data.port = parseInt(data.port, 10) || 22;
       data.terminalInitPath = String(data.terminalInitPath || '').trim();
       data.fileManagerInitPath = String(data.fileManagerInitPath || '').trim();
+      data.terminalEncoding = String(data.terminalEncoding || '').trim() || 'utf-8';
       data.allowLegacySshRsa = !!form.allowLegacySshRsa;
       data.proxyMode = form.proxyMode || 'direct';
       data.proxyNodeId = String(data.proxyNodeId || '').trim();
@@ -534,6 +539,27 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                     value={form.fileManagerInitPath || ''}
                     onChange={set('fileManagerInitPath')}
                   />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{t('终端字符编码')}</label>
+                <SearchableGroupedSelect
+                  value={form.terminalEncoding || 'utf-8'}
+                  onChange={(nextValue) => setForm((f) => ({ ...f, terminalEncoding: nextValue }))}
+                  groups={TERMINAL_ENCODING_GROUPS}
+                  placeholder={t('终端字符编码')}
+                  searchPlaceholder={t('输入关键字过滤字符编码')}
+                  emptyText={t('未找到匹配的字符编码')}
+                  renderOptionLabel={(item) => (
+                    item.value === 'utf-8'
+                      ? 'UTF-8'
+                      : item.value === 'gb18030'
+                        ? t('GB18030(兼容 GBK/GB2312)')
+                        : item.label
+                  )}
+                />
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 6 }}>
+                  {t('设置该连接的终端输入与输出编码')}
                 </div>
               </div>
               <label className="server-editor-compat-check">

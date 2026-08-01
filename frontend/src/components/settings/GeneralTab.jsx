@@ -9,6 +9,12 @@ export default function GeneralTab({
   confirmProcessKill, onToggleConfirmProcessKill,
   windowCloseAction, onWindowCloseActionChange,
   updateUseProxy, onToggleUpdateUseProxy,
+  terminalRightClickPasteOnEmpty, onTerminalRightClickPasteOnEmptyChange,
+  terminalRightClickPasteMode, onTerminalRightClickPasteModeChange,
+  terminalLeftClickCopyOnSelection, onTerminalLeftClickCopyOnSelectionChange,
+  terminalLeftClickCopyOnSelectionMode, onTerminalLeftClickCopyOnSelectionModeChange,
+  terminalTabDoubleClickActionEnabled, onTerminalTabDoubleClickActionEnabledChange,
+  terminalTabDoubleClickAction, onTerminalTabDoubleClickActionChange,
   rememberWorkspace, onToggleRememberWorkspace,
   workspacePersistenceLevel, onWorkspacePersistenceLevelChange,
   supportsWebviewGpuDisable, webviewGpuDisabled, onToggleWebviewGpuDisabled,
@@ -78,6 +84,104 @@ export default function GeneralTab({
               <option value="tray">{$t('最小化到托盘')}</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 12, fontWeight: 600 }}>{$t('交互偏好')}</h3>
+        <div className="form-group" style={{ background: 'var(--surface-overlay)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('右键直接粘贴')}</div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('开启后, 右键粘贴快捷操作会按下面选项触发')}</div>
+            </div>
+            <ToggleSwitch checked={terminalRightClickPasteOnEmpty} onChange={() => onTerminalRightClickPasteOnEmptyChange(!terminalRightClickPasteOnEmpty)} />
+          </div>
+          {terminalRightClickPasteOnEmpty && (
+            <>
+              <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('右键粘贴触发方式')}</div>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('选择右键直接粘贴的触发范围')}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  <RadioOption
+                    selected={terminalRightClickPasteMode !== 'always'}
+                    label={$t('仅无选区时直接粘贴')}
+                    description={$t('当前行为, 有选区时仍打开右键菜单')}
+                    onClick={() => onTerminalRightClickPasteModeChange('empty')}
+                  />
+                  <RadioOption
+                    selected={terminalRightClickPasteMode === 'always'}
+                    label={$t('无论是否有选区都直接粘贴')}
+                    description={$t('右键始终直接粘贴到终端, 不再显示右键菜单')}
+                    onClick={() => onTerminalRightClickPasteModeChange('always')}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('左键选区自动复制')}</div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('开启后, 左键选区相关的复制快捷操作会按下面选项触发; 有选区时右键仍打开菜单')}</div>
+            </div>
+            <ToggleSwitch checked={terminalLeftClickCopyOnSelection} onChange={() => onTerminalLeftClickCopyOnSelectionChange(!terminalLeftClickCopyOnSelection)} />
+          </div>
+          {terminalLeftClickCopyOnSelection && (
+            <>
+              <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('左键复制触发方式')}</div>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('选择左键自动复制的触发时机')}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  <RadioOption
+                    selected={terminalLeftClickCopyOnSelectionMode !== 'mouseup'}
+                    label={$t('点击已选中的文字时复制')}
+                    description={$t('先完成选区, 再左键点击已选中的文字区域时自动复制')}
+                    onClick={() => onTerminalLeftClickCopyOnSelectionModeChange('click')}
+                  />
+                  <RadioOption
+                    selected={terminalLeftClickCopyOnSelectionMode === 'mouseup'}
+                    label={$t('选中后松开鼠标时立即复制')}
+                    description={$t('左键拖拽选中后, 松开鼠标按键时立即自动复制')}
+                    onClick={() => onTerminalLeftClickCopyOnSelectionModeChange('mouseup')}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+          <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('为终端标签页添加双击行为')}</div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('开启后, 双击普通终端标签时会执行下面选择的动作; 分屏组标签不生效')}</div>
+            </div>
+            <ToggleSwitch checked={terminalTabDoubleClickActionEnabled} onChange={() => onTerminalTabDoubleClickActionEnabledChange(!terminalTabDoubleClickActionEnabled)} />
+          </div>
+          {terminalTabDoubleClickActionEnabled && (
+            <>
+              <div className="divider" style={{ margin: '12px 0', borderTop: '1px solid var(--border)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('双击动作')}</div>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('选择双击终端标签时要执行的动作')}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  <RadioOption
+                    selected={terminalTabDoubleClickAction === 'close'}
+                    label={$t('关闭标签页')}
+                    description={$t('双击普通终端标签时直接关闭该标签页')}
+                    onClick={() => onTerminalTabDoubleClickActionChange('close')}
+                  />
+                  <RadioOption
+                    selected={terminalTabDoubleClickAction !== 'close'}
+                    label={$t('复制标签页')}
+                    description={$t('双击普通终端标签时在同一连接下复制一个新终端标签, 并同步当前工作目录和文件资源管理器标签页')}
+                    onClick={() => onTerminalTabDoubleClickActionChange('duplicate')}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

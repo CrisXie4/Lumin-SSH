@@ -380,6 +380,25 @@ export default function SettingsModal({
   const [terminalLocalEcho, setTerminalLocalEcho] = useState(localStorage.getItem('terminalLocalEcho') === 'true');
   const [terminalTimestamps, setTerminalTimestamps] = useState(localStorage.getItem('terminalTimestamps') === 'true');
   const [terminalCommandBlocks, setTerminalCommandBlocks] = useState(localStorage.getItem('terminalCommandBlocks') === 'true');
+  const [terminalDefaultMouseCursor, setTerminalDefaultMouseCursor] = useState(localStorage.getItem('terminalOutputDefaultMouseCursor') === 'true');
+  const [terminalRightClickPasteOnEmpty, setTerminalRightClickPasteOnEmpty] = useState(localStorage.getItem('terminalRightClickPasteOnEmpty') === 'true');
+  const [terminalRightClickPasteMode, setTerminalRightClickPasteMode] = useState(localStorage.getItem('terminalRightClickPasteMode') === 'always' ? 'always' : 'empty');
+  const [terminalLeftClickCopyOnSelection, setTerminalLeftClickCopyOnSelection] = useState(localStorage.getItem('terminalLeftClickCopyOnSelection') === 'true');
+  const [terminalLeftClickCopyOnSelectionMode, setTerminalLeftClickCopyOnSelectionMode] = useState(localStorage.getItem('terminalLeftClickCopyOnSelectionMode') === 'mouseup' ? 'mouseup' : 'click');
+  const [terminalTabDoubleClickActionEnabled, setTerminalTabDoubleClickActionEnabled] = useState(() => {
+    const stored = localStorage.getItem('terminalTabDoubleClickActionEnabled');
+    if (stored === 'true' || stored === 'false') {
+      return stored === 'true';
+    }
+    return localStorage.getItem('terminalTabDoubleClickDuplicate') === 'true';
+  });
+  const [terminalTabDoubleClickAction, setTerminalTabDoubleClickAction] = useState(() => {
+    const stored = localStorage.getItem('terminalTabDoubleClickAction');
+    if (stored === 'close' || stored === 'duplicate') {
+      return stored;
+    }
+    return 'duplicate';
+  });
   const [rememberWindowSize, setRememberWindowSize] = useState(localStorage.getItem('rememberWindowSize') !== 'false');
   const [showThemeQuickEntry, setShowThemeQuickEntry] = useState(localStorage.getItem('showThemeQuickEntry') !== 'false');
   const [programFonts, setProgramFonts] = useState([]);
@@ -652,6 +671,51 @@ export default function SettingsModal({
     setTerminalCommandBlocks(enabled);
     localStorage.setItem('terminalCommandBlocks', String(enabled));
     window.dispatchEvent(new CustomEvent('terminal-command-blocks-changed', { detail: enabled }));
+  };
+
+  const handleTerminalDefaultMouseCursorChange = (enabled) => {
+    setTerminalDefaultMouseCursor(enabled);
+    localStorage.setItem('terminalOutputDefaultMouseCursor', String(enabled));
+    window.dispatchEvent(new CustomEvent('terminal-output-default-mouse-cursor-changed', { detail: enabled }));
+  };
+
+  const handleTerminalRightClickPasteOnEmptyChange = (enabled) => {
+    setTerminalRightClickPasteOnEmpty(enabled);
+    localStorage.setItem('terminalRightClickPasteOnEmpty', String(enabled));
+    window.dispatchEvent(new CustomEvent('terminal-right-click-paste-on-empty-changed', { detail: enabled }));
+  };
+
+  const handleTerminalRightClickPasteModeChange = (mode) => {
+    const next = mode === 'always' ? 'always' : 'empty';
+    setTerminalRightClickPasteMode(next);
+    if (next === 'empty') localStorage.removeItem('terminalRightClickPasteMode');
+    else localStorage.setItem('terminalRightClickPasteMode', next);
+    window.dispatchEvent(new CustomEvent('terminal-right-click-paste-mode-changed', { detail: next }));
+  };
+
+  const handleTerminalLeftClickCopyOnSelectionChange = (enabled) => {
+    setTerminalLeftClickCopyOnSelection(enabled);
+    localStorage.setItem('terminalLeftClickCopyOnSelection', String(enabled));
+    window.dispatchEvent(new CustomEvent('terminal-left-click-copy-on-selection-changed', { detail: enabled }));
+  };
+
+  const handleTerminalLeftClickCopyOnSelectionModeChange = (mode) => {
+    const next = mode === 'mouseup' ? 'mouseup' : 'click';
+    setTerminalLeftClickCopyOnSelectionMode(next);
+    if (next === 'click') localStorage.removeItem('terminalLeftClickCopyOnSelectionMode');
+    else localStorage.setItem('terminalLeftClickCopyOnSelectionMode', next);
+    window.dispatchEvent(new CustomEvent('terminal-left-click-copy-on-selection-mode-changed', { detail: next }));
+  };
+
+  const handleTerminalTabDoubleClickActionEnabledChange = (enabled) => {
+    setTerminalTabDoubleClickActionEnabled(enabled);
+    localStorage.setItem('terminalTabDoubleClickActionEnabled', String(enabled));
+  };
+
+  const handleTerminalTabDoubleClickActionChange = (action) => {
+    const next = action === 'close' ? 'close' : 'duplicate';
+    setTerminalTabDoubleClickAction(next);
+    localStorage.setItem('terminalTabDoubleClickAction', next);
   };
 
   const handleTermBgUpload = (e) => {
@@ -1876,6 +1940,18 @@ export default function SettingsModal({
                 supportsWebviewGpuDisable={supportsWebviewGpuDisable}
                 webviewGpuDisabled={webviewGpuDisabled}
                 onToggleWebviewGpuDisabled={handleToggleWebviewGpuDisabled}
+                terminalRightClickPasteOnEmpty={terminalRightClickPasteOnEmpty}
+                onTerminalRightClickPasteOnEmptyChange={handleTerminalRightClickPasteOnEmptyChange}
+                terminalRightClickPasteMode={terminalRightClickPasteMode}
+                onTerminalRightClickPasteModeChange={handleTerminalRightClickPasteModeChange}
+                terminalLeftClickCopyOnSelection={terminalLeftClickCopyOnSelection}
+                onTerminalLeftClickCopyOnSelectionChange={handleTerminalLeftClickCopyOnSelectionChange}
+                terminalLeftClickCopyOnSelectionMode={terminalLeftClickCopyOnSelectionMode}
+                onTerminalLeftClickCopyOnSelectionModeChange={handleTerminalLeftClickCopyOnSelectionModeChange}
+                terminalTabDoubleClickActionEnabled={terminalTabDoubleClickActionEnabled}
+                onTerminalTabDoubleClickActionEnabledChange={handleTerminalTabDoubleClickActionEnabledChange}
+                terminalTabDoubleClickAction={terminalTabDoubleClickAction}
+                onTerminalTabDoubleClickActionChange={handleTerminalTabDoubleClickActionChange}
               />
             )}
 
@@ -1986,6 +2062,8 @@ export default function SettingsModal({
                 onTerminalTimestampsChange={handleTerminalTimestampsChange}
                 terminalCommandBlocks={terminalCommandBlocks}
                 onTerminalCommandBlocksChange={handleTerminalCommandBlocksChange}
+                terminalDefaultMouseCursor={terminalDefaultMouseCursor}
+                onTerminalDefaultMouseCursorChange={handleTerminalDefaultMouseCursorChange}
                 themePackages={themePackages}
                 themePackageSettings={themePackageSettings}
                 themeMode={forceDarkTheme ? 'dark' : themeMode}

@@ -355,11 +355,12 @@ function buildWrappedMultiLineCommand(command) {
   return `bash <<'${marker}'\n${source}\n${marker}\n`
 }
 
-/** 粘贴到终端：统一成单个 \\r 换行，避免 Windows \\r\\n 把 \\ 续行拆成空行/多条命令 */
+/** 粘贴到终端：统一换行并清掉尾部连续回车，避免右键粘贴时直接连发多次执行 */
 function normalizeTerminalPasteText(text) {
   return String(text ?? '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/\n+$/g, '')
     .replace(/\n/g, '\r')
 }
 
@@ -476,10 +477,16 @@ export default function Terminal({
   const shortcutsRef = useRef(null);
   const localEchoRef = useRef(localStorage.getItem('terminalLocalEcho') === 'true');
   const timestampsEnabledRef = useRef(localStorage.getItem('terminalTimestamps') === 'true');
+  const terminalRightClickPasteOnEmptyRef = useRef(localStorage.getItem('terminalRightClickPasteOnEmpty') === 'true');
+  const terminalRightClickPasteModeRef = useRef(localStorage.getItem('terminalRightClickPasteMode') === 'always' ? 'always' : 'empty');
+  const terminalLeftClickCopyOnSelectionRef = useRef(localStorage.getItem('terminalLeftClickCopyOnSelection') === 'true');
+  const terminalLeftClickCopyOnSelectionModeRef = useRef(localStorage.getItem('terminalLeftClickCopyOnSelectionMode') === 'mouseup' ? 'mouseup' : 'click');
+  const terminalMouseDownSelectionRef = useRef(null);
   const [timestampsVisible, setTimestampsVisible] = useState(localStorage.getItem('terminalTimestamps') === 'true');
   // 命令块：左侧折叠钮 + 树线，可收起输出
   const commandBlocksEnabledRef = useRef(localStorage.getItem('terminalCommandBlocks') === 'true');
   const [commandBlocksVisible, setCommandBlocksVisible] = useState(localStorage.getItem('terminalCommandBlocks') === 'true');
+  const [terminalDefaultMouseCursorEnabled, setTerminalDefaultMouseCursorEnabled] = useState(localStorage.getItem('terminalOutputDefaultMouseCursor') === 'true');
   const [alternateBufferActive, setAlternateBufferActive] = useState(false);
   const alternateBufferActiveRef = useRef(false);
   // Ring buffer 时间戳：用 xterm marker 跟随 scrollback 裁剪，避免 buffer 行号复用后错位
@@ -1409,8 +1416,8 @@ export default function Terminal({
       if (pressedStr === customShortcuts.paste) {
         e.preventDefault();
         navigator.clipboard.readText().then((text) => {
-          if (text && wsRef.current?.readyState === WebSocket.OPEN) {
-            const payload = normalizeTerminalPasteText(text);
+          const payload = normalizeTerminalPasteText(text);
+          if (payload && wsRef.current?.readyState === WebSocket.OPEN) {
             pendingCmdRef.current += payload.replace(/[\x00-\x1F\x7F]/g, '');
             wsRef.current.send(textEncoder.encode(payload));
           }
@@ -1959,24 +1966,216 @@ export default function Terminal({
         scheduleGutterSync();
       }
     };
+    const handleTerminalOutputDefaultMouseCursorChange = (e) => {
+      setTerminalDefaultMouseCursorEnabled(e.detail === true);
+    };
+    const handleTerminalRightClickPasteOnEmptyChange = (e) => {
+      terminalRightClickPasteOnEmptyRef.current = e.detail === true;
+    };
+    const handleTerminalRightClickPasteModeChange = (e) => {
+      terminalRightClickPasteModeRef.current = e.detail === 'always' ? 'always' : 'empty';
+    };
+    const handleTerminalLeftClickCopyOnSelectionChange = (e) => {
+      terminalLeftClickCopyOnSelectionRef.current = e.detail === true;
+    };
+    const handleTerminalLeftClickCopyOnSelectionModeChange = (e) => {
+      terminalLeftClickCopyOnSelectionModeRef.current = e.detail === 'mouseup' ? 'mouseup' : 'click';
+    };
     window.addEventListener('app-shortcuts-changed', handleShortcutsChange);
     window.addEventListener('terminal-local-echo-changed', handleLocalEchoChange);
     window.addEventListener('terminal-timestamps-changed', handleTimestampsChange);
     window.addEventListener('terminal-command-blocks-changed', handleCommandBlocksChange);
+    window.addEventListener('terminal-output-default-mouse-cursor-changed', handleTerminalOutputDefaultMouseCursorChange);
+    window.addEventListener('terminal-right-click-paste-on-empty-changed', handleTerminalRightClickPasteOnEmptyChange);
+    window.addEventListener('terminal-right-click-paste-mode-changed', handleTerminalRightClickPasteModeChange);
+    window.addEventListener('terminal-left-click-copy-on-selection-changed', handleTerminalLeftClickCopyOnSelectionChange);
+    window.addEventListener('terminal-left-click-copy-on-selection-mode-changed', handleTerminalLeftClickCopyOnSelectionModeChange);
     window.addEventListener('program-font-settings-changed', handleProgramFontSettingsChange);
     return () => {
       window.removeEventListener('app-shortcuts-changed', handleShortcutsChange);
       window.removeEventListener('terminal-local-echo-changed', handleLocalEchoChange);
       window.removeEventListener('terminal-timestamps-changed', handleTimestampsChange);
       window.removeEventListener('terminal-command-blocks-changed', handleCommandBlocksChange);
+      window.removeEventListener('terminal-output-default-mouse-cursor-changed', handleTerminalOutputDefaultMouseCursorChange);
+      window.removeEventListener('terminal-right-click-paste-on-empty-changed', handleTerminalRightClickPasteOnEmptyChange);
+      window.removeEventListener('terminal-right-click-paste-mode-changed', handleTerminalRightClickPasteModeChange);
+      window.removeEventListener('terminal-left-click-copy-on-selection-changed', handleTerminalLeftClickCopyOnSelectionChange);
+      window.removeEventListener('terminal-left-click-copy-on-selection-mode-changed', handleTerminalLeftClickCopyOnSelectionModeChange);
       window.removeEventListener('program-font-settings-changed', handleProgramFontSettingsChange);
     };
   }, []);
+
+  const getTerminalBufferCellPositionFromMouseEvent = useCallback((event, isSelection = false) => {
+    const term = termRef.current;
+    const container = containerRef.current;
+    if (!term?.buffer?.active || !container || typeof window === 'undefined') {
+      return null;
+    }
+    const screen = container.querySelector('.xterm-screen');
+    if (!screen) {
+      return null;
+    }
+    const rect = screen.getBoundingClientRect();
+    if (!rect.width || !rect.height || !term.cols || !term.rows) {
+      return null;
+    }
+    const style = window.getComputedStyle(screen);
+    const leftPadding = parseInt(style.getPropertyValue('padding-left'), 10) || 0;
+    const topPadding = parseInt(style.getPropertyValue('padding-top'), 10) || 0;
+    const cellWidth = rect.width / term.cols;
+    const cellHeight = rect.height / term.rows;
+    if (!Number.isFinite(cellWidth) || !Number.isFinite(cellHeight) || cellWidth <= 0 || cellHeight <= 0) {
+      return null;
+    }
+    const relativeX = event.clientX - rect.left - leftPadding;
+    const relativeY = event.clientY - rect.top - topPadding;
+    let x = Math.ceil((relativeX + (isSelection ? cellWidth / 2 : 0)) / cellWidth);
+    let viewportRow = Math.ceil(relativeY / cellHeight);
+    x = Math.min(Math.max(x, 1), term.cols + (isSelection ? 1 : 0)) - 1;
+    viewportRow = Math.min(Math.max(viewportRow, 1), term.rows) - 1;
+    return {
+      x,
+      y: term.buffer.active.viewportY + viewportRow,
+    };
+  }, []);
+
+  const isTerminalBufferCellWithinRange = useCallback((position, range) => {
+    if (!position || !range?.start || !range?.end) {
+      return false;
+    }
+    return (position.y > range.start.y && position.y < range.end.y)
+      || (range.start.y === range.end.y && position.y === range.start.y && position.x >= range.start.x && position.x < range.end.x)
+      || (range.start.y < range.end.y && position.y === range.end.y && position.x < range.end.x)
+      || (range.start.y < range.end.y && position.y === range.start.y && position.x >= range.start.x);
+  }, []);
+
+  const copyTerminalSelectionText = useCallback((text) => {
+    if (!text) {
+      return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      termRef.current?.focus();
+    }).catch((err) => {
+      console.error('Failed to write clipboard:', err);
+      termRef.current?.focus();
+    });
+  }, []);
+
+  const pasteClipboardToTerminal = useCallback(() => {
+    navigator.clipboard.readText().then((text) => {
+      const payload = normalizeTerminalPasteText(text);
+      if (payload && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        pendingCmdRef.current += payload.replace(/[\x00-\x1F\x7F]/g, '');
+        wsRef.current.send(textEncoder.encode(payload));
+      }
+      termRef.current?.focus();
+    }).catch((err) => {
+      console.error('Failed to read clipboard:', err);
+      termRef.current?.focus();
+    });
+  }, []);
+
+  const handleTerminalMouseDownCapture = useCallback((event) => {
+    if (event.button !== 0 || !terminalLeftClickCopyOnSelectionRef.current) {
+      terminalMouseDownSelectionRef.current = null;
+      return;
+    }
+    const mode = terminalLeftClickCopyOnSelectionModeRef.current === 'mouseup' ? 'mouseup' : 'click';
+    if (mode === 'mouseup') {
+      terminalMouseDownSelectionRef.current = {
+        mode,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+      };
+      return;
+    }
+    const term = termRef.current;
+    const text = term?.getSelection?.() || '';
+    const range = term?.getSelectionPosition?.();
+    const position = getTerminalBufferCellPositionFromMouseEvent(event, true);
+    if (!text || !range || !position || !isTerminalBufferCellWithinRange(position, range)) {
+      terminalMouseDownSelectionRef.current = null;
+      return;
+    }
+    terminalMouseDownSelectionRef.current = {
+      mode,
+      text,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+    };
+  }, [getTerminalBufferCellPositionFromMouseEvent, isTerminalBufferCellWithinRange]);
+
+  const handleTerminalMouseUpCapture = useCallback((event) => {
+    const snapshot = terminalMouseDownSelectionRef.current;
+    terminalMouseDownSelectionRef.current = null;
+    if (event.button !== 0 || !terminalLeftClickCopyOnSelectionRef.current || !snapshot) {
+      return;
+    }
+    const deltaX = Math.abs(event.clientX - snapshot.startClientX);
+    const deltaY = Math.abs(event.clientY - snapshot.startClientY);
+    if (snapshot.mode === 'mouseup') {
+      if (deltaX <= 4 && deltaY <= 4) {
+        return;
+      }
+      requestAnimationFrame(() => {
+        const text = termRef.current?.getSelection?.() || '';
+        if (!text) {
+          return;
+        }
+        copyTerminalSelectionText(text);
+      });
+      return;
+    }
+    if (deltaX > 4 || deltaY > 4) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    copyTerminalSelectionText(snapshot.text);
+  }, [copyTerminalSelectionText]);
+
+  useEffect(() => {
+    const handleWindowMouseUp = (event) => {
+      const snapshot = terminalMouseDownSelectionRef.current;
+      if (event.button !== 0 || !terminalLeftClickCopyOnSelectionRef.current || !snapshot || snapshot.mode !== 'mouseup') {
+        return;
+      }
+      terminalMouseDownSelectionRef.current = null;
+      const deltaX = Math.abs(event.clientX - snapshot.startClientX);
+      const deltaY = Math.abs(event.clientY - snapshot.startClientY);
+      if (deltaX <= 4 && deltaY <= 4) {
+        return;
+      }
+      requestAnimationFrame(() => {
+        const text = termRef.current?.getSelection?.() || '';
+        if (!text) {
+          return;
+        }
+        copyTerminalSelectionText(text);
+      });
+    };
+
+    const handleWindowBlur = () => {
+      terminalMouseDownSelectionRef.current = null;
+    };
+
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [copyTerminalSelectionText]);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
     setLinkMenu(null);
     const hasSelection = !!(termRef.current && termRef.current.getSelection());
+    const rightClickPasteMode = terminalRightClickPasteModeRef.current === 'always' ? 'always' : 'empty';
+    if (terminalRightClickPasteOnEmptyRef.current && (rightClickPasteMode === 'always' || !hasSelection)) {
+      pasteClipboardToTerminal();
+      return;
+    }
     setContextHasSelection(hasSelection);
     setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY, 190, 168), source: 'terminal' });
   };
@@ -2222,17 +2421,7 @@ export default function Terminal({
         break;
       }
       case 'paste':
-        navigator.clipboard.readText().then(text => {
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            const payload = normalizeTerminalPasteText(text);
-            pendingCmdRef.current += payload.replace(/[\x00-\x1F\x7F]/g, '');
-            wsRef.current.send(textEncoder.encode(payload));
-          }
-          termRef.current.focus();
-        }).catch(err => {
-          console.error('Failed to read clipboard:', err);
-          termRef.current.focus();
-        });
+        pasteClipboardToTerminal();
         break;
       case 'sendToAssistant': {
         const selectedText = termRef.current.getSelection();
@@ -2976,6 +3165,9 @@ export default function Terminal({
           boxSizing: 'border-box',
         }} />
         <div
+          className={terminalDefaultMouseCursorEnabled ? 'terminal-output-default-mouse-cursor' : ''}
+          onMouseDownCapture={handleTerminalMouseDownCapture}
+          onMouseUpCapture={handleTerminalMouseUpCapture}
           style={{
             position: 'relative',
             flex: 1,
