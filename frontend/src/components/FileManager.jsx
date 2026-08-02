@@ -27,7 +27,7 @@ import {
   FileArchive, Settings, ClipboardList, Wrench, Image, Code, Globe, House,
   Palette, Database, Terminal, Film, Music, Archive, HardDrive, BookOpen,
   Pencil, PenLine, Download, Upload, Trash2, RefreshCw, Lock, FolderUp, SquarePen, Copy,
-  Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight, Scissors,
+  Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Scissors,
   MonitorSmartphone, PencilLine, FolderSymlink, FileSymlink,
 } from 'lucide-react';
 
@@ -1358,6 +1358,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [items, setItems] = useState([]);
   const [sortField, setSortField] = useState('name');  // name, size, permissions, modified
   const [sortDir, setSortDir] = useState('asc');  // asc, desc
+  const [fileLocatorQuery, setFileLocatorQuery] = useState('');
+  const [fileLocatorActiveIndex, setFileLocatorActiveIndex] = useState(0);
+  const [fileLocatorActiveRowKey, setFileLocatorActiveRowKey] = useState('');
+  const [fileListTypeaheadQuery, setFileListTypeaheadQuery] = useState('');
+  const [fileListTypeaheadActiveIndex, setFileListTypeaheadActiveIndex] = useState(0);
+  const [fileListTypeaheadActiveRowKey, setFileListTypeaheadActiveRowKey] = useState('');
+  const fileListTypeaheadTimerRef = useRef(0);
+  const fileListTypeaheadLastInputAtRef = useRef(0);
+  const fileListTypeaheadBufferRef = useRef('');
   const dualPaneColumnMeasureItems = useMemo(() => {
     if (fileManagerLayoutMode !== FILE_MANAGER_LAYOUT_MODE_SIDEBAR_DUAL) {
       return items;
@@ -1434,6 +1443,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const nativeDropHandledUntilRef = useRef(0);
   const abortedUploadIdsRef = useRef(new Set());
   const fileListRef = useRef(null);
+  const fileLocatorInputRef = useRef(null);
+  const handleFileListScrollRef = useRef(null);
+  const handleFileListKeyDownRef = useRef(null);
+  const paneVirtuosoRefCallbacksRef = useRef({ left: null, right: null });
+  const paneScrollerRefCallbacksRef = useRef({ left: null, right: null });
+  const paneScrollerRefOptionsRef = useRef({ left: {}, right: {} });
   const paneVirtuosoRefs = useRef({ left: null, right: null });
   const paneVisibleRangesRef = useRef({
     left: { startIndex: 0, endIndex: -1 },
@@ -2044,6 +2059,21 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       ? options.paneRows
       : (paneKey === activePaneKey ? activeVirtualRows : []);
     const paneEffectState = getPaneEffectState(paneKey);
+    const rowIndex = findFileManagerVirtualRowIndex(paneRows, rowKey);
+    const virtuosoHandle = paneVirtuosoRefs.current[paneKey];
+    if (rowIndex >= 0 && virtuosoHandle) {
+      paneEffectState.suppressUserScrollTrackingUntil = Date.now() + 800;
+      const paneViewState = getPaneViewState(paneKey);
+      paneViewState.pendingRestore = null;
+      if (virtuosoHandle.scrollToIndex) {
+        virtuosoHandle.scrollToIndex({
+          index: rowIndex,
+          align: 'center',
+          behavior: 'auto',
+        });
+        return true;
+      }
+    }
     const list = options.listElement
       || (paneKey === activePaneKey
         ? fileListRef.current
@@ -2072,32 +2102,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         return true;
       }
     }
-    const rowIndex = findFileManagerVirtualRowIndex(paneRows, rowKey);
-    if (rowIndex < 0) return false;
-    const virtuosoHandle = paneVirtuosoRefs.current[paneKey];
-    paneEffectState.suppressUserScrollTrackingUntil = Date.now() + 400;
-    if (virtuosoHandle?.scrollIntoView) {
-      virtuosoHandle.scrollIntoView({
-        index: rowIndex,
-        behavior: 'auto',
-        done: () => {
-          if (paneKey === activePaneKey) {
-            captureFileListViewAnchor();
-          }
-        },
-      });
-      return true;
-    }
-    if (virtuosoHandle?.scrollToIndex) {
-      virtuosoHandle.scrollToIndex({
-        index: rowIndex,
-        align: 'center',
-        behavior: 'auto',
-      });
-      return true;
-    }
     return false;
-  }, [activePaneKey, activeVirtualRows, captureFileListViewAnchor, getPaneEffectState]);
+  }, [activePaneKey, activeVirtualRows, captureFileListViewAnchor, getPaneEffectState, getPaneViewState]);
 
   const flushPendingRowEffects = useCallback((paneKey = activePaneKey, paneRows = activeVirtualRows, listElement = null) => {
     if (!isFileManagerActuallyVisible()) return;
@@ -5077,6 +5083,16 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       void handlePaste();
       return;
     }
+    if (fileListTypeaheadQuery && e.key === 'Escape') {
+      e.preventDefault();
+      clearFileListTypeahead();
+      return;
+    }
+    const isPlainEnglishLetter = !isCtrl && !e.altKey && /^[a-zA-Z]$/.test(String(e.key || ''));
+    if (isPlainEnglishLetter) {
+      e.preventDefault();
+      handleFileListTypeaheadKey(e.key);
+    }
   };
 
   const handlePaste = useCallback(async (targetDirPath = currentPathRef.current || currentPath) => {
@@ -5518,6 +5534,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     paneEffectState.userHasScrolled = true;
   }, [activePaneKey, captureFileListViewAnchor, getPaneEffectState, isActive, syncCurrentTabToWorkspace]);
 
+  handleFileListScrollRef.current = handleFileListScroll;
+  handleFileListKeyDownRef.current = handleFileListKeyDown;
+
   useEffect(() => () => {
     Object.values(paneScrollerCleanupRef.current).forEach((cleanup) => {
       if (typeof cleanup === 'function') {
@@ -5843,6 +5862,167 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const leftFileManagerPane = useMemo(() => buildFileManagerPaneState('left'), [buildFileManagerPaneState, paneTransientRemovedPlaceholders]);
   const rightFileManagerPane = useMemo(() => buildFileManagerPaneState('right'), [buildFileManagerPaneState, paneTransientRemovedPlaceholders]);
   const currentFileManagerPane = activePaneKey === 'right' ? rightFileManagerPane : leftFileManagerPane;
+  const activePaneLocatorRows = useMemo(() => (
+    Array.isArray(currentFileManagerPane?.rows)
+      ? currentFileManagerPane.rows.filter((row) => row?.rowType === FILE_MANAGER_VIRTUAL_ROW_ITEM && !isDeletedPlaceholderItem(row?.item))
+      : []
+  ), [currentFileManagerPane, isDeletedPlaceholderItem]);
+  const fileLocatorMatches = useMemo(() => {
+    const normalizedQuery = String(fileLocatorQuery || '').trim().toLowerCase();
+    if (!normalizedQuery) {
+      return [];
+    }
+    return activePaneLocatorRows.filter((row) => String(row?.name || '').toLowerCase().includes(normalizedQuery));
+  }, [activePaneLocatorRows, fileLocatorQuery]);
+  const clearFileListTypeahead = useCallback(() => {
+    if (fileListTypeaheadTimerRef.current) {
+      window.clearTimeout(fileListTypeaheadTimerRef.current);
+      fileListTypeaheadTimerRef.current = 0;
+    }
+    fileListTypeaheadBufferRef.current = '';
+    fileListTypeaheadLastInputAtRef.current = 0;
+    setFileListTypeaheadQuery('');
+    setFileListTypeaheadActiveIndex(0);
+    setFileListTypeaheadActiveRowKey('');
+  }, []);
+  const scheduleFileListTypeaheadClear = useCallback(() => {
+    if (fileListTypeaheadTimerRef.current) {
+      window.clearTimeout(fileListTypeaheadTimerRef.current);
+    }
+    fileListTypeaheadTimerRef.current = window.setTimeout(() => {
+      fileListTypeaheadTimerRef.current = 0;
+      fileListTypeaheadBufferRef.current = '';
+      fileListTypeaheadLastInputAtRef.current = 0;
+      setFileListTypeaheadQuery('');
+      setFileListTypeaheadActiveIndex(0);
+      setFileListTypeaheadActiveRowKey('');
+    }, 2000);
+  }, []);
+  const getFileListTypeaheadMatches = useCallback((query) => {
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+    if (!normalizedQuery) {
+      return [];
+    }
+    return activePaneLocatorRows.filter((row) => String(row?.name || '').toLowerCase().startsWith(normalizedQuery));
+  }, [activePaneLocatorRows]);
+  const applyFileListTypeaheadState = useCallback((query, matches, matchIndex = 0) => {
+    if (!Array.isArray(matches) || matches.length === 0) {
+      return false;
+    }
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+    const normalizedIndex = ((matchIndex % matches.length) + matches.length) % matches.length;
+    const nextRow = matches[normalizedIndex];
+    const nextRowKey = nextRow?.rowKey || '';
+    fileListTypeaheadLastInputAtRef.current = Date.now();
+    setFileListTypeaheadQuery(normalizedQuery);
+    setFileListTypeaheadActiveIndex(normalizedIndex);
+    setFileListTypeaheadActiveRowKey(nextRowKey);
+    scheduleFileListTypeaheadClear();
+    if (nextRowKey) {
+      revealRowInViewport(nextRowKey, {
+        paneKey: activePaneKey,
+        paneRows: currentFileManagerPane?.rows || [],
+        listElement: fileListRef.current,
+      });
+    }
+    return true;
+  }, [activePaneKey, currentFileManagerPane, revealRowInViewport, scheduleFileListTypeaheadClear]);
+  const handleFileListTypeaheadKey = useCallback((rawKey) => {
+    const normalizedKey = String(rawKey || '').trim().toLowerCase();
+    if (!/^[a-z]$/.test(normalizedKey)) {
+      return false;
+    }
+    const now = Date.now();
+    const withinWindow = fileListTypeaheadLastInputAtRef.current > 0 && (now - fileListTypeaheadLastInputAtRef.current) <= 2000;
+    const nextBuffer = withinWindow ? `${fileListTypeaheadBufferRef.current}${normalizedKey}` : normalizedKey;
+    fileListTypeaheadBufferRef.current = nextBuffer;
+
+    let resolvedQuery = '';
+    let resolvedMatches = [];
+    for (let startIndex = 0; startIndex < nextBuffer.length; startIndex += 1) {
+      const candidateQuery = nextBuffer.slice(startIndex);
+      const candidateMatches = getFileListTypeaheadMatches(candidateQuery);
+      if (candidateMatches.length > 0) {
+        resolvedQuery = candidateQuery;
+        resolvedMatches = candidateMatches;
+        break;
+      }
+    }
+
+    if (!resolvedQuery || resolvedMatches.length === 0) {
+      clearFileListTypeahead();
+      return false;
+    }
+
+    let repeatCount = 1;
+    while (resolvedQuery && nextBuffer.endsWith(resolvedQuery.repeat(repeatCount + 1))) {
+      repeatCount += 1;
+    }
+    const nextMatchIndex = repeatCount > 1 ? (repeatCount - 1) % resolvedMatches.length : 0;
+    return applyFileListTypeaheadState(resolvedQuery, resolvedMatches, nextMatchIndex);
+  }, [applyFileListTypeaheadState, clearFileListTypeahead, getFileListTypeaheadMatches]);
+  const effectiveLocatorActiveRowKey = fileListTypeaheadQuery ? fileListTypeaheadActiveRowKey : fileLocatorActiveRowKey;
+  const applyFileLocatorMatch = useCallback((matchIndex, shouldReveal = true) => {
+    if (fileLocatorMatches.length === 0) {
+      setFileLocatorActiveIndex(0);
+      setFileLocatorActiveRowKey('');
+      return;
+    }
+    const normalizedIndex = ((matchIndex % fileLocatorMatches.length) + fileLocatorMatches.length) % fileLocatorMatches.length;
+    const nextRow = fileLocatorMatches[normalizedIndex];
+    const nextRowKey = nextRow?.rowKey || '';
+    setFileLocatorActiveIndex(normalizedIndex);
+    setFileLocatorActiveRowKey(nextRowKey);
+    if (shouldReveal && nextRowKey) {
+      revealRowInViewport(nextRowKey, {
+        paneKey: activePaneKey,
+        paneRows: currentFileManagerPane?.rows || [],
+        listElement: fileListRef.current,
+      });
+    }
+  }, [activePaneKey, currentFileManagerPane, fileLocatorMatches, revealRowInViewport]);
+  const navigateFileLocatorMatch = useCallback((step) => {
+    if (fileLocatorMatches.length === 0) {
+      return;
+    }
+    const currentMatchIndex = fileLocatorMatches.findIndex((row) => row?.rowKey === fileLocatorActiveRowKey);
+    if (currentMatchIndex < 0) {
+      applyFileLocatorMatch(step < 0 ? fileLocatorMatches.length - 1 : 0, true);
+      return;
+    }
+    applyFileLocatorMatch(currentMatchIndex + step, true);
+  }, [applyFileLocatorMatch, fileLocatorActiveRowKey, fileLocatorMatches]);
+  useEffect(() => {
+    if (!String(fileLocatorQuery || '').trim() || fileLocatorMatches.length === 0) {
+      if (fileLocatorActiveIndex !== 0) {
+        setFileLocatorActiveIndex(0);
+      }
+      if (fileLocatorActiveRowKey) {
+        setFileLocatorActiveRowKey('');
+      }
+      return;
+    }
+    const currentMatchIndex = fileLocatorMatches.findIndex((row) => row?.rowKey === fileLocatorActiveRowKey);
+    if (currentMatchIndex >= 0) {
+      if (currentMatchIndex !== fileLocatorActiveIndex) {
+        setFileLocatorActiveIndex(currentMatchIndex);
+      }
+      return;
+    }
+    applyFileLocatorMatch(0, false);
+  }, [applyFileLocatorMatch, fileLocatorActiveIndex, fileLocatorActiveRowKey, fileLocatorMatches, fileLocatorQuery]);
+  useEffect(() => {
+    setFileLocatorQuery('');
+    setFileLocatorActiveIndex(0);
+    setFileLocatorActiveRowKey('');
+    clearFileListTypeahead();
+  }, [activePaneKey, clearFileListTypeahead, currentPath]);
+  useEffect(() => () => {
+    if (fileListTypeaheadTimerRef.current) {
+      window.clearTimeout(fileListTypeaheadTimerRef.current);
+      fileListTypeaheadTimerRef.current = 0;
+    }
+  }, []);
 
   const syncFileManagerPaneScrollTop = useCallback((paneKey, listElement) => {
     const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
@@ -5887,6 +6067,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   const bindFileManagerPaneScroller = useCallback((paneKey, element, options = {}) => {
     const normalizedPaneKey = paneKey === 'right' ? 'right' : 'left';
+    const previousElement = paneScrollerElementsRef.current[normalizedPaneKey];
     const previousCleanup = paneScrollerCleanupRef.current[normalizedPaneKey];
     if (typeof previousCleanup === 'function') {
       previousCleanup();
@@ -5906,7 +6087,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       return;
     }
 
-    if (Number.isFinite(Number(options.scrollTop))) {
+    if (previousElement !== element && Number.isFinite(Number(options.scrollTop))) {
       const nextScrollTop = Number(options.scrollTop);
       if (Math.abs(element.scrollTop - nextScrollTop) > 1) {
         element.scrollTop = nextScrollTop;
@@ -5919,8 +6100,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         fileListBodyRef.current = element;
       }
       element.tabIndex = 0;
-      const handleScroll = () => handleFileListScroll();
-      const handleKeyDown = (event) => handleFileListKeyDown(event);
+      const handleScroll = () => handleFileListScrollRef.current?.();
+      const handleKeyDown = (event) => handleFileListKeyDownRef.current?.(event);
       element.addEventListener('scroll', handleScroll, { passive: true });
       element.addEventListener('keydown', handleKeyDown);
       paneScrollerCleanupRef.current[normalizedPaneKey] = () => {
@@ -5931,7 +6112,27 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
 
     inactivePaneListRefs.current[normalizedPaneKey] = element;
-  }, [handleFileListKeyDown, handleFileListScroll]);
+  }, []);
+
+  const getPaneVirtuosoRefCallback = useCallback((paneKey) => {
+    const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
+    if (!paneVirtuosoRefCallbacksRef.current[normalizedPaneKey]) {
+      paneVirtuosoRefCallbacksRef.current[normalizedPaneKey] = (handle) => {
+        paneVirtuosoRefs.current[normalizedPaneKey] = handle;
+      };
+    }
+    return paneVirtuosoRefCallbacksRef.current[normalizedPaneKey];
+  }, []);
+
+  const getPaneScrollerRefCallback = useCallback((paneKey) => {
+    const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
+    if (!paneScrollerRefCallbacksRef.current[normalizedPaneKey]) {
+      paneScrollerRefCallbacksRef.current[normalizedPaneKey] = (element) => {
+        bindFileManagerPaneScroller(normalizedPaneKey, element, paneScrollerRefOptionsRef.current[normalizedPaneKey] || {});
+      };
+    }
+    return paneScrollerRefCallbacksRef.current[normalizedPaneKey];
+  }, [bindFileManagerPaneScroller]);
 
   const renderFileManagerVirtualRow = useCallback((row, paneState, options = {}) => {
     const isInteractive = options.interactive === true;
@@ -5981,6 +6182,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const isDeletedPlaceholder = isDeletedPlaceholderItem(item);
     const isSelected = Array.isArray(paneState?.selectedPaths) && paneState.selectedPaths.includes(itemPath);
     const isContextMenuAnchor = contextMenuTargetPath === itemPath;
+    const isLocatorActive = rowKey === effectiveLocatorActiveRowKey;
     const clipboardMode = isDeletedPlaceholder ? '' : (clipboard?.paths?.includes(itemPath) ? clipboard.mode : '');
     const rowEffectState = activeRowEffects[rowKey] || null;
     const rowEffect = rowEffectState?.effect || '';
@@ -6031,7 +6233,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       <div
         key={rowKey}
         data-file-row-key={rowKey}
-        className={`file-item${isSelected ? ' selected' : ''}${isContextMenuAnchor ? ' context-menu-anchor' : ''}${clipboardMode === 'copy' ? ' clipboard-copy' : ''}${clipboardMode === 'cut' ? ' clipboard-cut' : ''}${isDeletedPlaceholder ? ' deleted-placeholder' : ''}${rowEffect ? ` visual-effect visual-effect-${rowEffect}` : ''}`}
+        className={`file-item${isSelected ? ' selected' : ''}${isContextMenuAnchor ? ' context-menu-anchor' : ''}${isLocatorActive ? ' file-item-locator-active' : ''}${clipboardMode === 'copy' ? ' clipboard-copy' : ''}${clipboardMode === 'cut' ? ' clipboard-cut' : ''}${isDeletedPlaceholder ? ' deleted-placeholder' : ''}${rowEffect ? ` visual-effect visual-effect-${rowEffect}` : ''}`}
         style={Object.keys(rowStyle).length > 0 ? rowStyle : undefined}
         draggable={isInteractive && isDualPaneLayout && fileManagerDualPaneDragTransferEnabled && !isDeletedPlaceholder}
         onDragStart={isInteractive ? (event) => {
@@ -6179,7 +6381,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         )}
       </div>
     );
-  }, [activePaneKey, activeRowEffects, addToast, buildFileManagerDragPayload, clipboard, confirmRename, contextMenuTargetPath, defaultOpenMode, fileManagerDoubleClickUncompressArchive, fileManagerDualPaneDragTransferEnabled, handleChmod, handleDelete, handleDownload, handleEdit, handleOpenSystemEditor, handleOpenWithEditor, handleUncompress, hideFileManagerDragTip, isDeletedPlaceholderItem, isDualPaneLayout, navigate, normalizePath, renamingItem, renameValue, t, updateFileManagerDragTip]);
+  }, [activePaneKey, activeRowEffects, addToast, buildFileManagerDragPayload, clipboard, confirmRename, contextMenuTargetPath, defaultOpenMode, effectiveLocatorActiveRowKey, fileManagerDoubleClickUncompressArchive, fileManagerDualPaneDragTransferEnabled, handleChmod, handleDelete, handleDownload, handleEdit, handleOpenSystemEditor, handleOpenWithEditor, handleUncompress, hideFileManagerDragTip, isDeletedPlaceholderItem, isDualPaneLayout, navigate, normalizePath, renamingItem, renameValue, t, updateFileManagerDragTip]);
 
   const renderFileManagerVirtualViewport = useCallback((paneState, options = {}) => {
     const normalizedPaneKey = paneState?.key === 'right' ? 'right' : 'left';
@@ -6195,6 +6397,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       )
       : undefined;
 
+    paneScrollerRefOptionsRef.current[normalizedPaneKey] = {
+      active: options.active === true,
+      captureGhost: options.active === true,
+      scrollTop: paneState?.scrollTop,
+    };
+
     return (
       <div className="file-list-viewport">
         {options.active === true && fileListSwitchGhostHtml && (
@@ -6206,19 +6414,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         )}
         <div className={`file-list-body${options.active === true ? ` file-list-body-live ${fileListSwitchStage !== 'idle' ? `${fileListSwitchStage} is-locked` : ''}` : ''}`} style={{ height: '100%' }}>
           <Virtuoso
-            ref={(handle) => {
-              paneVirtuosoRefs.current[normalizedPaneKey] = handle;
-            }}
+            ref={getPaneVirtuosoRefCallback(normalizedPaneKey)}
             style={{ height: '100%' }}
             data={paneRows}
             computeItemKey={(index, row) => row?.rowKey || `${normalizedPaneKey}-${index}`}
-            scrollerRef={(element) => {
-              bindFileManagerPaneScroller(normalizedPaneKey, element, {
-                active: options.active === true,
-                captureGhost: options.active === true,
-                scrollTop: paneState?.scrollTop,
-              });
-            }}
+            scrollerRef={getPaneScrollerRefCallback(normalizedPaneKey)}
             rangeChanged={(range) => {
               paneVisibleRangesRef.current[normalizedPaneKey] = range;
               const listElement = normalizedPaneKey === activePaneKey
@@ -6242,7 +6442,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         </div>
       </div>
     );
-  }, [applyPanePendingRestoreIfReady, bindFileManagerPaneScroller, captureFileListViewAnchor, fileListSwitchGhostHtml, fileListSwitchStage, flushPendingRowEffects, renderFileManagerVirtualRow, syncFileManagerPaneScrollTop, t]);
+  }, [applyPanePendingRestoreIfReady, captureFileListViewAnchor, fileListSwitchGhostHtml, fileListSwitchStage, flushPendingRowEffects, getPaneScrollerRefCallback, getPaneVirtuosoRefCallback, renderFileManagerVirtualRow, syncFileManagerPaneScrollTop, t]);
 
   const renderInactiveFileManagerPane = useCallback((paneState) => {
     const isDropTarget = fileManagerPaneDropTarget === paneState.key;
@@ -6461,6 +6661,95 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             </Tiptop>
           </>
         )}
+
+        <div className="file-toolbar-locator">
+          <div className="file-locator-input-wrap">
+            <input
+              ref={fileLocatorInputRef}
+              className="file-locator-input"
+              type="text"
+              value={fileLocatorQuery}
+              onFocus={() => {
+                clearFileListTypeahead();
+              }}
+              onChange={(e) => {
+                clearFileListTypeahead();
+                setFileLocatorQuery(e.target.value);
+                setFileLocatorActiveIndex(0);
+                setFileLocatorActiveRowKey('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  navigateFileLocatorMatch(1);
+                  return;
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  navigateFileLocatorMatch(-1);
+                  return;
+                }
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  navigateFileLocatorMatch(e.shiftKey ? -1 : 1);
+                  return;
+                }
+                if (e.key === 'Escape') {
+                  setFileLocatorQuery('');
+                  setFileLocatorActiveIndex(0);
+                  setFileLocatorActiveRowKey('');
+                  fileListRef.current?.focus();
+                }
+              }}
+              placeholder={t('定位文件')}
+              aria-label={t('定位文件')}
+              spellCheck={false}
+            />
+            {fileLocatorQuery.trim() ? (
+              <button
+                type="button"
+                className="file-locator-clear-btn"
+                aria-label={t('清空输入')}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setFileLocatorQuery('');
+                  setFileLocatorActiveIndex(0);
+                  setFileLocatorActiveRowKey('');
+                  fileLocatorInputRef.current?.focus();
+                }}
+              >
+                <X size={12} />
+              </button>
+            ) : null}
+          </div>
+          {fileLocatorQuery.trim() ? (
+            <span className="file-locator-status">
+              {fileLocatorMatches.length > 0 ? `${fileLocatorActiveIndex + 1}/${fileLocatorMatches.length}` : '0'}
+            </span>
+          ) : null}
+          <Tiptop text={t('上一个命中')} placement="bottom">
+            <button
+              className="btn file-toolbar-outline-btn"
+              aria-label={t('上一个命中')}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => navigateFileLocatorMatch(-1)}
+              disabled={fileLocatorMatches.length === 0}
+            >
+              <ChevronUp size={14} />
+            </button>
+          </Tiptop>
+          <Tiptop text={t('下一个命中')} placement="bottom">
+            <button
+              className="btn file-toolbar-outline-btn"
+              aria-label={t('下一个命中')}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => navigateFileLocatorMatch(1)}
+              disabled={fileLocatorMatches.length === 0}
+            >
+              <ChevronDown size={14} />
+            </button>
+          </Tiptop>
+        </div>
 
         <div className="file-toolbar-actions">
           <Tiptop text={t('新建文件')} placement="bottom">
@@ -6924,6 +7213,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             </div>
           )}
           <div className={`file-list${fileListSwitchStage !== 'idle' ? ` is-switching is-switch-${fileListSwitchDirection}` : ''}`} style={{ flex: 1, minWidth: 0 }} aria-busy={loading || fileListSwitchStage !== 'idle'}>
+            {fileListTypeaheadQuery ? (
+              <div className="file-list-typeahead-hud">{fileListTypeaheadQuery}</div>
+            ) : null}
             <div className="file-list-header">
               <span className="file-col-name" onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
                 {t('名称')} {sortField === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
