@@ -7,6 +7,7 @@ import * as AppGo from '../../wailsjs/go/main/App.js';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
 import { getModKey, formatShortcut } from '../utils/platform.js';
 import { clampMenuPosition } from '../utils/menuPosition.js';
+import { extractQuickCommandParams, fillQuickCommandParams } from '../utils/quickCommandParams.js';
 import {
   buildPathAutocompleteContext,
   buildStaticAutocompleteItems,
@@ -362,24 +363,6 @@ function normalizeTerminalPasteText(text) {
     .replace(/\r/g, '\n')
     .replace(/\n+$/g, '')
     .replace(/\n/g, '\r')
-}
-
-/** 提取命令里的 [p#N 参数名] 占位符，与 QuickCommands.jsx 的 extractParams 保持一致 */
-function extractQuickCmdParams(command) {
-  const re = /\[p#(\d)(?:\s+([^\]]*))?\]/g
-  const map = new Map()
-  let m
-  while ((m = re.exec(String(command ?? ''))) !== null) {
-    const num = Number(m[1])
-    const label = (m[2] || '').trim()
-    if (!map.has(num) || label) map.set(num, label)
-  }
-  return [...map.entries()].map(([num, label]) => ({ num, label })).sort((a, b) => a.num - b.num)
-}
-
-/** 用参数值替换占位符，未填的参数替换为空串 */
-function fillQuickCmdParams(command, values) {
-  return String(command ?? '').replace(/\[p#(\d)(?:\s+([^\]]*))?\]/g, (_m, n) => values[Number(n)] || '')
 }
 
 // 命令栏按钮样式辅助函数
@@ -2688,7 +2671,7 @@ export default function Terminal({
   const openQuickCmdConfirm = (item) => {
     if (!item?.command) return;
     const values = {};
-    extractQuickCmdParams(item.command).forEach((p) => { values[p.num] = ''; });
+    extractQuickCommandParams(item.command).forEach((p) => { values[p.num] = ''; });
     setPendingQuickCmd({ item, values });
   };
 
@@ -2696,7 +2679,7 @@ export default function Terminal({
   const sendQuickCmdConfirmed = () => {
     const pending = pendingQuickCmd;
     if (!pending || !isConnected) return;
-    const filled = fillQuickCmdParams(pending.item.command, pending.values);
+    const filled = fillQuickCommandParams(pending.item.command, pending.values);
     const text = filled.replace(/\r\n?/g, '\n').trim();
     if (!text) return;
     setPendingQuickCmd(null);
@@ -3866,70 +3849,86 @@ export default function Terminal({
           </div>
       )}
 
-      {/* ── 快捷命令二次确认框（对齐安卓端 QuickCommandConfirmDialog） ── */}
+      {/* ── 快捷命令二次确认框（复用 PC 既有 .modal 结构，仅 z 层降到 Z.DIALOG） ── */}
       {pendingQuickCmd && (() => {
-        const params = extractQuickCmdParams(pendingQuickCmd.item.command);
-        const filled = fillQuickCmdParams(pendingQuickCmd.item.command, pendingQuickCmd.values);
+        const params = extractQuickCommandParams(pendingQuickCmd.item.command);
+        const filled = fillQuickCommandParams(pendingQuickCmd.item.command, pendingQuickCmd.values);
         return (
-          <>
-            {/* 遮罩不响应点击：只能用「取消」或 Esc 关闭，避免误点丢失已填参数 */}
-            <div
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{ position: 'fixed', inset: 0, zIndex: Z.DIALOG_BACKDROP, background: 'rgba(0,0,0,0.4)' }}
-            />
-            <div
-              className="term-quick-cmd-dialog"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div className="term-quick-cmd-dialog-title">{t('发送快捷命令')}</div>
-              <div className="term-quick-cmd-dialog-name">{pendingQuickCmd.item.name}</div>
-
-              {params.map((p, i) => (
-                <div key={p.num} style={{ marginBottom: 10 }}>
-                  <label className="term-quick-cmd-dialog-label">
-                    {p.label || `${t('参数')}${p.num}`}
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={pendingQuickCmd.values[p.num] || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setPendingQuickCmd((prev) => (prev
-                        ? { ...prev, values: { ...prev.values, [p.num]: value } }
-                        : prev));
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        sendQuickCmdConfirmed();
-                      }
-                    }}
-                    autoFocus={i === 0}
-                    placeholder={p.label || `p#${p.num}`}
-                    style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 12 }}
-                  />
+          // 遮罩不响应点击：只能用「取消」/ 右上 X / Esc 关闭，避免误点丢失已填参数
+          <div
+            className="modal-overlay"
+            style={{ zIndex: Z.DIALOG_BACKDROP }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal modal-sm" style={{ zIndex: Z.DIALOG }}>
+              <div className="modal-header">
+                <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <Zap size={16} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pendingQuickCmd.item.name || t('发送快捷命令')}
+                  </span>
                 </div>
-              ))}
+                <button
+                  className="btn btn-ghost btn-icon"
+                  onClick={() => setPendingQuickCmd(null)}
+                  aria-label={t('取消')}
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-              <label className="term-quick-cmd-dialog-label">{t('将要发送')}</label>
-              <div className="term-quick-cmd-dialog-preview">{filled}</div>
+              <div className="modal-body">
+                {params.map((p, i) => (
+                  <div key={p.num} className="form-group">
+                    <label className="form-label" htmlFor={`quick-cmd-param-${p.num}`}>
+                      {p.label || `${t('参数')}${p.num}`}
+                    </label>
+                    <input
+                      id={`quick-cmd-param-${p.num}`}
+                      type="text"
+                      className="input"
+                      value={pendingQuickCmd.values[p.num] || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPendingQuickCmd((prev) => (prev
+                          ? { ...prev, values: { ...prev.values, [p.num]: value } }
+                          : prev));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                          e.preventDefault();
+                          sendQuickCmdConfirmed();
+                        }
+                      }}
+                      autoFocus={i === 0}
+                      placeholder={p.label || `p#${p.num}`}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)' }}
+                    />
+                  </div>
+                ))}
 
-              <div className="term-quick-cmd-dialog-actions">
-                <button className="btn btn-secondary btn-sm" onClick={() => setPendingQuickCmd(null)}>
+                <div className="form-group">
+                  <label className="form-label">{t('将要发送')}</label>
+                  <div className="term-quick-cmd-preview">{filled}</div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setPendingQuickCmd(null)}>
                   {t('取消')}
                 </button>
                 <button
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-primary"
                   onClick={sendQuickCmdConfirmed}
                   disabled={!isConnected || !filled.trim()}
                   autoFocus={params.length === 0}
+                  style={{ minWidth: 80 }}
                 >
-                  {t('发送')}
+                  <Play size={14} style={{ marginRight: 6 }} />{t('发送')}
                 </button>
               </div>
             </div>
-          </>
+          </div>
         );
       })()}
 

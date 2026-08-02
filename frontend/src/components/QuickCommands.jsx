@@ -6,6 +6,7 @@ import { useTranslation } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
 import { Z } from '../constants/zIndex';
 import { getThemeComponentTheme } from '../utils/theme.js';
+import { extractQuickCommandParams, fillQuickCommandParams } from '../utils/quickCommandParams.js';
 
 // ── 加载命令数据（从 Go 后端文件）────────────────────
 async function loadCommands() {
@@ -33,26 +34,6 @@ async function saveCommandsLocal(list) {
   try {
     await AppGo.SaveQuickCommandsLocal(JSON.stringify(list));
   } catch (_) {}
-}
-
-// ── 从命令字符串提取参数（含参数名） ──────────────────
-// 返回 [{num:1, label:'IP地址'}, ...]
-function extractParams(cmd) {
-  const re = /\[p#(\d)(?:\s+([^\]]*))?\]/g;
-  const map = new Map(); // num -> label
-  let m;
-  while ((m = re.exec(cmd)) !== null) {
-    const num = Number(m[1]);
-    const label = (m[2] || '').trim();
-    // 保留已有标签（不覆盖）
-    if (!map.has(num) || label) map.set(num, label);
-  }
-  return [...map.entries()].map(([num, label]) => ({ num, label })).sort((a, b) => a.num - b.num);
-}
-
-// ── 替换参数占位符 ──────────────────────────────────────
-function fillParams(cmd, values) {
-  return cmd.replace(/\[p#(\d)(?:\s+([^\]]*))?\]/g, (match, n, _label) => values[Number(n)] || '');
 }
 
 // ── 搜索过滤树形数据（返回扁平化的匹配节点路径）─────────
@@ -574,7 +555,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
     }
     // 点击命令：加载历史参数值
     if (item?.command) {
-      const params = extractParams(item.command);
+      const params = extractQuickCommandParams(item.command);
       const hist = paramHistory[item.command] || {};
       const initial = {};
       params.forEach(p => { initial[p.num] = (hist[p.num]?.[0]) || ''; });
@@ -615,7 +596,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
       setSelectedPath(path);
       setContextMenu(null);
       if (item?.command) {
-        const params = extractParams(item.command);
+        const params = extractQuickCommandParams(item.command);
         const hist = paramHistory[item.command] || {};
         const initial = {};
         params.forEach(p => { initial[p.num] = (hist[p.num]?.[0]) || ''; });
@@ -659,7 +640,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
       setContextMenu(null);
       const { item } = resolvePath(data, path);
       if (item?.command) {
-        const params = extractParams(item.command);
+        const params = extractQuickCommandParams(item.command);
         const hist = paramHistory[item.command] || {};
         const initial = {};
         params.forEach(p => { initial[p.num] = (hist[p.num]?.[0]) || ''; });
@@ -829,7 +810,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
   };
 
   const sendCommand = (cmd, values, addCR) => {
-    const filled = fillParams(cmd, values);
+    const filled = fillQuickCommandParams(cmd, values);
     const finalCmd = addCR !== false ? filled + '\r' : filled;
 
     // 保存参数历史（每个参数存为数组，用于下拉列表）
@@ -1294,7 +1275,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
 
               {/* 第二行：参数输入（标签在框外，输入框 + 历史） */}
               {(() => {
-                const params = extractParams(editCmdText || selectedItem.command || '');
+                const params = extractQuickCommandParams(editCmdText || selectedItem.command || '');
                 if (params.length === 0) {
                   return (
                     <div style={{ flex: 1, minHeight: 12 }} />
@@ -1660,9 +1641,9 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
               />
 
               {/* 参数预览 */}
-              {extractParams(dlgCmd).length > 0 && (
+              {extractQuickCommandParams(dlgCmd).length > 0 && (
                 <div style={{ marginTop: 4, fontSize: 11, color: 'var(--warning)' }}>
-                  {t('含')} {extractParams(dlgCmd).length} {t('个动态参数：')}{extractParams(dlgCmd).map(p => `[p#${p.num}${p.label ? ' ' + p.label : ''}]`).join(', ')}
+                  {t('含')} {extractQuickCommandParams(dlgCmd).length} {t('个动态参数：')}{extractQuickCommandParams(dlgCmd).map(p => `[p#${p.num}${p.label ? ' ' + p.label : ''}]`).join(', ')}
                 </div>
               )}
             </div>
