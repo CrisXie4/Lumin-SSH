@@ -27,7 +27,7 @@ import {
   Palette, Database, Terminal, Film, Music, Archive, HardDrive, BookOpen,
   Pencil, PenLine, Download, Upload, Trash2, RefreshCw, Lock, FolderUp, SquarePen, Copy,
   Pin, X, ClipboardPaste, Plus, ChevronLeft, ChevronRight, Scissors,
-  MonitorSmartphone, PencilLine,
+  MonitorSmartphone, PencilLine, FolderSymlink, FileSymlink,
 } from 'lucide-react';
 
 // 格式化文件大小
@@ -79,11 +79,18 @@ function fmtDate(ts) {
 
 // 文件图标（颜色统一走 CSS 变量，浅/深色主题一致切换）
 const ICON_SIZE = 16;
-function fileIcon(name, isDir) {
+function fileIcon(name, isDir, isSymlink = false) {
   if (isDir) {
     return (
-      <span className="file-icon-themed file-icon-folder">
-        <Folder size={ICON_SIZE} />
+      <span className={`file-icon-themed file-icon-folder${isSymlink ? ' file-icon-symlink' : ''}`}>
+        {isSymlink ? <FolderSymlink size={ICON_SIZE} /> : <Folder size={ICON_SIZE} />}
+      </span>
+    );
+  }
+  if (isSymlink) {
+    return (
+      <span className="file-icon-themed file-icon-default file-icon-symlink">
+        <FileSymlink size={ICON_SIZE} />
       </span>
     );
   }
@@ -5585,7 +5592,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                     style={item.__luminDeletedPlaceholder ? { '--file-row-height': `${item.__rowHeight || 36}px` } : undefined}
                   >
                     <div className="file-name-cell">
-                      <span className="file-icon">{fileIcon(item.name, item.isDirectory)}</span>
+                      <span className="file-icon">{fileIcon(item.name, item.isDirectory, item.isSymlink)}</span>
                       <span className={`file-name ${item.isDirectory ? 'is-dir' : ''}`}>{item.name}</span>
                     </div>
                     <span className="file-size file-col-size">{item.isDirectory ? '-' : fmtSize(item.size)}</span>
@@ -6394,7 +6401,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   }}
                 >
                   <div className="file-name-cell">
-                    <span className="file-icon">{fileIcon(item.name, item.isDirectory)}</span>
+                    <span className="file-icon">{fileIcon(item.name, item.isDirectory, item.isSymlink)}</span>
                     {isRenaming ? (
                       <input
                         className="rename-input"
