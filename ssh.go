@@ -3099,6 +3099,13 @@ func (m *SSHManager) ListDirContext(ctx context.Context, sessionId string, path 
 	}
 
 	var results []map[string]interface{}
+	// 目录型符号链接目标解析任务: 先收集, 再并发补判. 密集符号链接目录(如 busybox/Alpine
+	// 的 /bin /sbin, 可能数百个指向 busybox 的链接)若串行 Stat 会造成成倍往返延迟.
+	type symlinkDirResolveTarget struct {
+		index    int
+		fullPath string
+	}
+	var pendingSymlinkTargets []symlinkDirResolveTarget
 	for _, f := range files {
 		if err := ensureContextActive(ctx); err != nil {
 			return nil, err
@@ -3115,9 +3122,11 @@ func (m *SSHManager) ListDirContext(ctx context.Context, sessionId string, path 
 			gid = fmt.Sprintf("%d", stat.GetGID())
 		}
 
+		isSymlink := f.Mode()&os.ModeSymlink != 0
 		results = append(results, map[string]interface{}{
 			"name":        f.Name(),
 			"isDirectory": f.IsDir(),
+			"isSymlink":   isSymlink,
 			"size":        f.Size(),
 			"modifyTime":  f.ModTime().Format(time.RFC3339),
 			"permission":  permStr,
@@ -3125,6 +3134,42 @@ func (m *SSHManager) ListDirContext(ctx context.Context, sessionId string, path 
 			"uid":         uid,
 			"gid":         gid,
 		})
+		// 符号链接先入列表, isDirectory 暂用链接自身类型(恒为 false), 稍后并发跟随链接补判.
+		// permission/mode 保留链接原值, 前端据此显示链接图标.
+		if isSymlink && !f.IsDir() {
+			pendingSymlinkTargets = append(pendingSymlinkTargets, symlinkDirResolveTarget{
+				index:    len(results) - 1,
+				fullPath: pathpkg.Join(path, f.Name()),
+			})
+		}
+	}
+	// 并发补判目录型符号链接: sftp.Client 支持并发调用, 用带上限的信号量控制并发度, 把 N 次
+	// 串行往返压成 N/并发 批次. 每个 worker 只写各自 results[index] 这一个独立 map, 无共享
+	// map 竞态. 目标是目录才改 isDirectory; broken/无权限链接 Stat 失败保持非目录. 纯 SFTP,
+	// 不依赖 shell, 跨所有 Unix SSH 系统语义一致, 未来 SFTP-only 模式同样兼容.
+	if len(pendingSymlinkTargets) > 0 {
+		const maxConcurrentSymlinkResolves = 8
+		concurrency := maxConcurrentSymlinkResolves
+		if len(pendingSymlinkTargets) < concurrency {
+			concurrency = len(pendingSymlinkTargets)
+		}
+		semaphore := make(chan struct{}, concurrency)
+		var wg sync.WaitGroup
+		for _, target := range pendingSymlinkTargets {
+			if ensureContextActive(ctx) != nil {
+				break
+			}
+			wg.Add(1)
+			semaphore <- struct{}{}
+			go func(resolveTarget symlinkDirResolveTarget) {
+				defer wg.Done()
+				defer func() { <-semaphore }()
+				if info, statErr := sftpClient.Stat(resolveTarget.fullPath); statErr == nil && info != nil && info.IsDir() {
+					results[resolveTarget.index]["isDirectory"] = true
+				}
+			}(target)
+		}
+		wg.Wait()
 	}
 	sort.Slice(results, func(i, j int) bool {
 		iDir := results[i]["isDirectory"].(bool)
