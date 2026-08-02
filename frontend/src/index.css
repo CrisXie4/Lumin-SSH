@@ -2475,8 +2475,10 @@ body.theme-light .batch-operation-bar {
 
 .file-list {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   scrollbar-gutter: stable;
   user-select: none;
   -webkit-user-select: none;
@@ -2492,13 +2494,16 @@ body.theme-light .batch-operation-bar {
 
 .file-list-viewport {
   position: relative;
-  min-height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 0;
   overflow: hidden;
-  padding-top: var(--file-list-header-height);
+  padding-top: 0;
 }
 
 .file-list-body {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   will-change: transform, opacity;
   backface-visibility: hidden;
   transform: translateZ(0);
@@ -2516,6 +2521,8 @@ body.theme-light .batch-operation-bar {
 .file-list-body-live {
   position: relative;
   z-index: 3;
+  height: 100%;
+  min-height: 0;
 }
 
 .file-list-body-ghost {
@@ -2596,10 +2603,11 @@ body.theme-light .batch-operation-bar {
   text-transform: none;
   letter-spacing: 0;
   background: var(--file-manager-toolbar-bg, var(--surface-sunken));
-  position: sticky;
-  top: 0;
-  margin-bottom: calc(var(--file-list-header-height) * -1);
+  position: relative;
+  top: auto;
+  margin-bottom: 0;
   z-index: 4;
+  flex-shrink: 0;
 }
 
 .file-item {
