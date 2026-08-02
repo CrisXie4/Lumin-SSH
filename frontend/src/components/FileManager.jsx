@@ -5872,8 +5872,21 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (!normalizedQuery) {
       return [];
     }
-    return activePaneLocatorRows.filter((row) => String(row?.name || '').toLowerCase().includes(normalizedQuery));
+    return activePaneLocatorRows.filter((row) => String(row?.name || '').toLowerCase().startsWith(normalizedQuery));
   }, [activePaneLocatorRows, fileLocatorQuery]);
+  const getFileLocatorAnchorRowKey = useCallback(() => {
+    if (fileLocatorActiveRowKey) {
+      return fileLocatorActiveRowKey;
+    }
+    const selectedPath = Array.isArray(selectedPathsRef.current) ? selectedPathsRef.current[0] : '';
+    if (selectedPath) {
+      const selectedRow = activePaneLocatorRows.find((row) => row?.logicalPath === selectedPath);
+      if (selectedRow?.rowKey) {
+        return selectedRow.rowKey;
+      }
+    }
+    return '';
+  }, [activePaneLocatorRows, fileLocatorActiveRowKey]);
   const clearFileListTypeahead = useCallback(() => {
     if (fileListTypeaheadTimerRef.current) {
       window.clearTimeout(fileListTypeaheadTimerRef.current);
@@ -5905,6 +5918,43 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
     return activePaneLocatorRows.filter((row) => String(row?.name || '').toLowerCase().startsWith(normalizedQuery));
   }, [activePaneLocatorRows]);
+  const getFileListTypeaheadAnchorRowKey = useCallback(() => {
+    if (fileListTypeaheadActiveRowKey) {
+      return fileListTypeaheadActiveRowKey;
+    }
+    const selectedPath = Array.isArray(selectedPathsRef.current) ? selectedPathsRef.current[0] : '';
+    if (selectedPath) {
+      const selectedRow = activePaneLocatorRows.find((row) => row?.logicalPath === selectedPath);
+      if (selectedRow?.rowKey) {
+        return selectedRow.rowKey;
+      }
+    }
+    return '';
+  }, [activePaneLocatorRows, fileListTypeaheadActiveRowKey]);
+  const resolveFileListTypeaheadMatchIndex = useCallback((matches, anchorRowKey, cycleCurrent = false) => {
+    if (!Array.isArray(matches) || matches.length === 0) {
+      return -1;
+    }
+    if (!anchorRowKey) {
+      return 0;
+    }
+    const anchorMatchIndex = matches.findIndex((row) => row?.rowKey === anchorRowKey);
+    if (cycleCurrent && anchorMatchIndex >= 0) {
+      return (anchorMatchIndex + 1) % matches.length;
+    }
+    const anchorRowIndex = activePaneLocatorRows.findIndex((row) => row?.rowKey === anchorRowKey);
+    if (anchorRowIndex < 0) {
+      return 0;
+    }
+    for (let offset = 1; offset <= activePaneLocatorRows.length; offset += 1) {
+      const candidateRow = activePaneLocatorRows[(anchorRowIndex + offset) % activePaneLocatorRows.length];
+      const candidateMatchIndex = matches.findIndex((row) => row?.rowKey === candidateRow?.rowKey);
+      if (candidateMatchIndex >= 0) {
+        return candidateMatchIndex;
+      }
+    }
+    return anchorMatchIndex >= 0 ? anchorMatchIndex : 0;
+  }, [activePaneLocatorRows]);
   const applyFileListTypeaheadState = useCallback((query, matches, matchIndex = 0) => {
     if (!Array.isArray(matches) || matches.length === 0) {
       return false;
@@ -5933,34 +5983,50 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       return false;
     }
     const now = Date.now();
+    const currentQuery = String(fileListTypeaheadBufferRef.current || '').trim().toLowerCase();
     const withinWindow = fileListTypeaheadLastInputAtRef.current > 0 && (now - fileListTypeaheadLastInputAtRef.current) <= 2000;
-    const nextBuffer = withinWindow ? `${fileListTypeaheadBufferRef.current}${normalizedKey}` : normalizedKey;
-    fileListTypeaheadBufferRef.current = nextBuffer;
+    const anchorRowKey = getFileListTypeaheadAnchorRowKey();
 
-    let resolvedQuery = '';
-    let resolvedMatches = [];
-    for (let startIndex = 0; startIndex < nextBuffer.length; startIndex += 1) {
-      const candidateQuery = nextBuffer.slice(startIndex);
-      const candidateMatches = getFileListTypeaheadMatches(candidateQuery);
-      if (candidateMatches.length > 0) {
-        resolvedQuery = candidateQuery;
-        resolvedMatches = candidateMatches;
-        break;
+    if (!withinWindow || !currentQuery) {
+      const freshMatches = getFileListTypeaheadMatches(normalizedKey);
+      if (freshMatches.length === 0) {
+        clearFileListTypeahead();
+        return false;
       }
+      fileListTypeaheadBufferRef.current = normalizedKey;
+      const nextIndex = resolveFileListTypeaheadMatchIndex(freshMatches, anchorRowKey, false);
+      return applyFileListTypeaheadState(normalizedKey, freshMatches, nextIndex >= 0 ? nextIndex : 0);
     }
 
-    if (!resolvedQuery || resolvedMatches.length === 0) {
-      clearFileListTypeahead();
-      return false;
+    const nextQuery = `${currentQuery}${normalizedKey}`;
+    const expandedMatches = getFileListTypeaheadMatches(nextQuery);
+    if (expandedMatches.length > 0) {
+      fileListTypeaheadBufferRef.current = nextQuery;
+      const currentStillMatchesIndex = expandedMatches.findIndex((row) => row?.rowKey === anchorRowKey);
+      if (currentStillMatchesIndex >= 0) {
+        return applyFileListTypeaheadState(nextQuery, expandedMatches, currentStillMatchesIndex);
+      }
+      const nextIndex = resolveFileListTypeaheadMatchIndex(expandedMatches, anchorRowKey, false);
+      return applyFileListTypeaheadState(nextQuery, expandedMatches, nextIndex >= 0 ? nextIndex : 0);
     }
 
-    let repeatCount = 1;
-    while (resolvedQuery && nextBuffer.endsWith(resolvedQuery.repeat(repeatCount + 1))) {
-      repeatCount += 1;
+    const currentMatches = getFileListTypeaheadMatches(currentQuery);
+    if (currentQuery.length === 1 && currentQuery === normalizedKey && currentMatches.length > 0) {
+      fileListTypeaheadBufferRef.current = currentQuery;
+      const nextIndex = resolveFileListTypeaheadMatchIndex(currentMatches, anchorRowKey, true);
+      return applyFileListTypeaheadState(currentQuery, currentMatches, nextIndex >= 0 ? nextIndex : 0);
     }
-    const nextMatchIndex = repeatCount > 1 ? (repeatCount - 1) % resolvedMatches.length : 0;
-    return applyFileListTypeaheadState(resolvedQuery, resolvedMatches, nextMatchIndex);
-  }, [applyFileListTypeaheadState, clearFileListTypeahead, getFileListTypeaheadMatches]);
+
+    const restartedMatches = getFileListTypeaheadMatches(normalizedKey);
+    if (restartedMatches.length > 0) {
+      fileListTypeaheadBufferRef.current = normalizedKey;
+      const nextIndex = resolveFileListTypeaheadMatchIndex(restartedMatches, anchorRowKey, false);
+      return applyFileListTypeaheadState(normalizedKey, restartedMatches, nextIndex >= 0 ? nextIndex : 0);
+    }
+
+    clearFileListTypeahead();
+    return false;
+  }, [applyFileListTypeaheadState, clearFileListTypeahead, getFileListTypeaheadAnchorRowKey, getFileListTypeaheadMatches, resolveFileListTypeaheadMatchIndex]);
   const effectiveLocatorActiveRowKey = fileListTypeaheadQuery ? fileListTypeaheadActiveRowKey : fileLocatorActiveRowKey;
   const applyFileLocatorMatch = useCallback((matchIndex, shouldReveal = true) => {
     if (fileLocatorMatches.length === 0) {
@@ -6009,7 +6075,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
       return;
     }
-    applyFileLocatorMatch(0, false);
+    applyFileLocatorMatch(0, true);
   }, [applyFileLocatorMatch, fileLocatorActiveIndex, fileLocatorActiveRowKey, fileLocatorMatches, fileLocatorQuery]);
   useEffect(() => {
     setFileLocatorQuery('');
@@ -6675,8 +6741,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               onChange={(e) => {
                 clearFileListTypeahead();
                 setFileLocatorQuery(e.target.value);
-                setFileLocatorActiveIndex(0);
-                setFileLocatorActiveRowKey('');
               }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') {
