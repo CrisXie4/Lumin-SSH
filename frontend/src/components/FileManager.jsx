@@ -6532,6 +6532,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   fileListRef.current?.focus();
                 }
               }}
+              onFocus={(event) => {
+                const name = event.currentTarget.value;
+                const extensionIndex = item.isDirectory ? -1 : name.lastIndexOf('.');
+                const selectionEnd = extensionIndex > 0 && extensionIndex < name.length - 1 ? extensionIndex : name.length;
+                event.currentTarget.setSelectionRange(0, selectionEnd);
+              }}
               autoFocus
               onClick={(event) => event.stopPropagation()}
             />
