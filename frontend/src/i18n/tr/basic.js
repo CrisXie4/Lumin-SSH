@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Bir iletim görevini başlatırken iletim kuyruğunu otomatik olarak aç",
   "上传或下载新建传输任务后自动展开传输队列面板": "Yeni bir iletim görevi yükledikten veya indirdikten sonra iletim kuyruğu panelini otomatik olarak genişletin",
   "显示文件资源管理器标签页目录图标": "Dosya Gezgini sekmesini göster dizin simgesi",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Kapattıktan sonra yalnızca dizin simgesi gizlenir ve sabitlenmiş simge görüntülenmeye devam eder.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Kapattıktan sonra yalnızca dizin simgesi gizlenir ve sabit simge görüntülenmeye devam eder.",
   "文件资源管理器不显示关闭图标按钮": "Dosya Gezgini kapat simgesi düğmesini göstermiyor",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Dosya Gezgini sekmesi açıldıktan sonra kapat simgesi düğmesi görüntülenmez ve yalnızca çift tıklanarak kapatılabilir.",
   "固定标签跨终端共享": "Terminaller arasında sabit etiket paylaşımı",

@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Abrir automáticamente la cola de transmisión al iniciar una tarea de transmisión",
   "上传或下载新建传输任务后自动展开传输队列面板": "Expanda automáticamente el panel de la cola de transmisión después de cargar o descargar una nueva tarea de transmisión",
   "显示文件资源管理器标签页目录图标": "Mostrar el icono del directorio de la pestaña Explorador de archivos",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Después de cerrar, solo se oculta el ícono del directorio y el ícono anclado aún se muestra.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Después de cerrar, solo se oculta el ícono del directorio y el ícono fijo aún se muestra.",
   "文件资源管理器不显示关闭图标按钮": "El Explorador de archivos no muestra el botón de icono de cerrar",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Después de abrirla, la pestaña Explorador de archivos no muestra el botón del icono de cerrar y solo se puede cerrar haciendo doble clic en ella.",
   "固定标签跨终端共享": "Se corrigió el uso compartido de etiquetas entre terminales.",

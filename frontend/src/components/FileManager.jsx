@@ -7230,6 +7230,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                 style={{
                   position: 'relative',
                   opacity: isDraggingTab ? 0.45 : 1,
+                  gap: isPinnedTab ? 4 : undefined,
+                  paddingLeft: isPinnedTab ? 9 : undefined,
+                  paddingRight: isPinnedTab ? 10 : undefined,
                 }}
               >
                 {isCwdSystemTabHighlightVisible && (
@@ -7254,7 +7257,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   />
                 )}
                 {showFileManagerTabIcons && !isSystemPinnedTab && <Folder size={11} />}
-                {isPinnedTab && !isSystemPinnedTab && <Pin size={10} style={{ opacity: 0.8 }} />}
+                {isPinnedTab && !isSystemPinnedTab && <Pin size={9} style={{ opacity: 0.78, marginLeft: -1, marginRight: -2 }} />}
                 <Tiptop
                   text={tabDropPreviewText || tabDefaultTiptopText}
                   placement="bottom"
@@ -7377,9 +7380,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 8,
+                          gap: isPinnedTab ? 6 : 8,
                           width: '100%',
-                          padding: '8px 10px',
+                          padding: isPinnedTab ? '8px 10px 8px 8px' : '8px 10px',
                           borderRadius: 'var(--radius-sm)',
                           border: '1px solid',
                           borderColor: isSidebarActive ? 'var(--accent)' : 'var(--border)',
@@ -7390,7 +7393,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                         }}
                       >
                         {showFileManagerTabIcons && !isSystemPinnedTab && <Folder size={12} />}
-                        {isPinnedTab && !isSystemPinnedTab && <Pin size={11} style={{ opacity: 0.8 }} />}
+                        {isPinnedTab && !isSystemPinnedTab && <Pin size={10} style={{ opacity: 0.78, marginLeft: -1, marginRight: -2 }} />}
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{renderFileManagerTabTitle(tab, t)}</span>
                         {!hideFileManagerTabCloseButton && fileManagerWorkspace.tabs.length > 1 && !isPinnedTab && (
                           <span

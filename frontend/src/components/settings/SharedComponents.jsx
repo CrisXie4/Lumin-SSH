@@ -21,24 +21,34 @@ export function SettingsTabRoot({ children, gap = SETTINGS_TAB_GAP, style = {} }
   return <div style={{ display: 'flex', flexDirection: 'column', gap, ...style }}>{children}</div>;
 }
 
-export function SettingsSectionTitle({ children, style = {} }) {
-  return <h3 style={{ ...SETTINGS_SECTION_TITLE_STYLE, ...style }}>{children}</h3>;
+export function SettingsSection({ definition, children, style = {} }) {
+  return <div data-settings-section-id={definition?.id} style={style}>{children}</div>;
 }
 
-export function SettingsPanel({ children, style = {} }) {
-  return <div className="form-group" style={{ ...SETTINGS_PANEL_STYLE, ...style }}>{children}</div>;
+export function SettingsSectionTitle({ children, definition, style = {} }) {
+  return <h3 data-settings-section-id={definition?.id} style={{ ...SETTINGS_SECTION_TITLE_STYLE, ...style }}>{definition?.titleKey ? $t(definition.titleKey) : children}</h3>;
 }
 
-export function SettingRow({ title, description, action, alignItems = 'center', gap = 16 }) {
+export function SettingsPanel({ children, style = {}, ...rest }) {
+  return <div {...rest} className="form-group" style={{ ...SETTINGS_PANEL_STYLE, ...style }}>{children}</div>;
+}
+
+export function SettingsField({ definition, title, description, action, children, alignItems = 'center', gap = 16, style = {} }) {
+  const resolvedTitle = title ?? (definition?.titleKey ? $t(definition.titleKey) : title);
+  const resolvedDescription = description ?? (definition?.descriptionKey ? $t(definition.descriptionKey) : description);
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems, gap }}>
+    <div data-settings-field-id={definition?.id} style={{ ...style, ...(children ? { display: 'flex', flexDirection: 'column', gap: 8 } : { display: 'flex', justifyContent: 'space-between', alignItems, gap }) }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{title}</div>
-        {description ? <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{description}</div> : null}
+        {resolvedTitle ? <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{resolvedTitle}</div> : null}
+        {resolvedDescription ? <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{resolvedDescription}</div> : null}
       </div>
-      {action}
+      {children ? <div>{children}</div> : action}
     </div>
   );
+}
+
+export function SettingRow(props) {
+  return <SettingsField {...props} />;
 }
 
 export function SettingsDivider({ margin = '5px 0' }) {
@@ -78,9 +88,10 @@ export function ToggleSwitch({ checked, onChange }) {
   );
 }
 
-export function RadioOption({ selected, label, description, onClick }) {
+export function RadioOption({ selected, label, description, onClick, definition }) {
   return (
     <div
+      data-settings-field-id={definition?.id}
       onClick={onClick}
       style={{
         display: 'flex',
@@ -119,9 +130,10 @@ export function RadioOption({ selected, label, description, onClick }) {
   );
 }
 
-export function AboutLink({ icon, title, url }) {
+export function AboutLink({ icon, title, url, definition }) {
   return (
     <div
+      data-settings-field-id={definition?.id}
       onClick={() => window.runtime?.BrowserOpenURL(url)}
       className="about-list-item"
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '16px 12px', minHeight: 96, borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center' }}

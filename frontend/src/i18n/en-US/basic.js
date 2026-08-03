@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Automatically open the transmission queue when initiating a transmission task",
   "上传或下载新建传输任务后自动展开传输队列面板": "Automatically expand the transmission queue panel after uploading or downloading a new transmission task",
   "显示文件资源管理器标签页目录图标": "Show File Explorer tab directory icon",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "After closing, only the directory icon is hidden and the pinned icon is still displayed.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "After closing, only the directory icon is hidden and the fixed icon is still displayed.",
   "文件资源管理器不显示关闭图标按钮": "File Explorer not showing close icon button",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "After opening, the File Explorer tab does not display the close icon button and can only be closed by double-clicking it.",
   "固定标签跨终端共享": "Fixed label sharing across terminals",

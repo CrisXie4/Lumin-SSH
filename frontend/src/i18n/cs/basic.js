@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Automaticky otevřít přenosovou frontu při zahájení přenosové úlohy",
   "上传或下载新建传输任务后自动展开传输队列面板": "Automaticky rozšířit panel přenosové fronty po nahrání nebo stažení nové přenosové úlohy",
   "显示文件资源管理器标签页目录图标": "Zobrazit ikonu adresáře na kartě Průzkumník souborů",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Po zavření se skryje pouze ikona adresáře a připnutá ikona se stále zobrazuje.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Po zavření se skryje pouze ikona adresáře a stále se zobrazuje pevná ikona.",
   "文件资源管理器不显示关闭图标按钮": "Průzkumník souborů nezobrazuje tlačítko zavřít",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Po otevření se na kartě Průzkumník nezobrazuje tlačítko s ikonou zavření a lze ji zavřít pouze dvojitým kliknutím.",
   "固定标签跨终端共享": "Opraveno sdílení štítků mezi terminály",

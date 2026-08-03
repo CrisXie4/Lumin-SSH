@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Öffnen Sie die Übertragungswarteschlange automatisch, wenn Sie eine Übertragungsaufgabe initiieren",
   "上传或下载新建传输任务后自动展开传输队列面板": "Erweitern Sie das Übertragungswarteschlangenfeld automatisch, nachdem Sie eine neue Übertragungsaufgabe hoch- oder heruntergeladen haben",
   "显示文件资源管理器标签页目录图标": "Verzeichnissymbol auf der Registerkarte „Datei-Explorer“ anzeigen",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Nach dem Schließen wird nur das Verzeichnissymbol ausgeblendet und das angeheftete Symbol weiterhin angezeigt.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Nach dem Schließen wird nur das Verzeichnissymbol ausgeblendet und das feste Symbol weiterhin angezeigt.",
   "文件资源管理器不显示关闭图标按钮": "Der Datei-Explorer zeigt die Schaltfläche zum Schließen des Symbols nicht an",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Nach dem Öffnen zeigt die Registerkarte „Datei-Explorer“ nicht die Schaltfläche „Schließen“ an und kann nur durch Doppelklicken geschlossen werden.",
   "固定标签跨终端共享": "Die gemeinsame Nutzung von Etiketten zwischen Terminals wurde behoben",

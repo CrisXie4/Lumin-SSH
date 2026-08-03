@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Automatycznie otwieraj kolejkę transmisji podczas inicjowania zadania transmisji",
   "上传或下载新建传输任务后自动展开传输队列面板": "Automatycznie rozwijaj panel kolejki transmisji po przesłaniu lub pobraniu nowego zadania transmisji",
   "显示文件资源管理器标签页目录图标": "Pokaż ikonę katalogu karty Eksploratora plików",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Po zamknięciu ukrywana jest tylko ikona katalogu, a ikona przypięta jest nadal wyświetlana.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Po zamknięciu tylko ikona katalogu jest ukryta, a ikona stała jest nadal wyświetlana.",
   "文件资源管理器不显示关闭图标按钮": "Eksplorator plików nie wyświetla ikony przycisku zamykania",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Po otwarciu zakładka Eksplorator plików nie wyświetla ikony przycisku zamykania i można ją zamknąć jedynie poprzez dwukrotne kliknięcie.",
   "固定标签跨终端共享": "Naprawiono udostępnianie etykiet pomiędzy terminalami",

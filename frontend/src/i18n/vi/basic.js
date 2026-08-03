@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Tự động mở hàng đợi truyền khi bắt đầu tác vụ truyền",
   "上传或下载新建传输任务后自动展开传输队列面板": "Tự động mở rộng bảng xếp hàng truyền sau khi tải lên hoặc tải xuống tác vụ truyền mới",
   "显示文件资源管理器标签页目录图标": "Hiển thị biểu tượng thư mục tab File Explorer",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Sau khi đóng chỉ có biểu tượng thư mục bị ẩn còn biểu tượng đã ghim vẫn hiển thị.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Sau khi đóng chỉ có biểu tượng thư mục bị ẩn còn biểu tượng cố định vẫn hiển thị.",
   "文件资源管理器不显示关闭图标按钮": "File Explorer không hiển thị nút biểu tượng đóng",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Sau khi mở, tab File Explorer không hiển thị nút biểu tượng đóng và chỉ có thể đóng bằng cách nhấp đúp vào tab đó.",
   "固定标签跨终端共享": "Đã sửa lỗi chia sẻ nhãn trên các thiết bị đầu cuối",

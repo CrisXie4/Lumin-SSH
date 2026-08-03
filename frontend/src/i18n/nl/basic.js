@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Open automatisch de verzendwachtrij bij het starten van een verzendtaak",
   "上传或下载新建传输任务后自动展开传输队列面板": "Breid het transmissiewachtrijpaneel automatisch uit na het uploaden of downloaden van een nieuwe transmissietaak",
   "显示文件资源管理器标签页目录图标": "Toon het mappictogram van het tabblad Bestandsverkenner",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Na het sluiten is alleen het mappictogram verborgen en wordt het vastgezette pictogram nog steeds weergegeven.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Na het sluiten is alleen het mappictogram verborgen en wordt het vaste pictogram nog steeds weergegeven.",
   "文件资源管理器不显示关闭图标按钮": "Bestandsverkenner toont de knop Sluiten niet",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Na het openen geeft het tabblad Bestandsverkenner niet de knop Sluiten weer en kan het alleen worden gesloten door erop te dubbelklikken.",
   "固定标签跨终端共享": "Vaste labeldeling tussen terminals",

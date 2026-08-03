@@ -3,10 +3,14 @@ import { CheckCircle2, CircleOff, Package } from 'lucide-react'
 import { t as $t } from '../../i18n.js'
 import { DEFAULT_RUNTIME_ENVIRONMENT_STATUS, getRuntimeEnvironmentStatus, installRuntimeEnvironment } from './runtimeEnvironmentBridge.js'
 import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot } from './SharedComponents'
+import { settings } from './settingDefinitions'
 
 export default function RuntimeEnvironmentTab() {
   const [runtimeEnvironmentStatus, setRuntimeEnvironmentStatus] = useState(DEFAULT_RUNTIME_ENVIRONMENT_STATUS)
   const [installing, setInstalling] = useState(false)
+  const sectionNode = settings.runtimeEnvironment.sections.environment
+  const uvNode = settings.runtimeEnvironment.fields.uv
+  const uvBinaryNode = settings.runtimeEnvironment.fields.uvBinary
 
   const refreshRuntimeEnvironmentStatus = useCallback(async () => {
     const status = await getRuntimeEnvironmentStatus()
@@ -52,10 +56,10 @@ export default function RuntimeEnvironmentTab() {
   return (
     <SettingsTabRoot>
       <div>
-        <SettingsSectionTitle>{$t('环境依赖')}</SettingsSectionTitle>
+        <SettingsSectionTitle definition={sectionNode} />
         <div style={{ color: 'var(--text-tertiary)', fontSize: 12, marginBottom: 10 }}>{$t('管理应用运行所需的二进制工具与运行时依赖。')}</div>
         <SettingsPanel style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <div data-settings-field-id={uvNode.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Package size={24} />
             </div>
@@ -68,13 +72,7 @@ export default function RuntimeEnvironmentTab() {
                   <span>{ready ? $t('已就绪') : $t('未就绪')}</span>
                 </div>
                 {!ready ? (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleInstall}
-                    disabled={installing}
-                    style={{ height: 30, padding: '0 14px' }}
-                  >
+                  <button type="button" className="btn btn-secondary" onClick={handleInstall} disabled={installing} style={{ height: 30, padding: '0 14px' }}>
                     {installing ? $t('安装中...') : $t('安装')}
                   </button>
                 ) : null}
@@ -85,7 +83,7 @@ export default function RuntimeEnvironmentTab() {
             </div>
           </div>
           {ready ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div data-settings-field-id={uvBinaryNode.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('uv 可执行文件')}</div>
               <input className="input" type="text" value={runtimeEnvironmentStatus.binaryPath || ''} readOnly style={{ width: '100%' }} />
             </div>

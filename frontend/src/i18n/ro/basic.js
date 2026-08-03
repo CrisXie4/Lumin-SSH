@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Deschideți automat coada de transmisie la inițierea unei sarcini de transmisie",
   "上传或下载新建传输任务后自动展开传输队列面板": "Extindeți automat panoul cozii de transmisie după încărcarea sau descărcarea unei noi sarcini de transmisie",
   "显示文件资源管理器标签页目录图标": "Afișați pictograma directorului filei File Explorer",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "După închidere, doar pictograma directorului este ascunsă și pictograma fixată este în continuare afișată.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "După închidere, doar pictograma directorului este ascunsă și pictograma fixă ​​este în continuare afișată.",
   "文件资源管理器不显示关闭图标按钮": "File Explorer nu afișează butonul de închidere",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "După deschidere, fila File Explorer nu afișează butonul pictogramă de închidere și poate fi închisă doar făcând dublu clic pe ea.",
   "固定标签跨终端共享": "S-a rezolvat partajarea etichetelor între terminale",
