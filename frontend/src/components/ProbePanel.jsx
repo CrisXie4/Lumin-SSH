@@ -6,7 +6,7 @@ import {
   formatRate,
   formatTransferTotal,
 } from './probeFormatting.js';
-import { BarChart3, Cpu, HardDrive, Globe, ClipboardList, Clipboard, Search, Check, Monitor, EyeOff, Eye, RefreshCw, MemoryStick, ArrowLeftRight, Gauge, GripVertical } from 'lucide-react';
+import { BarChart3, Cpu, HardDrive, Globe, ClipboardList, Clipboard, Search, Check, Monitor, EyeOff, Eye, RefreshCw, MemoryStick, ArrowLeftRight, Gauge, GripVertical, Power, Play, Trash2, Plus, ArrowRight } from 'lucide-react';
 import Tiptop from './Tiptop.jsx';
 import { Z } from '../constants/zIndex';
 import { useTranslation } from '../i18n.js';
@@ -17,7 +17,7 @@ const pctColor = (pct, warn = 60, danger = 85) => pct >= danger ? 'var(--danger)
 const createEmptyHist = () => ({ cpu: Array(HISTORY_SIZE).fill(0), up: Array(HISTORY_SIZE).fill(0), down: Array(HISTORY_SIZE).fill(0) });
 const PROBE_CARD_ORDER_KEY = 'probePanelCardOrder';
 const PROBE_CARD_ORDER_CHANGED_EVENT = 'probeCardOrderChanged';
-const DEFAULT_PROBE_CARD_ORDER = ['overview', 'cpu', 'memory', 'network', 'disk', 'process'];
+const DEFAULT_PROBE_CARD_ORDER = ['overview', 'cpu', 'memory', 'network', 'disk', 'process', 'portforward'];
 const PROBE_HIDE_IP_KEY = 'probeHideIP';
 const PROBE_HIDE_IP_CHANGED_EVENT = 'probeHideIPChanged';
 
@@ -501,8 +501,173 @@ function ProcessSection({ t, info, onShowAllProcesses, dragHandleProps }) {
   );
 }
 
+function PortForwardSection({ t, sessionId, active, onOpenPortForward, dragHandleProps }) {
+  const [forwards, setForwards] = useState([]);
+  const activeRef = useRef(active);
+  useEffect(() => { activeRef.current = active; }, [active]);
+
+  const refresh = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const list = await AppGo.ListPortForwards(sessionId);
+      if (activeRef.current) setForwards(Array.isArray(list) ? list : []);
+    } catch (_) {
+      // 端口映射查询失败不应打断监控面板
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    setForwards([]);
+    if (!sessionId || !active) return undefined;
+    refresh();
+    const timer = setInterval(() => {
+      if (activeRef.current) refresh();
+    }, 5000);
+    const handleChanged = (event) => {
+      if (!event?.detail?.sessionId || event.detail.sessionId === sessionId) refresh();
+    };
+    window.addEventListener('port-forward-changed', handleChanged);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('port-forward-changed', handleChanged);
+    };
+  }, [sessionId, active, refresh]);
+
+  const handleStop = useCallback(async (id) => {
+    try {
+      await AppGo.StopPortForwardForSession(sessionId, id);
+      refresh();
+    } catch (_) {
+      // 停止失败保持原状, 下次刷新自动纠正
+    }
+  }, [sessionId, refresh]);
+
+  const handleRestart = useCallback(async (id) => {
+    try {
+      await AppGo.RestartPortForwardForSession(sessionId, id);
+      refresh();
+    } catch (_) {
+      // 重启失败下次刷新自动纠正
+    }
+  }, [sessionId, refresh]);
+
+  const handleDelete = useCallback(async (id) => {
+    try {
+      await AppGo.DeletePortForwardForSession(sessionId, id);
+      setForwards((prev) => prev.filter((item) => item.ID !== id));
+      refresh();
+    } catch (_) {
+      // 删除失败下次刷新自动纠正
+    }
+  }, [sessionId, refresh]);
+
+  // 方向文案对齐后端语义: local=SSH -L 本地监听→远程目标; remote=SSH -R 远程监听→本机目标
+  const renderLabel = (info) => {
+    if (info.Kind === 'local') {
+      return `${t('本地监听')} ${info.LocalAddr} → ${t('远程目标')} ${info.RemoteAddr}`;
+    }
+    return `${t('远程监听')} ${info.RemoteAddr} → ${t('本机目标')} ${info.LocalAddr}`;
+  };
+
+  // 本地回环地址(127.0.0.1 / localhost / ::1)只显示端口, 其余显示 host:port, 让常见场景标签更短
+  const isLoopbackHost = (host) => {
+    const h = String(host || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+    return h === '' || h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '0.0.0.0' || h === '::';
+  };
+  const compactAddr = (host, port) => (isLoopbackHost(host) ? `:${port}` : `${host}:${port}`);
+
+  // 图标化方向: 监听端 → 目标端, 用箭头图标替代冗长中文方向词, 完整语义靠 Tiptop 承载
+  const renderCompactLabel = (info) => {
+    const listen = info.Kind === 'local'
+      ? compactAddr(info.LocalHost, info.LocalPort)
+      : compactAddr(info.RemoteHost, info.RemotePort);
+    const target = info.Kind === 'local'
+      ? compactAddr(info.RemoteHost, info.RemotePort)
+      : compactAddr(info.LocalHost, info.LocalPort);
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{listen}</span>
+        <ArrowRight size={12} style={{ flexShrink: 0, color: 'var(--accent)' }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{target}</span>
+      </span>
+    );
+  };
+
+  const iconBtn = (onClick, title, color, node) => (
+    <Tiptop text={title}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={title}
+        style={{ flexShrink: 0, width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs, 4px)', background: 'var(--surface)', color, cursor: 'pointer', transition: 'var(--transition-fast)' }}
+      >
+        {node}
+      </button>
+    </Tiptop>
+  );
+
+  return (
+    <Card>
+      <SectionHeader
+        icon={<ArrowLeftRight size={14} />}
+        title={t('端口映射')}
+        badge={forwards.length > 0 ? String(forwards.length) : undefined}
+        action={(
+          <Tiptop text={t('新建映射')}>
+            <button type="button" onClick={onOpenPortForward} className="probe-icon-btn" aria-label={t('新建映射')}>
+              <Plus size={14} />
+            </button>
+          </Tiptop>
+        )}
+        dragHandleProps={dragHandleProps}
+      />
+      {forwards.length === 0 ? (
+        <div className="probe-empty-row">{t('当前会话没有端口映射。')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+          {forwards.map((info) => {
+            const isLocal = info.Kind === 'local';
+            const stopped = info.Enabled === false;
+            const label = renderLabel(info);
+            return (
+              <div
+                key={info.ID}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm, 8px)', background: 'var(--surface-raised)', opacity: stopped ? 0.6 : 1 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                  <span
+                    style={{ flexShrink: 0, width: 15, height: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1, background: isLocal ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'color-mix(in srgb, var(--success) 16%, transparent)', color: isLocal ? 'var(--accent)' : 'var(--success)' }}
+                  >
+                    {isLocal ? 'L' : 'R'}
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Tiptop text={label} className="probe-portforward-label" style={{ minWidth: 0, flex: 1 }} triggerClassName="probe-portforward-label-trigger">
+                        {renderCompactLabel(info)}
+                      </Tiptop>
+                      {stopped && (
+                        <span style={{ flexShrink: 0, fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'color-mix(in srgb, var(--text-tertiary) 18%, transparent)', color: 'var(--text-tertiary)' }}>{t('已停止')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  {stopped
+                    ? iconBtn(() => handleRestart(info.ID), t('重启'), 'var(--success)', <Play size={13} />)
+                    : iconBtn(() => handleStop(info.ID), t('停止'), 'var(--warning)', <Power size={13} />)}
+                  {iconBtn(() => handleDelete(info.ID), t('删除'), 'var(--danger)', <Trash2 size={13} />)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════
-export default function ProbePanel({ sessionId, host, addToast, enabled, active, onEnable, onShowAllProcesses, onShowNetworkDetails, snapshot, onSnapshot }) {
+export default function ProbePanel({ sessionId, host, addToast, enabled, active, onEnable, onShowAllProcesses, onShowNetworkDetails, onOpenPortForward, snapshot, onSnapshot }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState(() => snapshot?.info || null);
   // ponytail: 合并 3 个历史数组为 1 个状态更新，减少 3 次渲染为 1 次
@@ -910,6 +1075,7 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
     network: <NetworkSection t={t} info={info} hist={hist} onShowNetworkDetails={handleShowNetworkDetails} dragHandleProps={getSectionDragHandleProps('network')} />,
     disk: <DiskSection t={t} info={info} diskPartitions={diskPartitions} visibleDiskPartitions={visibleDiskPartitions} diskExpanded={diskExpanded} setDiskExpanded={setDiskExpanded} dragHandleProps={getSectionDragHandleProps('disk')} />,
     process: <ProcessSection t={t} info={info} onShowAllProcesses={handleShowAllProcesses} dragHandleProps={getSectionDragHandleProps('process')} />,
+    portforward: <PortForwardSection t={t} sessionId={sessionId} active={active} onOpenPortForward={onOpenPortForward} dragHandleProps={getSectionDragHandleProps('portforward')} />,
   };
 
   const handlePanelDragOver = (event) => {

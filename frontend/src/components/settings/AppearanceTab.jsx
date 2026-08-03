@@ -38,6 +38,7 @@ export default function AppearanceTab({
   themePackageBusy,
   showThemeQuickEntry, onToggleThemeQuickEntry,
   probePanelPosition, onProbePanelPositionChange,
+  terminalToolbarIconOnly, onToggleTerminalToolbarIconOnly,
   termBgImage, onTermBgUpload, onTermBgReset,
   termBgOpacity, onTermBgOpacityChange,
   rememberWindowSize, onToggleRememberWindowSize, onResetWindowSize,
@@ -383,6 +384,19 @@ export default function AppearanceTab({
               <button className={`btn btn-sm ${probePanelPosition === 'left' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onProbePanelPositionChange('left')} style={{ borderRadius: 'var(--radius-xl)', background: probePanelPosition === 'left' ? 'var(--surface-sunken)' : 'transparent' }}>{$t('左侧')}</button>
               <button className={`btn btn-sm ${probePanelPosition === 'right' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onProbePanelPositionChange('right')} style={{ borderRadius: 'var(--radius-xl)', background: probePanelPosition === 'right' ? 'var(--surface-sunken)' : 'transparent' }}>{$t('右侧')}</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 12, fontWeight: 600 }}>{$t('偏好设置')}</h3>
+        <div className="form-group" style={{ background: 'var(--surface-overlay)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('终端工具栏仅显示图标')}</div>
+              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('开启后终端工具栏的进程管理、网络监控等按钮只显示图标')}</div>
+            </div>
+            <ToggleSwitch checked={terminalToolbarIconOnly} onChange={onToggleTerminalToolbarIconOnly} />
           </div>
         </div>
       </div>

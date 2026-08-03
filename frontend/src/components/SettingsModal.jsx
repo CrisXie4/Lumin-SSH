@@ -401,6 +401,7 @@ export default function SettingsModal({
   });
   const [rememberWindowSize, setRememberWindowSize] = useState(localStorage.getItem('rememberWindowSize') !== 'false');
   const [showThemeQuickEntry, setShowThemeQuickEntry] = useState(localStorage.getItem('showThemeQuickEntry') !== 'false');
+  const [terminalToolbarIconOnly, setTerminalToolbarIconOnly] = useState(localStorage.getItem('terminalToolbarIconOnly') === 'true');
   const [programFonts, setProgramFonts] = useState([]);
   const [programFontSearchQuery, setProgramFontSearchQuery] = useState('');
   const [programFontAssignments, setProgramFontAssignments] = useState(() => getProgramFontAssignmentSnapshot());
@@ -522,6 +523,13 @@ export default function SettingsModal({
     setShowThemeQuickEntry(next);
     localStorage.setItem('showThemeQuickEntry', String(next));
     window.dispatchEvent(new CustomEvent('theme-quick-entry-changed'));
+  };
+
+  const handleToggleTerminalToolbarIconOnly = () => {
+    const next = !terminalToolbarIconOnly;
+    setTerminalToolbarIconOnly(next);
+    localStorage.setItem('terminalToolbarIconOnly', String(next));
+    window.dispatchEvent(new CustomEvent('terminal-toolbar-icon-only-changed'));
   };
 
   const handleSelectThemePackage = async (slot, packageId) => {
@@ -2081,6 +2089,8 @@ export default function SettingsModal({
                 onToggleThemeQuickEntry={handleToggleThemeQuickEntry}
                 probePanelPosition={probePanelPosition}
                 onProbePanelPositionChange={onProbePanelPositionChange}
+                terminalToolbarIconOnly={terminalToolbarIconOnly}
+                onToggleTerminalToolbarIconOnly={handleToggleTerminalToolbarIconOnly}
                 termBgImage={termBgImage}
                 onTermBgUpload={handleTermBgUpload}
                 onTermBgReset={handleTermBgReset}

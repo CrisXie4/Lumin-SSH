@@ -64,6 +64,8 @@ type SyncSnapshot struct {
 	AIProviders            []ai.AIProviderProfile `json:"ai_providers"`
 	AIGlobalSettings       *ai.AIGlobalSettings   `json:"ai_global_settings"`
 	ProxyNodes             []ai.AIProxyNode       `json:"proxy_nodes"`
+	// PortForwards 端口映射持久化(按 serverId 分组)。本工程仅负责读写与兼容, 合并逻辑由同步维护者接入。
+	PortForwards map[string][]PersistedPortForward `json:"port_forwards,omitempty"`
 	// deleted_* 始终写出（含 []），与安卓 desktopSnapshotJson 一致，避免「字段缺失 vs 空数组」语义分叉。
 	DeletedConnections []SyncTombstone `json:"deleted_connections"`
 	DeletedCredentials []SyncTombstone `json:"deleted_credentials"`
@@ -75,6 +77,7 @@ type SyncSnapshot struct {
 	HasAIProviders         bool                   `json:"-"`
 	HasAIGlobalSettings    bool                   `json:"-"`
 	HasProxyNodes          bool                   `json:"-"`
+	HasPortForwards        bool                   `json:"-"`
 	HasDeletedConnections  bool                   `json:"-"`
 	HasDeletedCredentials  bool                   `json:"-"`
 	HasTombstonePrunedBefore bool                 `json:"-"`
@@ -96,6 +99,7 @@ func (s *SyncSnapshot) UnmarshalJSON(data []byte) error {
 	_, s.HasAIProviders = raw["ai_providers"]
 	_, s.HasAIGlobalSettings = raw["ai_global_settings"]
 	_, s.HasProxyNodes = raw["proxy_nodes"]
+	_, s.HasPortForwards = raw["port_forwards"]
 	_, s.HasDeletedConnections = raw["deleted_connections"]
 	_, s.HasDeletedCredentials = raw["deleted_credentials"]
 	_, s.HasTombstonePrunedBefore = raw["tombstone_pruned_before"]

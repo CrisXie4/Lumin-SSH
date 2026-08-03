@@ -133,6 +133,19 @@ type WorkspacePrefs struct {
 	WorkspacePersistenceLevel string `json:"workspacePersistenceLevel,omitempty"`
 }
 
+// PersistedPortForward 端口映射持久化记录, 按 serverId(=Connection.ID) 分组存储.
+// Enabled=true 表示期望运行态, false 表示已停止. LastModified 供未来同步合并使用.
+type PersistedPortForward struct {
+	ID           string `json:"id"`
+	Kind         string `json:"kind"`
+	LocalHost    string `json:"localHost"`
+	LocalPort    string `json:"localPort"`
+	RemoteHost   string `json:"remoteHost"`
+	RemotePort   string `json:"remotePort"`
+	Enabled      bool   `json:"enabled"`
+	LastModified int64  `json:"lastModified,omitempty"`
+}
+
 type ConfigManager struct {
 	configDir                 string
 	connFile                  string
@@ -152,6 +165,7 @@ type ConfigManager struct {
 	workspaceStateFile        string
 	workspacePrefsFile        string
 	workspaceSessionStateFile string
+	portForwardsFile          string
 	appSettingsFile           string
 	historyDir                string
 	globalHistFile            string
@@ -194,6 +208,7 @@ func NewConfigManager() *ConfigManager {
 	workspaceStateFile := filepath.Join(dir, "workspace_state.json")
 	workspacePrefsFile := filepath.Join(dir, "workspace_prefs.json")
 	workspaceSessionStateFile := filepath.Join(dir, "workspace_sessions.json")
+	portForwardsFile := filepath.Join(dir, "port_forwards.json")
 	appSettingsFile := filepath.Join(dir, "app_settings.json")
 	historyDir := filepath.Join(dir, "history")
 	if err := os.MkdirAll(historyDir, 0755); err != nil {
@@ -242,6 +257,7 @@ func NewConfigManager() *ConfigManager {
 		workspaceStateFile:        workspaceStateFile,
 		workspacePrefsFile:        workspacePrefsFile,
 		workspaceSessionStateFile: workspaceSessionStateFile,
+		portForwardsFile:          portForwardsFile,
 		appSettingsFile:           appSettingsFile,
 		historyDir:                historyDir,
 		globalHistFile:            filepath.Join(historyDir, "global.json"),
@@ -1126,6 +1142,9 @@ func (c *ConfigManager) DeleteConnection(id string) bool {
 	if err := c.deleteWorkspaceSessionStateLocked(id); err != nil {
 		log.Printf("[DeleteConnection] failed to delete workspace session state: %v", err)
 	}
+	if err := c.deletePortForwardsLocked(id); err != nil {
+		log.Printf("[DeleteConnection] failed to delete port forwards: %v", err)
+	}
 	c.bumpSnapshotTime()
 	c.connCacheDirty = true // 标记缓存需要刷新
 
@@ -1186,6 +1205,21 @@ func (c *ConfigManager) BatchDeleteConnections(ids []string) {
 		if changed {
 			if err := c.saveWorkspaceSessionStatesLocked(states); err != nil {
 				log.Printf("[BatchDeleteConnections] failed to delete workspace session states: %v", err)
+			}
+		}
+	}
+	pfStates := c.getPortForwardsLocked()
+	if len(pfStates) > 0 {
+		pfChanged := false
+		for _, id := range ids {
+			if _, ok := pfStates[id]; ok {
+				delete(pfStates, id)
+				pfChanged = true
+			}
+		}
+		if pfChanged {
+			if err := c.savePortForwardsLocked(pfStates); err != nil {
+				log.Printf("[BatchDeleteConnections] failed to delete port forwards: %v", err)
 			}
 		}
 	}
@@ -2135,6 +2169,85 @@ func (c *ConfigManager) deleteWorkspaceSessionStateLocked(serverId string) error
 	}
 	delete(states, serverId)
 	return c.saveWorkspaceSessionStatesLocked(states)
+}
+
+func (c *ConfigManager) getPortForwardsLocked() map[string][]PersistedPortForward {
+	data, err := os.ReadFile(c.portForwardsFile)
+	if err != nil {
+		return map[string][]PersistedPortForward{}
+	}
+	var states map[string][]PersistedPortForward
+	if err := json.Unmarshal(data, &states); err != nil || states == nil {
+		return map[string][]PersistedPortForward{}
+	}
+	return states
+}
+
+func (c *ConfigManager) savePortForwardsLocked(states map[string][]PersistedPortForward) error {
+	cleaned := make(map[string][]PersistedPortForward, len(states))
+	for serverId, list := range states {
+		if strings.TrimSpace(serverId) == "" || len(list) == 0 {
+			continue
+		}
+		cleaned[serverId] = list
+	}
+	if len(cleaned) == 0 {
+		if err := os.Remove(c.portForwardsFile); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	data, err := json.MarshalIndent(cleaned, "", "  ")
+	if err != nil {
+		return err
+	}
+	return atomicWriteFile(c.portForwardsFile, data, 0600)
+}
+
+func (c *ConfigManager) GetPortForwards(serverId string) []PersistedPortForward {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	states := c.getPortForwardsLocked()
+	list, ok := states[strings.TrimSpace(serverId)]
+	if !ok {
+		return []PersistedPortForward{}
+	}
+	result := make([]PersistedPortForward, len(list))
+	copy(result, list)
+	return result
+}
+
+func (c *ConfigManager) SavePortForwards(serverId string, list []PersistedPortForward) error {
+	serverId = strings.TrimSpace(serverId)
+	if serverId == "" {
+		return fmt.Errorf("missing serverId")
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	states := c.getPortForwardsLocked()
+	if len(list) == 0 {
+		delete(states, serverId)
+	} else {
+		states[serverId] = list
+	}
+	if err := c.savePortForwardsLocked(states); err != nil {
+		return err
+	}
+	c.bumpSnapshotTime()
+	return nil
+}
+
+func (c *ConfigManager) deletePortForwardsLocked(serverId string) error {
+	serverId = strings.TrimSpace(serverId)
+	if serverId == "" {
+		return nil
+	}
+	states := c.getPortForwardsLocked()
+	if _, ok := states[serverId]; !ok {
+		return nil
+	}
+	delete(states, serverId)
+	return c.savePortForwardsLocked(states)
 }
 
 func (c *ConfigManager) GetRememberWorkspace() bool {
