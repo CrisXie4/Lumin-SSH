@@ -217,6 +217,11 @@ export default function Dashboard({
               <div style={{ position: 'relative', flex: 1, maxWidth: 240, minWidth: 120 }}>
                 <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }} />
                 <input
+                  id="server-search"
+                  name="serverSearch"
+                  type="search"
+                  autoComplete="off"
+                  aria-label={t('搜索服务器...')}
                   className="input-compact"
                   placeholder={t('搜索服务器...')}
                   value={searchQuery}

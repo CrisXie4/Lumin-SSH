@@ -1,11 +1,12 @@
 import { Check, Search, ChevronDown } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 function normalizeSearchText(value) {
   return String(value || '').toLowerCase().replace(/[_\s]+/g, '-').trim();
 }
 
 export default function SearchableGroupedSelect({
+  id,
   value = '',
   onChange,
   groups = [],
@@ -17,6 +18,7 @@ export default function SearchableGroupedSelect({
 }) {
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const searchInputId = useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -94,6 +96,7 @@ export default function SearchableGroupedSelect({
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
       <button
+        id={id}
         type="button"
         disabled={disabled}
         onClick={() => {
@@ -153,6 +156,7 @@ export default function SearchableGroupedSelect({
           <div style={{ position: 'relative', padding: 8, borderBottom: '1px solid var(--border-subtle, var(--border))' }}>
             <Search size={14} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
             <input
+              id={searchInputId}
               ref={searchInputRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}

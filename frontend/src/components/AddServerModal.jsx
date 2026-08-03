@@ -232,9 +232,12 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
             <div className="webdav-section-title server-editor-section-title"><span className="server-editor-section-icon"><Monitor size={15} /></span> {t('基本信息')}</div>
             <div className="server-editor-fields">
               <div className="form-group">
-                <label className="form-label">{t('服务器别名（选填）')}</label>
+                <label className="form-label" htmlFor="server-name">{t('服务器别名（选填）')}</label>
                 <div className={inputShellClass('name')}>
                   <input
+                    id="server-name"
+                    name="name"
+                    autoComplete="off"
                     className={inputClass('name')}
                     data-editor-field="name"
                     placeholder={t('例如：我的测试服')}
@@ -245,9 +248,11 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">{t('主机地址 *')}</label>
+                  <label className="form-label" htmlFor="server-host">{t('主机地址 *')}</label>
                   <div className={inputShellClass('host')}>
                     <input
+                      id="server-host"
+                      name="host"
                       className={inputClass('host')}
                       data-editor-field="host"
                       placeholder={t('192.168.1.1 或 example.com')}
@@ -257,9 +262,11 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">{t('端口')}</label>
+                  <label className="form-label" htmlFor="server-port">{t('端口')}</label>
                   <div className={inputShellClass('port')}>
                     <input
+                      id="server-port"
+                      name="port"
                       className={inputClass('port')}
                       data-editor-field="port"
                       placeholder="22"
@@ -273,9 +280,12 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">{t('用户名')} *</label>
+                <label className="form-label" htmlFor="server-username">{t('用户名')} *</label>
                 <div className={inputShellClass('username')}>
                   <input
+                    id="server-username"
+                    name="username"
+                    autoComplete="username"
                     className={inputClass('username')}
                     data-editor-field="username"
                     placeholder="root"
@@ -285,8 +295,10 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">{t('分组')}</label>
+                <label className="form-label" htmlFor="server-group">{t('分组')}</label>
                 <input
+                  id="server-group"
+                  name="group"
                   className="input"
                   list="group-options"
                   placeholder={t('默认（不填则不分组）')}
@@ -325,8 +337,8 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                 ) : (
                 <>
                   <div className="form-group">
-                    <label className="form-label">{t('选择凭据')} *</label>
-                    <select className="select" value={selectedCredId} onChange={(e) => setSelectedCredId(e.target.value)}>
+                    <label className="form-label" htmlFor="server-credential">{t('选择凭据')} *</label>
+                    <select id="server-credential" name="credentialId" className="select" value={selectedCredId} onChange={(e) => setSelectedCredId(e.target.value)}>
                       <option value="">{t('请选择凭据')}</option>
                       {credentials.map((c) => (
                         <option key={c.id} value={c.id}>{c.name} ({c.username})</option>
@@ -347,8 +359,8 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
               ) : (
                 <>
               <div className="form-group">
-                <label className="form-label">{t('认证方式')}</label>
-                <select className="select" value={form.authType} onChange={set('authType')}>
+                <label className="form-label" htmlFor="server-auth-type">{t('认证方式')}</label>
+                <select id="server-auth-type" name="authType" className="select" value={form.authType} onChange={set('authType')}>
                   <option value="password">{t('密码认证')}</option>
                   <option value="key">{t('私钥认证')}</option>
                 </select>
@@ -356,11 +368,14 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
 
               {form.authType === 'password' ? (
                 <div className="form-group">
-                  <label className="form-label">
+                  <label className="form-label" htmlFor="server-password">
                     {isEditing ? t('新密码（留空则不修改）') : t('密码')} *
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
+                      id="server-password"
+                      name="password"
+                      autoComplete={isEditing ? 'new-password' : 'current-password'}
                       className="input"
                       type={showPassword ? "text" : "password"}
                       placeholder={t('请输入密码')}
@@ -377,12 +392,14 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                 <>
                   <div className="form-group">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label className="form-label" style={{ marginBottom: 0 }}>{t('私钥内容')}</label>
+                      <label className="form-label" htmlFor="server-private-key" style={{ marginBottom: 0 }}>{t('私钥内容')}</label>
                       <button type="button" className="btn btn-secondary btn-sm server-editor-browse" onClick={handleSelectPrivateKeyFile}>
                         <FolderOpen size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} /> {t('浏览')}
                       </button>
                     </div>
                     <textarea
+                      id="server-private-key"
+                      name="privateKey"
                       className="input"
                       style={{
                         fontFamily: 'var(--font-mono)',
@@ -396,9 +413,11 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">{t('私钥密码短语 (可选)')}</label>
+                    <label className="form-label" htmlFor="server-passphrase">{t('私钥密码短语 (可选)')}</label>
                     <div style={{ position: 'relative' }}>
                       <input
+                        id="server-passphrase"
+                        name="passphrase"
                         className="input"
                         type={showPassphrase ? "text" : "password"}
                         placeholder={t('私钥密码短语')}
@@ -422,8 +441,8 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
             <div className="webdav-section-title server-editor-section-title"><span className="server-editor-section-icon"><Globe size={15} /></span> {t('代理服务器')}</div>
             <div className="server-editor-fields">
               <div className="form-group">
-                <label className="form-label">{t('代理模式')}</label>
-                <select className="select" value={form.proxyMode || 'direct'} onChange={set('proxyMode')}>
+                <label className="form-label" htmlFor="server-proxy-mode">{t('代理模式')}</label>
+                <select id="server-proxy-mode" name="proxyMode" className="select" value={form.proxyMode || 'direct'} onChange={set('proxyMode')}>
                   <option value="direct">{t('直连')}</option>
                   <option value="node">{t('选择代理节点')}</option>
                   <option value="custom">{t('自定义代理')}</option>
@@ -436,8 +455,8 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                   </div>
                 ) : (
                   <div className="form-group">
-                    <label className="form-label">{t('代理节点')} *</label>
-                    <select className="select" value={form.proxyNodeId || ''} onChange={set('proxyNodeId')}>
+                    <label className="form-label" htmlFor="server-proxy-node">{t('代理节点')} *</label>
+                    <select id="server-proxy-node" name="proxyNodeId" className="select" value={form.proxyNodeId || ''} onChange={set('proxyNodeId')}>
                       <option value="">{t('请选择代理节点')}</option>
                       {proxyNodes.map((node) => (
                         <option key={node.id} value={node.id}>
@@ -455,16 +474,18 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
               {form.proxyMode === 'custom' ? (
                 <>
                   <div className="form-group">
-                    <label className="form-label">{t('协议类型')}</label>
-                    <select className="select" value={form.proxyType || 'socks5'} onChange={set('proxyType')}>
+                    <label className="form-label" htmlFor="server-proxy-type">{t('协议类型')}</label>
+                    <select id="server-proxy-type" name="proxyType" className="select" value={form.proxyType || 'socks5'} onChange={set('proxyType')}>
                       <option value="socks5">{t('SOCKS5 代理')}</option>
                       <option value="http">{t('HTTP 代理')}</option>
                     </select>
                   </div>
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">{t('代理主机')} *</label>
+                      <label className="form-label" htmlFor="server-proxy-host">{t('代理主机')} *</label>
                       <input
+                        id="server-proxy-host"
+                        name="proxyHost"
                         className="input"
                         placeholder="127.0.0.1"
                         value={form.proxyHost || ''}
@@ -472,8 +493,10 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">{t('代理端口')}</label>
+                      <label className="form-label" htmlFor="server-proxy-port">{t('代理端口')}</label>
                       <input
+                        id="server-proxy-port"
+                        name="proxyPort"
                         className="input"
                         type="number"
                         min={1}
@@ -485,8 +508,10 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">{t('代理用户名')}</label>
+                    <label className="form-label" htmlFor="server-proxy-username">{t('代理用户名')}</label>
                     <input
+                      id="server-proxy-username"
+                      name="proxyUsername"
                       className="input"
                       placeholder="user"
                       value={form.proxyUsername || ''}
@@ -494,9 +519,11 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">{t('代理密码')}</label>
+                    <label className="form-label" htmlFor="server-proxy-password">{t('代理密码')}</label>
                     <div style={{ position: 'relative' }}>
                       <input
+                        id="server-proxy-password"
+                        name="proxyPassword"
                         className="input"
                         type={showProxyPassword ? "text" : "password"}
                         placeholder={t('代理密码')}
@@ -518,9 +545,11 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
             <div className="webdav-section-title server-editor-section-title"><span className="server-editor-section-icon"><FolderOpen size={15} /></span> {t('高级选项')}</div>
             <div className="server-editor-fields">
               <div className="form-group">
-                <label className="form-label">{t('终端默认 cd 目录')}</label>
+                <label className="form-label" htmlFor="server-terminal-init-path">{t('终端默认 cd 目录')}</label>
                 <div className={inputShellClass('terminalInitPath')}>
                   <input
+                    id="server-terminal-init-path"
+                    name="terminalInitPath"
                     className={inputClass('terminalInitPath')}
                     data-editor-field="terminalInitPath"
                     placeholder="/root"
@@ -530,9 +559,11 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">{t('文件管理器初始目录')}</label>
+                <label className="form-label" htmlFor="server-file-manager-init-path">{t('文件管理器初始目录')}</label>
                 <div className={inputShellClass('fileManagerInitPath')}>
                   <input
+                    id="server-file-manager-init-path"
+                    name="fileManagerInitPath"
                     className={inputClass('fileManagerInitPath')}
                     data-editor-field="fileManagerInitPath"
                     placeholder="/var/www"
@@ -542,8 +573,9 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">{t('终端字符编码')}</label>
+                <label className="form-label" htmlFor="server-terminal-encoding">{t('终端字符编码')}</label>
                 <SearchableGroupedSelect
+                  id="server-terminal-encoding"
                   value={form.terminalEncoding || 'utf-8'}
                   onChange={(nextValue) => setForm((f) => ({ ...f, terminalEncoding: nextValue }))}
                   groups={TERMINAL_ENCODING_GROUPS}
@@ -562,8 +594,10 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                   {t('设置该连接的终端输入与输出编码')}
                 </div>
               </div>
-              <label className="server-editor-compat-check">
+              <label className="server-editor-compat-check" htmlFor="server-legacy-ssh-rsa">
                 <input
+                  id="server-legacy-ssh-rsa"
+                  name="allowLegacySshRsa"
                   type="checkbox"
                   checked={!!form.allowLegacySshRsa}
                   onChange={(e) => setForm((f) => ({ ...f, allowLegacySshRsa: e.target.checked }))}
@@ -589,8 +623,8 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
             </>
           ) : (
             <>
-              <label className="server-editor-clear-check" title={t('添加成功后清空表单，方便连续添加多台服务器')}>
-                <input type="checkbox" checked={clearAfterAdd} onChange={(e) => setClearAfterAdd(e.target.checked)} />
+              <label className="server-editor-clear-check" htmlFor="server-clear-after-add" title={t('添加成功后清空表单，方便连续添加多台服务器')}>
+                <input id="server-clear-after-add" name="clearAfterAdd" type="checkbox" checked={clearAfterAdd} onChange={(e) => setClearAfterAdd(e.target.checked)} />
                 {t('添加后清空')}
               </label>
               {server && (
