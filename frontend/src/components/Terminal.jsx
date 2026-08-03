@@ -396,6 +396,8 @@ export default function Terminal({
   showCommands = false,
   onQuickCommandsOpenChange,
   quickCmdsRef,
+  onDetectedRemotePort,
+  portListeningEnabled = false,
   // 重连触发器：串口/本地复用同一 sessionId 重连时，wsRebuildKey 自增，
   // 让下方建立 xterm+WebSocket 的主 effect 重跑，重建 WS（对齐 SSH 重连靠新 terminalId 触发的行为）。
   wsRebuildKey = 0,
@@ -436,6 +438,49 @@ export default function Terminal({
   const commandsBtnRef                        = useRef(null);
   const historyPopupRef                       = useRef(null);
   const pendingCmdRef                         = useRef('');
+  const listeningPortsRef                     = useRef(null);
+
+  const readListeningPorts = async () => new Set(
+    ((await AppGo.NetworkInfo(sessionId))?.network?.connections || [])
+      .map((connection) => Number(connection?.port))
+      .filter((port) => Number.isInteger(port) && port >= 1 && port <= 65535)
+  );
+
+  // 启用后在连接建立时只采集基线，不对既有服务弹提示。
+  useEffect(() => {
+    if (!portListeningEnabled || status !== 'connected') {
+      listeningPortsRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    void readListeningPorts().then((ports) => {
+      if (!cancelled) listeningPortsRef.current = ports;
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [portListeningEnabled, sessionId, status]);
+
+  // 每条命令仅在 5 秒后执行一次独立探测，不依赖网络监控页面是否打开。
+  const suggestPortForwardForNewListeners = () => {
+    if (!portListeningEnabled) return;
+    const before = listeningPortsRef.current;
+    window.setTimeout(async () => {
+      try {
+        const after = await readListeningPorts();
+        // 首次采样只建立基线，避免把连接前已存在的服务误报为新端口。
+        if (!before) {
+          listeningPortsRef.current = after;
+          return;
+        }
+        listeningPortsRef.current = after;
+        const ports = [...after].filter((port) => !before.has(port));
+        for (const port of ports) {
+          onDetectedRemotePort?.(sessionId, port);
+        }
+      } catch {
+        // 探测失败不影响用户正在使用的终端。
+      }
+    }, 5000);
+  };
   const awaitingPasswordRef                   = useRef(false); // 检测到密码提示后，下一行输入不记入命令历史
   const awaitingCommandFinishRef              = useRef(false); // 按回车提交命令后，等待命令完成（提示符回归）
   const [terminalCwd, setTerminalCwd]         = useState('/');
@@ -1678,6 +1723,7 @@ export default function Terminal({
           window.dispatchEvent(new CustomEvent('ssh-command-history', {
             detail: { sessionId: serverIdRef.current, command: cmd, time: new Date().toISOString(), source: 'input' }
           }));
+          suggestPortForwardForNewListeners();
         }
         // 非密码输入且提交了实际命令：进入"等待命令完成"状态，
         // 待提示符回归（onWriteParsed 检测）时派发 ssh-command-finished 事件，
@@ -2653,6 +2699,7 @@ export default function Terminal({
       window.dispatchEvent(new CustomEvent('ssh-command-history', {
         detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
       }));
+      suggestPortForwardForNewListeners();
     }
     awaitingPasswordRef.current = false;
     // 快捷命令/输入框提交：与 onData 回车路径一致，进入等待命令完成状态
@@ -2697,6 +2744,7 @@ export default function Terminal({
       window.dispatchEvent(new CustomEvent('ssh-command-history', {
         detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
       }));
+      suggestPortForwardForNewListeners();
     }
     awaitingPasswordRef.current = false;
     awaitingCommandFinishRef.current = pending.item.addCR !== false;

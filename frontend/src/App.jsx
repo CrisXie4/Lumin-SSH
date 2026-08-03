@@ -36,6 +36,7 @@ import Dashboard from './components/Dashboard.jsx';
 import SerialConfigModal from './components/SerialConfigModal.jsx';
 import ImportExportDialog from './components/ImportExportDialog.jsx';
 import ExportSelectedDialog from './components/ExportSelectedDialog.jsx';
+import PortForwardDialog from './components/PortForwardDialog.jsx';
 import Tiptop from './components/Tiptop.jsx';
 import { restoreAIChatTool } from './components/ai/aiChatBridge.js';
 import { Bot, Settings, House, Minus, Square, X, Plus, Monitor, RefreshCw, Folder, ScrollText, Cpu, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, Globe, Rocket, Copy, PenLine, Sun, Moon } from 'lucide-react';
@@ -546,7 +547,7 @@ export default function App() {
   const [terminalPaneLayouts, setTerminalPaneLayouts] = useState({});
   const terminalPaneLayoutsRef = useRef({});
   useEffect(() => { terminalPaneLayoutsRef.current = terminalPaneLayouts; }, [terminalPaneLayouts]);
-  const persistWorkspaceSnapshotRef = useRef(() => {});
+  const persistWorkspaceSnapshotRef = useRef(() => { });
   const terminalPaneIdRef = useRef(0);
   const [serversLoaded, setServersLoaded] = useState(false);
   const workspaceRestoreStartedRef = useRef(false);
@@ -558,6 +559,29 @@ export default function App() {
   const [mountedSessions, setMountedSessions] = useState(new Set());
   const [contentTab, setContentTab] = useState('terminal'); // 'terminal' | 'files' | 'process' | 'network' | 'history'
   const contentTabRef = useRef(contentTab);
+  const [showPortForwardDialog, setShowPortForwardDialog] = useState(false);
+  const [portForwardDialogSessionId, setPortForwardDialogSessionId] = useState(null);
+  const [portForwardInitialMapping, setPortForwardInitialMapping] = useState(null);
+  const [portListeningEnabled, setPortListeningEnabled] = useState(
+    () => localStorage.getItem('portForwardRealtimeListening') === 'true'
+  );
+
+  const handlePortListeningEnabledChange = useCallback((enabled) => {
+    setPortListeningEnabled(enabled);
+    localStorage.setItem('portForwardRealtimeListening', enabled ? 'true' : 'false');
+  }, []);
+
+  const openPortForwardDialog = useCallback((sessionId, port = null) => {
+    setPortForwardDialogSessionId(sessionId);
+    setPortForwardInitialMapping(port == null ? null : {
+      kind: 'local',
+      localHost: '127.0.0.1',
+      localPort: String(port),
+      remoteHost: '127.0.0.1',
+      remotePort: String(port),
+    });
+    setShowPortForwardDialog(true);
+  }, []);
   useEffect(() => { contentTabRef.current = contentTab; }, [contentTab]);
   const [serverEditor, setServerEditor] = useState(null);
   const [editFlyAnimation, setEditFlyAnimation] = useState(null);
@@ -645,10 +669,10 @@ export default function App() {
     }, TOAST_EXIT_DURATION);
     toastExitTimersRef.current.set(id, exitTimer);
   }, [clearToastTimer, removeToastImmediately]);
-  const addToast = useCallback((message, type = 'info', duration = 3000) => {
+  const addToast = useCallback((message, type = 'info', duration = 3000, actions = []) => {
     const id = ++toastIdRef.current;
     const text = message instanceof Error ? message.message : String(message ?? '');
-    setToasts((prev) => [...prev, { id, message: text, type, closing: false }]);
+    setToasts((prev) => [...prev, { id, message: text, type, actions, closing: false }]);
     if (duration > 0) {
       const autoTimer = setTimeout(() => {
         if (mountedRef.current) {
@@ -658,6 +682,21 @@ export default function App() {
       toastAutoDismissTimersRef.current.set(id, autoTimer);
     }
   }, [removeToast]);
+  const handleToastAction = useCallback((id, action) => {
+    removeToastImmediately(id);
+    action?.onClick?.();
+  }, [removeToastImmediately]);
+  const handleDetectedRemotePort = useCallback((sessionId, port) => {
+    addToast(
+      `${t('检测到远端新监听端口')} ${port}`,
+      'info',
+      12000,
+      [
+        { label: t('忽略') },
+        { label: t('设置'), onClick: () => openPortForwardDialog(sessionId, port) },
+      ]
+    );
+  }, [addToast, openPortForwardDialog, t]);
   useEffect(() => () => {
     toastAutoDismissTimersRef.current.forEach((timer) => clearTimeout(timer));
     toastAutoDismissTimersRef.current.clear();
@@ -726,7 +765,7 @@ export default function App() {
   useEffect(() => { showQuickCommandsRef.current = showQuickCommands; }, [showQuickCommands]);
   const [creatingTerminalSessionId, setCreatingTerminalSessionId] = useState(null);
   const creatingTerminalRef = useRef(null);
-  
+
   // ponytail: 9 处 setSessions(prev => prev.map(s => s.id === id ? { ...s, status } : s)) 提取为帮助函数
   const updateSessionStatus = useCallback((id, status) => {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
@@ -764,7 +803,7 @@ export default function App() {
       return;
     }
     let trackedPromise = null;
-    trackedPromise = Promise.resolve(disconnectPromise).catch(() => {}).finally(() => {
+    trackedPromise = Promise.resolve(disconnectPromise).catch(() => { }).finally(() => {
       if (disconnectingServerIdsRef.current.get(normalizedServerId) === trackedPromise) {
         disconnectingServerIdsRef.current.delete(normalizedServerId);
       }
@@ -912,9 +951,9 @@ export default function App() {
     const nextLayouts = overrides.terminalPaneLayouts || terminalPaneLayoutsRef.current;
     const nextTerminals = Array.isArray(nextSession.terminals) && nextSession.terminals.length > 0
       ? nextSession.terminals.map((term, index) => ({
-          id: typeof term?.id === 'string' && term.id.trim() ? term.id.trim() : `${nextSession.id}-terminal-${index + 1}`,
-          label: typeof term?.label === 'string' && term.label.trim() ? term.label.trim() : `${t('终端')}${index + 1}`,
-        }))
+        id: typeof term?.id === 'string' && term.id.trim() ? term.id.trim() : `${nextSession.id}-terminal-${index + 1}`,
+        label: typeof term?.label === 'string' && term.label.trim() ? term.label.trim() : `${t('终端')}${index + 1}`,
+      }))
       : [{ id: nextSession.id, label: `${t('终端')}1` }];
     const sessionLayouts = Object.fromEntries(
       Object.entries(nextLayouts || {})
@@ -948,8 +987,8 @@ export default function App() {
       activeTerminalId: resolvedActiveTerminalId,
       contentTab: normalizeWorkspaceContentTab(
         overrides.contentTab
-          ?? (activeSessionIdRef.current === nextSession.id ? contentTabRef.current : lastContentTabRef.current[nextSession.id])
-          ?? 'terminal',
+        ?? (activeSessionIdRef.current === nextSession.id ? contentTabRef.current : lastContentTabRef.current[nextSession.id])
+        ?? 'terminal',
       ),
       terminals: nextTerminals.map((term) => ({ id: term.id, label: term.label })),
       terminalPaneLayouts: sessionLayouts,
@@ -966,7 +1005,7 @@ export default function App() {
     if (!snapshot) {
       return;
     }
-    window?.go?.main?.App?.SaveWorkspaceSessionState?.(session.serverId, JSON.stringify(snapshot)).catch(() => {});
+    window?.go?.main?.App?.SaveWorkspaceSessionState?.(session.serverId, JSON.stringify(snapshot)).catch(() => { });
   }, [buildSessionWorkspaceSnapshot, rememberWorkspace, workspacePersistenceLevel]);
 
   const loadServerWorkspaceSessionSnapshot = useCallback(async (serverId) => {
@@ -1080,7 +1119,7 @@ export default function App() {
       rememberSessionActiveTerminal(activeSessionId, nextTerminalId, session.activeTerminalLabel || '');
     }
   }, [activeSessionId, rememberSessionActiveTerminal, resolveSessionRootTerminalId, sessions, terminalPaneLayouts]);
-  
+
   // ── 新增自动检测更新状态 ──────────────────────────────
   const [startupUpdateInfo, setStartupUpdateInfo] = useState(null);
   const [isUpdateModalVisible, setIsUpdateModalVisible] = useState(false);
@@ -1089,7 +1128,7 @@ export default function App() {
   const updateBubbleRemainingRef = useRef(4000);
   const updateBubbleStartedAtRef = useRef(0);
   const [syncFailed, setSyncFailed] = useState(null); // { provider, error }
-  
+
   // ── 新增分屏拖拽大小控制状态与逻辑 ──────────────────────
   const [leftSplitWidth, setLeftSplitWidth] = useState(() => {
     return parseInt(localStorage.getItem('leftSplitWidth') || '320', 10);
@@ -1233,7 +1272,7 @@ export default function App() {
     if (!showSessionList) return;
     const handler = (e) => {
       if (sessionListRef.current && !sessionListRef.current.contains(e.target) &&
-          sessionListBtnRef.current && !sessionListBtnRef.current.contains(e.target)) {
+        sessionListBtnRef.current && !sessionListBtnRef.current.contains(e.target)) {
         setShowSessionList(false);
       }
     };
@@ -1449,21 +1488,21 @@ export default function App() {
       },
     };
   }, [fileManagerCollapsed, fileManagerPosition]);
-const getFileManagerDockConfirmRect = useCallback((target) => {
-  if (target === 'tab') {
-    const rect = fileManagerDockTabAnchorRef.current?.getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) {
-      return null;
+  const getFileManagerDockConfirmRect = useCallback((target) => {
+    if (target === 'tab') {
+      const rect = fileManagerDockTabAnchorRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+      };
     }
-    return {
-      left: rect.left,
-      top: rect.top,
-      right: rect.right,
-      bottom: rect.bottom,
-    };
-  }
 
-  const previewRect = getFileManagerDockPreviewRect(target);
+    const previewRect = getFileManagerDockPreviewRect(target);
     if (!previewRect) {
       return null;
     }
@@ -1604,7 +1643,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           if (saved.maximized) await WindowMaximise();
         });
       }
-    } catch {}
+    } catch { }
   }, []);
 
   // 定时轮询 + resize 时保存窗口大小与最大化状态
@@ -1619,7 +1658,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         lastW = saved.w;
         lastH = saved.h;
       }
-    } catch {}
+    } catch { }
     const persist = async () => {
       try {
         const [size, maximized] = await Promise.all([WindowGetSize(), WindowIsMaximised()]);
@@ -1640,7 +1679,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
             localStorage.setItem('windowSize', JSON.stringify({ w: size.w, h: size.h, maximized: false }));
           }
         }
-      } catch {}
+      } catch { }
     };
     const onResize = () => {
       window.clearTimeout(debounceTimer);
@@ -1664,7 +1703,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
           localStorage.setItem('windowSize', JSON.stringify({ w: size.w, h: size.h, maximized: true }));
         }
       }
-    } catch {}
+    } catch { }
     WindowToggleMaximise();
   }, []);
 
@@ -1672,7 +1711,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     // WebView2 双击常会顺带划词，触发系统「AI 搜索/翻译」条；先清掉选区
     try {
       window.getSelection?.()?.removeAllRanges?.();
-    } catch {}
+    } catch { }
     if (
       e.target.closest('button') ||
       e.target.closest('input') ||
@@ -1700,9 +1739,9 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         ? ['right', 'bottom', 'tab']
         : direction === 'right'
           ? ['left', 'bottom', 'tab']
-        : direction === 'bottom'
-          ? ['left', 'right', 'tab']
-          : [];
+          : direction === 'bottom'
+            ? ['left', 'right', 'tab']
+            : [];
     const isFileManagerResizer = direction === 'left' || direction === 'right' || direction === 'bottom';
     const isFileManagerDockDrag = dockTargets.length > 0;
     let moved = false;
@@ -2483,9 +2522,9 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
             selectedArtifactPath: shouldSetActive ? artifactPath : (currentPanel.selectedArtifactPath || artifactPath),
             reviewByArtifactPath: review && typeof review === 'object'
               ? {
-                  ...(currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {}),
-                  [artifactPath]: review,
-                }
+                ...(currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {}),
+                [artifactPath]: review,
+              }
               : (currentPanel.reviewByArtifactPath && typeof currentPanel.reviewByArtifactPath === 'object' ? currentPanel.reviewByArtifactPath : {}),
             loadingByArtifactPath: {
               ...(currentPanel.loadingByArtifactPath && typeof currentPanel.loadingByArtifactPath === 'object' ? currentPanel.loadingByArtifactPath : {}),
@@ -2661,7 +2700,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       if (!isUnsupportedMonitorSession(sess)) {
         setMonitoringEnabled((prev) => ({ ...prev, [sessionId]: true }));
       }
-    } catch (_) {}
+    } catch (_) { }
   }, [recordRecentConnection]);
 
   // ── Load servers ───────────────────────────────────────────
@@ -2675,7 +2714,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     try {
       const creds = await AppGo.GetCredentials();
       setCredentials(creds || []);
-    } catch (_) {}
+    } catch (_) { }
     setServersLoaded(true);
   }, [addToast]);
 
@@ -2974,7 +3013,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         try {
           const newTermId = await AppGo.OpenTerminal(session.id);
           oldToNew[sub.id] = newTermId;
-        } catch {}
+        } catch { }
       }
       const newTerminals = savedTerminals
         .map(term => ({
@@ -3317,28 +3356,28 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       const oldFpList = (oldFingerprints || []).join('\n');
       const message = isNew
         ? [
-            t('首次连接到此主机，请确认密钥指纹：'),
-            ``,
-            `${t('主机:')} ${host}:${port}`,
-            ``,
-            t('密钥指纹:'),
-            `${newFingerprint}`,
-            ``,
-            t('如果指纹与服务器管理员提供的匹配，点击"接受并保存"。'),
-          ].join('\n')
+          t('首次连接到此主机，请确认密钥指纹：'),
+          ``,
+          `${t('主机:')} ${host}:${port}`,
+          ``,
+          t('密钥指纹:'),
+          `${newFingerprint}`,
+          ``,
+          t('如果指纹与服务器管理员提供的匹配，点击"接受并保存"。'),
+        ].join('\n')
         : [
-            t('远程主机密钥已变更，可能存在中间人攻击！'),
-            ``,
-            `${t('主机:')} ${host}:${port}`,
-            ``,
-            t('新密钥指纹:'),
-            `${newFingerprint}`,
-            ``,
-            t('旧密钥指纹:'),
-            `${oldFpList}`,
-            ``,
-            t('如果确认这是预期的变更（如服务器重装），点击"接受并保存"。'),
-          ].join('\n');
+          t('远程主机密钥已变更，可能存在中间人攻击！'),
+          ``,
+          `${t('主机:')} ${host}:${port}`,
+          ``,
+          t('新密钥指纹:'),
+          `${newFingerprint}`,
+          ``,
+          t('旧密钥指纹:'),
+          `${oldFpList}`,
+          ``,
+          t('如果确认这是预期的变更（如服务器重装），点击"接受并保存"。'),
+        ].join('\n');
 
       setSessionAuthPrompts((prev) => ({
         ...prev,
@@ -3836,7 +3875,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== sessionId);
       if (next.length === 0) {
-        window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => {});
+        window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
       }
       return next;
     });
@@ -3897,7 +3936,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       .map((session) => session?.serverId)
       .filter(Boolean)
       .forEach((serverId) => registerServerDisconnect(serverId, disconnectPromise));
-    window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => {});
+    window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
     setSessions([]);
     setTerminalPaneLayouts({});
     terminalSubTabScrollBySessionRef.current = {};
@@ -3945,11 +3984,11 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       const nextSessions = sessionsRef.current.map((s) => (
         s.id === sessionId
           ? {
-              ...s,
-              terminals: [...(s.terminals || []), { id: newTermId, label: termLabel }],
-              activeTerminalId: newTermId,
-              activeTerminalLabel: termLabel,
-            }
+            ...s,
+            terminals: [...(s.terminals || []), { id: newTermId, label: termLabel }],
+            activeTerminalId: newTermId,
+            activeTerminalLabel: termLabel,
+          }
           : s
       ));
       sessionsRef.current = nextSessions;
@@ -3969,7 +4008,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         window.setTimeout(() => {
           try {
             AppGo.WriteTerminal(newTermId, command);
-          } catch {}
+          } catch { }
         }, 80);
       });
       persistWorkspaceSnapshotRef.current({
@@ -4020,13 +4059,13 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     const nextSessions = sessionsRef.current.map((item) => (
       item.id === sessionId
         ? {
-            ...item,
-            terminals: (Array.isArray(item.terminals) && item.terminals.length > 0 ? item.terminals : currentTerminals).map((term) => (
-              term.id === terminalId
-                ? { ...term, label: trimmedLabel }
-                : term
-            )),
-          }
+          ...item,
+          terminals: (Array.isArray(item.terminals) && item.terminals.length > 0 ? item.terminals : currentTerminals).map((term) => (
+            term.id === terminalId
+              ? { ...term, label: trimmedLabel }
+              : term
+          )),
+        }
         : item
     ));
     sessionsRef.current = nextSessions;
@@ -4066,7 +4105,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         return { ...s, terminals: remaining };
       }).filter(Boolean);
       if (next.length === 0) {
-        window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => {});
+        window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
       }
       return next;
     });
@@ -4328,7 +4367,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         activeTerminalId: activeSessionIdRef.current === sessionId ? activeTerminalIdRef.current : lastTerminalRef.current[sessionId],
         contentTab: activeSessionIdRef.current === sessionId ? contentTabRef.current : (lastContentTabRef.current[sessionId] || 'terminal'),
       });
-      window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => {});
+      window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
       setSessions((prev) => prev.filter((item) => item.id !== sessionId));
       setMountedSessions((prev) => {
         if (!prev.has(sessionId)) return prev;
@@ -4442,10 +4481,10 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       return;
     }
     const clearSnapshot = () => {
-      window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => {});
+      window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
     };
     const setLiveSnapshot = (payload) => {
-      window?.go?.main?.App?.SetLiveWorkspaceState?.(payload).catch(() => {});
+      window?.go?.main?.App?.SetLiveWorkspaceState?.(payload).catch(() => { });
     };
     const nextSessions = overrides.sessions || sessionsRef.current;
     const nextActiveSessionId = overrides.activeSessionId ?? activeSessionIdRef.current;
@@ -4485,10 +4524,10 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
     const savedActiveSession = openSessions.find((session) => session.id === savedActiveSessionId) || openSessions[0] || null;
     const savedActiveTerminalId = savedActiveSession
       ? resolveSessionRootTerminalId(
-          savedActiveSession,
-          savedActiveSession.id === nextActiveSessionId ? nextActiveTerminalId : lastTerminalRef.current[savedActiveSession.id],
-          savedLayouts,
-        )
+        savedActiveSession,
+        savedActiveSession.id === nextActiveSessionId ? nextActiveTerminalId : lastTerminalRef.current[savedActiveSession.id],
+        savedLayouts,
+      )
       : null;
     const workspaceStatePayload = JSON.stringify({
       version: 2,
@@ -4541,7 +4580,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       clearSnapshot();
       return;
     }
-    window?.go?.main?.App?.SaveWorkspaceState?.(workspaceStatePayload).catch(() => {});
+    window?.go?.main?.App?.SaveWorkspaceState?.(workspaceStatePayload).catch(() => { });
     if (workspacePersistenceLevel === 'session') {
       openSessions.forEach((session) => {
         persistServerWorkspaceSessionSnapshot(session, {
@@ -4941,9 +4980,9 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         ? ['right', 'bottom', 'tab']
         : fileManagerDockPreview === 'right'
           ? ['left', 'bottom', 'tab']
-        : fileManagerDockPreview === 'bottom'
-          ? ['left', 'right', 'tab']
-          : [];
+          : fileManagerDockPreview === 'bottom'
+            ? ['left', 'right', 'tab']
+            : [];
     return dockTargets.map((target) => {
       const rect = getFileManagerDockConfirmRect(target);
       if (!rect) {
@@ -5944,7 +5983,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
             </div>
             <div className="topbar-title">Lumin</div>
           </div>
-          
+
           {sessions.length > 0 && (
             <div className="tab-bar">
               <Tiptop text={t('返回主页')} placement="bottom">
@@ -6552,6 +6591,15 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                       {t('网络监控')}
                     </button>
                   )}
+                  {activeSession?.isSerial || isUnsupportedMonitorSession(activeSession) ? null : (
+                    <button
+                      className="btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn"
+                      onClick={() => openPortForwardDialog(activeTerminalId || activeSessionId)}
+                    >
+                      <Copy size={14} />
+                      {t('端口映射')}
+                    </button>
+                  )}
                   <button
                     className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'history' ? 'active' : ''}`}
                     onClick={() => setContentTab(contentTab === 'history' ? 'terminal' : 'history')}
@@ -6950,6 +6998,8 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                                             showCommands={showQuickCommands && isTermVisible}
                                             onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                             quickCmdsRef={quickCmdsRef}
+                                            onDetectedRemotePort={handleDetectedRemotePort}
+                                            portListeningEnabled={portListeningEnabled}
                                             wsRebuildKey={s.wsRebuildKey || 0}
                                           />
                                         </ErrorBoundary>
@@ -6980,6 +7030,8 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                                         showCommands={showQuickCommands && activeSessionId === s.id && activeTerminalId === t.id}
                                         onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                         quickCmdsRef={quickCmdsRef}
+                                        onDetectedRemotePort={handleDetectedRemotePort}
+                                        portListeningEnabled={portListeningEnabled}
                                         wsRebuildKey={s.wsRebuildKey || 0}
                                       />
                                     </ErrorBoundary>
@@ -7061,142 +7113,142 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
                       </div>
                     );
                   })}
-                {terminalDockDragPreview && terminalDockDragPreview.zones.length > 0 && (
-                  <>
-                    <div
-                      className="terminal-pane-dock-preview-layer"
-                      aria-hidden="true"
-                      style={{ position: 'fixed', inset: 0, zIndex: Z.PANEL_BUTTON + 7 }}
-                    >
-                      {terminalDockDragPreview.zones.map((zone) => (
-                        <div
-                          key={zone.target}
-                          className={`terminal-pane-dock-preview-slot${terminalDockDragPreview.activeTarget === zone.target ? ' active' : ''}${terminalDockDragPreview.zoneStates?.[zone.target]?.occupied ? ' occupied' : ''}${terminalDockDragPreview.zoneStates?.[zone.target]?.enabled === false ? ' disabled' : ''}`}
-                          style={zone.style}
-                        >
-                          <span className="terminal-pane-dock-preview-label">{zone.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div
-                      className="terminal-pane-dock-drag-ghost"
-                      aria-hidden="true"
-                      style={{
-                        left: `${terminalDockDragPreview.pointer.x}px`,
-                        top: `${terminalDockDragPreview.pointer.y}px`,
-                        zIndex: Z.MODAL - 1,
-                      }}
-                    >
-                      <Monitor size={12} />
-                      <span>{terminalDockDragPreview.label}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-              {fileManagerDockDropzones.filter(({ target }) => target !== 'tab').map(({ target, style }) => (
+                  {terminalDockDragPreview && terminalDockDragPreview.zones.length > 0 && (
+                    <>
+                      <div
+                        className="terminal-pane-dock-preview-layer"
+                        aria-hidden="true"
+                        style={{ position: 'fixed', inset: 0, zIndex: Z.PANEL_BUTTON + 7 }}
+                      >
+                        {terminalDockDragPreview.zones.map((zone) => (
+                          <div
+                            key={zone.target}
+                            className={`terminal-pane-dock-preview-slot${terminalDockDragPreview.activeTarget === zone.target ? ' active' : ''}${terminalDockDragPreview.zoneStates?.[zone.target]?.occupied ? ' occupied' : ''}${terminalDockDragPreview.zoneStates?.[zone.target]?.enabled === false ? ' disabled' : ''}`}
+                            style={zone.style}
+                          >
+                            <span className="terminal-pane-dock-preview-label">{zone.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div
+                        className="terminal-pane-dock-drag-ghost"
+                        aria-hidden="true"
+                        style={{
+                          left: `${terminalDockDragPreview.pointer.x}px`,
+                          top: `${terminalDockDragPreview.pointer.y}px`,
+                          zIndex: Z.MODAL - 1,
+                        }}
+                      >
+                        <Monitor size={12} />
+                        <span>{terminalDockDragPreview.label}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {fileManagerDockDropzones.filter(({ target }) => target !== 'tab').map(({ target, style }) => (
+                  <div
+                    key={target}
+                    className={`file-manager-dock-preview-dropzone${fileManagerDockConfirmTarget === target ? ' active' : ''}`}
+                    style={{ ...style, zIndex: Z.PANEL_BUTTON + 6 }}
+                  />
+                ))}
+                {/* 文件编辑器分栏 host（由 FileEditor 通过 Portal 渲染） */}
                 <div
-                  key={target}
-                  className={`file-manager-dock-preview-dropzone${fileManagerDockConfirmTarget === target ? ' active' : ''}`}
-                  style={{ ...style, zIndex: Z.PANEL_BUTTON + 6 }}
-                />
-              ))}
-              {/* 文件编辑器分栏 host（由 FileEditor 通过 Portal 渲染） */}
-              <div
-                className="split-resizer-v hotzone-right"
-                style={{ display: 'none', order: 1 }}
-                id="editor-split-resizer"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  const host = document.getElementById('editor-split-host');
-                  if (!host) return;
-                  const container = document.getElementById('session-editor-container');
-                  const rect = container.getBoundingClientRect();
-                  const startX = e.clientX;
-                  const startW = host.getBoundingClientRect().width;
-                  const splitPos = host.style.order === '0' ? 'left' : 'right';
-                  const onMove = (ev) => {
-                    const dx = ev.clientX - startX;
-                    const newW = splitPos === 'right'
-                      ? Math.max(200, Math.min(rect.width - 200, startW - dx))
-                      : Math.max(200, Math.min(rect.width - 200, startW + dx));
-                    host.style.width = newW + 'px';
-                    host.style.transition = 'none';
-                    window.dispatchEvent(new Event('resize'));
-                  };
-                  const onUp = () => {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
-                    host.style.transition = '';
-                  };
-                  document.addEventListener('mousemove', onMove);
-                  document.addEventListener('mouseup', onUp);
-                  document.body.style.cursor = 'col-resize';
-                  document.body.style.userSelect = 'none';
-                }}
-              />
-              <div id="editor-split-host" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', order: 2, width: 0, transition: 'width 0.2s ease, height 0.2s ease' }} />
-              {activeChangeReview ? (
-                <AIChangeReviewWorkbench
-                  review={activeChangeReview}
-                  queueLength={activeChangeReviewQueue.length}
-                />
-              ) : null}
-              {activeRestorePreviewReview?.review ? (
-                <AIChangeReviewWorkbench
-                  review={activeRestorePreviewReview.review}
-                  queueLength={1}
-                  previewOnly={true}
-                  onClose={() => {
-                    if (!activeWorkspaceTerminalKey) {
-                      return;
-                    }
-                    setRestorePreviewReviews((prev) => {
-                      if (!prev[activeWorkspaceTerminalKey]) {
-                        return prev;
-                      }
-                      const next = { ...prev };
-                      delete next[activeWorkspaceTerminalKey];
-                      return next;
-                    });
+                  className="split-resizer-v hotzone-right"
+                  style={{ display: 'none', order: 1 }}
+                  id="editor-split-resizer"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const host = document.getElementById('editor-split-host');
+                    if (!host) return;
+                    const container = document.getElementById('session-editor-container');
+                    const rect = container.getBoundingClientRect();
+                    const startX = e.clientX;
+                    const startW = host.getBoundingClientRect().width;
+                    const splitPos = host.style.order === '0' ? 'left' : 'right';
+                    const onMove = (ev) => {
+                      const dx = ev.clientX - startX;
+                      const newW = splitPos === 'right'
+                        ? Math.max(200, Math.min(rect.width - 200, startW - dx))
+                        : Math.max(200, Math.min(rect.width - 200, startW + dx));
+                      host.style.width = newW + 'px';
+                      host.style.transition = 'none';
+                      window.dispatchEvent(new Event('resize'));
+                    };
+                    const onUp = () => {
+                      document.removeEventListener('mousemove', onMove);
+                      document.removeEventListener('mouseup', onUp);
+                      document.body.style.cursor = '';
+                      document.body.style.userSelect = '';
+                      host.style.transition = '';
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
                   }}
                 />
-              ) : null}
-              {activeConversationDiffPanel ? (
-                <AIConversationDiffOverlay
-                  sessionLabel={
-                    sessions.find((item) => item.id === activeConversationDiffPanel.sessionId)?.serverName
-                    || sessions.find((item) => item.id === activeConversationDiffPanel.sessionId)?.host
-                    || activeConversationDiffPanel.sessionId
-                  }
-                  items={activeConversationDiffPanel.items || []}
-                  reviewByArtifactPath={activeConversationDiffPanel.reviewByArtifactPath || {}}
-                  loadingByArtifactPath={activeConversationDiffPanel.loadingByArtifactPath || {}}
-                  selectedMessageId={activeConversationDiffPanel.selectedMessageId || ''}
-                  onSelectItem={(item) => void handleSelectConversationDiffItem(item, {
-                    sessionId: activeConversationDiffPanel.sessionId,
-                    terminalId: activeConversationDiffPanel.terminalId,
-                    locate: true,
-                  })}
-                  onPreviewRestore={(artifactPath) => handleReapplyConversationDiffItem(artifactPath, activeConversationDiffPanel.sessionId, activeConversationDiffPanel.terminalId)}
-                  onApplyRestore={(artifactPath) => handleApplyConversationDiffRestore(artifactPath, activeConversationDiffPanel.sessionId, activeConversationDiffPanel.terminalId)}
-                  onClose={() => {
-                    if (!activeWorkspaceTerminalKey) {
-                      return;
-                    }
-                    setConversationDiffPanels((prev) => {
-                      if (!prev[activeWorkspaceTerminalKey]) {
-                        return prev;
+                <div id="editor-split-host" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', order: 2, width: 0, transition: 'width 0.2s ease, height 0.2s ease' }} />
+                {activeChangeReview ? (
+                  <AIChangeReviewWorkbench
+                    review={activeChangeReview}
+                    queueLength={activeChangeReviewQueue.length}
+                  />
+                ) : null}
+                {activeRestorePreviewReview?.review ? (
+                  <AIChangeReviewWorkbench
+                    review={activeRestorePreviewReview.review}
+                    queueLength={1}
+                    previewOnly={true}
+                    onClose={() => {
+                      if (!activeWorkspaceTerminalKey) {
+                        return;
                       }
-                      const next = { ...prev };
-                      delete next[activeWorkspaceTerminalKey];
-                      return next;
-                    });
-                  }}
-                />
-              ) : null}
-            </div>
+                      setRestorePreviewReviews((prev) => {
+                        if (!prev[activeWorkspaceTerminalKey]) {
+                          return prev;
+                        }
+                        const next = { ...prev };
+                        delete next[activeWorkspaceTerminalKey];
+                        return next;
+                      });
+                    }}
+                  />
+                ) : null}
+                {activeConversationDiffPanel ? (
+                  <AIConversationDiffOverlay
+                    sessionLabel={
+                      sessions.find((item) => item.id === activeConversationDiffPanel.sessionId)?.serverName
+                      || sessions.find((item) => item.id === activeConversationDiffPanel.sessionId)?.host
+                      || activeConversationDiffPanel.sessionId
+                    }
+                    items={activeConversationDiffPanel.items || []}
+                    reviewByArtifactPath={activeConversationDiffPanel.reviewByArtifactPath || {}}
+                    loadingByArtifactPath={activeConversationDiffPanel.loadingByArtifactPath || {}}
+                    selectedMessageId={activeConversationDiffPanel.selectedMessageId || ''}
+                    onSelectItem={(item) => void handleSelectConversationDiffItem(item, {
+                      sessionId: activeConversationDiffPanel.sessionId,
+                      terminalId: activeConversationDiffPanel.terminalId,
+                      locate: true,
+                    })}
+                    onPreviewRestore={(artifactPath) => handleReapplyConversationDiffItem(artifactPath, activeConversationDiffPanel.sessionId, activeConversationDiffPanel.terminalId)}
+                    onApplyRestore={(artifactPath) => handleApplyConversationDiffRestore(artifactPath, activeConversationDiffPanel.sessionId, activeConversationDiffPanel.terminalId)}
+                    onClose={() => {
+                      if (!activeWorkspaceTerminalKey) {
+                        return;
+                      }
+                      setConversationDiffPanels((prev) => {
+                        if (!prev[activeWorkspaceTerminalKey]) {
+                          return prev;
+                        }
+                        const next = { ...prev };
+                        delete next[activeWorkspaceTerminalKey];
+                        return next;
+                      });
+                    }}
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -7317,6 +7369,16 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         />
       )}
 
+      {showPortForwardDialog && portForwardDialogSessionId && (
+        <PortForwardDialog
+          sessionId={portForwardDialogSessionId}
+          initialMapping={portForwardInitialMapping}
+          portListeningEnabled={portListeningEnabled}
+          onPortListeningEnabledChange={handlePortListeningEnabledChange}
+          onClose={() => setShowPortForwardDialog(false)}
+        />
+      )}
+
       {showSettings && (
         <SettingsModal
           initialTab={settingsInitialTab}
@@ -7430,7 +7492,7 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
       )}
 
       {/* ── Toasts ────────────────────────────────────────── */}
-      <Toast toasts={toasts} onClose={removeToast} closeLabel={t('关闭')} />
+      <Toast toasts={toasts} onClose={removeToast} onAction={handleToastAction} closeLabel={t('关闭')} />
       <GlobalDialog />
 
 
@@ -7618,46 +7680,46 @@ const getFileManagerDockConfirmRect = useCallback((target) => {
         const showCopySessionPassword = canCopySessionPassword(tabContextMenu.sessionId);
         return (
           <div className="tab-context-menu" style={{ left: tabContextMenu.x, top: tabContextMenu.y }}>
-              {showCopySessionPassword && (
-                <>
-                  <div
-                    className="tab-context-menu-item"
-                    onClick={() => {
-                      const sessionId = tabContextMenu.sessionId;
-                      setTabContextMenu(null);
-                      void handleCopySessionPassword(sessionId);
-                    }}
-                  >
-                    <Copy size={14} /> {t('复制服务器密码')}
-                  </div>
-                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                </>
-              )}
-              <div
-                className="tab-context-menu-item"
-                onClick={() => {
-                  const sessionId = tabContextMenu.sessionId;
-                  setTabContextMenu(null);
-                  forceCloseSession(sessionId);
-                }}
-              >
-                <X size={14} /> {t('关闭连接')}
-              </div>
-              {sessions.length >= 2 && (
-                <>
-                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                  <div
-                    className="tab-context-menu-item"
-                    onClick={() => {
-                      setTabContextMenu(null);
-                      closeAllSessions();
-                    }}
-                  >
-                    <X size={14} /> {t('关闭全部')}
-                  </div>
-                </>
-              )}
+            {showCopySessionPassword && (
+              <>
+                <div
+                  className="tab-context-menu-item"
+                  onClick={() => {
+                    const sessionId = tabContextMenu.sessionId;
+                    setTabContextMenu(null);
+                    void handleCopySessionPassword(sessionId);
+                  }}
+                >
+                  <Copy size={14} /> {t('复制服务器密码')}
+                </div>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              </>
+            )}
+            <div
+              className="tab-context-menu-item"
+              onClick={() => {
+                const sessionId = tabContextMenu.sessionId;
+                setTabContextMenu(null);
+                forceCloseSession(sessionId);
+              }}
+            >
+              <X size={14} /> {t('关闭连接')}
             </div>
+            {sessions.length >= 2 && (
+              <>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                <div
+                  className="tab-context-menu-item"
+                  onClick={() => {
+                    setTabContextMenu(null);
+                    closeAllSessions();
+                  }}
+                >
+                  <X size={14} /> {t('关闭全部')}
+                </div>
+              </>
+            )}
+          </div>
         );
       })()}
       {/* ── 服务器列表下拉 ── */}

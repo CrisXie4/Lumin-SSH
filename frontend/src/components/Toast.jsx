@@ -7,7 +7,7 @@ const ICON_MAP = {
   info: <Info size={16} />,
 };
 
-export default function Toast({ toasts, onClose, closeLabel = '关闭' }) {
+export default function Toast({ toasts, onClose, onAction, closeLabel = '关闭' }) {
   if (toasts.length === 0) return null;
   return (
     <div className="toast-container">
@@ -18,6 +18,20 @@ export default function Toast({ toasts, onClose, closeLabel = '关闭' }) {
               <span className="toast-icon">{ICON_MAP[t.type] || <Info size={16} />}</span>
               <span className="toast-message">{t.message}</span>
             </div>
+            {Array.isArray(t.actions) && t.actions.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                {t.actions.map((action, index) => (
+                  <button
+                    key={`${t.id}-${action.label}-${index}`}
+                    type="button"
+                    className={`btn btn-sm ${index === t.actions.length - 1 ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => onAction?.(t.id, action)}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <Tiptop text={closeLabel} placement="bottom">
               <button type="button" className="toast-close" onClick={() => onClose?.(t.id)} aria-label={closeLabel}>
                 <X size={14} />
