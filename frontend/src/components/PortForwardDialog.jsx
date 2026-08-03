@@ -8,8 +8,6 @@ export default function PortForwardDialog({
     onClose,
     initialMapping = null,
     initialTab = null,
-    portListeningEnabled = false,
-    onPortListeningEnabledChange,
 }) {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState(initialTab || (initialMapping ? 'new' : 'list'));
@@ -297,14 +295,6 @@ export default function PortForwardDialog({
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
                             {t('在本机与远程服务器之间建立端口转发通道。')}
                         </div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={portListeningEnabled}
-                                onChange={(event) => onPortListeningEnabledChange?.(event.target.checked)}
-                            />
-                            {t('命令后实时检测新增监听端口')}
-                        </label>
                     </div>
                     <button className="btn btn-ghost btn-sm" type="button" onClick={onClose} aria-label={t('关闭')}>
                         <X size={16} />

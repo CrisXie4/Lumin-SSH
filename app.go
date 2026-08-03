@@ -1044,6 +1044,10 @@ func (a *App) UncompressItem(sessionId string, remotePath string) error {
 	return a.sshManager.UncompressItemWithStrategy(sessionId, remotePath, strategy)
 }
 
+func (a *App) InstallUnzip(sessionId string) error {
+	return a.sshManager.InstallUnzip(sessionId)
+}
+
 // UploadLocalFile uploads a local file to a remote directory (no dialog)
 func (a *App) UploadLocalFile(sessionId string, localFile string, remoteDir string) error {
 	return a.sshManager.UploadFile(sessionId, localFile, remoteDir)

@@ -94,10 +94,7 @@ export function RadioOption({ selected, label, description, onClick, definition 
       data-settings-field-id={definition?.id}
       onClick={onClick}
       style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 10,
-        padding: '6px 10px',
+        padding: '8px 10px',
         borderRadius: 'var(--radius-md)',
         cursor: 'pointer',
         transition: 'all 0.15s',
@@ -106,22 +103,6 @@ export function RadioOption({ selected, label, description, onClick, definition 
         boxShadow: selected ? '0 0 0 1px var(--accent-border) inset' : 'none',
       }}
     >
-      <div
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: '50%',
-          flexShrink: 0,
-          marginTop: 1,
-          border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-          background: selected ? 'var(--accent)' : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {selected ? <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} /> : null}
-      </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: selected ? 'var(--text-primary)' : 'var(--text-secondary)', marginBottom: 2 }}>{label}</div>
         {description ? <div style={{ fontSize: 11, color: 'var(--text-tertiary)', overflowWrap: 'break-word' }}>{description}</div> : null}

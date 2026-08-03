@@ -69,7 +69,6 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
     handleBatchMoveGroup,
     handleCancelConnection,
     handleDeleteServer,
-    handleDetectedRemotePort,
     handleGroupDelete,
     handleMoveGroup,
     handleOpenImportExport,
@@ -98,7 +97,6 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
     pingCounts,
     pingEnabled,
     pings,
-    portListeningEnabled,
     probePanelCollapsed,
     probePanelNode,
     probePanelPosition,
@@ -864,8 +862,6 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                                             showCommands={showQuickCommands && isTermVisible}
                                             onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                             quickCmdsRef={quickCmdsRef}
-                                            onDetectedRemotePort={handleDetectedRemotePort}
-                                            portListeningEnabled={portListeningEnabled}
                                             wsRebuildKey={s.wsRebuildKey || 0}
                                           />
                                         </ErrorBoundary>
@@ -896,8 +892,6 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                                         showCommands={showQuickCommands && activeSessionId === s.id && activeTerminalId === t.id}
                                         onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                         quickCmdsRef={quickCmdsRef}
-                                        onDetectedRemotePort={handleDetectedRemotePort}
-                                        portListeningEnabled={portListeningEnabled}
                                         wsRebuildKey={s.wsRebuildKey || 0}
                                       />
                                     </ErrorBoundary>

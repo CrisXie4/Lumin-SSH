@@ -81,6 +81,13 @@ function fmtDate(ts) {
   });
 }
 
+function isMissingUnzipError(error) {
+  const message = String(error || '').toLowerCase();
+  return /(?:bash|sh):\s*unzip:\s*command not found/.test(message)
+    || (message.includes('unzip') && message.includes('command not found'))
+    || (message.includes('unzip') && message.includes('status 127'));
+}
+
 // 文件图标（颜色统一走 CSS 变量，浅/深色主题一致切换）
 const ICON_SIZE = 16;
 function fileIcon(name, isDir, isSymlink = false) {
@@ -5452,6 +5459,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const handleUncompress = async (item, options = {}) => {
     const basePath = typeof options === 'string' ? options : (options.basePath || currentPath);
     const remotePath = joinPath(basePath, item.name);
+    const isZip = String(item.name || '').toLowerCase().endsWith('.zip');
+    const autoInstallAttempted = typeof options === 'object' && options !== null && options.__autoInstallUnzipAttempted === true;
     try {
       const previewSmartUncompressItem = window?.go?.main?.App?.PreviewSmartUncompressItem;
       const uncompressItemWithStrategy = window?.go?.main?.App?.UncompressItemWithStrategy;
@@ -5488,6 +5497,22 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         await loadDir(currentPathRef.current, { preserveView: true, showLoading: false });
       }
     } catch (err) {
+      if (isZip && !autoInstallAttempted && isMissingUnzipError(err)) {
+        const installUnzip = window?.go?.main?.App?.InstallUnzip;
+        if (typeof installUnzip === 'function') {
+          try {
+            await installUnzip(sessionId);
+            const nextOptions = typeof options === 'string'
+              ? { basePath: options, __autoInstallUnzipAttempted: true }
+              : { ...options, __autoInstallUnzipAttempted: true };
+            await handleUncompress(item, nextOptions);
+            return;
+          } catch (installErr) {
+            addToast(`${t('解压失败')}: ${installErr}`, 'error');
+            return;
+          }
+        }
+      }
       addToast(`${t('解压失败')}: ${err}`, 'error');
     }
   };
