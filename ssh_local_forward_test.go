@@ -152,8 +152,17 @@ func TestSSHManagerPortForwardLifecycle(t *testing.T) {
 	if err := mgr.StopPortForward("pf-1"); err != nil {
 		t.Fatalf("stop port forward: %v", err)
 	}
+	if len(mgr.portForwards) != 1 {
+		t.Fatalf("expected stopped port forward to remain in map, got %d", len(mgr.portForwards))
+	}
+	if entry := mgr.portForwards["pf-1"]; entry == nil || entry.enabled || entry.forwarder != nil {
+		t.Fatalf("expected pf-1 marked stopped with released forwarder")
+	}
+	if err := mgr.DeletePortForward("pf-1"); err != nil {
+		t.Fatalf("delete port forward: %v", err)
+	}
 	if len(mgr.portForwards) != 0 {
-		t.Fatalf("expected no active port forwards after stop, got %d", len(mgr.portForwards))
+		t.Fatalf("expected no port forwards after delete, got %d", len(mgr.portForwards))
 	}
 }
 
@@ -170,8 +179,17 @@ func TestSSHManagerRemotePortForwardStop(t *testing.T) {
 	default:
 		t.Fatalf("expected remote listener to be closed")
 	}
+	if len(mgr.portForwards) != 1 {
+		t.Fatalf("expected stopped remote port forward to remain, got %d", len(mgr.portForwards))
+	}
+	if entry := mgr.portForwards["pf-remote"]; entry == nil || entry.enabled || entry.forwarder != nil {
+		t.Fatalf("expected pf-remote marked stopped with released forwarder")
+	}
+	if err := mgr.DeletePortForward("pf-remote"); err != nil {
+		t.Fatalf("delete remote port forward: %v", err)
+	}
 	if len(mgr.portForwards) != 0 {
-		t.Fatalf("expected no active port forwards after remote stop, got %d", len(mgr.portForwards))
+		t.Fatalf("expected no port forwards after remote delete, got %d", len(mgr.portForwards))
 	}
 }
 

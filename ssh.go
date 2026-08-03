@@ -860,6 +860,10 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	delete(m.probeFailed, connKey)
 	m.mu.Unlock()
 	globalSSHChannelUsage.forget(connKey)
+	// 连接级断开: 该连接下的端口转发全部转为已停止态, 关闭监听器释放本地端口。
+	// 此路径已从 m.clients 删除 connKey, 下面循环里的 Disconnect 不会再进连接级删除分支,
+	// 故端口转发清理必须在此独立触发, 不能只依赖 Disconnect。
+	m.stopPortForwardsForConnKey(connKey)
 
 	if reason == "" {
 		reason = "transport"
@@ -1276,6 +1280,7 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	var netConnToClose net.Conn
 	var sftpToClose *sftp.Client
 	var clientToClose *ssh.Client
+	stopForwardsConnKey := ""
 
 	if len(m.connTerminals[connKey]) == 0 {
 		if entry, ok := m.clients[connKey]; ok {
@@ -1289,9 +1294,16 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 			delete(m.connTerminals, connKey)
 			delete(m.probeDeployed, connKey)
 			delete(m.probeFailed, connKey)
+			// 本次是该连接最后一个终端的连接级断开: 标记锁外回收端口转发。
+			// cleanupClientTransport 路径下 client 已被删, 到这里 ok=false 不会置此标记,
+			// 由 cleanupClientTransport 自身的 stopPortForwardsForConnKey 兜底, 二者互斥不重复。
+			stopForwardsConnKey = connKey
 		}
 	}
 	m.mu.Unlock() // 尽早释放锁，避免 Close 阻塞影响其他操作
+	if stopForwardsConnKey != "" {
+		m.stopPortForwardsForConnKey(stopForwardsConnKey)
+	}
 
 	// 2. 在锁外关闭资源（服务器挂了时这些操作可能阻塞，但不会锁住其他 goroutine）
 	if isLocal {

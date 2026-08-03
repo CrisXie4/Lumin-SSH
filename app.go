@@ -684,8 +684,42 @@ func (a *App) ListPortForwards(sessionId string) ([]PortForwardInfo, error) {
 	return a.sshManager.ListPortForwardsForSession(sessionId)
 }
 
+// portForwardBelongsToSession 校验某端口映射是否归属给定会话对应的连接, 防止仅凭全局 id 越权操作。
+func (a *App) portForwardBelongsToSession(sessionId string, id string) bool {
+	connKey := a.sshManager.connKeyForSession(sessionId)
+	if connKey == "" {
+		return false
+	}
+	a.sshManager.ensurePersistedPortForwardsLoadedForConnKey(connKey)
+	a.sshManager.mu.RLock()
+	defer a.sshManager.mu.RUnlock()
+	entry, ok := a.sshManager.portForwards[id]
+	return ok && entry != nil && entry.connKey == connKey
+}
+
 func (a *App) StopPortForward(id string) error {
 	return a.sshManager.StopPortForward(id)
+}
+
+func (a *App) StopPortForwardForSession(sessionId string, id string) error {
+	if !a.portForwardBelongsToSession(sessionId, id) {
+		return fmt.Errorf("port forward not found for session")
+	}
+	return a.sshManager.StopPortForward(id)
+}
+
+func (a *App) DeletePortForwardForSession(sessionId string, id string) error {
+	if !a.portForwardBelongsToSession(sessionId, id) {
+		return fmt.Errorf("port forward not found for session")
+	}
+	return a.sshManager.DeletePortForward(id)
+}
+
+func (a *App) RestartPortForwardForSession(sessionId string, id string) (string, error) {
+	if !a.portForwardBelongsToSession(sessionId, id) {
+		return "", fmt.Errorf("port forward not found for session")
+	}
+	return a.sshManager.RestartPortForward(id)
 }
 
 // ReconnectWithPassword 更新密码并重连（认证失败后使用）

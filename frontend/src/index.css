@@ -1301,6 +1301,16 @@ input::-ms-clear {
   height: 100%;
 }
 
+.probe-portforward-label {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.probe-portforward-label .probe-portforward-label-trigger {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .tiptop-trigger > .split-resizer-v {
   height: 100%;
 }

@@ -562,6 +562,7 @@ export default function App() {
   const [showPortForwardDialog, setShowPortForwardDialog] = useState(false);
   const [portForwardDialogSessionId, setPortForwardDialogSessionId] = useState(null);
   const [portForwardInitialMapping, setPortForwardInitialMapping] = useState(null);
+  const [portForwardInitialTab, setPortForwardInitialTab] = useState(null);
   const [portListeningEnabled, setPortListeningEnabled] = useState(
     () => localStorage.getItem('portForwardRealtimeListening') === 'true'
   );
@@ -571,7 +572,7 @@ export default function App() {
     localStorage.setItem('portForwardRealtimeListening', enabled ? 'true' : 'false');
   }, []);
 
-  const openPortForwardDialog = useCallback((sessionId, port = null) => {
+  const openPortForwardDialog = useCallback((sessionId, port = null, initialTab = null) => {
     setPortForwardDialogSessionId(sessionId);
     setPortForwardInitialMapping(port == null ? null : {
       kind: 'local',
@@ -580,6 +581,7 @@ export default function App() {
       remoteHost: '127.0.0.1',
       remotePort: String(port),
     });
+    setPortForwardInitialTab(initialTab);
     setShowPortForwardDialog(true);
   }, []);
   useEffect(() => { contentTabRef.current = contentTab; }, [contentTab]);
@@ -1320,6 +1322,13 @@ export default function App() {
       window.removeEventListener('theme-quick-entry-changed', refreshThemeQuickEntry);
     };
   }, []);
+  useEffect(() => {
+    const handler = () => {
+      setTerminalToolbarIconOnly(localStorage.getItem('terminalToolbarIconOnly') === 'true');
+    };
+    window.addEventListener('terminal-toolbar-icon-only-changed', handler);
+    return () => window.removeEventListener('terminal-toolbar-icon-only-changed', handler);
+  }, []);
   const terminalSubTabTheme = useMemo(() => getTerminalTheme(), [terminalThemeToggle]);
   const [aiPanelWidth, setAiPanelWidth] = useState(() => {
     return clampPanelWidth(localStorage.getItem('aiPanelWidth') || '450', AI_PANEL_MIN);
@@ -1327,6 +1336,7 @@ export default function App() {
   const [showAIPanel, setShowAIPanel] = useState(localStorage.getItem('showAIPanel') !== 'false');
   const [quickThemeMode, setQuickThemeMode] = useState(localStorage.getItem('themeMode') || 'dark');
   const [showThemeQuickEntry, setShowThemeQuickEntry] = useState(localStorage.getItem('showThemeQuickEntry') !== 'false');
+  const [terminalToolbarIconOnly, setTerminalToolbarIconOnly] = useState(localStorage.getItem('terminalToolbarIconOnly') === 'true');
   const [showTopbarRefreshedLogo, setShowTopbarRefreshedLogo] = useState(false);
   const [aiPanelDevilModes, setAIPanelDevilModes] = useState({});
   const activeAIPanelKey = useMemo(() => buildAIWorkspaceTerminalPanelKey(activeSessionId, activeTerminalId), [activeSessionId, activeTerminalId]);
@@ -5036,6 +5046,7 @@ export default function App() {
               onEnable={() => setMonitoringEnabled(prev => ({ ...prev, [s.id]: true }))}
               onShowAllProcesses={() => setContentTab('process')}
               onShowNetworkDetails={() => setContentTab('network')}
+              onOpenPortForward={() => openPortForwardDialog(s.id, null, 'new')}
             />
           </div>
         );
@@ -6561,63 +6572,64 @@ export default function App() {
                     </div>
                   )}
                   {fileManagerPosition === 'tab' && !activeSession?.isSerial && (
-                    <button
-                      className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'files' ? 'active' : ''}`}
-                      onMouseDown={(e) => startDrag(e, 'tab')}
-                      onClick={() => {
-                        if (shouldIgnoreResizerClick()) return;
-                        setContentTab(contentTab === 'files' ? 'terminal' : 'files');
-                      }}
-                    >
-                      <Folder size={14} />
-                      {t('文件管理')}
-                    </button>
+                    <Tiptop text={terminalToolbarIconOnly ? t('文件管理') : null} placement="bottom">
+                      <button
+                        className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'files' ? 'active' : ''}`}
+                        onMouseDown={(e) => startDrag(e, 'tab')}
+                        onClick={() => {
+                          if (shouldIgnoreResizerClick()) return;
+                          setContentTab(contentTab === 'files' ? 'terminal' : 'files');
+                        }}
+                      >
+                        <Folder size={14} />
+                        {!terminalToolbarIconOnly && t('文件管理')}
+                      </button>
+                    </Tiptop>
                   )}
                   {activeSession?.isSerial || isUnsupportedMonitorSession(activeSession) ? null : (
-                    <button
-                      className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'process' ? 'active' : ''}`}
-                      onClick={() => setContentTab(contentTab === 'process' ? 'terminal' : 'process')}
-                    >
-                      <Cpu size={14} />
-                      {t('进程管理')}
-                    </button>
+                    <Tiptop text={terminalToolbarIconOnly ? t('进程管理') : null} placement="bottom">
+                      <button
+                        className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'process' ? 'active' : ''}`}
+                        onClick={() => setContentTab(contentTab === 'process' ? 'terminal' : 'process')}
+                      >
+                        <Cpu size={14} />
+                        {!terminalToolbarIconOnly && t('进程管理')}
+                      </button>
+                    </Tiptop>
                   )}
                   {activeSession?.isSerial || isUnsupportedMonitorSession(activeSession) ? null : (
-                    <button
-                      className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'network' ? 'active' : ''}`}
-                      onClick={() => setContentTab(contentTab === 'network' ? 'terminal' : 'network')}
-                    >
-                      <Globe size={14} />
-                      {t('网络监控')}
-                    </button>
+                    <Tiptop text={terminalToolbarIconOnly ? t('网络监控') : null} placement="bottom">
+                      <button
+                        className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'network' ? 'active' : ''}`}
+                        onClick={() => setContentTab(contentTab === 'network' ? 'terminal' : 'network')}
+                      >
+                        <Globe size={14} />
+                        {!terminalToolbarIconOnly && t('网络监控')}
+                      </button>
+                    </Tiptop>
                   )}
-                  {activeSession?.isSerial || isUnsupportedMonitorSession(activeSession) ? null : (
+                  <Tiptop text={terminalToolbarIconOnly ? t('历史指令') : null} placement="bottom">
                     <button
-                      className="btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn"
-                      onClick={() => openPortForwardDialog(activeTerminalId || activeSessionId)}
+                      className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'history' ? 'active' : ''}`}
+                      onClick={() => setContentTab(contentTab === 'history' ? 'terminal' : 'history')}
                     >
-                      <Copy size={14} />
-                      {t('端口映射')}
+                      <ScrollText size={14} />
+                      {!terminalToolbarIconOnly && t('历史指令')}
                     </button>
-                  )}
-                  <button
-                    className={`btn btn-ghost btn-sm terminal-create-btn terminal-tool-btn ${contentTab === 'history' ? 'active' : ''}`}
-                    onClick={() => setContentTab(contentTab === 'history' ? 'terminal' : 'history')}
-                  >
-                    <ScrollText size={14} />
-                    {t('历史指令')}
-                  </button>
+                  </Tiptop>
                   {/* ── 新建终端按钮 ── */}
-                  <button
-                    className={`btn btn-ghost btn-sm terminal-create-btn ${isCreatingTerminal ? 'is-creating' : ''}`}
-                    onClick={() => openNewTerminal(activeSession.id)}
-                    style={{ marginLeft: 2, flexShrink: 0 }}
-                    disabled={isCreatingTerminal}
-                    aria-busy={isCreatingTerminal}
-                  >
-                    {isCreatingTerminal ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
-                    {t('新建终端')}
-                  </button>
+                  <Tiptop text={terminalToolbarIconOnly ? t('新建终端') : null} placement="bottom">
+                    <button
+                      className={`btn btn-ghost btn-sm terminal-create-btn ${isCreatingTerminal ? 'is-creating' : ''}`}
+                      onClick={() => openNewTerminal(activeSession.id)}
+                      style={{ marginLeft: 2, flexShrink: 0 }}
+                      disabled={isCreatingTerminal}
+                      aria-busy={isCreatingTerminal}
+                    >
+                      {isCreatingTerminal ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
+                      {!terminalToolbarIconOnly && t('新建终端')}
+                    </button>
+                  </Tiptop>
                 </div>
               </div>
             )}
@@ -7373,6 +7385,7 @@ export default function App() {
         <PortForwardDialog
           sessionId={portForwardDialogSessionId}
           initialMapping={portForwardInitialMapping}
+          initialTab={portForwardInitialTab}
           portListeningEnabled={portListeningEnabled}
           onPortListeningEnabledChange={handlePortListeningEnabledChange}
           onClose={() => setShowPortForwardDialog(false)}
