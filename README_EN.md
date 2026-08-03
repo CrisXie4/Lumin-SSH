@@ -35,6 +35,9 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 - **Predictive local echo** — responsive typing on high-latency links
 - **Multi-terminal tabs** — several terminals per SSH connection
 - **Multi-session** — many hosts at once; tab menu: disconnect / close / reconnect
+- **Local & serial terminals** — PowerShell, CMD, and installed WSL distros on Windows; local shells on macOS/Linux; direct serial-port sessions. WSL/Unix local sessions support the file manager and resource probe; native Windows shells support local files but not the probe; serial sessions are terminal-only
+- **Terminal encoding** — per-host bidirectional conversion for UTF-8, GB18030/GBK/Big5, Japanese/Korean encodings, Windows/ISO-8859, IBM/OEM, and more
+- **SSH channel usage** — session tabs show terminal, shared-file, and upload channel totals, with a warning near the server limit
 - **Collapsible command blocks** — optional left gutter blocks to fold long output
 - **Clickable URLs** — open in the system browser
 - **Timestamps** — optional per-line markers aligned with scrollback
@@ -74,7 +77,10 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 - **Archive** — tar.gz (and related); optional double-click extract
 - **Compressed multi-upload** — local tar.gz then remote extract
 - **Chunked upload** — chunk size, file concurrency, per-file chunk concurrency, global in-flight cap
-- **Transfer queue**
+- **Transfer queue** with optimized transfer-channel concurrency and reuse
+- **Large-directory performance** — virtualized file rows avoid mounting the entire directory at once
+- **File locator** — find names in the current directory, navigate previous/next matches, and use keyboard controls
+- **Type detection & refresh** — distinguish directories from symbolic links; refresh the current directory after terminal commands complete or the panel regains focus
 - **Download conflicts** — ask / overwrite / skip / rename; size/mtime heuristics
 - **chmod / chown**
 - **Follow terminal CWD**
@@ -89,6 +95,7 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 - Search and resend
 - Completion from history, quick commands, builtins, remote paths
 - Quick-command library with groups and `p#` parameters
+- **Pinned command bar** — keep quick commands above the terminal input and confirm before sending
 
 ### Credentials & proxy nodes
 - Central credentials applied to many hosts
@@ -172,12 +179,14 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 | `recovery_password` | Recovery password (encrypted with `lumin.key`) |
 | `ai_*.json` / `proxy_nodes.json` / `tasks/` | AI and proxy data |
 
+> On Windows, WebView2 user data is fixed at `%APPDATA%\Lumin\`, alongside `config\`; renaming the portable executable does not create another browser-data directory.
+
 ---
 
 ## Updates
 
 GitHub Releases for `wmwlwmwl/Lumin-SSH` → platform asset → SHA256 → install/replace.  
-Version sources: `wails.json`, `frontend/src/config.js`, `frontend/package.json` — currently **1.2.1**.
+Version sources: `wails.json`, `frontend/src/config.js`, `frontend/package.json`, and `frontend/package-lock.json` — currently **1.2.5**.
 
 ---
 
