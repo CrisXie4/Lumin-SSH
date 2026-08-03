@@ -220,17 +220,19 @@ export default function SyncTab({
       </SettingsPanel>
 
       {/* Provider Selector */}
-      <SettingsPanel style={{ display: 'flex', gap: 8, padding: 8 }}>
+      <SettingsPanel style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, padding: 8 }}>
         {providerList.map(p => (
           <button
             key={p.id}
             onClick={() => onSyncProviderChange(p.id)}
+            aria-pressed={syncProvider === p.id}
             style={{
-              flex: 1, padding: '10px 16px', borderRadius: 'var(--radius-sm)',
-              background: syncProvider === p.id ? 'var(--surface-raised)' : 'transparent',
-              border: syncProvider === p.id ? '1px solid var(--border)' : '1px solid transparent',
+              minWidth: 0, padding: '10px 16px', borderRadius: 'var(--radius-sm)',
+              background: syncProvider === p.id ? 'var(--accent-dim)' : 'var(--surface-sunken)',
+              border: `1px solid ${syncProvider === p.id ? 'var(--accent-border)' : 'var(--border)'}`,
               color: syncProvider === p.id ? 'var(--text-primary)' : 'var(--text-secondary)',
               fontWeight: syncProvider === p.id ? 600 : 400,
+              boxShadow: syncProvider === p.id ? '0 0 0 1px var(--accent-border) inset' : 'none',
               cursor: 'pointer', fontSize: 14, transition: 'all 0.15s',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
