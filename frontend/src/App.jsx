@@ -115,8 +115,6 @@ export default function App() {
     portForwardDialogSessionId,
     portForwardInitialMapping,
     portForwardInitialTab,
-    portListeningEnabled,
-    handlePortListeningEnabledChange,
     openPortForwardDialog,
     closePortForwardDialog,
   } = usePortForwardDialog();
@@ -172,17 +170,6 @@ export default function App() {
     removeToast,
     handleToastAction,
   } = useToasts();
-  const handleDetectedRemotePort = useCallback((sessionId, port) => {
-    addToast(
-      `${t('检测到远端新监听端口')} ${port}`,
-      'info',
-      12000,
-      [
-        { label: t('忽略') },
-        { label: t('设置'), onClick: () => openPortForwardDialog(sessionId, port) },
-      ]
-    );
-  }, [addToast, openPortForwardDialog, t]);
   const {
     changeReviewQueues,
     restorePreviewReviews,
@@ -1703,7 +1690,7 @@ export default function App() {
       <SessionWorkspace
         dashboard={{ allGroups, batchSelectionMode, clearRecentConnections, connectLocal, connectSerial, connectServer, connectedSessions, credentials, dashboardHostPageMode, editFlyAnimation, editFlyShiningFields, filteredServers, handleBatchConnect, handleBatchDelete, handleBatchExport, handleBatchMoveGroup, handleDeleteServer, handleGroupDelete, handleMoveGroup, handleOpenImportExport, handleRefreshPing, handleRenameGroup, handleSaveAndConnectServer, handleSaveServer, hideSensitive, isRefreshingPing, pingCounts, pingEnabled, pings, recentConnectionIds, removeRecentConnection, saveFlowHighlights, searchQuery, selectedServerIds, serverEditor, serverListViewMode, servers, setBatchSelectionMode, setDashboardHostPageMode, setHideSensitive, setSearchQuery, setServerEditor, setServerListViewMode, setShowCredentials, setShowSerialModal, startAddGuideAnimation, startEditFlyAnimation, toggleBatchSelection }}
         session={{ activeSession, activeSessionId, activeSessionRootTerminals, activeTerminalId, connectingServers, contentTab, getEffectiveTerminals, getSessionPanes, getSessionRootPaneCells, getSessionWorkspaceTabs, handleCancelConnection, isActiveSessionConnected, isCreatingTerminal, isSessionWorkspaceVisible, markWorkspaceRestoreNavigationOverride, mountedSessions, openNewTerminal, persistWorkspaceSnapshotRef, rememberSessionActiveTerminal, resolveHostKeyChoice, resolvePasswordPrompt, restoringWorkspaceSessionIds, sessionAuthPrompts, sessions, setActiveTerminalId, setContentTab, setTabContextMenu, setTerminalTabContextMenu, terminalPaneLayouts }}
-        fileManager={{ bottomSplitHeight, collapseDragIntent, fileManagerCollapsed, fileManagerDockConfirmTarget, fileManagerDockDropzones, fileManagerDockPreview, fileManagerDockTabAnchorRef, fileManagerPosition, handleDetectedRemotePort, leftSplitWidth, portListeningEnabled, probePanelCollapsed, probePanelNode, probePanelPosition, probePanelWidth, renderSessionFileManagers, setFileManagerCollapsedPersistent, setProbePanelCollapsedPersistent, shouldIgnoreResizerClick, startDrag }}
+        fileManager={{ bottomSplitHeight, collapseDragIntent, fileManagerCollapsed, fileManagerDockConfirmTarget, fileManagerDockDropzones, fileManagerDockPreview, fileManagerDockTabAnchorRef, fileManagerPosition, leftSplitWidth, probePanelCollapsed, probePanelNode, probePanelPosition, probePanelWidth, renderSessionFileManagers, setFileManagerCollapsedPersistent, setProbePanelCollapsedPersistent, shouldIgnoreResizerClick, startDrag }}
         terminalTabs={{ closeTerminal, closeTerminalGroup, closeTerminalPane, handleTerminalSubTabClickCapture, handleTerminalSubTabDockMouseDown, handleTerminalSubTabMouseDown, handleTerminalSubTabScroll, handleTerminalSubTabWheel, scrollTerminalSubTabs, shouldIgnoreTerminalDockClick, terminalDockDragPreview, terminalSubTabActionsRef, terminalSubTabCanScrollLeft, terminalSubTabCanScrollRight, terminalSubTabOverflow, terminalSubTabScrollRef, terminalSubTabScrollStyle, terminalToolbarIconOnly }}
         ai={{ activeChangeReview, activeChangeReviewQueue, activeConversationDiffPanel, activeRestorePreviewReview, activeWorkspaceTerminalKey, aiPanelNode, handleApplyConversationDiffRestore, handleReapplyConversationDiffItem, handleSelectConversationDiffItem, setAIPanelVisibility, setConversationDiffPanels, setRestorePreviewReviews, showAIPanel }}
         quickCommands={{ handleQuickCommandsOpenChange, quickCmdsRef, setShowQuickCommands, showQuickCommands }}
@@ -1712,7 +1699,7 @@ export default function App() {
 
       {/* ── Modals ────────────────────────────────────────── */}
       <AppOverlays
-        dialogs={{ activeAIDevilMode, closePortForwardDialog, connectSerial, loadServers, portForwardDialogSessionId, portForwardInitialMapping, portForwardInitialTab, portListeningEnabled, probePanelPosition, setProbePanelPosition, setSettingsInitialTab, setShowCredentials, setShowSerialModal, setShowSettings, settingsInitialTab, showCredentials, showPortForwardDialog, showSerialModal, showSettings, handlePortListeningEnabledChange }}
+        dialogs={{ activeAIDevilMode, closePortForwardDialog, connectSerial, loadServers, portForwardDialogSessionId, portForwardInitialMapping, portForwardInitialTab, probePanelPosition, setProbePanelPosition, setSettingsInitialTab, setShowCredentials, setShowSerialModal, setShowSettings, settingsInitialTab, showCredentials, showPortForwardDialog, showSerialModal, showSettings }}
         importExport={{ exportSelectedIds, handleDownloadTemplate, handleExport, handleExportSelected, handleImport, hasRecoveryPassword, ieBusy, setExportSelectedIds, setShowExportSelectedDialog, setShowImportExportDialog, showExportSelectedDialog, showImportExportDialog }}
         notifications={{ downloadProgress, handleApplyStartupUpdate, handleToastAction, isUpdateModalVisible, removeToast, setIsUpdateModalVisible, setSyncFailed, startupUpdateInfo, syncFailed, toasts }}
         menus={{ activeSessionId, canCopySessionPassword, canMoveTerminalToDockTarget, closeAllSessions, closeSession, closeTerminal, closeTerminalGroup, forceCloseSession, handleCopySessionPassword, handleRenameTerminalTab, handleTabClick, isTerminalDockTargetOccupied, moveTerminalToDockTarget, sessionAuthPrompts, sessionListPos, sessionListQuery, sessionListRef, sessions, setSessionListQuery, setShowSessionList, setTabContextMenu, setTerminalTabContextMenu, showSessionList, tabContextMenu, terminalTabContextMenu }}

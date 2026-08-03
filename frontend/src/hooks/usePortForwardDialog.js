@@ -5,14 +5,6 @@ export default function usePortForwardDialog() {
   const [portForwardDialogSessionId, setPortForwardDialogSessionId] = useState(null);
   const [portForwardInitialMapping, setPortForwardInitialMapping] = useState(null);
   const [portForwardInitialTab, setPortForwardInitialTab] = useState(null);
-  const [portListeningEnabled, setPortListeningEnabled] = useState(
-    () => localStorage.getItem('portForwardRealtimeListening') === 'true',
-  );
-
-  const handlePortListeningEnabledChange = useCallback((enabled) => {
-    setPortListeningEnabled(enabled);
-    localStorage.setItem('portForwardRealtimeListening', enabled ? 'true' : 'false');
-  }, []);
 
   const openPortForwardDialog = useCallback((sessionId, port = null, initialTab = null) => {
     setPortForwardDialogSessionId(sessionId);
@@ -34,8 +26,6 @@ export default function usePortForwardDialog() {
     portForwardDialogSessionId,
     portForwardInitialMapping,
     portForwardInitialTab,
-    portListeningEnabled,
-    handlePortListeningEnabledChange,
     openPortForwardDialog,
     closePortForwardDialog,
   };

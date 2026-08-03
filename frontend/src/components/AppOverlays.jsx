@@ -36,7 +36,6 @@ export default function AppOverlays({ dialogs = {}, importExport = {}, notificat
     handleExport,
     handleExportSelected,
     handleImport,
-    handlePortListeningEnabledChange,
     handleRenameTerminalTab,
     handleTabClick,
     handleToastAction,
@@ -49,7 +48,6 @@ export default function AppOverlays({ dialogs = {}, importExport = {}, notificat
     portForwardDialogSessionId,
     portForwardInitialMapping,
     portForwardInitialTab,
-    portListeningEnabled,
     probePanelPosition,
     removeToast,
     sessionAuthPrompts,
@@ -126,8 +124,6 @@ export default function AppOverlays({ dialogs = {}, importExport = {}, notificat
           sessionId={portForwardDialogSessionId}
           initialMapping={portForwardInitialMapping}
           initialTab={portForwardInitialTab}
-          portListeningEnabled={portListeningEnabled}
-          onPortListeningEnabledChange={handlePortListeningEnabledChange}
           onClose={closePortForwardDialog}
         />
       )}
