@@ -130,6 +130,7 @@ type SSHManager struct {
 	tempAcceptedKeys map[string]string             // sessionId -> fingerprint (accept this time only)
 	pendingCancels   map[string]context.CancelFunc // sessionId -> cancel func for in-progress Connect
 	uploadTasks      map[string]*chunkedUploadTask
+	portForwards     map[string]*managedPortForward
 	mu               sync.RWMutex
 	pendingMu        sync.Mutex
 	uploadMu         sync.Mutex
@@ -159,6 +160,7 @@ func NewSSHManager() *SSHManager {
 		tempAcceptedKeys: make(map[string]string),
 		pendingCancels:   make(map[string]context.CancelFunc),
 		uploadTasks:      make(map[string]*chunkedUploadTask),
+		portForwards:     make(map[string]*managedPortForward),
 		bufPool: sync.Pool{
 			New: func() any {
 				buf := make([]byte, 32768)
@@ -883,11 +885,11 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 			parentSessionId = terminalIds[0]
 		}
 		runtime.EventsEmit(m.ctx, "ssh-disconnected", map[string]interface{}{
-			"sessionId":         terminalIds[0],
-			"parentSessionId":   parentSessionId,
-			"terminalIds":       terminalIds,
-			"reason":            reason,
-			"connectionClosed":  true,
+			"sessionId":        terminalIds[0],
+			"parentSessionId":  parentSessionId,
+			"terminalIds":      terminalIds,
+			"reason":           reason,
+			"connectionClosed": true,
 		})
 	}
 }

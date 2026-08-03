@@ -660,6 +660,34 @@ func (a *App) ConnectSSH(sessionId string, connId string) error {
 	return a.sshManager.Connect(sessionId, resolvedConn)
 }
 
+func (a *App) StartLocalPortForward(sessionId string, localAddr string, remoteAddr string) (string, error) {
+	connKey := a.sshManager.connKeyForSession(sessionId)
+	if connKey == "" {
+		return "", fmt.Errorf("session not found")
+	}
+	return a.sshManager.StartLocalPortForward(connKey, localAddr, remoteAddr)
+}
+
+func (a *App) StartRemotePortForward(sessionId string, remoteAddr string, localAddr string) (string, error) {
+	connKey := a.sshManager.connKeyForSession(sessionId)
+	if connKey == "" {
+		return "", fmt.Errorf("session not found")
+	}
+	return a.sshManager.StartRemotePortForward(connKey, remoteAddr, localAddr)
+}
+
+func (a *App) ListPortForwards(sessionId string) ([]PortForwardInfo, error) {
+	connKey := a.sshManager.connKeyForSession(sessionId)
+	if connKey == "" {
+		return nil, fmt.Errorf("session not found")
+	}
+	return a.sshManager.ListPortForwardsForSession(sessionId)
+}
+
+func (a *App) StopPortForward(id string) error {
+	return a.sshManager.StopPortForward(id)
+}
+
 // ReconnectWithPassword 更新密码并重连（认证失败后使用）
 // persist: true=保存密码, false=仅本次会话使用
 func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword string, persist bool) error {
