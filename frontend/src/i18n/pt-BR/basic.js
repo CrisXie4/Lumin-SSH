@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Abrir automaticamente a fila de transmissão ao iniciar uma tarefa de transmissão",
   "上传或下载新建传输任务后自动展开传输队列面板": "Expanda automaticamente o painel da fila de transmissão após fazer upload ou download de uma nova tarefa de transmissão",
   "显示文件资源管理器标签页目录图标": "Mostrar ícone do diretório da guia File Explorer",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Após fechar, apenas o ícone do diretório fica oculto e o ícone fixado ainda é exibido.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Após fechar, apenas o ícone do diretório fica oculto e o ícone fixo ainda é exibido.",
   "文件资源管理器不显示关闭图标按钮": "O File Explorer não mostra o botão do ícone Fechar",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Após a abertura, a aba Explorador de Arquivos não exibe o botão do ícone fechar e só pode ser fechada clicando duas vezes nela.",
   "固定标签跨终端共享": "Compartilhamento de rótulo fixo entre terminais",

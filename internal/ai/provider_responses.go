@@ -175,6 +175,7 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 		"stream":       true,
 		"store":        false,
 		"temperature":  0,
+		"top_p":        1.0,
 	}
 	if promptCacheKey := aiprovider.BuildResponsesPromptCacheKey(payload.ConversationID, promptCacheBypassTimestamp, systemPrompt); promptCacheKey != "" {
 		requestBody["prompt_cache_key"] = promptCacheKey

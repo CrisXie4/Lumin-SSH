@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Membuka antrian transmisi secara otomatis saat memulai tugas transmisi",
   "上传或下载新建传输任务后自动展开传输队列面板": "Secara otomatis memperluas panel antrian transmisi setelah mengunggah atau mengunduh tugas transmisi baru",
   "显示文件资源管理器标签页目录图标": "Tampilkan ikon direktori tab File Explorer",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Setelah ditutup, hanya ikon direktori yang disembunyikan dan ikon yang disematkan masih ditampilkan.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Setelah ditutup, hanya ikon direktori yang disembunyikan dan ikon tetap yang masih ditampilkan.",
   "文件资源管理器不显示关闭图标按钮": "File Explorer tidak menampilkan tombol ikon tutup",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Setelah dibuka, tab File Explorer tidak menampilkan tombol ikon tutup dan hanya dapat ditutup dengan mengklik dua kali.",
   "固定标签跨终端共享": "Memperbaiki pembagian label di seluruh terminal",

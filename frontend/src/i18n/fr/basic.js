@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Ouvrir automatiquement la file d'attente de transmission lors du lancement d'une tâche de transmission",
   "上传或下载新建传输任务后自动展开传输队列面板": "Développez automatiquement le panneau de file d'attente de transmission après le téléchargement ou le téléchargement d'une nouvelle tâche de transmission",
   "显示文件资源管理器标签页目录图标": "Afficher l'icône du répertoire de l'onglet Explorateur de fichiers",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Après la fermeture, seule l'icône du répertoire est masquée et l'icône épinglée est toujours affichée.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Après la fermeture, seule l'icône du répertoire est masquée et l'icône fixe est toujours affichée.",
   "文件资源管理器不显示关闭图标按钮": "L'Explorateur de fichiers n'affiche pas le bouton de l'icône de fermeture",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Après ouverture, l'onglet Explorateur de fichiers n'affiche pas le bouton de l'icône de fermeture et ne peut être fermé qu'en double-cliquant dessus.",
   "固定标签跨终端共享": "Partage d'étiquettes fixe entre les terminaux",

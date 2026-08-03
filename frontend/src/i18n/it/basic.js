@@ -1366,7 +1366,7 @@ export default {
   "发起传输任务时自动打开传输队列": "Apre automaticamente la coda di trasmissione quando si avvia un'attività di trasmissione",
   "上传或下载新建传输任务后自动展开传输队列面板": "Espandi automaticamente il pannello della coda di trasmissione dopo aver caricato o scaricato una nuova attività di trasmissione",
   "显示文件资源管理器标签页目录图标": "Mostra l'icona della directory della scheda Esplora file",
-  "关闭后只隐藏目录图标,仍显示置顶图标": "Dopo la chiusura, solo l'icona della directory viene nascosta e l'icona bloccata viene ancora visualizzata.",
+  "关闭后只隐藏目录图标,仍显示固定图标": "Dopo la chiusura, solo l'icona della directory viene nascosta e l'icona fissa viene ancora visualizzata.",
   "文件资源管理器不显示关闭图标按钮": "Esplora file non mostra il pulsante dell'icona di chiusura",
   "开启后,文件资源管理器标签页不显示关闭图标按钮,仅可双击关闭": "Dopo l'apertura, la scheda Esplora file non visualizza il pulsante con l'icona di chiusura e può essere chiusa solo facendo doppio clic su di essa.",
   "固定标签跨终端共享": "Risolta la condivisione delle etichette tra i terminali",

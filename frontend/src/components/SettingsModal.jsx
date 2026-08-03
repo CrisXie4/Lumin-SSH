@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
 import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t } from '../i18n.js';
 import { getModKey } from '../utils/platform.js';
@@ -20,6 +20,7 @@ import RuntimeEnvironmentTab from './settings/RuntimeEnvironmentTab';
 import ShortcutsTab from './settings/ShortcutsTab';
 import SyncTab from './settings/SyncTab';
 import { DEFAULT_RUNTIME_ENVIRONMENT_SETTINGS, getRuntimeEnvironmentSettings, resolveRuntimeEnvironmentPathPreview, saveRuntimeEnvironmentSettings } from './settings/runtimeEnvironmentBridge.js';
+import { SETTINGS_SEARCH_DEFINITIONS, SETTINGS_SECTIONS } from './settings/settingDefinitions';
 
 const TAB_ICON = { general: SlidersHorizontal, network: Globe, fileManager: Folder, runtimeEnvironment: Database, appearance: Palette, shortcuts: Keyboard, sync: Cloud, app: Info };
 
@@ -270,6 +271,9 @@ export default function SettingsModal({
   };
 
   const [activeTab, setActiveTab] = useState(initialTab || 'general');
+  const [settingsSearchQuery, setSettingsSearchQuery] = useState('');
+  const [pendingSettingsScrollTargetId, setPendingSettingsScrollTargetId] = useState('');
+  const [supportsWebviewGpuDisable, setSupportsWebviewGpuDisable] = useState(false);
 
   // WebDAV state
   const [webdavForm, setWebdavForm] = useState(defaultWebdavForm);
@@ -489,6 +493,88 @@ export default function SettingsModal({
       setActiveTab(initialTab.trim())
     }
   }, [initialTab])
+
+  const settingsSectionTitleMap = useMemo(() => Object.fromEntries(SETTINGS_SECTIONS.map((item) => [item.id, $t(item.titleKey)])), [language]);
+  const availableSettingsSearchDefinitions = useMemo(() => SETTINGS_SEARCH_DEFINITIONS.filter((item) => {
+    if (supportsWebviewGpuDisable) {
+      return true;
+    }
+    return item.id !== 'general.section.rendering' && item.id !== 'general.webview-gpu';
+  }), [supportsWebviewGpuDisable]);
+  const settingsSearchResults = useMemo(() => {
+    const normalizedQuery = String(settingsSearchQuery || '').trim().toLowerCase();
+    if (!normalizedQuery) {
+      return [];
+    }
+    const typePriority = { action: 0, option: 1, field: 2, 'field-group': 3, section: 4 };
+    const deduped = new Map();
+    availableSettingsSearchDefinitions.forEach((item) => {
+      const title = item.titleKey ? $t(item.titleKey) : '';
+      const description = item.descriptionKey ? $t(item.descriptionKey) : '';
+      const tabLabel = TAB_LABELS[item.tab] ? $t(TAB_LABELS[item.tab]) : '';
+      const sectionLabel = item.section && item.section !== item.id ? (settingsSectionTitleMap[item.section] || '') : '';
+      const breadcrumbLabels = Array.isArray(item.breadcrumbTitleKeys)
+        ? item.breadcrumbTitleKeys.map((key) => $t(key)).filter(Boolean)
+        : [];
+      const resolvedBreadcrumbLabels = breadcrumbLabels.length > 0 ? breadcrumbLabels : [tabLabel, sectionLabel].filter(Boolean);
+      const searchText = [...resolvedBreadcrumbLabels, title, description].filter(Boolean).join(' ').toLowerCase();
+      if (!searchText.includes(normalizedQuery)) {
+        return;
+      }
+      const rank = title.toLowerCase().includes(normalizedQuery) ? 0 : (description.toLowerCase().includes(normalizedQuery) ? 1 : 2);
+      const typeRank = Object.prototype.hasOwnProperty.call(typePriority, item.type) ? typePriority[item.type] : 9;
+      const dedupeKey = `${title}::${resolvedBreadcrumbLabels.join(' / ')}`;
+      const nextResult = {
+        ...item,
+        title,
+        description,
+        tabLabel,
+        sectionLabel,
+        breadcrumbLabels: resolvedBreadcrumbLabels,
+        rank,
+        typeRank,
+      };
+      const previous = deduped.get(dedupeKey);
+      if (!previous || nextResult.rank < previous.rank || (nextResult.rank === previous.rank && nextResult.typeRank < previous.typeRank)) {
+        deduped.set(dedupeKey, nextResult);
+      }
+    });
+    return Array.from(deduped.values()).sort((left, right) => left.rank - right.rank || left.typeRank - right.typeRank || left.breadcrumbLabels.join(' / ').localeCompare(right.breadcrumbLabels.join(' / ')) || left.title.localeCompare(right.title));
+  }, [availableSettingsSearchDefinitions, language, settingsSearchQuery, settingsSectionTitleMap]);
+  const handleSelectSettingsSearchResult = useCallback((result) => {
+    if (!result) {
+      return;
+    }
+    if (result.tab === 'sync') {
+      const nextSyncProvider = result.providerId || '';
+      if (PROVIDER_LIST.some((item) => item.id === nextSyncProvider)) {
+        setSyncProvider(nextSyncProvider);
+      }
+    }
+    setActiveTab(result.tab);
+    setPendingSettingsScrollTargetId(result.targetId);
+  }, []);
+  useEffect(() => {
+    if (!pendingSettingsScrollTargetId) {
+      return undefined;
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      document.querySelectorAll('[data-settings-highlight="true"]').forEach((node) => node.removeAttribute('data-settings-highlight'));
+      const target = document.querySelector(`[data-settings-field-id="${pendingSettingsScrollTargetId}"],[data-settings-section-id="${pendingSettingsScrollTargetId}"]`);
+      setPendingSettingsScrollTargetId('');
+      if (!target) {
+        return;
+      }
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target.setAttribute('data-settings-highlight', 'true');
+      window.setTimeout(() => {
+        if (target.getAttribute('data-settings-highlight') === 'true') {
+          target.removeAttribute('data-settings-highlight');
+        }
+      }, 1800);
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeTab, pendingSettingsScrollTargetId, syncProvider]);
 
   const refreshThemePackages = useCallback(async () => {
     await loadThemePackages();
@@ -875,7 +961,6 @@ export default function SettingsModal({
   const [updateUseProxy, setUpdateUseProxy] = useState(localStorage.getItem('updateUseProxy') === 'true');
   const [rememberWorkspace, setRememberWorkspace] = useState(false);
   const [workspacePersistenceLevel, setWorkspacePersistenceLevel] = useState('program');
-  const [supportsWebviewGpuDisable, setSupportsWebviewGpuDisable] = useState(false);
   const [webviewGpuDisabled, setWebviewGpuDisabled] = useState(false);
   const [programDirectory, setProgramDirectory] = useState('');
   const [fileManagerCompressedTransfer, setFileManagerCompressedTransfer] = useState(localStorage.getItem('fileManagerCompressedTransfer') !== 'false');
@@ -1880,6 +1965,7 @@ export default function SettingsModal({
 
   return (
     <div className="modal-overlay" style={{ zIndex: Z.MODAL }}>
+      <style>{`[data-settings-highlight="true"]{outline:2px solid var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),0.18);border-radius:var(--radius-md);}`}</style>
       <div className="modal modal-xl" style={{ display: 'flex', flexDirection: 'column', height: '80vh', background: 'var(--surface-raised)' }}>
         
         {/* Settings Header */}
@@ -1892,8 +1978,78 @@ export default function SettingsModal({
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* Settings Sidebar */}
-          <div style={{ width: 196, borderRight: '1px solid var(--border-subtle)', padding: '10px 6px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--surface-base)' }}>
-            {TABS.map(tab => (
+          <div style={{ width: 220, borderRight: '1px solid var(--border-subtle)', padding: '10px 6px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--surface-base)' }}>
+            <div style={{ padding: '0 4px 8px' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="input"
+                  value={settingsSearchQuery}
+                  onChange={(event) => setSettingsSearchQuery(event.target.value)}
+                  placeholder={$t('搜索...')}
+                  style={{ width: '100%', height: 30, fontSize: 12, paddingRight: settingsSearchQuery ? 34 : 12 }}
+                />
+                {settingsSearchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSettingsSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      right: 7,
+                      transform: 'translateY(-50%)',
+                      width: 16,
+                      height: 16,
+                      padding: 0,
+                      margin: 0,
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-tertiary)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: 'none',
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            {settingsSearchQuery.trim() ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', padding: '0 4px 4px' }}>
+                <div style={{ padding: '0 6px', fontSize: 11, color: 'var(--text-tertiary)' }}>{$t('搜索结果')} · {settingsSearchResults.length}</div>
+                {settingsSearchResults.length > 0 ? settingsSearchResults.map((result) => (
+                  <button
+                    type="button"
+                    key={`${result.id}:${result.targetId}`}
+                    onClick={() => handleSelectSettingsSearchResult(result)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                      width: '100%',
+                      padding: '9px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border)',
+                      background: result.tab === activeTab ? 'var(--surface-overlay)' : 'var(--surface-raised)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>{result.title}</div>
+                    {result.description ? <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{result.description}</div> : null}
+                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{result.breadcrumbLabels.length > 0 ? result.breadcrumbLabels.join(' / ') : result.tabLabel}</div>
+                  </button>
+                )) : (
+                  <div style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border)', background: 'var(--surface-raised)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{$t('未找到结果')}</div>
+                    <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-tertiary)' }}>{$t('尝试其他关键词')}</div>
+                  </div>
+                )}
+              </div>
+            ) : TABS.map(tab => (
               <div
                 key={tab.id}
                 className={`sidebar-menu-item ${activeTab === tab.id ? 'active' : ''}`}

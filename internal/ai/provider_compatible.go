@@ -289,6 +289,7 @@ func (a *App) requestCompatibleAIChatRound(ctx context.Context, requestID string
 		"model":       profile.Model,
 		"stream":      true,
 		"temperature": 0,
+		"top_p":       1.0,
 		"messages":    aiprovider.BuildOpenAIChatMessages(systemPrompt, toAIProviderRuntimeMessages(requestMessages), aiprovider.ResolvePromptCacheStrategy(runtimeProfile, modelCapability)),
 	}
 
