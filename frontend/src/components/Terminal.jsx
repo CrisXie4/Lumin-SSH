@@ -429,12 +429,14 @@ export default function Terminal({
   useEffect(() => { historyListRef.current = historyList; }, [historyList]);
   const [historyMode, setHistoryMode]         = useState('server'); // 'server' | 'global'
   const [searchQuery, setSearchQuery]         = useState('');
+  const [historySelectedIndex, setHistorySelectedIndex] = useState(0);
   const [showTermSearch, setShowTermSearch]   = useState(false);
   const [termSearchQuery, setTermSearchQuery] = useState('');
   const [termSearchCaseSensitive, setTermSearchCaseSensitive] = useState(false);
   const [termSearchResult, setTermSearchResult] = useState({ resultIndex: -1, resultCount: 0 });
   const cmdInputRef                           = useRef(null);
   const historyBtnRef                         = useRef(null);
+  const historySearchInputRef                 = useRef(null);
   const historyScrollRef                      = useRef(null);
   const [historyPopupPos, setHistoryPopupPos] = useState(null);
   const commandsBtnRef                        = useRef(null);
@@ -1445,6 +1447,13 @@ export default function Terminal({
         return false;
       }
 
+      // ── Ctrl+Shift+V：将终端当前选区粘贴回终端 ────────────────
+      if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toUpperCase() === 'V') {
+        e.preventDefault();
+        void pasteTerminalSelectionToTerminal();
+        return false;
+      }
+
       // ── 自定义粘贴键 ───────────────────────────
       if (pressedStr === customShortcuts.paste) {
         e.preventDefault();
@@ -2133,6 +2142,40 @@ export default function Terminal({
     });
   }, []);
 
+  const pasteTerminalSelectionToTerminal = useCallback(async () => {
+    const term = termRef.current;
+    const selectedText = term?.getSelection?.() || '';
+    if (!selectedText) {
+      term?.focus();
+      return;
+    }
+
+    const lineCount = selectedText.replace(/\r\n?/g, '\n').split('\n').length;
+    if (lineCount > 3 && localStorage.getItem('skipTerminalSelectionPasteConfirm') !== 'true') {
+      const result = await window.luminDialog?.confirm(
+        t('所选内容超过3行，是否继续粘贴？'),
+        t('确认粘贴'),
+        t('以后不再提醒')
+      );
+      const confirmed = typeof result === 'object' ? result.confirmed : result === true;
+      if (!confirmed) {
+        term.focus();
+        return;
+      }
+      if (typeof result === 'object' && result.checked) {
+        localStorage.setItem('skipTerminalSelectionPasteConfirm', 'true');
+      }
+    }
+
+    const payload = normalizeTerminalPasteText(selectedText);
+    if (payload && wsRef.current?.readyState === WebSocket.OPEN) {
+      pendingCmdRef.current += payload.replace(/[\x00-\x1F\x7F]/g, '');
+      wsRef.current.send(textEncoder.encode(payload));
+      term.clearSelection();
+    }
+    term.focus();
+  }, [t]);
+
   const handleTerminalMouseDownCapture = useCallback((event) => {
     if (event.button !== 0 || !terminalLeftClickCopyOnSelectionRef.current) {
       terminalMouseDownSelectionRef.current = null;
@@ -2235,7 +2278,7 @@ export default function Terminal({
       return;
     }
     setContextHasSelection(hasSelection);
-    setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY, 190, 168), source: 'terminal' });
+    setContextMenu({ ...clampMenuPosition(e.clientX, e.clientY, 190, 196), source: 'terminal' });
   };
 
   const handleInputContextMenu = (e) => {
@@ -2481,6 +2524,9 @@ export default function Terminal({
       case 'paste':
         pasteClipboardToTerminal();
         break;
+      case 'pasteSelection':
+        void pasteTerminalSelectionToTerminal();
+        break;
       case 'sendToAssistant': {
         const selectedText = termRef.current.getSelection();
         if (selectedText) {
@@ -2616,13 +2662,13 @@ export default function Terminal({
     return () => { cancelled = true; };
   }, [showHistory, historyMode]);
 
-  // 数据渲染后滚到底部（仅首次打开时，删除条目不滚动）
+  // 数据渲染后定位到顶部，与键盘导航默认选中的第一项保持一致
   useEffect(() => {
     if (!showHistory || !scrollOnNextUpdate.current) return;
     // 数据还没加载完（空状态），等待下一次更新
     if (historyList.length === 0) return;
     const el = historyScrollRef.current;
-    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    if (el) requestAnimationFrame(() => { el.scrollTop = 0; });
     scrollOnNextUpdate.current = false;
   }, [historyList, showHistory]);
 
@@ -2634,6 +2680,45 @@ export default function Terminal({
 
   // 反转后用于显示：最早的在上边，最新的在底部
   const displayHistory = useMemo(() => [...filteredHistory].reverse(), [filteredHistory]);
+
+  useEffect(() => {
+    setHistorySelectedIndex(displayHistory.length > 0 ? 0 : -1);
+  }, [displayHistory, showHistory]);
+
+  useEffect(() => {
+    if (!showHistory || historySelectedIndex < 0) return;
+    const selectedRow = historyScrollRef.current?.querySelector(`[data-history-index="${historySelectedIndex}"]`);
+    selectedRow?.scrollIntoView({ block: 'nearest' });
+  }, [historySelectedIndex, showHistory, displayHistory]);
+
+  const handleHistorySearchKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setShowHistory(false);
+      setHistoryPopupPos(null);
+      requestAnimationFrame(() => cmdInputRef.current?.focus());
+      return;
+    }
+    if (displayHistory.length === 0) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHistorySelectedIndex((current) => (current + 1) % displayHistory.length);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHistorySelectedIndex((current) => (
+        current <= 0 ? displayHistory.length - 1 : current - 1
+      ));
+      return;
+    }
+    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      const selectedItem = displayHistory[historySelectedIndex] || displayHistory[0];
+      if (selectedItem) selectHistoryCmd(selectedItem.command);
+    }
+  };
 
   const toggleHistory = () => {
     const willShow = !showHistory;
@@ -2651,6 +2736,14 @@ export default function Terminal({
       setHistoryPopupPos(null);
     }
     setShowHistory(willShow);
+  };
+
+  const openHistoryAndFocusSearch = () => {
+    if (!showHistory) toggleHistory();
+    requestAnimationFrame(() => {
+      historySearchInputRef.current?.focus({ preventScroll: true });
+      historySearchInputRef.current?.select();
+    });
   };
 
   const toggleCommands = () => {
@@ -3479,6 +3572,14 @@ export default function Terminal({
             }
           }}
           onKeyDown={async (e) => {
+            if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey && !e.repeat) {
+              e.preventDefault();
+              e.stopPropagation();
+              closeCommandAutocomplete();
+              openHistoryAndFocusSearch();
+              return;
+            }
+
             if (commandAutocomplete.open && e.key === 'ArrowDown') {
               e.preventDefault();
               if (commandAutocomplete.items.length === 0) {
@@ -3550,7 +3651,7 @@ export default function Terminal({
               executeCommand();
             }
           }}
-          placeholder={t('输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行')}
+          placeholder={`${t('输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行')} · Alt → ${t('历史指令')} ${t('搜索')}`}
           style={{
             flex: 1,
             fontSize: 12,
@@ -3807,17 +3908,22 @@ export default function Terminal({
               <div style={{ padding: 20, textAlign: 'center', color: 'var(--term-muted)', fontSize: 12 }}>
                 {searchQuery ? t('无匹配结果') : t('暂无历史记录')}
               </div>
-            ) : displayHistory.map(item => (
+            ) : displayHistory.map((item, index) => (
               <div
                 key={item.id}
                 className="history-item"
+                data-history-index={index}
+                role="option"
+                aria-selected={historySelectedIndex === index}
                 onClick={() => selectHistoryCmd(item.command)}
+                onMouseEnter={() => setHistorySelectedIndex(index)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '6px 10px',
                   cursor: 'pointer',
                   borderBottom: '1px solid var(--term-separator)',
                   transition: 'background 0.1s',
+                  background: historySelectedIndex === index ? 'var(--surface-active)' : undefined,
                 }}
               >
                 <span
@@ -3876,11 +3982,13 @@ export default function Terminal({
               flexShrink: 0,
             }}>
               <input
+                ref={historySearchInputRef}
                 name="terminal-history-search"
                 autoComplete="off"
                 aria-label={t('搜索命令历史')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={handleHistorySearchKeyDown}
                 placeholder={t('搜索命令...')}
                 style={{
                   flex: 1,
@@ -4021,6 +4129,7 @@ export default function Terminal({
             : [
                 { icon: <Copy size={13} />, label: t('复制'), action: 'copy', shortcut: formatShortcut('Ctrl+C'), disabled: !contextHasSelection },
                 { icon: <Clipboard size={13} />, label: t('粘贴'), action: 'paste', shortcut: formatShortcut('Ctrl+V') },
+                { icon: <Clipboard size={13} />, label: t('粘贴所选项'), action: 'pasteSelection', shortcut: formatShortcut('Ctrl+Shift+V'), disabled: !contextHasSelection },
                 { type: 'separator' },
                 { icon: <CheckSquare size={13} />, label: t('全选'), action: 'selectAll' },
                 { icon: <Search size={13} />, label: t('查找'), action: 'find', shortcut: formatShortcut(shortcutsRef.current?.find || 'Ctrl+F') },
