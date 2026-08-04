@@ -964,10 +964,13 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
             <div className="chmod-dialog-path">{path}</div>
             <div style={{ display: 'grid', gap: 10, marginTop: 12, marginBottom: 12 }}>
               <div style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('属主')}</span>
+                <label htmlFor="chmod-owner-input" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('属主')}</label>
                 <input
+                  id="chmod-owner-input"
+                  name="chmod-owner"
                   className="input"
                   list="chmod-owner-options"
+                  autoComplete="off"
                   value={ownerInput}
                   onChange={(e) => {
                     setOwnerTouched(true);
@@ -982,10 +985,13 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
                 ))}
               </datalist>
               <div style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('属组')}</span>
+                <label htmlFor="chmod-group-input" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('属组')}</label>
                 <input
+                  id="chmod-group-input"
+                  name="chmod-group"
                   className="input"
                   list="chmod-group-options"
+                  autoComplete="off"
                   value={groupInput}
                   onChange={(e) => {
                     setGroupTouched(true);
@@ -1010,38 +1016,38 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
               <div className="chmod-row">
                 <span className="chmod-row-label">{t('用户')}</span>
                 {['r','w','x'].map(k => (
-                  <label key={k} className="chmod-checkbox" style={{ justifyContent: 'center' }}>
-                    <input type="checkbox" checked={perms.user[k]} onChange={() => togglePerm('user', k)} />
+                  <label key={k} htmlFor={`fm-chmod-user-${k}`} className="chmod-checkbox" style={{ justifyContent: 'center' }}>
+                    <input type="checkbox" id={`fm-chmod-user-${k}`} name={`fm-chmod-user-${k}`} autoComplete="off" checked={perms.user[k]} onChange={() => togglePerm('user', k)} />
                   </label>
                 ))}
               </div>
               <div className="chmod-row">
                 <span className="chmod-row-label">{t('组')}</span>
                 {['r','w','x'].map(k => (
-                  <label key={k} className="chmod-checkbox" style={{ justifyContent: 'center' }}>
-                    <input type="checkbox" checked={perms.group[k]} onChange={() => togglePerm('group', k)} />
+                  <label key={k} htmlFor={`fm-chmod-group-${k}`} className="chmod-checkbox" style={{ justifyContent: 'center' }}>
+                    <input type="checkbox" id={`fm-chmod-group-${k}`} name={`fm-chmod-group-${k}`} autoComplete="off" checked={perms.group[k]} onChange={() => togglePerm('group', k)} />
                   </label>
                 ))}
               </div>
               <div className="chmod-row">
                 <span className="chmod-row-label">{t('其他')}</span>
                 {['r','w','x'].map(k => (
-                  <label key={k} className="chmod-checkbox" style={{ justifyContent: 'center' }}>
-                    <input type="checkbox" checked={perms.other[k]} onChange={() => togglePerm('other', k)} />
+                  <label key={k} htmlFor={`fm-chmod-other-${k}`} className="chmod-checkbox" style={{ justifyContent: 'center' }}>
+                    <input type="checkbox" id={`fm-chmod-other-${k}`} name={`fm-chmod-other-${k}`} autoComplete="off" checked={perms.other[k]} onChange={() => togglePerm('other', k)} />
                   </label>
                 ))}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('八进制:')}</span>
-              <input className="chmod-octal-input" value={octal} onChange={handleOctalChange} />
+              <label htmlFor="chmod-octal-input" style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('八进制:')}</label>
+              <input id="chmod-octal-input" name="chmod-octal" className="chmod-octal-input" autoComplete="off" value={octal} onChange={handleOctalChange} />
               <button className="btn btn-ghost btn-sm" type="button" onClick={handleApplyLastSettings} disabled={!canApplyLastSettings}>
                 {t('应用上次')}
               </button>
             </div>
             {showIncludeSubdirectories && (
-              <label className="chmod-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                <input type="checkbox" checked={includeChildren} onChange={(e) => setIncludeChildren(e.target.checked)} />
+              <label htmlFor="fm-chmod-include-children" className="chmod-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                <input type="checkbox" id="fm-chmod-include-children" name="fm-chmod-include-children" autoComplete="off" checked={includeChildren} onChange={(e) => setIncludeChildren(e.target.checked)} />
                 <span>{t('包含子目录')}</span>
               </label>
             )}
@@ -6545,7 +6551,10 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           <span className="file-icon">{fileIcon(item.name, item.isDirectory, item.isSymlink)}</span>
           {isInteractive && renamingItem?.name === item.name ? (
             <input
+              id="fm-rename-input"
+              name="fm-rename-input"
               className="rename-input"
+              autoComplete="off"
               value={renameValue}
               onChange={(event) => setRenameValue(event.target.value)}
               onBlur={() => confirmRename(false)}
@@ -6824,19 +6833,25 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       onDrop={handleDrop}
     >
       <input
+        id="fm-upload-file-input"
+        name="fm-upload-file-input"
         ref={uploadInputRef}
         type="file"
         multiple
         style={{ display: 'none' }}
+        autoComplete="off"
         onChange={(e) => { void handleSelectedFiles(e); }}
       />
       <input
+        id="fm-upload-folder-input"
+        name="fm-upload-folder-input"
         ref={uploadFolderInputRef}
         type="file"
         multiple
         webkitdirectory=""
         directory=""
         style={{ display: 'none' }}
+        autoComplete="off"
         onChange={(e) => { void handleSelectedFiles(e); }}
       />
       {/* Toolbar */}
@@ -6845,6 +6860,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         <input
           className="path-input"
           type="text"
+          name="directoryPath"
+          aria-label={t('当前目录路径')}
           value={editingPath !== null ? editingPath : currentPath}
           onChange={(e) => setEditingPath(e.target.value)}
           onFocus={() => setEditingPath(currentPath)}
@@ -6920,6 +6937,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               ref={fileLocatorInputRef}
               className="file-locator-input"
               type="text"
+              name="fileLocator"
               value={fileLocatorQuery}
               onFocus={() => {
                 clearFileListTypeahead();

@@ -437,6 +437,10 @@ export default function ProcessPage({ sessionId, addToast, active }) {
       <div className="data-toolbar">
         <input
           className="input"
+          type="search"
+          autoComplete="off"
+          name="processSearch"
+          aria-label={t('搜索 PID / 进程名 / 用户...')}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={t('搜索 PID / 进程名 / 用户...')}
@@ -482,7 +486,11 @@ export default function ProcessPage({ sessionId, addToast, active }) {
               userSelect: 'none',
             }}>
               <div style={{ padding: '8px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <input type="checkbox" checked={selectedPids.size === filtered.length && filtered.length > 0}
+                <input type="checkbox"
+                  id="process-select-all"
+                  name="process-select-all"
+                  autoComplete="off"
+                  checked={selectedPids.size === filtered.length && filtered.length > 0}
                   onChange={selectAll} style={{ cursor: 'pointer' }} />
               </div>
               {[
@@ -534,7 +542,11 @@ export default function ProcessPage({ sessionId, addToast, active }) {
                     : detailState.activePid === p.pid ? 'var(--surface-active)' : 'transparent',
                 }}>
                   <div style={{ padding: '6px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border-light)' }} onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" checked={selectedPids.has(p.pid)}
+                    <input type="checkbox"
+                      id={`process-select-row-${p.pid}`}
+                      name="process-select-row"
+                      autoComplete="off"
+                      checked={selectedPids.has(p.pid)}
                       onChange={() => toggleSelect(p.pid)} style={{ cursor: 'pointer' }} />
                   </div>
                   <div style={{ padding: '6px 6px', textAlign: 'right', color: 'var(--text-tertiary)', fontSize: 11.5, borderRight: '1px solid var(--border-light)' }} onClick={() => handleRowClick(p)}>{p.pid}</div>

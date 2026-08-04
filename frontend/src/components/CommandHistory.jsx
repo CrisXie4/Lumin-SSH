@@ -178,6 +178,10 @@ export default function CommandHistory({ sessionId, historyServerId, addToast })
       <div className="data-toolbar">
         <input
           className="input"
+          type="search"
+          autoComplete="off"
+          name="commandHistorySearch"
+          aria-label={t('搜索命令...')}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={t('搜索命令...')}

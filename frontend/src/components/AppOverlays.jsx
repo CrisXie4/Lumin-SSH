@@ -378,6 +378,9 @@ export default function AppOverlays({ dialogs = {}, importExport = {}, notificat
         >
           <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', position: 'relative' }}>
             <input
+              id="app-overlays-session-search"
+              name="app-overlays-session-search"
+              autoComplete="off"
               type="text"
               value={sessionListQuery}
               onChange={(e) => setSessionListQuery(e.target.value)}

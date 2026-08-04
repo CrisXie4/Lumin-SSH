@@ -85,7 +85,7 @@ export default function RuntimeEnvironmentTab() {
           {ready ? (
             <div data-settings-field-id={uvBinaryNode.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('uv 可执行文件')}</div>
-              <input className="input" type="text" value={runtimeEnvironmentStatus.binaryPath || ''} readOnly style={{ width: '100%' }} />
+              <input id="runtime-env-uv-binary" name="runtime-env-uv-binary" autoComplete="off" className="input" type="text" value={runtimeEnvironmentStatus.binaryPath || ''} readOnly style={{ width: '100%' }} />
             </div>
           ) : null}
         </SettingsPanel>

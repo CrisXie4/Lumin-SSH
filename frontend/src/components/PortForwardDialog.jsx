@@ -210,11 +210,14 @@ export default function PortForwardDialog({
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 108px', gap: 10 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        <label htmlFor={`pf-${keyName}-host`} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-tertiary)' }}>
                             <Server size={11} /> {t('主机地址')}
-                        </span>
+                        </label>
                         <input
                             type="text"
+                            id={`pf-${keyName}-host`}
+                            name={`pf-${keyName}-host`}
+                            autoComplete="off"
                             value={hostValue}
                             onChange={onHostChange}
                             onFocus={handleInputFocus}
@@ -224,11 +227,14 @@ export default function PortForwardDialog({
                         />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        <label htmlFor={`pf-${keyName}-port`} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-tertiary)' }}>
                             <Hash size={11} /> {t('端口')}
-                        </span>
+                        </label>
                         <input
                             type="text"
+                            id={`pf-${keyName}-port`}
+                            name={`pf-${keyName}-port`}
+                            autoComplete="off"
                             value={portValue}
                             onChange={onPortChange}
                             onFocus={handleInputFocus}

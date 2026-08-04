@@ -239,6 +239,8 @@ export default function AICollaborationPromptDropdown({
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}>{t('你的要求')}</div>
           <textarea
+            id="ai-collab-extra-prompt"
+            name="ai-collab-extra-prompt"
             value={typeof extraPrompt === 'string' ? extraPrompt : ''}
             onChange={(event) => onExtraPromptChange?.(event.target.value)}
             placeholder={t('例如: 能自己判断的就别问我,遇到删文件这种事一定要先问我')}
@@ -270,6 +272,9 @@ export default function AICollaborationPromptDropdown({
           {isEditing ? (
             <div style={{ display: 'grid', gap: 8 }}>
               <input
+                id="ai-collab-draft-title"
+                name="ai-collab-draft-title"
+                autoComplete="off"
                 value={draftTitle}
                 onChange={(event) => setDraftTitle(event.target.value)}
                 placeholder={t('起个短名字,留空就用下面的内容')}
@@ -287,6 +292,8 @@ export default function AICollaborationPromptDropdown({
                 }}
               />
               <textarea
+                id="ai-collab-draft-text"
+                name="ai-collab-draft-text"
                 value={draftText}
                 onChange={(event) => setDraftText(event.target.value)}
                 placeholder={t('这条要求的具体内容')}

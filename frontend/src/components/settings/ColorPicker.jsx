@@ -135,6 +135,9 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }) {
           flexShrink: 0,
         }} />
         <input
+          id="color-picker-hex"
+          name="color-picker-hex"
+          autoComplete="off"
           value={hexInput}
           onChange={handleHexInput}
           style={{
@@ -155,6 +158,9 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }) {
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('色相')}</div>
         <input
+          id="color-picker-hue"
+          name="color-picker-hue"
+          autoComplete="off"
           type="range" min="0" max="360" value={hsl.h}
           onChange={handleHueChange}
           style={{
@@ -168,6 +174,9 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }) {
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('饱和度')}</div>
         <input
+          id="color-picker-saturation"
+          name="color-picker-saturation"
+          autoComplete="off"
           type="range" min="0" max="100" value={hsl.s}
           onChange={handleSatChange}
           style={{
@@ -181,6 +190,9 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }) {
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('明度')}</div>
         <input
+          id="color-picker-lightness"
+          name="color-picker-lightness"
+          autoComplete="off"
           type="range" min="0" max="100" value={hsl.l}
           onChange={handleLightChange}
           style={{

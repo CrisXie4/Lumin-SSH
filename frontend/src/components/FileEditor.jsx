@@ -682,6 +682,8 @@ export default function FileEditor({
           {mode === 'split' && (
             <Tiptop text={t('分栏位置')} placement="bottom">
               <select
+                id="file-editor-split-position"
+                name="file-editor-split-position"
                 className="btn btn-ghost btn-sm"
                 value={splitPosition}
                 onChange={(e) => onSplitPositionChange && onSplitPositionChange(e.target.value)}
@@ -706,6 +708,8 @@ export default function FileEditor({
 
           <Tiptop text={t('编辑模式')} placement="bottom">
             <select
+              id="file-editor-edit-mode"
+              name="file-editor-edit-mode"
               className="btn btn-ghost btn-sm"
               value={mode}
               onChange={(e) => onModeChange && onModeChange(e.target.value)}

@@ -116,6 +116,8 @@ export default function MCPServersView({
       <div style={{ display: 'grid', gap: 8, padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)' }}>
         <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('完整MCP Json配置')}</div>
         <textarea
+          id="mcp-servers-config"
+          name="mcp-servers-config"
           value={configText}
           onChange={(event) => {
             setConfigText(event.target.value)
@@ -309,6 +311,9 @@ export default function MCPServersView({
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('超时时间(秒)')}</span>
                   {canManage ? (
                     <input
+                      id="mcp-servers-timeout"
+                      name="mcp-servers-timeout"
+                      autoComplete="off"
                       type="number"
                       min={0}
                       max={3600}

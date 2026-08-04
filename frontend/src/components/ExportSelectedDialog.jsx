@@ -137,6 +137,9 @@ export default function ExportSelectedDialog({ onClose, onExport, hasRecoveryPas
                 {keyMode === 'password' && (
                   <div style={{ position: 'relative', marginTop: 2 }}>
                     <input
+                      id="export-selected-password"
+                      name="export-selected-password"
+                      autoComplete="off"
                       className="input"
                       type={showPassword ? 'text' : 'password'}
                       placeholder={t('请输入导出密码')}

@@ -2002,6 +2002,9 @@ export default function AIProviderSelector({
               <div style={{ position: 'relative' }}>
                 <Search size={14} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--text-tertiary)' }} />
                 <input
+                  name="ai-provider-search"
+                  autoComplete="off"
+                  aria-label={t('搜索...')}
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                   placeholder={t('搜索...')}

@@ -426,6 +426,9 @@ export default function AIAutoApproveDropdown({ settings, onPatchSettings, disab
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <input
+                        id="ai-auto-approve-allowed"
+                        name="ai-auto-approve-allowed"
+                        autoComplete="off"
                         value={commandInput}
                         onChange={(event) => setCommandInput(event.target.value)}
                         onKeyDown={(event) => {
@@ -480,6 +483,9 @@ export default function AIAutoApproveDropdown({ settings, onPatchSettings, disab
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <input
+                      id="ai-auto-approve-denied"
+                      name="ai-auto-approve-denied"
+                      autoComplete="off"
                       value={deniedCommandInput}
                       onChange={(event) => setDeniedCommandInput(event.target.value)}
                       onKeyDown={(event) => {

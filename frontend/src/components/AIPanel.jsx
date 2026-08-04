@@ -5200,6 +5200,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-base)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
               <input
+                id="ai-panel-main-global-search"
+                name="ai-panel-main-global-search"
+                autoComplete="off"
                 ref={globalSearchInputRef}
                 value={globalSearchQuery}
                 onChange={(event) => setGlobalSearchQuery(event.target.value)}
@@ -5634,6 +5637,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
               {conversationSearchOpen ? (
                 <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)', display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 8, alignItems: 'center' }}>
                   <input
+                    id="ai-panel-main-conversation-search"
+                    name="ai-panel-main-conversation-search"
+                    autoComplete="off"
                     ref={conversationSearchInputRef}
                     value={conversationSearchQuery}
                     onChange={(event) => setConversationSearchQuery(event.target.value)}

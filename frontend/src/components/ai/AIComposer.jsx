@@ -1473,6 +1473,9 @@ export default function AIComposer({
           )
         ) : null}
         <input
+          id="ai-composer-file-input"
+          name="ai-composer-file-input"
+          autoComplete="off"
           ref={fileInputRef}
           type="file"
           accept="image/*"
@@ -1753,6 +1756,8 @@ export default function AIComposer({
               />
               <textarea
                 ref={textareaRef}
+                name="aiComposer"
+                aria-label={t('AI 输入框')}
                 value={value}
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}

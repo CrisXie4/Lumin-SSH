@@ -197,13 +197,15 @@ export default function CredentialsModal({ onClose, onChange, addToast }) {
             <form onSubmit={handleSave}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">{t('凭据名称')} *</label>
-                  <input className="input" value={form.name} onChange={set('name')} placeholder={t('凭据名称')} autoFocus />
+                  <label className="form-label" htmlFor="cred-name">{t('凭据名称')} *</label>
+                  <input className="input" id="cred-name" name="cred-name" autoComplete="off" value={form.name} onChange={set('name')} placeholder={t('凭据名称')} autoFocus />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">{t('认证方式')}</label>
+                  <label className="form-label" htmlFor="cred-auth-method">{t('认证方式')}</label>
                   <select
+                    id="cred-auth-method"
+                    name="cred-auth-method"
                     className="select"
                     value={form.authMethod}
                     onChange={(e) => setForm((f) => ({
@@ -220,16 +222,19 @@ export default function CredentialsModal({ onClose, onChange, addToast }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">{t('用户名')} *</label>
-                  <input className="input" value={form.username} onChange={set('username')} placeholder="root" />
+                  <label className="form-label" htmlFor="cred-username">{t('用户名')} *</label>
+                  <input className="input" id="cred-username" name="cred-username" autoComplete="off" value={form.username} onChange={set('username')} placeholder="root" />
                 </div>
 
                 {form.authMethod === 'password' ? (
                   <div className="form-group">
-                    <label className="form-label">{t('密码')}</label>
+                    <label className="form-label" htmlFor="cred-password">{t('密码')}</label>
                     <div style={{ position: 'relative' }}>
                       <input
                         className="input"
+                        id="cred-password"
+                        name="cred-password"
+                        autoComplete="current-password"
                         type={showPassword ? 'text' : 'password'}
                         value={form.password}
                         onChange={set('password')}
@@ -250,8 +255,10 @@ export default function CredentialsModal({ onClose, onChange, addToast }) {
                 ) : (
                   <>
                     <div className="form-group">
-                      <label className="form-label">{t('私钥')}</label>
+                      <label className="form-label" htmlFor="cred-private-key">{t('私钥')}</label>
                       <textarea
+                        id="cred-private-key"
+                        name="cred-private-key"
                         className="input"
                         rows={4}
                         value={form.privateKey}
@@ -261,10 +268,13 @@ export default function CredentialsModal({ onClose, onChange, addToast }) {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">{t('私钥密码短语')}</label>
+                      <label className="form-label" htmlFor="cred-passphrase">{t('私钥密码短语')}</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           className="input"
+                          id="cred-passphrase"
+                          name="cred-passphrase"
+                          autoComplete="current-password"
                           type={showPassphrase ? 'text' : 'password'}
                           value={form.passphrase}
                           onChange={set('passphrase')}

@@ -237,13 +237,16 @@ function buildDraft(provider) {
   }
 }
 
-function SelectMenu({ value, options, open, onToggle, onSelect, menuRef, menuWidth = '100%', showSelectedIcon = true, disabled = false }) {
+function SelectMenu({ value, options, open, onToggle, onSelect, menuRef, menuWidth = '100%', showSelectedIcon = true, disabled = false, id, 'aria-labelledby': ariaLabelledBy, 'aria-label': ariaLabel }) {
   const currentOption = options.find((option) => option.value === value) || options[0]
 
   return (
     <div ref={menuRef} style={{ position: 'relative' }}>
       <button
         type="button"
+        id={id}
+        aria-labelledby={ariaLabelledBy}
+        aria-label={ariaLabel}
         disabled={disabled}
         onClick={() => {
           if (disabled) {
@@ -908,6 +911,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('最大输出 Token')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 10 }}>
                 <input
+                  id="ai-qedit-max-tokens"
+                  name="ai-qedit-max-tokens"
+                  autoComplete="off"
                   type="range"
                   min={8192}
                   max={Math.max(resolvedMaxTokens, modelCapability.maxTokens || DEFAULT_MAX_OUTPUT_TOKENS)}
@@ -925,6 +931,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('思考 Token 预算')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 10 }}>
                 <input
+                  id="ai-qedit-thinking-tokens"
+                  name="ai-qedit-thinking-tokens"
+                  autoComplete="off"
                   type="range"
                   min={1024}
                   max={maxThinkingTokenLimit}
@@ -1238,8 +1247,11 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             <div style={{ display: 'grid', gap: 2 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('配置文件')}</label>
+              <label htmlFor="ai-provider-config-name" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('配置文件')}</label>
               <input
+                id="ai-provider-config-name"
+                name="ai-provider-config-name"
+                autoComplete="off"
                 value={draft.name}
                 disabled={builtinProvider}
                 onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
@@ -1262,8 +1274,10 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
             </div>
 
             <div style={{ display: 'grid', gap: 2 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('API提供商')}</label>
+              <label id="ai-provider-select-label" htmlFor="ai-provider-select" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('API提供商')}</label>
               <SelectMenu
+                id="ai-provider-select"
+                aria-labelledby="ai-provider-select-label"
                 value={draft.provider}
                 options={providerOptions}
                 open={providerMenuOpen}
@@ -1306,8 +1320,11 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
           ) : null}
 
           <div style={{ display: 'grid', gap: 2 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('基础 URL')}</label>
+            <label htmlFor="ai-provider-base-url" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('基础 URL')}</label>
             <input
+              id="ai-provider-base-url"
+              name="ai-provider-base-url"
+              autoComplete="off"
               value={draft.baseUrl}
               disabled={builtinProvider}
               onChange={(event) => setDraft((prev) => ({ ...prev, baseUrl: event.target.value }))}
@@ -1331,7 +1348,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
 
           <div style={{ display: 'grid', gap: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('API 密钥')}</label>
+              <label htmlFor="ai-provider-api-key" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('API 密钥')}</label>
               {builtinProvider ? (
                 <>
                   <button
@@ -1408,6 +1425,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
               ) : null}
             </div>
             <input
+              id="ai-provider-api-key"
+              name="ai-provider-api-key"
+              autoComplete="off"
               value={draft.apiKey}
               onChange={(event) => setDraft((prev) => ({ ...prev, apiKey: event.target.value }))}
               onPaste={handleAPIKeyPaste}
@@ -1596,6 +1616,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                         <div style={{ position: 'relative', borderBottom: '1px solid var(--border-subtle)' }}>
                           <Search size={14} style={{ position: 'absolute', left: 10, top: 9, color: 'var(--text-tertiary)' }} />
                           <input
+                            name="ai-provider-global-search"
+                            autoComplete="off"
+                            aria-label={t('搜索全局配置')}
                             value={dedicatedProviderSearch}
                             onChange={(event) => setDedicatedProviderSearch(event.target.value)}
                             onMouseLeave={handleInputDragSelectAll}
@@ -1826,7 +1849,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
           <div style={{ display: 'grid', gap: 3 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('模型')}</label>
+                <label htmlFor="ai-provider-model-query" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('模型')}</label>
                 {modelRefreshError ? (
                   <div style={{ color: 'var(--danger)', fontSize: 11, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
                     {modelRefreshError}
@@ -1850,6 +1873,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
             </div>
 
             <input
+              id="ai-provider-model-query"
+              name="ai-provider-model-query"
+              autoComplete="off"
               value={modelQuery}
               onChange={(event) => setModelQuery(event.target.value)}
               onMouseLeave={handleInputDragSelectAll}
@@ -1974,6 +2000,8 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                 </div>
               </div>
               <textarea
+                id="ai-qedit-builtin-init-logs"
+                name="ai-qedit-builtin-init-logs"
                 ref={builtinProviderInitLogsRef}
                 readOnly
                 value={builtinProviderInitLogs}

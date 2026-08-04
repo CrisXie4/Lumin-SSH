@@ -225,9 +225,11 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
             {`${t('编辑')} /${normalizeSlashCommandName(editingCommand.name) || t('未命名命令')}`}
           </div>
           <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }} htmlFor="slash-command-name">{t('命令名')}</label>
+            <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }} htmlFor="ai-slash-command-name">{t('命令名')}</label>
             <input
-              id="slash-command-name"
+              id="ai-slash-command-name"
+              name="ai-slash-command-name"
+              autoComplete="off"
               type="text"
               value={editingCommand.name}
               onChange={(event) => handlePatchEditingCommand({ name: event.target.value })}
@@ -253,6 +255,7 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
             <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }} htmlFor="slash-command-prompt">{t('提示词内容')}</label>
             <textarea
               id="slash-command-prompt"
+              name="slash-command-prompt"
               value={editingCommand.prompt}
               onChange={(event) => handlePatchEditingCommand({ prompt: event.target.value })}
               placeholder={t('填写实际注入给 AI 的提示词内容')}

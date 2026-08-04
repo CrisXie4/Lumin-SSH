@@ -59,12 +59,15 @@ export default function SerialConfigModal({ onClose, onConnect }) {
         <form onSubmit={handleConnect}>
           <div className="modal-body">
             <div className="form-group">
-              <label className="form-label">{t('串口设备')}</label>
+              <label className="form-label" htmlFor="serial-config-port">{t('串口设备')}</label>
               {loading ? (
                 <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('正在检索串口设备...')}</div>
               ) : ports.length === 0 ? (
                 <div>
                   <input
+                    id="serial-config-port"
+                    name="serial-config-port"
+                    autoComplete="off"
                     className="input"
                     placeholder={t('例如：COM3 或 /dev/ttyUSB0')}
                     value={form.port}
@@ -77,6 +80,8 @@ export default function SerialConfigModal({ onClose, onConnect }) {
                 </div>
               ) : (
                 <select
+                  id="serial-config-port"
+                  name="serial-config-port"
                   className="select"
                   value={form.port}
                   onChange={(e) => setForm({ ...form, port: e.target.value })}
@@ -93,8 +98,10 @@ export default function SerialConfigModal({ onClose, onConnect }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('波特率')}</label>
+              <label className="form-label" htmlFor="serial-config-baud-rate">{t('波特率')}</label>
               <select
+                id="serial-config-baud-rate"
+                name="serial-config-baud-rate"
                 className="select"
                 value={form.baudRate}
                 onChange={(e) => setForm({ ...form, baudRate: parseInt(e.target.value) })}
@@ -110,8 +117,10 @@ export default function SerialConfigModal({ onClose, onConnect }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group">
-                <label className="form-label">{t('数据位')}</label>
+                <label className="form-label" htmlFor="serial-config-data-bits">{t('数据位')}</label>
                 <select
+                  id="serial-config-data-bits"
+                  name="serial-config-data-bits"
                   className="select"
                   value={form.dataBits}
                   onChange={(e) => setForm({ ...form, dataBits: parseInt(e.target.value) })}
@@ -126,8 +135,10 @@ export default function SerialConfigModal({ onClose, onConnect }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">{t('停止位')}</label>
+                <label className="form-label" htmlFor="serial-config-stop-bits">{t('停止位')}</label>
                 <select
+                  id="serial-config-stop-bits"
+                  name="serial-config-stop-bits"
                   className="select"
                   value={form.stopBits}
                   onChange={(e) => setForm({ ...form, stopBits: parseFloat(e.target.value) })}
@@ -141,8 +152,10 @@ export default function SerialConfigModal({ onClose, onConnect }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('校验位')}</label>
+              <label className="form-label" htmlFor="serial-config-parity">{t('校验位')}</label>
               <select
+                id="serial-config-parity"
+                name="serial-config-parity"
                 className="select"
                 value={form.parity}
                 onChange={(e) => setForm({ ...form, parity: e.target.value })}

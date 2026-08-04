@@ -297,32 +297,32 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
             <form onSubmit={handleProxySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{editingProxyId ? $t('编辑') : $t('添加')}</div>
               <div className="form-group" data-settings-field-id={settings.network.fields.proxyName.id} style={{ margin: 0 }}>
-                <label className="form-label">{$t('代理名称（备注）')}</label>
-                <input className="input" value={proxyForm.name} onChange={setProxyField('name')} placeholder={$t('代理名称（备注）')} />
+                <label className="form-label" htmlFor="network-proxy-name">{$t('代理名称（备注）')}</label>
+                <input id="network-proxy-name" name="network-proxy-name" autoComplete="off" className="input" value={proxyForm.name} onChange={setProxyField('name')} placeholder={$t('代理名称（备注）')} />
                 <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-tertiary)' }}>{$t('仅用于区分代理节点，不参与连接逻辑')}</div>
               </div>
               <div className="form-group" data-settings-field-id={settings.network.fields.proxyType.id} style={{ margin: 0 }}>
-                <label className="form-label">{$t('协议类型')}</label>
-                <select className="select" value={proxyForm.type} onChange={setProxyField('type')}>
+                <label className="form-label" htmlFor="network-proxy-type">{$t('协议类型')}</label>
+                <select id="network-proxy-type" name="network-proxy-type" className="select" value={proxyForm.type} onChange={setProxyField('type')}>
                   <option value="socks5">{$t('SOCKS5 代理')}</option>
                   <option value="http">{$t('HTTP 代理')}</option>
                 </select>
               </div>
               <div className="form-group" data-settings-field-id={settings.network.fields.proxyHost.id} style={{ margin: 0 }}>
-                <label className="form-label">{$t('主机地址')}</label>
-                <input className="input" value={proxyForm.host} onChange={setProxyField('host')} placeholder="127.0.0.1" />
+                <label className="form-label" htmlFor="network-proxy-host">{$t('主机地址')}</label>
+                <input id="network-proxy-host" name="network-proxy-host" autoComplete="off" className="input" value={proxyForm.host} onChange={setProxyField('host')} placeholder="127.0.0.1" />
               </div>
               <div className="form-group" data-settings-field-id={settings.network.fields.proxyPort.id} style={{ margin: 0 }}>
-                <label className="form-label">{$t('端口')}</label>
-                <input className="input" type="number" min={1} max={65535} value={proxyForm.port} onChange={setProxyField('port')} placeholder="1080" />
+                <label className="form-label" htmlFor="network-proxy-port">{$t('端口')}</label>
+                <input id="network-proxy-port" name="network-proxy-port" autoComplete="off" className="input" type="number" min={1} max={65535} value={proxyForm.port} onChange={setProxyField('port')} placeholder="1080" />
               </div>
               <div className="form-group" data-settings-field-id={settings.network.fields.proxyUsername.id} style={{ margin: 0 }}>
-                <label className="form-label">{$t('用户名')}</label>
-                <input className="input" value={proxyForm.username} onChange={setProxyField('username')} placeholder={$t('用户名')} />
+                <label className="form-label" htmlFor="network-proxy-username">{$t('用户名')}</label>
+                <input id="network-proxy-username" name="network-proxy-username" autoComplete="off" className="input" value={proxyForm.username} onChange={setProxyField('username')} placeholder={$t('用户名')} />
               </div>
               <div className="form-group" data-settings-field-id={settings.network.fields.proxyPassword.id} style={{ margin: 0 }}>
-                <label className="form-label">{$t('密码')}</label>
-                <input className="input" type="password" value={proxyForm.password} onChange={setProxyField('password')} placeholder={$t('密码')} />
+                <label className="form-label" htmlFor="network-proxy-password">{$t('密码')}</label>
+                <input id="network-proxy-password" name="network-proxy-password" autoComplete="off" className="input" type="password" value={proxyForm.password} onChange={setProxyField('password')} placeholder={$t('密码')} />
               </div>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 2, flexWrap: 'wrap' }}>
                 {editingProxyId ? <button type="button" className="btn btn-secondary" onClick={resetProxyForm}>{$t('取消编辑')}</button> : null}

@@ -157,6 +157,8 @@ export default function SearchableGroupedSelect({
             <Search size={14} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
             <input
               id={searchInputId}
+              name="searchable-select-search"
+              autoComplete="off"
               ref={searchInputRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}

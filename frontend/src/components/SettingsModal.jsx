@@ -2004,6 +2004,9 @@ export default function SettingsModal({
             <div style={{ padding: '0 4px 8px' }}>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="settings-modal-search"
+                  name="settings-modal-search"
+                  autoComplete="off"
                   className="input"
                   value={settingsSearchQuery}
                   onChange={(event) => setSettingsSearchQuery(event.target.value)}
@@ -2460,6 +2463,9 @@ export default function SettingsModal({
               {$t('常规密钥解密失败。如果此备份是用恢复密码加密的，请输入恢复密码重试：')}
             </div>
             <input
+              id="settings-modal-restore-password"
+              name="settings-modal-restore-password"
+              autoComplete="off"
               className="input"
               type="password"
               placeholder={$t('恢复密码')}

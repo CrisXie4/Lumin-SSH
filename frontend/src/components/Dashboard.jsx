@@ -641,6 +641,9 @@ export default function Dashboard({
                       {/* 搜索/新建输入框 */}
                       <div style={{ marginBottom: 6 }} onClick={(e) => e.stopPropagation()}>
                         <input
+                          id="dashboard-group-search"
+                          name="dashboard-group-search"
+                          autoComplete="off"
                           type="text"
                           className="input-compact"
                           placeholder={t('搜索或输入新分组...')}

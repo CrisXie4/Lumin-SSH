@@ -273,6 +273,8 @@ function DialogContent({ current, onClose, onConfirm, onChoice }) {
       </div>
       {isLongTextAlert ? (
         <textarea
+          id="global-dialog-long-text"
+          name="global-dialog-long-text"
           readOnly
           value={messageText}
           spellCheck={false}
@@ -315,6 +317,9 @@ function DialogContent({ current, onClose, onConfirm, onChoice }) {
         <>
           <div style={{ position: 'relative', marginBottom: inputError ? 8 : (current.checkboxLabel ? 12 : 28) }}>
             <input 
+              id="global-dialog-input"
+              name="global-dialog-input"
+              autoComplete="off"
               autoFocus
               className="input" 
               style={{
@@ -404,8 +409,8 @@ function DialogContent({ current, onClose, onConfirm, onChoice }) {
             </div>
           ) : null}
           {current.checkboxLabel && current.checkboxLabel.trim() && (
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 28, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} />
+            <label htmlFor="global-dialog-checkbox-prompt" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 28, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+              <input id="global-dialog-checkbox-prompt" name="global-dialog-checkbox-prompt" autoComplete="off" type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} />
               {current.checkboxLabel}
             </label>
           )}
@@ -435,8 +440,8 @@ function DialogContent({ current, onClose, onConfirm, onChoice }) {
           ))}
         </div>
         {current.checkboxLabel && (
-          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} />
+          <label htmlFor="global-dialog-checkbox-choice" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+            <input id="global-dialog-checkbox-choice" name="global-dialog-checkbox-choice" autoComplete="off" type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} />
             {current.checkboxLabel}
           </label>
         )}
@@ -444,8 +449,8 @@ function DialogContent({ current, onClose, onConfirm, onChoice }) {
       ) : (
       <>
       {current.type === 'confirm' && current.checkboxLabel && (
-        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
-          <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} />
+        <label htmlFor="global-dialog-checkbox-confirm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+          <input id="global-dialog-checkbox-confirm" name="global-dialog-checkbox-confirm" autoComplete="off" type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} />
           {current.checkboxLabel}
         </label>
       )}

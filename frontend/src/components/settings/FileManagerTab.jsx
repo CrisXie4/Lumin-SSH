@@ -319,37 +319,37 @@ export default function FileManagerTab({
           <SettingRow
             definition={settings.fileManager.fields.chunkSize}
             description={withDefaultValue($t('控制单个文件上传时的默认分块大小'), '256 KiB')}
-            action={<input className="input" type="number" value={fileManagerUploadChunkSizeKiB} onChange={onFileManagerUploadChunkSizeKiBChange} style={{ width: 160, textAlign: 'right' }} />}
+            action={<input id="fm-chunk-size" name="fm-chunk-size" className="input" type="number" autoComplete="off" value={fileManagerUploadChunkSizeKiB} onChange={onFileManagerUploadChunkSizeKiBChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <SettingsDivider />
           <SettingRow
             definition={settings.fileManager.fields.maxTransferTasks}
             description={renderWarningDescription(withTransferDefaultValue($t('控制当前会话内同时进行的上传和下载任务数量,每个文件或文件夹都算一个任务'), '6'), $t('增大后可能提高同一会话内的 SFTP/SSH 通道占用'))}
-            action={<input className="input" type="number" value={fileManagerUploadMaxFiles} onChange={onFileManagerUploadMaxFilesChange} style={{ width: 160, textAlign: 'right' }} />}
+            action={<input id="fm-max-transfer-tasks" name="fm-max-transfer-tasks" className="input" type="number" autoComplete="off" value={fileManagerUploadMaxFiles} onChange={onFileManagerUploadMaxFilesChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <SettingsDivider />
           <SettingRow
             definition={settings.fileManager.fields.maxChunksPerFile}
             description={renderWarningDescription(withDefaultValue($t('控制单个文件在同一时间允许并发传输的分块数量'), '8'), $t('在压缩传输或原生单文件传输场景下,增大后可能提高同一会话内的 SFTP/SSH 通道占用'))}
-            action={<input className="input" type="number" value={fileManagerUploadMaxChunksPerFile} onChange={onFileManagerUploadMaxChunksPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
+            action={<input id="fm-max-chunks-per-file" name="fm-max-chunks-per-file" className="input" type="number" autoComplete="off" value={fileManagerUploadMaxChunksPerFile} onChange={onFileManagerUploadMaxChunksPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <SettingsDivider />
           <SettingRow
             definition={settings.fileManager.fields.globalInflightLimit}
             description={renderWarningDescription(withDefaultValue($t('控制所有上传任务共享的在途分块总数'), '24'), $t('在前端分块上传场景下,增大后可能提高同一会话内的 SFTP/SSH 通道占用'))}
-            action={<input className="input" type="number" value={fileManagerUploadGlobalInflightLimit} onChange={onFileManagerUploadGlobalInflightLimitChange} style={{ width: 160, textAlign: 'right' }} />}
+            action={<input id="fm-global-inflight-limit" name="fm-global-inflight-limit" className="input" type="number" autoComplete="off" value={fileManagerUploadGlobalInflightLimit} onChange={onFileManagerUploadGlobalInflightLimitChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <SettingsDivider />
           <SettingRow
             definition={settings.fileManager.fields.maxPacketSize}
             description={withTransferDefaultValue($t('单个 SFTP 数据包的载荷上限,高延迟链路上调大可显著提速;如果服务器不接受会自动回退'), '128 KiB')}
-            action={<input className="input" type="number" value={transferMaxPacketKiB} onChange={onTransferMaxPacketKiBChange} style={{ width: 160, textAlign: 'right' }} />}
+            action={<input id="fm-max-packet-size" name="fm-max-packet-size" className="input" type="number" autoComplete="off" value={transferMaxPacketKiB} onChange={onTransferMaxPacketKiBChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <SettingsDivider />
           <SettingRow
             definition={settings.fileManager.fields.requestPipelineDepth}
             description={withTransferDefaultValue($t('单个文件同时保持在链路上的 SFTP 请求数量;实际生效值会按 SSH 通道窗口自动收窄,填写超出窗口的数值不会提速,只会额外占用资源'), '16')}
-            action={<input className="input" type="number" value={transferMaxRequestsPerFile} onChange={onTransferMaxRequestsPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
+            action={<input id="fm-request-pipeline-depth" name="fm-request-pipeline-depth" className="input" type="number" autoComplete="off" value={transferMaxRequestsPerFile} onChange={onTransferMaxRequestsPerFileChange} style={{ width: 160, textAlign: 'right' }} />}
           />
           <SettingsDivider />
           <SettingRow
@@ -464,7 +464,7 @@ export default function FileManagerTab({
                 <div>{$t('预保存：{path}', { path: fileManagerDownloadDefaultDirPreview || $t('加载中...') })}</div>
               </>
             )}
-            action={<input className="input" type="text" value={fileManagerDownloadDefaultDir} onChange={onFileManagerDownloadDefaultDirChange} style={{ width: 260 }} />}
+            action={<input id="fm-download-default-dir" name="fm-download-default-dir" className="input" type="text" autoComplete="off" value={fileManagerDownloadDefaultDir} onChange={onFileManagerDownloadDefaultDirChange} style={{ width: 260 }} />}
           />
         </SettingsPanel>
       </div>

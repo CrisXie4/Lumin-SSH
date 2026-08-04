@@ -201,6 +201,9 @@ export default function KeywordRulesPanel({ rules, onRulesChange, onResetDefault
             {isEditing && (
               <div style={{ display: 'flex', gap: 6, marginTop: 6, paddingLeft: 8 }}>
                 <input
+                  id="keyword-rules-input"
+                  name="keyword-rules-input"
+                  autoComplete="off"
                   value={keywordInput}
                   onChange={(e) => setKeywordInput(e.target.value)}
                   onKeyDown={(e) => handleKeywordInputKeyDown(e, rule.id)}

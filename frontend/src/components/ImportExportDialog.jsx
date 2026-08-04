@@ -141,6 +141,9 @@ export default function ImportExportDialog({ onClose, onExport, onImport, onDown
                 {keyMode === 'password' && (
                   <div style={{ position: 'relative', marginTop: 2 }}>
                     <input
+                      id="import-export-password"
+                      name="import-export-password"
+                      autoComplete="off"
                       className="input"
                       type={showPassword ? 'text' : 'password'}
                       placeholder={t('请输入导出密码')}

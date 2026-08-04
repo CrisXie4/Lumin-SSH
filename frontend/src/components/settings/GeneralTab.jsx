@@ -104,8 +104,9 @@ export default function GeneralTab({
       if (!binding) {
         return null;
       }
+      const selectId = `general-${node.stateKey.replace(/[A-Z]/g, (m) => m.toLowerCase())}`;
       return (
-        <select className="select" style={{ width: binding.width }} value={binding.value} onChange={binding.onChange}>
+        <select id={selectId} name={selectId} className="select" style={{ width: binding.width }} value={binding.value} onChange={binding.onChange}>
           {binding.options.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}

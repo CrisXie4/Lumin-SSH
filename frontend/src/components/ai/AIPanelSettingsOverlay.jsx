@@ -505,10 +505,13 @@ export default function AIPanelSettingsOverlay({
                           <span style={{ fontSize: 13, minWidth: 56, textAlign: 'right', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{`${Math.round((Number.isFinite(Number(soundVolume)) ? Number(soundVolume) : 0.2) * 100)}%`}</span>
                         </div>
                         <input
+                          id="ai-panel-sound-volume"
+                          name="ai-panel-sound-volume"
                           type="range"
                           min="0"
                           max="100"
                           step="1"
+                          autoComplete="off"
                           value={Math.round((Number.isFinite(Number(soundVolume)) ? Number(soundVolume) : 0.2) * 100)}
                           onChange={(event) => onSaveGlobalAISettings?.({ soundVolume: Math.max(0, Math.min(1, (parseInt(event.target.value, 10) || 0) / 100)) })}
                           style={{ width: '100%', cursor: 'pointer' }}
@@ -526,10 +529,13 @@ export default function AIPanelSettingsOverlay({
                       <span style={{ fontSize: 13, minWidth: 56, textAlign: 'right', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{terminalOutputLineLimit}</span>
                     </div>
                     <input
+                      id="ai-panel-terminal-output-line-limit"
+                      name="ai-panel-terminal-output-line-limit"
                       type="range"
                       min="10"
                       max="5000"
                       step="10"
+                      autoComplete="off"
                       value={terminalOutputLineLimit}
                       onChange={onTerminalOutputLineLimitChange}
                       style={{ width: '100%', cursor: 'pointer' }}
@@ -545,9 +551,12 @@ export default function AIPanelSettingsOverlay({
                       <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('当工具返回结果的预估 Token 数超过此阈值时,原始内容将被省略,并显示“结果过大”的提示.调高可保留更多原始输出,但也会增加上下文膨胀风险.')}</div>
                     </div>
                     <input
+                      id="ai-panel-tool-result-token-threshold"
+                      name="ai-panel-tool-result-token-threshold"
                       type="number"
                       min="1"
                       step="1000"
+                      autoComplete="off"
                       value={toolResultTokenThreshold}
                       onChange={(event) => {
                         const nextValue = parseInt(event.target.value, 10)
@@ -576,6 +585,8 @@ export default function AIPanelSettingsOverlay({
                       <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('选择 AI 请求使用的代理节点，首项为不使用。')}</div>
                     </div>
                     <select
+                      id="ai-panel-proxy"
+                      name="ai-panel-proxy"
                       className="select"
                       value={aiRequestProxyId}
                       onChange={(event) => onSaveGlobalAISettings?.({ aiRequestProxyId: event.target.value })}

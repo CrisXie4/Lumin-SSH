@@ -113,6 +113,9 @@ export default function AppearanceTab({
                   <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{filteredFonts.length} {$t('个字体')}</span>
                 </div>
                 <input
+                  id="appearance-font-search"
+                  name="appearance-font-search"
+                  autoComplete="off"
                   className="input"
                   value={programFontSearchQuery}
                   onChange={(event) => onProgramFontSearchQueryChange(event.target.value)}
@@ -236,6 +239,9 @@ export default function AppearanceTab({
             action={(
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <input
+                  id="appearance-terminal-font-size"
+                  name="appearance-terminal-font-size"
+                  autoComplete="off"
                   type="range"
                   min="10"
                   max="28"
@@ -431,9 +437,9 @@ export default function AppearanceTab({
                   {$t('恢复默认')}
                 </button>
               )}
-              <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', fontSize: 12, borderRadius: 'var(--radius-sm)' }}>
+              <label htmlFor="appearance-wallpaper-upload" className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', fontSize: 12, borderRadius: 'var(--radius-sm)' }}>
                 {$t('上传图片')}
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onTermBgUpload} />
+                <input id="appearance-wallpaper-upload" name="appearance-wallpaper-upload" autoComplete="off" type="file" accept="image/*" style={{ display: 'none' }} onChange={onTermBgUpload} />
               </label>
             </div>
           </div>
@@ -444,6 +450,9 @@ export default function AppearanceTab({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <input
+                id="appearance-wallpaper-opacity"
+                name="appearance-wallpaper-opacity"
+                autoComplete="off"
                 type="range"
                 min="0.0"
                 max="1.0"

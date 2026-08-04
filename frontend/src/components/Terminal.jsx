@@ -1243,6 +1243,11 @@ export default function Terminal({
       },
     });
     term.open(containerRef.current);
+    const terminalInput = containerRef.current.querySelector('.xterm-helper-textarea');
+    if (terminalInput) {
+      terminalInput.name = 'terminalInput';
+      terminalInput.autocomplete = 'off';
+    }
     alternateBufferActiveRef.current = false;
     setAlternateBufferActive(false);
 
@@ -3205,6 +3210,9 @@ export default function Terminal({
         >
           <Search size={13} style={{ color: 'var(--term-muted)', flexShrink: 0 }} />
           <input
+            name="terminal-search"
+            autoComplete="off"
+            aria-label={t('终端输出搜索')}
             ref={termSearchInputRef}
             value={termSearchQuery}
             onChange={(e) => setTermSearchQuery(e.target.value)}
@@ -3383,6 +3391,8 @@ export default function Terminal({
                 <div className="term-quick-cmd-search">
                   <Search size={12} />
                   <input
+                    name="terminal-quick-cmd-search"
+                    autoComplete="off"
                     ref={quickCmdSearchRef}
                     type="text"
                     value={quickCmdSearch}
@@ -3427,6 +3437,7 @@ export default function Terminal({
         <textarea
           ref={cmdInputRef}
           className="input term-command-input"
+          name="terminalCommand"
           value={cmdInput}
           rows={1}
           spellCheck={false}
@@ -3865,6 +3876,9 @@ export default function Terminal({
               flexShrink: 0,
             }}>
               <input
+                name="terminal-history-search"
+                autoComplete="off"
+                aria-label={t('搜索命令历史')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={t('搜索命令...')}
@@ -3926,6 +3940,9 @@ export default function Terminal({
                       {p.label || `${t('参数')}${p.num}`}
                     </label>
                     <input
+                      name={`terminal-quick-cmd-param-${p.num}`}
+                      autoComplete="off"
+                      aria-label={p.label || `${t('参数')}${p.num}`}
                       id={`quick-cmd-param-${p.num}`}
                       type="text"
                       className="input"

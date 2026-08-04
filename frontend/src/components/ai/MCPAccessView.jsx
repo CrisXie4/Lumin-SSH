@@ -93,6 +93,8 @@ export default function MCPAccessView({
       <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)' }}>
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>{t('MCP 配置片段')}</div>
         <textarea
+          id="mcp-access-config"
+          name="mcp-access-config"
           readOnly
           value={configText}
           rows={configRows}

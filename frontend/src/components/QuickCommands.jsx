@@ -997,6 +997,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
             <div style={{ padding: 12, flex: 1, minHeight: 0, display: 'flex' }}>
               <textarea
+                id="qc-cmd-editor"
+                name="qc-cmd-editor"
                 value={cmdEditorText}
                 onChange={(e) => setCmdEditorText(e.target.value)}
                 autoFocus
@@ -1068,6 +1070,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                     }}>
                       <input
                         type="checkbox"
+                        name="qc-clear-after-send"
                         checked={cmdEditorClearAfterSend}
                         onChange={(e) => setCmdEditorClearAfterSend(e.target.checked)}
                         style={{ accentColor: 'var(--success)' }}
@@ -1080,6 +1083,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                     }}>
                       <input
                         type="checkbox"
+                        name="qc-add-cr-editor"
                         checked={cmdEditorAddCR}
                         onChange={(e) => setCmdEditorAddCR(e.target.checked)}
                         style={{ accentColor: 'var(--success)' }}
@@ -1092,6 +1096,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
               <div style={{ flex: 1 }} />
               <span style={{ fontSize: 11, color: C.mutedColor }}>{t('发送到')}</span>
               <select
+                id="qc-send-target-editor"
+                name="qc-send-target-editor"
                 value={sendTarget}
                 onChange={(e) => setSendTarget(e.target.value)}
                 style={{
@@ -1136,6 +1142,9 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
           <div style={{ padding: '2px 2px 6px', flexShrink: 0 }}>
             <input
               type="text"
+              name="qc-search"
+              aria-label={t('搜索命令...')}
+              autoComplete="off"
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
               placeholder={t('搜索命令...')}
@@ -1193,9 +1202,12 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
           {selectedItem && selectedItem.type === 'group' ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 14px', gap: 10, minHeight: 0, overflow: 'auto' }}>
               <div>
-                <label style={{ fontSize: 11, color: C.statusBarColor, display: 'block', marginBottom: 4 }}>{t('分组名称')}</label>
+                <label htmlFor="qc-group-name" style={{ fontSize: 11, color: C.statusBarColor, display: 'block', marginBottom: 4 }}>{t('分组名称')}</label>
                 <input
+                  id="qc-group-name"
+                  name="qc-group-name"
                   type="text"
+                  autoComplete="off"
                   value={editGroupName}
                   onChange={e => setEditGroupName(e.target.value)}
                   style={inputStyle}
@@ -1300,6 +1312,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               <input
                                 type="text"
+                                name={`qc-param-${p.num}`}
+                                autoComplete="off"
                                 value={paramValues[p.num] || ''}
                                 onChange={e => setParamValues(prev => ({ ...prev, [p.num]: e.target.value }))}
                                 onKeyDown={e => { if (e.key === 'Enter') doExecute(selectedItem); }}
@@ -1377,6 +1391,9 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                                 <div style={{ padding: 6, flexShrink: 0, borderBottom: '1px solid var(--border-subtle)' }}>
                                   <input
                                     type="text"
+                                    name="qc-history-search"
+                                    aria-label={t('搜索历史...')}
+                                    autoComplete="off"
                                     autoFocus
                                     value={historySearch}
                                     onChange={e => setHistorySearch(e.target.value)}
@@ -1461,6 +1478,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                 <label style={{ fontSize: 11, color: C.statusBarColor, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                   <input
                     type="checkbox"
+                    name="qc-dialog-add-cr"
                     checked={selectedItem.addCR !== false}
                     onChange={(e) => {
                       const list = structuredClone(commands);
@@ -1476,6 +1494,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 11, color: C.mutedColor }}>{t('发送到')}</span>
                   <select
+                    id="qc-send-target-detail"
+                    name="qc-send-target-detail"
                     value={sendTarget}
                     onChange={(e) => setSendTarget(e.target.value)}
                     style={{
@@ -1598,9 +1618,12 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
 
             {/* 名称 */}
             <div style={{ marginBottom: 12 }}>
-              <label style={_labelStyle}>{t('名称')}</label>
+              <label htmlFor="qc-dlg-name" style={_labelStyle}>{t('名称')}</label>
               <input
+                id="qc-dlg-name"
+                name="qc-dlg-name"
                 type="text"
+                autoComplete="off"
                 value={dlgName}
                 onChange={e => setDlgName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleDlgSave(); } }}
@@ -1615,7 +1638,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
               <>
               <div style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <label style={_labelStyle}>{t('命令')}</label>
+                <label htmlFor="qc-dlg-cmd" style={_labelStyle}>{t('命令')}</label>
                 <div style={{ display: 'flex', gap: 3 }}>
                   {[1,2,3,4,5].map(n => (
                     <Tiptop key={n} text={t('插入参数 p#') + n}>
@@ -1633,6 +1656,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                 </div>
               </div>
               <textarea
+                id="qc-dlg-cmd"
+                name="qc-dlg-cmd"
                 value={dlgCmd}
                 onChange={e => setDlgCmd(e.target.value)}
                 rows={3}
@@ -1655,6 +1680,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, cursor: 'pointer', fontSize: 12, color: C.statusBarColor }}>
               <input
                 type="checkbox"
+                name="qc-dlg-cr"
                 checked={dlgAddCR}
                 onChange={e => setDlgAddCR(e.target.checked)}
                 style={{ accentColor: 'var(--success)' }}

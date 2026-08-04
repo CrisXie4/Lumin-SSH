@@ -294,7 +294,7 @@ export default function NetworkPage({ sessionId, active }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{t('连接端口')}</div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={showAllListeners} onChange={(event) => handleShowAllListenersChange(event.target.checked)} />
+                  <input id="network-page-show-all-listeners" name="network-page-show-all-listeners" autoComplete="off" type="checkbox" checked={showAllListeners} onChange={(event) => handleShowAllListenersChange(event.target.checked)} />
                   <span>{t('显示全部监听端口')}</span>
                   {!showAllListeners && hiddenConnectionCount > 0 ? <span>({t('已隐藏空闲监听端口')}: {hiddenConnectionCount})</span> : null}
                 </label>

@@ -166,6 +166,9 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }) {
             <div style={{ position: 'relative', marginBottom: prompt.checkboxLabel ? 12 : 18 }}>
               <input
                 ref={inputRef}
+                id="session-auth-password"
+                name="session-auth-password"
+                autoComplete="off"
                 className="input"
                 type={showPassword ? 'text' : 'password'}
                 value={value}
@@ -197,11 +200,18 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }) {
               ><Clipboard size={16} /></button>
             </div>
             {prompt.checkboxLabel && (
-              <label style={{
+              <label htmlFor="session-auth-remember" style={{
                 display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18,
                 fontSize: 12.5, color: C.statusBarColor, cursor: 'pointer',
               }}>
-                <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+                <input
+                  id="session-auth-remember"
+                  name="session-auth-remember"
+                  autoComplete="off"
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => setChecked(e.target.checked)}
+                />
                 {prompt.checkboxLabel}
               </label>
             )}
