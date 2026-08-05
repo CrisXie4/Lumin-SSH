@@ -2640,41 +2640,58 @@ export default function Terminal({
 
   // ── 底部命令输入栏逻辑 ──────────────────────────────────────
 
-  // 监听清除事件（CommandHistory 标签页清空时同步）
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.detail?.sessionId === serverId) setHistoryList([]);
-    };
-    window.addEventListener('ssh-history-cleared', handler);
-    return () => window.removeEventListener('ssh-history-cleared', handler);
-  }, [serverId]);
-
   const scrollOnNextUpdate = useRef(false);
+  // 加载请求序号：快速切换模式/服务器时丢弃旧结果，避免倒灌
+  const historyLoadSeqRef = useRef(0);
 
-  // 弹窗打开或切换模式时加载历史数据
-  useEffect(() => {
+  // 弹窗打开/切换模式/收到变更事件时加载历史数据
+  const reloadHistoryList = useCallback(() => {
     if (!showHistory) return;
+    const seq = ++historyLoadSeqRef.current;
     scrollOnNextUpdate.current = true;
-    let cancelled = false;
     (async () => {
       try {
         const raw = historyMode === 'global'
           ? await AppGo.GetGlobalCommandHistory()
           : await AppGo.GetCommandHistory(historyServerId);
-        if (cancelled) return;
+        if (seq !== historyLoadSeqRef.current) return;
         const entries = JSON.parse(raw);
         const arr = Array.isArray(entries) ? entries : [];
         setHistoryList(arr);
         // 数据为空则无需滚动，直接清空列表
         if (arr.length === 0) scrollOnNextUpdate.current = false;
       } catch {
-        if (cancelled) return;
+        if (seq !== historyLoadSeqRef.current) return;
         setHistoryList([]);
         scrollOnNextUpdate.current = false;
       }
     })();
-    return () => { cancelled = true; };
-  }, [showHistory, historyMode]);
+  }, [showHistory, historyMode, historyServerId]);
+
+  useEffect(() => {
+    if (!showHistory) return;
+    reloadHistoryList();
+  }, [showHistory, reloadHistoryList]);
+
+  // 监听清空/变更事件：按作用域刷新弹窗列表
+  // - 全局清空/变更：仅当前为全局模式时刷新
+  // - 服务器清空/变更：仅当前为服务器模式且目标服务器匹配时刷新
+  useEffect(() => {
+    if (!showHistory) return;
+    const handler = (e) => {
+      const d = e.detail;
+      const scope = d?.scope || 'server';
+      if (scope !== historyMode) return;
+      if (scope === 'server' && d?.historyServerId && d.historyServerId !== historyServerId) return;
+      reloadHistoryList();
+    };
+    window.addEventListener('ssh-history-cleared', handler);
+    window.addEventListener('ssh-history-changed', handler);
+    return () => {
+      window.removeEventListener('ssh-history-cleared', handler);
+      window.removeEventListener('ssh-history-changed', handler);
+    };
+  }, [showHistory, historyMode, historyServerId, reloadHistoryList]);
 
   // 数据渲染后定位到底部，默认选中最新一项
   useEffect(() => {
@@ -2856,13 +2873,22 @@ export default function Terminal({
     awaitingCommandFinishRef.current = pending.item.addCR !== false;
   };
 
-  const deleteHistoryItem = (id) => {
-    const next = historyListRef.current.filter(item => item.id !== id);
-    setHistoryList(next);
-    if (historyMode === 'global') {
-      AppGo.SaveGlobalCommandHistory(JSON.stringify(next)).catch(() => {});
-    } else {
-      AppGo.SaveCommandHistory(historyServerId, JSON.stringify(next)).catch(() => {});
+  const deleteHistoryItem = async (id) => {
+    const scope = historyMode;
+    try {
+      const next = historyListRef.current.filter(item => item.id !== id);
+      if (scope === 'global') {
+        await AppGo.SaveGlobalCommandHistory(JSON.stringify(next));
+      } else {
+        await AppGo.SaveCommandHistory(historyServerId, JSON.stringify(next));
+      }
+      setHistoryList(next);
+      // 通知历史页 / 自动补全刷新，避免继续显示已删除条目
+      window.dispatchEvent(new CustomEvent('ssh-history-changed', {
+        detail: { sessionId: serverId, historyServerId, scope }
+      }));
+    } catch (error) {
+      console.error('[Terminal] 删除历史失败:', error);
     }
   };
 
@@ -3102,9 +3128,11 @@ export default function Terminal({
 
     window.addEventListener('ssh-command-history', invalidate);
     window.addEventListener('ssh-history-cleared', invalidate);
+    window.addEventListener('ssh-history-changed', invalidate);
     return () => {
       window.removeEventListener('ssh-command-history', invalidate);
       window.removeEventListener('ssh-history-cleared', invalidate);
+      window.removeEventListener('ssh-history-changed', invalidate);
     };
   }, []);
 
@@ -3878,7 +3906,9 @@ export default function Terminal({
             left: historyPopupPos.left,
             bottom: historyPopupPos.bottom,
             width: 480,
+            maxWidth: 'calc(100vw - 16px)',
             maxHeight: 280,
+            boxSizing: 'border-box',
             display: 'flex', flexDirection: 'column',
             zIndex: Z.POPUP,
             fontFamily: 'var(--font-terminal)',
@@ -3896,13 +3926,17 @@ export default function Terminal({
                 <button
                   onClick={async () => {
                     try {
-                      if (historyMode === 'global') {
+                      const scope = historyMode;
+                      if (scope === 'global') {
                         await AppGo.SaveGlobalCommandHistory('[]');
                       } else {
                         await AppGo.SaveCommandHistory(historyServerId, '[]');
-                        window.dispatchEvent(new CustomEvent('ssh-history-cleared', { detail: { sessionId: serverId } }));
                       }
                       setHistoryList([]);
+                      // 通知历史页 / 自动补全按作用域刷新（全局清空不触碰服务器历史）
+                      window.dispatchEvent(new CustomEvent('ssh-history-cleared', {
+                        detail: { sessionId: serverId, historyServerId, scope }
+                      }));
                     } catch (error) {
                       console.error('[Terminal] 清空历史失败:', error);
                     }
@@ -3935,7 +3969,6 @@ export default function Terminal({
                 role="option"
                 aria-selected={historySelectedIndex === index}
                 onClick={() => selectHistoryCmd(item.command)}
-                onMouseEnter={() => setHistorySelectedIndex(index)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '6px 10px',

@@ -224,7 +224,7 @@ function TreeNode({ item, index, path, selectedPath, onSelect, contextMenu, onCo
   );
 }
 
-const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, connectedSessions = [], onClose }, ref) {
+const QuickCommands = forwardRef(function QuickCommands({ sessionId, historySessionId, addToast, connectedSessions = [], onClose }, ref) {
   const { t } = useTranslation();
   const [commands, setCommands] = useState([]);
   const [selectedPath, setSelectedPath] = useState(null);
@@ -849,21 +849,27 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
       AppGo.SaveParamHistory(JSON.stringify(pHist)).catch(() => {});
     }
 
-    window.dispatchEvent(new CustomEvent('ssh-command-history', {
-      detail: { sessionId, command: filled, time: new Date().toISOString(), source: 'input' }
-    }));
-
+    const timestamp = new Date().toISOString();
     if (sendTarget === 'all' && connectedSessions.length > 0) {
+      // 发送到全部：为每个目标服务器按其归组 id 派发历史事件，
+      // 避免只记录一台服务器；WriteTerminal 写入各自会话。
       connectedSessions.forEach(s => {
         AppGo.WriteTerminal(s.id, finalCmd).catch((err) => {
           console.error('WriteTerminal failed:', err);
         });
+        window.dispatchEvent(new CustomEvent('ssh-command-history', {
+          detail: { sessionId: s.id, command: filled, time: timestamp, source: 'input' }
+        }));
       });
       if (addToast) addToast(t('已发送到 ') + connectedSessions.length + t(' 个会话'), 'info', 2000);
     } else {
+      // 当前目标：写入活动终端；历史事件用父会话归组 id，避免副终端快捷命令不入历史
       AppGo.WriteTerminal(sessionId, finalCmd).catch((err) => {
         console.error('WriteTerminal failed:', err);
       });
+      window.dispatchEvent(new CustomEvent('ssh-command-history', {
+        detail: { sessionId: historySessionId || sessionId, command: filled, time: timestamp, source: 'input' }
+      }));
       if (addToast) addToast(t('已发送指令到终端'), 'info', 2000);
     }
   };
@@ -874,19 +880,28 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
     const text = cmd.trim();
     if (!text) return;
     const finalCmd = cmdEditorAddCR ? (text + '\r') : text;
+    const timestamp = new Date().toISOString();
     if (sendTarget === 'all' && connectedSessions.length > 0) {
-      connectedSessions.forEach(s => AppGo.WriteTerminal(s.id, finalCmd).catch((err) => {
-        console.error('WriteTerminal failed:', err);
-      }));
+      connectedSessions.forEach(s => {
+        AppGo.WriteTerminal(s.id, finalCmd).catch((err) => {
+          console.error('WriteTerminal failed:', err);
+        });
+        window.dispatchEvent(new CustomEvent('ssh-command-history', {
+          detail: { sessionId: s.id, command: text, time: timestamp, source: 'input' }
+        }));
+      });
       if (addToast) addToast(t('已发送到 ') + connectedSessions.length + t(' 个会话'), 'info', 2000);
     } else {
       AppGo.WriteTerminal(sessionId, finalCmd).catch((err) => {
         console.error('WriteTerminal failed:', err);
       });
+      window.dispatchEvent(new CustomEvent('ssh-command-history', {
+        detail: { sessionId: historySessionId || sessionId, command: text, time: timestamp, source: 'input' }
+      }));
       if (addToast) addToast(t('已发送'), 'info', 1500);
     }
     if (cmdEditorClearAfterSend) setCmdEditorText('');
-  }, [addToast, cmdEditorAddCR, cmdEditorClearAfterSend, cmdEditorText, connectedSessions, sendTarget, sessionId, t]);
+  }, [addToast, cmdEditorAddCR, cmdEditorClearAfterSend, cmdEditorText, connectedSessions, sendTarget, sessionId, historySessionId, t]);
 
   // ── 插入参数按钮 ────────────────────────────────────
   const insertParam = (n) => {

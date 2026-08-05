@@ -677,6 +677,7 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                             <QuickCommands
                               ref={quickCmdsRef}
                               sessionId={activeTerminalId || s.id}
+                              historySessionId={s.id}
                               addToast={addToast}
                               connectedSessions={connectedSessions}
                               onClose={() => setShowQuickCommands(false)}
@@ -925,6 +926,7 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                               <CommandHistory
                                 sessionId={s.id}
                                 historyServerId={s.serverId}
+                                terminalId={activeTerminalId || s.id}
                                 addToast={addToast}
                               />
                             </div>
