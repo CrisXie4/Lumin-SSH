@@ -544,7 +544,7 @@ export default {
   "剪切": "tăiat",
   "重新连接": "reconectați",
   "输入命令": "Introdu comanda",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Introduceti o comanda (/ comanda rapida). Ctrl+Enter sau Shift+Enter pentru linie noua",
+  "换行": "Linie nouă",
   "历史": "istorie",
   "快捷命令": "Comenzi de comandă rapidă",
   "命令": "Comanda",

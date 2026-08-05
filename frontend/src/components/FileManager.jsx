@@ -7104,28 +7104,32 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               {fileLocatorMatches.length > 0 ? `${fileLocatorActiveIndex + 1}/${fileLocatorMatches.length}` : '0'}
             </span>
           ) : null}
-          <Tiptop text={t('上一个命中')} placement="bottom">
-            <button
-              className="btn file-toolbar-outline-btn"
-              aria-label={t('上一个命中')}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => navigateFileLocatorMatch(-1)}
-              disabled={fileLocatorMatches.length === 0}
-            >
-              <ChevronUp size={14} />
-            </button>
-          </Tiptop>
-          <Tiptop text={t('下一个命中')} placement="bottom">
-            <button
-              className="btn file-toolbar-outline-btn"
-              aria-label={t('下一个命中')}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => navigateFileLocatorMatch(1)}
-              disabled={fileLocatorMatches.length === 0}
-            >
-              <ChevronDown size={14} />
-            </button>
-          </Tiptop>
+          {fileLocatorQuery.trim() ? (
+            <>
+              <Tiptop text={t('上一个命中')} placement="bottom">
+                <button
+                  className="btn file-toolbar-outline-btn"
+                  aria-label={t('上一个命中')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => navigateFileLocatorMatch(-1)}
+                  disabled={fileLocatorMatches.length === 0}
+                >
+                  <ChevronUp size={14} />
+                </button>
+              </Tiptop>
+              <Tiptop text={t('下一个命中')} placement="bottom">
+                <button
+                  className="btn file-toolbar-outline-btn"
+                  aria-label={t('下一个命中')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => navigateFileLocatorMatch(1)}
+                  disabled={fileLocatorMatches.length === 0}
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </Tiptop>
+            </>
+          ) : null}
         </div>
 
         <div className="file-toolbar-actions">

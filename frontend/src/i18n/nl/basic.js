@@ -549,7 +549,7 @@ export default {
   "剪切": "snee",
   "重新连接": "opnieuw verbinden",
   "输入命令": "Voer de opdracht in",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Voer opdracht in (/ snelle opdracht). Ctrl+Enter of Shift+Enter voor nieuwe regel",
+  "换行": "Nieuwe regel",
   "历史": "geschiedenis",
   "快捷命令": "Snelkoppelingsopdrachten",
   "命令": "Volgorde",

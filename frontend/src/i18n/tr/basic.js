@@ -544,7 +544,7 @@ export default {
   "剪切": "kesmek",
   "重新连接": "yeniden bağlan",
   "输入命令": "Komutu girin",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Komut girin (/ hizli komut). Yeni satir icin Ctrl+Enter veya Shift+Enter",
+  "换行": "Yeni satır",
   "历史": "tarih",
   "快捷命令": "Kısayol komutları",
   "命令": "Emir",

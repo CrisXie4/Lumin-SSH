@@ -549,7 +549,7 @@ export default {
   "剪切": "střih",
   "重新连接": "znovu připojit",
   "输入命令": "Zadejte příkaz",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Zadejte prikaz (/ rychly prikaz). Ctrl+Enter nebo Shift+Enter pro novy radek",
+  "换行": "Nový řádek",
   "历史": "dějiny",
   "快捷命令": "Zkratkové příkazy",
   "命令": "Objednávka",

@@ -3687,7 +3687,7 @@ export default function Terminal({
             }
 
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-              if (e.shiftKey || e.ctrlKey) {
+              if (e.shiftKey) {
                 return;
               }
               e.preventDefault();
@@ -3695,7 +3695,7 @@ export default function Terminal({
               executeCommand();
             }
           }}
-          placeholder={`${t('输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行')} · Alt → ${t('历史指令')} ${t('搜索')}`}
+          placeholder={`${t('输入命令')} (/ ${t('快捷命令')}) · Shift+Enter ${t('换行')} · Alt → ${t('历史指令')} ${t('搜索')}`}
           style={{
             flex: 1,
             fontSize: 12,

@@ -549,7 +549,7 @@ export default {
   "剪切": "cortar",
   "重新连接": "reconectar",
   "输入命令": "Introduzca el comando",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Introduce un comando (/ comando rapido). Ctrl+Enter o Shift+Enter para nueva linea",
+  "换行": "Nueva línea",
   "历史": "historia",
   "快捷命令": "Comandos de acceso directo",
   "命令": "Orden",

@@ -549,7 +549,7 @@ export default {
   "剪切": "Cut",
   "重新连接": "Reconnect",
   "输入命令": "Enter command",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Enter command (/ quick command). Ctrl+Enter or Shift+Enter for newline",
+  "换行": "New line",
   "历史": "History",
   "快捷命令": "Quick Commands",
   "命令": "Command",

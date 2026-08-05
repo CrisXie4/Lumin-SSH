@@ -544,7 +544,7 @@ export default {
   "剪切": "cięcie",
   "重新连接": "na nowo połączyć",
   "输入命令": "Wprowadź polecenie",
-  "输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行": "Wpisz polecenie (/ szybkie polecenie). Ctrl+Enter lub Shift+Enter - nowa linia",
+  "换行": "Nowy wiersz",
   "历史": "historia",
   "快捷命令": "Polecenia skrótów",
   "命令": "Zamówienie",
