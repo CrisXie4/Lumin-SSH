@@ -2691,7 +2691,6 @@ body.theme-light .batch-operation-bar {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  scrollbar-gutter: stable;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
