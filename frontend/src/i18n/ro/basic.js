@@ -373,6 +373,8 @@ export default {
   "命令已复制到剪贴板": "Comanda a fost copiată în clipboard",
   "已发送指令到终端": "Comanda trimisă la terminal",
   "确定要清空该服务器的历史指令吗？": "Sigur doriți să ștergeți istoricul comenzilor acestui server?",
+  "确定要清空全部服务器的历史指令吗？": "Sigur doriți să ștergeți istoricul comenzilor tuturor serverelor?",
+  "清空历史失败": "Ștergerea istoricului nu a reușit",
   "搜索命令...": "Comanda de căutare...",
   "当前服务器": "serverul curent",
   "全部服务器": "Toate serverele",

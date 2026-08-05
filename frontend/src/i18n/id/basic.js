@@ -373,6 +373,8 @@ export default {
   "命令已复制到剪贴板": "Perintah disalin ke clipboard",
   "已发送指令到终端": "Perintah dikirim ke terminal",
   "确定要清空该服务器的历史指令吗？": "Apakah Anda yakin ingin menghapus riwayat perintah server ini?",
+  "确定要清空全部服务器的历史指令吗？": "Apakah Anda yakin ingin menghapus riwayat perintah semua server?",
+  "清空历史失败": "Gagal menghapus riwayat",
   "搜索命令...": "Perintah pencarian...",
   "当前服务器": "server saat ini",
   "全部服务器": "Semua server",

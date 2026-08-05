@@ -378,6 +378,8 @@ export default {
   "命令已复制到剪贴板": "Comando copiado para a área de transferência",
   "已发送指令到终端": "Comando enviado ao terminal",
   "确定要清空该服务器的历史指令吗？": "Tem certeza de que deseja limpar o histórico de comandos deste servidor?",
+  "确定要清空全部服务器的历史指令吗？": "Tem certeza de que deseja limpar o histórico de comandos de todos os servidores?",
+  "清空历史失败": "Falha ao limpar o histórico",
   "搜索命令...": "Comando de pesquisa...",
   "当前服务器": "servidor atual",
   "全部服务器": "Todos os servidores",

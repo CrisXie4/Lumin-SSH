@@ -378,6 +378,8 @@ export default {
   "命令已复制到剪贴板": "Příkaz zkopírován do schránky",
   "已发送指令到终端": "Příkaz odeslán do terminálu",
   "确定要清空该服务器的历史指令吗？": "Opravdu chcete vymazat historii příkazů tohoto serveru?",
+  "确定要清空全部服务器的历史指令吗？": "Opravdu chcete vymazat historii příkazů všech serverů?",
+  "清空历史失败": "Vymazání historie se nezdařilo",
   "搜索命令...": "Příkaz hledání...",
   "当前服务器": "aktuální server",
   "全部服务器": "Všechny servery",

@@ -378,6 +378,8 @@ export default {
   "命令已复制到剪贴板": "Comando copiato negli appunti",
   "已发送指令到终端": "Comando inviato al terminale",
   "确定要清空该服务器的历史指令吗？": "Sei sicuro di voler cancellare la cronologia dei comandi di questo server?",
+  "确定要清空全部服务器的历史指令吗？": "Sei sicuro di voler cancellare la cronologia dei comandi di tutti i server?",
+  "清空历史失败": "Cancellazione della cronologia non riuscita",
   "搜索命令...": "Comando di ricerca...",
   "当前服务器": "server corrente",
   "全部服务器": "Tutti i server",

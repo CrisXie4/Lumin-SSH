@@ -495,6 +495,8 @@ export default function Terminal({
       if (!(target instanceof Node)) return;
       if (historyPopupRef.current?.contains(target)) return;
       if (historyBtnRef.current?.contains(target)) return;
+      // 全局对话框（luminDialog，如清空确认）打开时，点确认/取消不应收起历史弹窗
+      if (target.closest?.('[data-global-dialog-active="true"]')) return;
       setShowHistory(false);
       setHistoryPopupPos(null);
     };
@@ -3925,8 +3927,15 @@ export default function Terminal({
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button
                   onClick={async () => {
+                    const scope = historyMode;
+                    // 二次确认，与历史页清空行为一致；按作用域给出不同提示
+                    const msg = scope === 'global'
+                      ? t('确定要清空全部服务器的历史指令吗？')
+                      : t('确定要清空该服务器的历史指令吗？');
+                    const result = await window.luminDialog?.confirm(msg);
+                    const confirmed = typeof result === 'object' ? result?.confirmed : result === true;
+                    if (!confirmed) return;
                     try {
-                      const scope = historyMode;
                       if (scope === 'global') {
                         await AppGo.SaveGlobalCommandHistory('[]');
                       } else {

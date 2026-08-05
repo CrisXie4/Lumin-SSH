@@ -373,6 +373,8 @@ export default {
   "命令已复制到剪贴板": "Polecenie skopiowane do schowka",
   "已发送指令到终端": "Polecenie wysłane do terminala",
   "确定要清空该服务器的历史指令吗？": "Czy na pewno chcesz wyczyścić historię poleceń tego serwera?",
+  "确定要清空全部服务器的历史指令吗？": "Czy na pewno chcesz wyczyścić historię poleceń wszystkich serwerów?",
+  "清空历史失败": "Czyszczenie historii nie powiodło się",
   "搜索命令...": "Polecenie wyszukiwania...",
   "当前服务器": "bieżący serwer",
   "全部服务器": "Wszystkie serwery",

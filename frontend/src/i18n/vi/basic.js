@@ -373,6 +373,8 @@ export default {
   "命令已复制到剪贴板": "Đã sao chép lệnh vào bảng nhớ tạm",
   "已发送指令到终端": "Lệnh được gửi đến thiết bị đầu cuối",
   "确定要清空该服务器的历史指令吗？": "Bạn có chắc chắn muốn xóa lịch sử lệnh của máy chủ này không?",
+  "确定要清空全部服务器的历史指令吗？": "Bạn có chắc chắn muốn xóa lịch sử lệnh của tất cả máy chủ không?",
+  "清空历史失败": "Xóa lịch sử không thành công",
   "搜索命令...": "Lệnh tìm kiếm...",
   "当前服务器": "máy chủ hiện tại",
   "全部服务器": "Tất cả máy chủ",

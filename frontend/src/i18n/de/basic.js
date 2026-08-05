@@ -378,6 +378,8 @@ export default {
   "命令已复制到剪贴板": "Befehl in die Zwischenablage kopiert",
   "已发送指令到终端": "Befehl an Terminal gesendet",
   "确定要清空该服务器的历史指令吗？": "Sind Sie sicher, dass Sie den Befehlsverlauf dieses Servers löschen möchten?",
+  "确定要清空全部服务器的历史指令吗？": "Sind Sie sicher, dass Sie den Befehlsverlauf aller Server löschen möchten?",
+  "清空历史失败": "Das Leeren der Historie ist fehlgeschlagen",
   "搜索命令...": "Suchbefehl...",
   "当前服务器": "aktueller Server",
   "全部服务器": "Alle Server",

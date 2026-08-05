@@ -378,6 +378,8 @@ export default {
   "命令已复制到剪贴板": "Opdracht gekopieerd naar klembord",
   "已发送指令到终端": "Commando verzonden naar terminal",
   "确定要清空该服务器的历史指令吗？": "Weet u zeker dat u de opdrachtgeschiedenis van deze server wilt wissen?",
+  "确定要清空全部服务器的历史指令吗？": "Weet u zeker dat u de opdrachtgeschiedenis van alle servers wilt wissen?",
+  "清空历史失败": "Het wissen van de geschiedenis is mislukt",
   "搜索命令...": "Zoekopdracht...",
   "当前服务器": "huidige server",
   "全部服务器": "Alle servers",

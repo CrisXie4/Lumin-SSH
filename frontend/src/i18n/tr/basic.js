@@ -373,6 +373,8 @@ export default {
   "命令已复制到剪贴板": "Komut panoya kopyalandı",
   "已发送指令到终端": "Komut terminale gönderildi",
   "确定要清空该服务器的历史指令吗？": "Bu sunucunun komut geçmişini temizlemek istediğinizden emin misiniz?",
+  "确定要清空全部服务器的历史指令吗？": "Tüm sunucuların komut geçmişini temizlemek istediğinizden emin misiniz?",
+  "清空历史失败": "Geçmiş temizlenemedi",
   "搜索命令...": "Arama komutu...",
   "当前服务器": "mevcut sunucu",
   "全部服务器": "Tüm sunucular",
