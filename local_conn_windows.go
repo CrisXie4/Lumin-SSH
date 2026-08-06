@@ -20,7 +20,13 @@ import (
 
 // getLocalShells lists detected shells on Windows.
 func (a *App) getLocalShells() ([]string, error) {
-	shells := []string{"powershell.exe", "cmd.exe"}
+	var shells []string
+	if path, err := exec.LookPath("pwsh.exe"); err == nil && path != "" {
+		shells = append(shells, "pwsh.exe")
+	} else if _, err := os.Stat(`C:\Program Files\PowerShell\7\pwsh.exe`); err == nil {
+		shells = append(shells, `C:\Program Files\PowerShell\7\pwsh.exe`)
+	}
+	shells = append(shells, "powershell.exe", "cmd.exe")
 	if distros, _ := listWSLDistros(); len(distros) > 0 {
 		for _, d := range distros {
 			shells = append(shells, "wsl://"+d)

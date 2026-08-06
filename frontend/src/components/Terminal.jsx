@@ -1259,6 +1259,7 @@ export default function Terminal({
       },
     });
     term.open(containerRef.current);
+    try { fitAddon.fit(); } catch (_) {}
     const terminalInput = containerRef.current.querySelector('.xterm-helper-textarea');
     if (terminalInput) {
       terminalInput.name = 'terminalInput';
@@ -3280,7 +3281,7 @@ export default function Terminal({
         pointerEvents: 'none',
         zIndex: Z.STACK,
       }} />
-      {/* 壁纸层：叠在内容上方，保留质感 */}
+      {/* 壁纸层：叠在内容上方，浅色底下使用 multiply 混合模式，避免亮色/白色壁纸部分遮盖冲淡字色 */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -3288,6 +3289,7 @@ export default function Terminal({
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: Number.isFinite(bgInfo.opacity) ? bgInfo.opacity : 0.15,
+        mixBlendMode: isDarkTerminalSurface(T) ? 'normal' : 'multiply',
         pointerEvents: 'none',
         zIndex: Z.STACK,
       }} />

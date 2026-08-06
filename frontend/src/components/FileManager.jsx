@@ -1300,6 +1300,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return tabs.find((tab) => tab.id === activeTabId) || tabs[0] || null;
   }, [fileManagerWorkspace]);
   const activeFileManagerTabIdRef = useRef(activeFileManagerTab?.id || '');
+  const lastStateTabIdRef = useRef(activeFileManagerTab?.id || '');
   const displayedTabIdRef = useRef(activeFileManagerTab?.id || '');
   const [cwdSystemTabHighlight, setCwdSystemTabHighlight] = useState({ tabId: '', token: 0 });
   const cwdSystemTabHighlightTimerRef = useRef(0);
@@ -1383,7 +1384,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   useEffect(() => () => clearFileListSwitchFrame(), [clearFileListSwitchFrame]);
   useEffect(() => { currentPathRef.current = currentPath; }, [currentPath]);
   useEffect(() => { fileManagerWorkspaceRef.current = fileManagerWorkspace; }, [fileManagerWorkspace]);
-  useEffect(() => { activeFileManagerTabIdRef.current = activeFileManagerTab?.id || ''; }, [activeFileManagerTab]);
+  useEffect(() => {
+    const stateId = activeFileManagerTab?.id || '';
+    if (stateId !== lastStateTabIdRef.current) {
+      activeFileManagerTabIdRef.current = stateId;
+      lastStateTabIdRef.current = stateId;
+    }
+  }, [activeFileManagerTab]);
   useEffect(() => () => {
     if (cwdSystemTabHighlightTimerRef.current) {
       window.clearTimeout(cwdSystemTabHighlightTimerRef.current);

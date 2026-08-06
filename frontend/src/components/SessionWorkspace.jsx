@@ -533,18 +533,20 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                     </button>
                   </Tiptop>
                   {/* ── 新建终端按钮 ── */}
-                  <Tiptop text={terminalToolbarIconOnly ? t('新建终端') : null} placement="bottom">
-                    <button
-                      className={`btn btn-ghost btn-sm terminal-create-btn ${isCreatingTerminal ? 'is-creating' : ''}`}
-                      onClick={() => openNewTerminal(activeSession.id)}
-                      style={{ marginLeft: 2, flexShrink: 0 }}
-                      disabled={isCreatingTerminal}
-                      aria-busy={isCreatingTerminal}
-                    >
-                      {isCreatingTerminal ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
-                      {!terminalToolbarIconOnly && t('新建终端')}
-                    </button>
-                  </Tiptop>
+                  {!activeSession?.isSerial && (
+                    <Tiptop text={terminalToolbarIconOnly ? t('新建终端') : null} placement="bottom">
+                      <button
+                        className={`btn btn-ghost btn-sm terminal-create-btn ${isCreatingTerminal ? 'is-creating' : ''}`}
+                        onClick={() => openNewTerminal(activeSession.id)}
+                        style={{ marginLeft: 2, flexShrink: 0 }}
+                        disabled={isCreatingTerminal}
+                        aria-busy={isCreatingTerminal}
+                      >
+                        {isCreatingTerminal ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
+                        {!terminalToolbarIconOnly && t('新建终端')}
+                      </button>
+                    </Tiptop>
+                  )}
                 </div>
               </div>
             )}

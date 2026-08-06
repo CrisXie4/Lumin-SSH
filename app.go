@@ -848,6 +848,27 @@ func (a *App) AcceptHostKeyChange(sessionId string, action int) error {
 
 // OpenTerminal 在当前服务器连接上打开新的终端标签页
 func (a *App) OpenTerminal(sessionId string) (string, error) {
+	a.sshManager.mu.RLock()
+	existing, ok := a.sshManager.sessions[sessionId]
+	a.sshManager.mu.RUnlock()
+	if !ok {
+		return "", fmt.Errorf("session not found")
+	}
+
+	if existing.IsLocal {
+		randomId := make([]byte, 8)
+		if _, err := rand.Read(randomId); err != nil {
+			return "", fmt.Errorf("生成 session ID 失败: %w", err)
+		}
+		newId := fmt.Sprintf("term_%x", randomId)
+
+		err := a.connectLocal(newId, filepath.Base(existing.ShellPath), existing.ShellPath, "")
+		if err != nil {
+			return "", err
+		}
+		return newId, nil
+	}
+
 	return a.sshManager.OpenTerminal(sessionId)
 }
 

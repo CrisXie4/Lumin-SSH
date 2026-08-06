@@ -2464,6 +2464,9 @@ func (c *ConfigManager) CleanupOrphanedHistory() {
 			continue
 		}
 		id := strings.TrimSuffix(e.Name(), ".json")
+		if strings.HasPrefix(id, "local_") || strings.HasPrefix(id, "serial_") {
+			continue
+		}
 		if !active[id] {
 			path := filepath.Join(c.historyDir, e.Name())
 			os.Remove(path)
