@@ -834,7 +834,6 @@ export default {
   "显示敏感信息": "Afișați informații sensibile",
   "隐藏敏感信息": "Ascundeți informațiile sensibile",
   "文件有未保存的修改，确定关闭？": "Fișierul are modificări nesalvate. Ești sigur că vrei să-l închizi?",
-  "调整大小": "redimensiona",
   "外观": "Aspect",
   "基本": "de bază",
   "快捷键": "Scurtături",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Potrivire curentă",
   "第": "pe linia",
 };
+

@@ -256,6 +256,19 @@ const editorActiveLineTheme = EditorView.theme({
 // 走 i18n：值由组件内 useMemo 用 t() 填充，覆盖 gotoLine 与 search 面板的所有英文文案。
 // 见组件内 editorPhrases（依赖 i18nLang，语言切换时重建）。
 
+// 浮动面板八方向 resize handle：四边窄条 + 四角方块。角 handle 在边之后渲染以覆盖重叠区。
+// 边条贴容器内边缘（容器 overflow:hidden 不裁剪），拖拽用 window mousemove 不受容器限制。
+const POPUP_RESIZE_HANDLES = [
+  { dir: 'n',  pos: { top: 0, left: 0, right: 0, height: 6 }, cursor: 'n-resize' },
+  { dir: 's',  pos: { bottom: 0, left: 0, right: 0, height: 6 }, cursor: 's-resize' },
+  { dir: 'e',  pos: { right: 0, top: 0, bottom: 0, width: 6 }, cursor: 'e-resize' },
+  { dir: 'w',  pos: { left: 0, top: 0, bottom: 0, width: 6 }, cursor: 'w-resize' },
+  { dir: 'ne', pos: { top: 0, right: 0, width: 14, height: 14 }, cursor: 'ne-resize' },
+  { dir: 'nw', pos: { top: 0, left: 0, width: 14, height: 14 }, cursor: 'nw-resize' },
+  { dir: 'se', pos: { bottom: 0, right: 0, width: 14, height: 14 }, cursor: 'se-resize' },
+  { dir: 'sw', pos: { bottom: 0, left: 0, width: 14, height: 14 }, cursor: 'sw-resize' },
+];
+
 export default function FileEditor({
   files,
   activePath,
@@ -474,7 +487,7 @@ export default function FileEditor({
       const next = {
         ...popupPosRef.current,
         x: Math.max(0, Math.min(window.innerWidth - 200, dragStartRef.current.px + dx)),
-        y: Math.max(64, Math.min(window.innerHeight - 100, dragStartRef.current.py + dy)),
+        y: Math.max(40, Math.min(window.innerHeight - 100, dragStartRef.current.py + dy)),
       };
       setPopupPos(next);
     };
@@ -491,26 +504,27 @@ export default function FileEditor({
     window.addEventListener('mouseup', onUp);
   };
 
-  // popup 右下角 resize 逻辑
-  const startPopupResize = (e) => {
+  // popup 八方向 resize：dir 含 n/s/e/w 组合，各方向独立 clamp，角方向两轴同时处理。
+  // ponytail: 各轴独立 clamp 不做跨轴联合求解，极端拖拽下尺寸/位置可能非最优但够用。
+  const startPopupResize = (dir) => (e) => {
     e.stopPropagation();
     if (e.button !== 0) return;
     isDraggingRef.current = true;
     const startX = e.clientX;
     const startY = e.clientY;
-    const startW = popupPosRef.current.w;
-    const startH = popupPosRef.current.h;
+    const start = { ...popupPosRef.current };
+    const MIN_W = 320, MIN_H = 200;
     document.body.style.userSelect = 'none';
 
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      const next = {
-        ...popupPosRef.current,
-        w: Math.max(320, Math.min(window.innerWidth - popupPosRef.current.x - 20, startW + dx)),
-        h: Math.max(200, Math.min(window.innerHeight - popupPosRef.current.y - 20, startH + dy)),
-      };
-      setPopupPos(next);
+      let { x, y, w, h } = start;
+      if (dir.includes('e')) w = Math.max(MIN_W, Math.min(window.innerWidth - start.x, start.w + dx));
+      if (dir.includes('s')) h = Math.max(MIN_H, Math.min(window.innerHeight - start.y, start.h + dy));
+      if (dir.includes('w')) { w = Math.max(MIN_W, Math.min(start.x + start.w, start.w - dx)); x = start.x + start.w - w; }
+      if (dir.includes('n')) { h = Math.max(MIN_H, Math.min(start.y + start.h - 40, start.h - dy)); y = start.y + start.h - h; }
+      setPopupPos({ x, y, w, h });
     };
 
     const onUp = () => {
@@ -1078,22 +1092,14 @@ export default function FileEditor({
         onContextMenu={handleContextMenu}
       >
         {editorContent}
-        {/* resize handle */}
-        <Tiptop text={t('调整大小')} style={{ position: 'absolute', right: 0, bottom: 0, zIndex: Z.STACK }}>
+        {/* 八方向 resize handle：四边 + 四角透明热区 */}
+        {POPUP_RESIZE_HANDLES.map(h => (
           <div
-            onMouseDown={startPopupResize}
-            aria-label={t('调整大小')}
-            style={{
-              width: 16,
-              height: 16,
-              cursor: 'se-resize',
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" style={{ position: 'absolute', right: 2, bottom: 2, opacity: 0.3 }}>
-              <path d="M8 12v-2h2v2H8zm0-4V6h2v2H8zm0-4V2h2v2H8zM4 12v-2h2v2H4z" fill="currentColor" />
-            </svg>
-          </div>
-        </Tiptop>
+            key={h.dir}
+            onMouseDown={startPopupResize(h.dir)}
+            style={{ position: 'absolute', zIndex: Z.STACK, cursor: h.cursor, ...h.pos }}
+          />
+        ))}
       </div>,
       document.body
     );
@@ -1157,7 +1163,7 @@ export default function FileEditor({
   if (!isActive) return null;
   return createPortal(
     <div className="modal-overlay" style={{ zIndex: Z.FULLSCREEN_OVERLAY }} onContextMenu={handleContextMenu}>
-      <div className="modal modal-xl" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh', marginTop: 48 }}>
+      <div className="modal modal-xl" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)', maxHeight: 'calc(100vh - 40px)', maxWidth: '100vw', marginTop: 40 }}>
         {editorContent}
       </div>
     </div>,

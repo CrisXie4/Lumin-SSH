@@ -839,7 +839,6 @@ export default {
   "显示敏感信息": "Sensible Informationen anzeigen",
   "隐藏敏感信息": "Verstecken Sie vertrauliche Informationen",
   "文件有未保存的修改，确定关闭？": "Die Datei weist nicht gespeicherte Änderungen auf. Sind Sie sicher, dass Sie es schließen möchten?",
-  "调整大小": "Größe ändern",
   "外观": "Aussehen",
   "基本": "Grundlegend",
   "快捷键": "Tastenkürzel",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Aktueller Treffer",
   "第": "in Zeile",
 };
+

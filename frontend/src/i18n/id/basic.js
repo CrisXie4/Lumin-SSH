@@ -834,7 +834,6 @@ export default {
   "显示敏感信息": "Tampilkan informasi sensitif",
   "隐藏敏感信息": "Sembunyikan informasi sensitif",
   "文件有未保存的修改，确定关闭？": "File tersebut memiliki modifikasi yang belum disimpan. Apakah Anda yakin ingin menutupnya?",
-  "调整大小": "mengubah ukuran",
   "外观": "Penampilan",
   "基本": "dasar",
   "快捷键": "Pintasan",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Cocokan saat ini",
   "第": "di baris",
 };
+

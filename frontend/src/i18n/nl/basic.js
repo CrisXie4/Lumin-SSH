@@ -839,7 +839,6 @@ export default {
   "显示敏感信息": "Toon gevoelige informatie",
   "隐藏敏感信息": "Verberg gevoelige informatie",
   "文件有未保存的修改，确定关闭？": "Het bestand bevat niet-opgeslagen wijzigingen. Weet je zeker dat je het wilt sluiten?",
-  "调整大小": "formaat wijzigen",
   "外观": "Verschijning",
   "基本": "eenvoudig",
   "快捷键": "Sneltoetsen",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Huidige overeenkomst",
   "第": "op regel",
 };
+

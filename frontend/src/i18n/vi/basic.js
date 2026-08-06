@@ -834,7 +834,6 @@ export default {
   "显示敏感信息": "Hiển thị thông tin nhạy cảm",
   "隐藏敏感信息": "Ẩn thông tin nhạy cảm",
   "文件有未保存的修改，确定关闭？": "Tệp có các sửa đổi chưa được lưu. Bạn có chắc chắn muốn đóng nó không?",
-  "调整大小": "thay đổi kích thước",
   "外观": "Vẻ bề ngoài",
   "基本": "nền tảng",
   "快捷键": "Phím tắt",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Kết quả hiện tại",
   "第": "ở dòng",
 };
+

@@ -839,7 +839,6 @@ export default {
   "显示敏感信息": "Show sensitive info",
   "隐藏敏感信息": "Hide sensitive info",
   "文件有未保存的修改，确定关闭？": "File has unsaved changes. Close?",
-  "调整大小": "Resize",
   "外观": "Appearance",
   "基本": "Basic",
   "快捷键": "Shortcuts",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Current match",
   "第": "on line",
 };
+

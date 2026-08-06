@@ -834,7 +834,6 @@ export default {
   "显示敏感信息": "Hassas bilgileri göster",
   "隐藏敏感信息": "Hassas bilgileri gizle",
   "文件有未保存的修改，确定关闭？": "Dosyada kaydedilmemiş değişiklikler var. Kapatmak istediğinizden emin misiniz?",
-  "调整大小": "yeniden boyutlandır",
   "外观": "Dış görünüş",
   "基本": "temel",
   "快捷键": "Kısayollar",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Geçerli eşleşme",
   "第": "satırda",
 };
+

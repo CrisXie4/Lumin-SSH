@@ -839,7 +839,6 @@ export default {
   "显示敏感信息": "Ukažte citlivé informace",
   "隐藏敏感信息": "Skryjte citlivé informace",
   "文件有未保存的修改，确定关闭？": "Soubor obsahuje neuložené úpravy. Opravdu to chcete zavřít?",
-  "调整大小": "změnit velikost",
   "外观": "Vzhled",
   "基本": "základní",
   "快捷键": "Zkratky",
@@ -1794,3 +1793,4 @@ export default {
   "当前匹配": "Aktuální výskyt",
   "第": "na řádku",
 };
+
