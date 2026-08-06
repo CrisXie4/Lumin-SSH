@@ -161,6 +161,7 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 	systemPrompt := resolveAISystemPromptForPayload(a.ctx, payload, profile)
 	modelCapability := aiprovider.ResolveModelCapability(profile.Provider, profile.Model)
 	runtimeProfile := toAIProviderRuntimeProfile(profile)
+	promptCacheStrategy := aiprovider.ResolveResponsesPromptCacheStrategy(runtimeProfile, modelCapability)
 	promptCacheBypassTimestamp := ""
 	if a != nil && a.configManager != nil && strings.TrimSpace(payload.ConversationID) != "" {
 		if snapshot, err := a.configManager.GetAIConversation(payload.ConversationID); err == nil {
@@ -177,8 +178,18 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 		"temperature":  0,
 		"top_p":        1.0,
 	}
-	if promptCacheKey := aiprovider.BuildResponsesPromptCacheKey(payload.ConversationID, promptCacheBypassTimestamp, systemPrompt); promptCacheKey != "" {
-		requestBody["prompt_cache_key"] = promptCacheKey
+	if promptCacheStrategy != "off" {
+		if promptCacheKey := aiprovider.BuildResponsesPromptCacheKey(payload.ConversationID, promptCacheBypassTimestamp, systemPrompt); promptCacheKey != "" {
+			requestBody["prompt_cache_key"] = promptCacheKey
+		}
+	}
+	switch promptCacheStrategy {
+	case "30m":
+		requestBody["prompt_cache_options"] = map[string]any{
+			"ttl": "30m",
+		}
+	case "in_memory", "24h":
+		requestBody["prompt_cache_retention"] = promptCacheStrategy
 	}
 
 	if reasoningEffort := aiprovider.GetEffectiveReasoningEffort(runtimeProfile, modelCapability); reasoningEffort != "" {

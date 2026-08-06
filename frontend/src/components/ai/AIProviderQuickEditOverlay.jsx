@@ -12,7 +12,7 @@ import {
 } from './providers/index.js'
 import { handleInputDragSelectAll } from './inputDragSelect.js'
 
-const cacheOptions = [
+const defaultCacheOptions = [
   { value: 'model', labelKey: '基于模型能力' },
   { value: 'off', labelKey: '强制关闭' },
   { value: '5m', labelKey: '5分钟' },
@@ -400,6 +400,25 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
   }, [draft.modelMaxThinkingTokens, maxThinkingTokenLimit, modelCapability.maxThinkingTokens])
 
   const supportsPromptCacheSettings = providerDefinition.supportsPromptCacheSettings === true
+  const promptCacheOptions = useMemo(() => {
+    if (!supportsPromptCacheSettings) {
+      return []
+    }
+    if (providerDefinition.value === 'Responses' && typeof providerDefinition.getPromptCacheStrategyOptions === 'function') {
+      return providerDefinition.getPromptCacheStrategyOptions(draft.model || '')
+    }
+    return defaultCacheOptions
+  }, [draft.model, providerDefinition, supportsPromptCacheSettings])
+  const selectedPromptCacheStrategy = useMemo(() => {
+    const values = promptCacheOptions.map((option) => option.value)
+    if (values.includes(draft.cacheStrategy)) {
+      return draft.cacheStrategy
+    }
+    if (values.includes('model')) {
+      return 'model'
+    }
+    return values[0] || 'model'
+  }, [draft.cacheStrategy, promptCacheOptions])
   const supportsWebSearch = providerDefinition.supportsWebSearch === true
   const dedicatedProviderOptions = useMemo(
     () => providers
@@ -838,7 +857,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     onSave?.({
       ...draft,
       provider: providerDefinition.value,
-      cacheStrategy: draft.cacheStrategy || '5m',
+      cacheStrategy: selectedPromptCacheStrategy,
       dedicatedWebSearchEnabled: draft.dedicatedWebSearchEnabled,
       dedicatedWebSearchProviderId: draft.dedicatedWebSearchEnabled ? draft.dedicatedWebSearchProviderId : '',
       dedicatedProxyEnabled: draft.dedicatedProxyEnabled,
@@ -1293,9 +1312,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
           {supportsPromptCacheSettings ? (
             <div style={{ display: 'grid', gap: 3 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('缓存策略')}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 0, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-                {cacheOptions.map((option) => {
-                  const active = draft.cacheStrategy === option.value
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(promptCacheOptions.length, 1)}, minmax(0, 1fr))`, gap: 0, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                {promptCacheOptions.map((option, index) => {
+                  const active = selectedPromptCacheStrategy === option.value
                   return (
                     <button
                       key={option.value}
@@ -1304,7 +1323,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                       style={{
                         height: 34,
                         border: 'none',
-                        borderRight: option.value !== '1h' ? '1px solid var(--border-subtle)' : 'none',
+                        borderRight: index < promptCacheOptions.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                         background: active ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
                         color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
                         fontSize: 12,
