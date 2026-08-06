@@ -523,7 +523,7 @@ export default function AIProviderSelector({
   persistSelectedProviderId = true,
   dismissSignal = 0,
 }) {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const containerRef = useRef(null)
   const iframeRef = useRef(null)
   const tooltipTimerRef = useRef(null)
@@ -591,7 +591,7 @@ export default function AIProviderSelector({
       currentValue,
       currentLabel: currentValue || t('模型'),
     }
-  }, [quickModelOptions, quickModelResolved, selectedProvider, t])
+  }, [quickModelOptions, quickModelResolved, selectedProvider, t, lang])
   const quickReasoningConfig = useMemo(() => {
     if (!selectedProvider) {
       return { visible: false, options: [], currentValue: 'disable', currentLabel: '' }
@@ -632,7 +632,7 @@ export default function AIProviderSelector({
       currentValue,
       currentLabel: getReasoningEffortLabel(t, currentValue) || t('无'),
     }
-  }, [selectedProvider, t])
+  }, [selectedProvider, t, lang])
   const providerBalanceLabelEnabled = isAIProviderBalanceLabelEnabled(selectedProvider)
   const providerTriggerText = providerBalanceLabelEnabled ? (providerBalanceLabel || '¥ --') : (selectedProvider?.name || t('选择供应商'))
   const providerBalanceDeltaLabel = providerBalanceDelta === null ? '' : formatAIProviderBalanceDeltaLabel(providerBalanceDelta)

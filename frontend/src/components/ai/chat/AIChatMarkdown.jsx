@@ -147,7 +147,7 @@ const markdownComponents = {
 }
 
 export default function AIChatMarkdown({ text, enableQuoteContextMenu = false }) {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const containerRef = useRef(null)
 
   const handleContextMenu = useCallback((event) => {
@@ -187,7 +187,7 @@ export default function AIChatMarkdown({ text, enableQuoteContextMenu = false })
         },
       ],
     })
-  }, [enableQuoteContextMenu, t])
+  }, [enableQuoteContextMenu, t, lang])
 
   return (
     <div
