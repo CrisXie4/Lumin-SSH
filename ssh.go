@@ -61,6 +61,10 @@ const (
 	postAuthSlowNoticeTimeout = 10 * time.Second
 	postAuthChannelTimeout    = 30 * time.Second
 	sftpInitWaitTimeout       = 5 * time.Second
+	// ponytail: pkg/sftp 无 per-op deadline,SFTP subsystem 慢时会永久阻塞 getSystemInfo,
+	// 致前端递归 setTimeout 链断裂(数据不刷新)。用 goroutine+timer 兜底放弃等待,
+	// 残留 goroutine 随 keepalive 关连时退出。15s < 命令超时 30s,先暴露部署问题。
+	probeDeployTimeout = 15 * time.Second
 	// 保活略松：单次超时不立刻拆线，连续失败达阈值才清理共享连接。
 	sshKeepaliveInterval = 15 * time.Second
 	sshKeepaliveTimeout  = 20 * time.Second
@@ -126,6 +130,7 @@ type SSHManager struct {
 	connTerminals    map[string][]string           // connKey -> terminal sessionIds
 	probeDeployed    map[string]bool               // connKey -> probe.sh deployed
 	probeFailed      map[string]int                // connKey -> probe.sh deploy fail count (max 3)
+	probeRunFailed   map[string]int                // connKey -> probe script run fail count (reset on success)
 	pendingHostKeys  map[string]*PendingHostKey    // sessionId -> pending host key info
 	tempAcceptedKeys map[string]string             // sessionId -> fingerprint (accept this time only)
 	pendingCancels   map[string]context.CancelFunc // sessionId -> cancel func for in-progress Connect
@@ -156,6 +161,7 @@ func NewSSHManager() *SSHManager {
 		connTerminals:    make(map[string][]string),
 		probeDeployed:    make(map[string]bool),
 		probeFailed:      make(map[string]int),
+		probeRunFailed:   make(map[string]int),
 		pendingHostKeys:  make(map[string]*PendingHostKey),
 		tempAcceptedKeys: make(map[string]string),
 		pendingCancels:   make(map[string]context.CancelFunc),
@@ -858,6 +864,7 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	delete(m.connTerminals, connKey)
 	delete(m.probeDeployed, connKey)
 	delete(m.probeFailed, connKey)
+	delete(m.probeRunFailed, connKey)
 	m.mu.Unlock()
 	globalSSHChannelUsage.forget(connKey)
 	// 连接级断开: 该连接下的端口转发全部转为已停止态, 关闭监听器释放本地端口。
@@ -1294,6 +1301,7 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 			delete(m.connTerminals, connKey)
 			delete(m.probeDeployed, connKey)
 			delete(m.probeFailed, connKey)
+			delete(m.probeRunFailed, connKey)
 			// 本次是该连接最后一个终端的连接级断开: 标记锁外回收端口转发。
 			// cleanupClientTransport 路径下 client 已被删, 到这里 ok=false 不会置此标记,
 			// 由 cleanupClientTransport 自身的 stopPortForwardsForConnKey 兜底, 二者互斥不重复。
@@ -1942,6 +1950,9 @@ echo ---DONE---
 `
 
 // deployProbeScript writes probe.sh to ~/.lumin/ on the remote server via SFTP.
+// ponytail: SFTP 操作无 per-op deadline,用 select+timer 兜底 probeDeployTimeout,
+// 避免 SFTP subsystem 慢时永久阻塞 getSystemInfo 致前端定时器链断裂(数据不刷新)。
+// 超时后 goroutine 仍在后台等待 IO,随 keepalive 关连时退出(可接受临时泄漏)。
 func (m *SSHManager) deployProbeScript(sftpClient *sftp.Client, connKey string) error {
 	if sftpClient == nil {
 		return fmt.Errorf("SFTP not available")
@@ -1957,6 +1968,34 @@ func (m *SSHManager) deployProbeScript(sftpClient *sftp.Client, connKey string) 
 		return fmt.Errorf("probe deploy failed %d times, giving up", failCount)
 	}
 
+	done := make(chan error, 1)
+	go func() { done <- m.deployProbeScriptIO(sftpClient) }()
+
+	timer := time.NewTimer(probeDeployTimeout)
+	defer timer.Stop()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			m.mu.Lock()
+			m.probeFailed[connKey]++
+			m.mu.Unlock()
+			return err
+		}
+		m.mu.Lock()
+		m.probeDeployed[connKey] = true
+		delete(m.probeFailed, connKey) // 成功后重置失败计数，避免历史累计误判永久禁用
+		m.mu.Unlock()
+		return nil
+	case <-timer.C:
+		// ponytail: 超时多因服务器慢而非部署逻辑错误,不在此自增 probeFailed:
+		// 自增会快速触达 ≥3 永久放弃,反而失去恢复机会。下次重试仍走部署。
+		return fmt.Errorf("probe script deploy timed out after %v", probeDeployTimeout)
+	}
+}
+
+// deployProbeScriptIO 执行 probe.sh 的 SFTP 写入,无超时(由调用方 deployProbeScript 兜底)。
+func (m *SSHManager) deployProbeScriptIO(sftpClient *sftp.Client) error {
 	if err := sftpClient.MkdirAll(".lumin"); err != nil {
 		_ = sftpClient.MkdirAll("/tmp/.lumin")
 	}
@@ -1967,9 +2006,6 @@ func (m *SSHManager) deployProbeScript(sftpClient *sftp.Client, connKey string) 
 		scriptPath = "/tmp/.lumin/probe.sh"
 		f, err = sftpClient.Create(scriptPath)
 		if err != nil {
-			m.mu.Lock()
-			m.probeFailed[connKey]++
-			m.mu.Unlock()
 			return fmt.Errorf("cannot write probe script: %w", err)
 		}
 	}
@@ -1979,18 +2015,10 @@ func (m *SSHManager) deployProbeScript(sftpClient *sftp.Client, connKey string) 
 		err = closeErr
 	}
 	if err != nil {
-		m.mu.Lock()
-		m.probeFailed[connKey]++
-		m.mu.Unlock()
 		return err
 	}
 
 	_ = sftpClient.Chmod(scriptPath, 0755)
-
-	m.mu.Lock()
-	m.probeDeployed[connKey] = true
-	delete(m.probeFailed, connKey) // 成功后重置失败计数，避免历史累计误判永久禁用
-	m.mu.Unlock()
 	return nil
 }
 
@@ -2088,8 +2116,14 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 	}
 	out, err := m.executeCmdWithClient(client, buildProbeScriptRunCommand(probeArg))
 	if err != nil || len(strings.TrimSpace(out)) == 0 {
+		// ponytail: 偶发失败(服务器慢/30s 超时)不立即删 probeDeployed 重走 SFTP 部署,
+		// 避免每次重试都触发 SFTP 往返。连续失败 3 次才怀疑脚本损坏,强制重新部署。
 		m.mu.Lock()
-		delete(m.probeDeployed, connKey)
+		m.probeRunFailed[connKey]++
+		if m.probeRunFailed[connKey] >= 3 {
+			delete(m.probeDeployed, connKey)
+			delete(m.probeRunFailed, connKey)
+		}
 		m.mu.Unlock()
 		detailParts := make([]string, 0, 3)
 		if err != nil {
@@ -2107,6 +2141,10 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 		return nil, fmt.Errorf("probe script execution failed: %s", strings.Join(detailParts, " | "))
 	}
 
+	// 成功:重置执行失败计数
+	m.mu.Lock()
+	delete(m.probeRunFailed, connKey)
+	m.mu.Unlock()
 	return parseProbeOutput(out, includeNetworkConnections)
 }
 
