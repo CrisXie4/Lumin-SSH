@@ -3,7 +3,7 @@ import * as AppGo from '../../wailsjs/go/main/App.js';
 import { useTranslation } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
 import { formatRate, formatTransferTotal } from './probeFormatting.js';
-import { Globe, RefreshCw, ArrowDown, ArrowUp, Info, ArrowUpDown } from 'lucide-react';
+import { Globe, RefreshCw, ArrowDown, ArrowUp, Info, ArrowUpDown, Search, X } from 'lucide-react';
 
 const HISTORY_SIZE = 60;
 const connectionSortFns = {
@@ -41,6 +41,7 @@ export default function NetworkPage({ sessionId, active }) {
   const [error, setError] = useState(null);
   const [showAllListeners, setShowAllListeners] = useState(() => localStorage.getItem('networkShowAllListeners') === 'true');
   const [showInstallTips, setShowInstallTips] = useState(false);
+  const [connectionSearchQuery, setConnectionSearchQuery] = useState('');
   const [detailConnections, setDetailConnections] = useState([]);
   const [activeDetailKey, setActiveDetailKey] = useState(null);
   const [connectionSortKey, setConnectionSortKey] = useState('download');
@@ -115,7 +116,23 @@ export default function NetworkPage({ sessionId, active }) {
   const filteredConnections = showAllListeners
     ? connections
     : connections.filter(item => (item.connCount || 0) > 0 || (item.upload || 0) > 0 || (item.download || 0) > 0);
-  const visibleConnections = [...filteredConnections].sort((a, b) => {
+  const connectionSearchTokens = connectionSearchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searchedConnections = connectionSearchTokens.length === 0
+    ? filteredConnections
+    : filteredConnections.filter((item) => {
+      const peers = Array.isArray(item.peers) ? item.peers : [];
+      const searchableText = [
+        item.pid,
+        item.name,
+        item.listenIP,
+        item.port,
+        item.ipCount,
+        item.connCount,
+        ...peers.flatMap(peer => [peer.ip, peer.port, peer.location]),
+      ].filter(value => value != null).join(' ').toLowerCase();
+      return connectionSearchTokens.every(token => searchableText.includes(token));
+    });
+  const visibleConnections = [...searchedConnections].sort((a, b) => {
     const fn = connectionSortFns[connectionSortKey] || connectionSortFns.download;
     return connectionSortAsc ? fn(a, b) : fn(b, a);
   });
@@ -291,9 +308,39 @@ export default function NetworkPage({ sessionId, active }) {
             </div>
 
             <div className="data-table-shell" style={{ width: '100%', minWidth: 0, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{t('连接端口')}</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginRight: 2 }}>{t('连接端口')}</div>
+                <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: 420, minWidth: 180 }}>
+                  <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input
+                    className="input"
+                    type="search"
+                    name="network-connection-search"
+                    autoComplete="off"
+                    value={connectionSearchQuery}
+                    onChange={(event) => setConnectionSearchQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape' && connectionSearchQuery) {
+                        event.preventDefault();
+                        setConnectionSearchQuery('');
+                      }
+                    }}
+                    placeholder={t('搜索PID、名称、IP或端口...')}
+                    aria-label={t('搜索网络连接')}
+                    style={{ width: '100%', height: 28, padding: connectionSearchQuery ? '4px 30px 4px 28px' : '4px 8px 4px 28px', fontSize: 12 }}
+                  />
+                  {connectionSearchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setConnectionSearchQuery('')}
+                      aria-label={t('清除搜索')}
+                      style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 3, display: 'flex' }}
+                    >
+                      <X size={12} />
+                    </button>
+                  ) : null}
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', fontSize: 12, color: 'var(--text-tertiary)', cursor: 'pointer' }}>
                   <input id="network-page-show-all-listeners" name="network-page-show-all-listeners" autoComplete="off" type="checkbox" checked={showAllListeners} onChange={(event) => handleShowAllListenersChange(event.target.checked)} />
                   <span>{t('显示全部监听端口')}</span>
                   {!showAllListeners && hiddenConnectionCount > 0 ? <span>({t('已隐藏空闲监听端口')}: {hiddenConnectionCount})</span> : null}
@@ -330,7 +377,7 @@ export default function NetworkPage({ sessionId, active }) {
                   </Tiptop>
                 );
               }) : (
-                <div style={{ minWidth: connectionTableMinWidth, padding: 18, color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center' }}>{loading ? t('加载中...') : connections.length > 0 ? t('空闲监听端口已隐藏') : t('暂无网络连接数据')}</div>
+                <div style={{ minWidth: connectionTableMinWidth, padding: 18, color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center' }}>{loading ? t('加载中...') : connectionSearchTokens.length > 0 ? t('未找到匹配的网络连接') : connections.length > 0 ? t('空闲监听端口已隐藏') : t('暂无网络连接数据')}</div>
               )}
               </div>
             </div>
