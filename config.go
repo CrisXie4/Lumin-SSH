@@ -2396,10 +2396,31 @@ func (c *ConfigManager) ClearWorkspaceState() error {
 
 // ─── 命令历史 ──────────────────────────────────────
 
+// historyFileName 把会话 id 规整为历史文件名（不含扩展名），同时防止路径穿越。
+//
+// 不能用 filepath.Base：它在 Linux 上会把 "local_/bin/bash" 裁成 "bash"，
+// 丢掉 local_/serial_ 前缀，导致 CleanupOrphanedHistory 把它当孤儿删掉
+// （本地/串口终端的历史在每次启动后被清空，重启即丢失）。Windows 的 shell
+// 名（pwsh.exe / wsl://Ubuntu）不含路径分隔符，filepath.Base 不会改它们，
+// 这正是 PowerShell/WSL 正常、Linux bash 丢失的根因。
+//
+// 这里直接把所有平台上的路径分隔符与路径相关字符（/ \ :）统一替换为下划线：
+// 替换后不再含任何分隔符，天然杜绝路径穿越（"../../etc/passwd" 也会被改成
+// 形如 "______etc_passwd" 的扁平名字），同时完整保留 local_/serial_ 前缀契约，
+// 使清理孤儿逻辑能正确豁免本地/串口终端历史。
+// 对既有 id（SSH 连接的 hex ID、Windows shell 名等不含分隔符的 id）结果不变，
+// 向后兼容。
+func historyFileName(id string) string {
+	if id == "" {
+		return ""
+	}
+	return strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(id)
+}
+
 // GetCommandHistory 读取指定会话的命令历史
 func (c *ConfigManager) GetCommandHistory(sessionId string) string {
-	// 防止路径穿越
-	sessionId = filepath.Base(sessionId)
+	// 防止路径穿越：保留 local_/serial_ 前缀（见 historyFileName）
+	sessionId = historyFileName(sessionId)
 	path := filepath.Join(c.historyDir, sessionId+".json")
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -2412,8 +2433,8 @@ func (c *ConfigManager) GetCommandHistory(sessionId string) string {
 
 // SaveCommandHistory 保存指定会话的命令历史
 func (c *ConfigManager) SaveCommandHistory(sessionId, jsonStr string) error {
-	// 防止路径穿越
-	sessionId = filepath.Base(sessionId)
+	// 防止路径穿越：保留 local_/serial_ 前缀（见 historyFileName）
+	sessionId = historyFileName(sessionId)
 	path := filepath.Join(c.historyDir, sessionId+".json")
 	c.mu.Lock()
 	defer c.mu.Unlock()

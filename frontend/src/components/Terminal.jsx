@@ -1592,9 +1592,17 @@ export default function Terminal({
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
+      ws.onopen = () => {
+        // 补发一次初始尺寸：终端首次 fit 发生在 onResize 订阅之前，那次
+        // 尺寸变化事件被错过，本地 PTY 可能长期停留在出生尺寸；这里主动
+        // 同步一次，同时给 SIGWINCH 会重绘提示符的 shell（bash/zsh）兜底自愈机会。
+        if (termRef.current) {
+          AppGo.ResizeTerminal(sessionId, termRef.current.cols, termRef.current.rows);
+        }
+      };
+
       ws.onmessage = (ev) => {
         if (!termRef.current) return;
-
         // 在原始数据上检测清屏序列（不依赖后续文本处理路径）
         const rawBytes = typeof ev.data === 'string' ? null : new Uint8Array(ev.data);
         // 统一解码：高亮开启时整个连接只用一个流式解码器（hlDecoderRef），
