@@ -9,8 +9,12 @@ import (
 	"time"
 
 	ai "luminssh-go/internal/ai"
+	"luminssh-go/internal/config"
+	"luminssh-go/internal/localopen"
 	"luminssh-go/internal/mcp"
+	"luminssh-go/internal/mcpbridge"
 	"luminssh-go/internal/mcpserver"
+	"luminssh-go/internal/sshmanager"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -32,12 +36,12 @@ func (b *AIBindings) runtime() *ai.App {
 	if b.runtimeApp == nil {
 		configDir := ""
 		if b.app != nil && b.app.configManager != nil {
-			configDir = b.app.configManager.configDir
+			configDir = b.app.configManager.GetConfigDir()
 		}
 		var sessionProvider ai.SessionProviderDelegate
 		var sshDelegate ai.SSHDelegate
 		if b.app != nil {
-			sessionProvider = mcpSessionProvider{app: b.app}
+			sessionProvider = mcpbridge.SessionProvider{Host: newMCPHost(b.app)}
 			sshDelegate = aiSSHDelegate{manager: b.app.sshManager}
 		}
 		b.runtimeApp = ai.NewRuntimeApp(context.Background(), configDir, sessionProvider, sshDelegate)
@@ -153,7 +157,7 @@ func (b *AIBindings) OpenAIConversationFolder(conversationID string) error {
 	if b == nil || b.app == nil || b.app.configManager == nil {
 		return fmt.Errorf("config manager unavailable")
 	}
-	return openLocalPathInExplorer(filepath.Join(b.app.configManager.configDir, "tasks", trimmedConversationID), true)
+	return localopen.Reveal(filepath.Join(b.app.configManager.GetConfigDir(), "tasks", trimmedConversationID), true)
 }
 
 func (b *AIBindings) PreprocessAIConversationLongText(conversationID string, text string) (string, error) {
@@ -219,7 +223,7 @@ func (b *AIBindings) SaveAIGlobalSettings(jsonStr string) error {
 	}
 	current := b.runtime().GetAIGlobalSettings()
 	if previous.MCPEnabled != current.MCPEnabled || previous.MCPAllowBrowserCalls != current.MCPAllowBrowserCalls {
-		applyMCPServiceState(b.app)
+		mcpbridge.ApplyServiceState(b.app.configManager.GetConfigDir(), newMCPHost(b.app))
 	}
 	previous.CurrentProviderID = ""
 	current.CurrentProviderID = ""
@@ -228,8 +232,8 @@ func (b *AIBindings) SaveAIGlobalSettings(jsonStr string) error {
 	previous.ProxyNodes = nil
 	current.ProxyNodes = nil
 	if b != nil && b.app != nil && b.app.configManager != nil && !reflect.DeepEqual(previous, current) {
-		mcp.InitializeClientHub(b.app.configManager.configDir)
-		b.app.configManager.bumpSnapshotTime()
+		mcp.InitializeClientHub(b.app.configManager.GetConfigDir())
+		b.app.configManager.BumpSnapshotTime()
 		go b.app.configManager.AutoSync()
 	}
 	return nil
@@ -253,8 +257,8 @@ func (b *AIBindings) SaveAIProviderState(jsonStr string) error {
 	for i := range currentProviders {
 		currentProviders[i].UpdatedAt = 0
 	}
-	if b != nil && b.app != nil && b.app.configManager != nil && !aiProvidersEqual(previousProviders, currentProviders) {
-		b.app.configManager.bumpSnapshotTime()
+	if b != nil && b.app != nil && b.app.configManager != nil && !config.AIProvidersEqual(previousProviders, currentProviders) {
+		b.app.configManager.BumpSnapshotTime()
 		go b.app.configManager.AutoSync()
 	}
 	return nil
@@ -277,7 +281,7 @@ func (b *AIBindings) RequestAIProviderModelsWithProfile(jsonStr string) ([]strin
 }
 
 type aiSSHDelegate struct {
-	manager *SSHManager
+	manager *sshmanager.SSHManager
 }
 
 func (d aiSSHDelegate) ExecuteCommandInTerminalControlled(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration, control <-chan ai.ToolExecutionAction, reassign <-chan string, onCommandQueued func(), onCommandStarted func(), onCommandOutput func(string)) (mcpserver.CommandExecutionResult, ai.ToolExecutionAction, error) {
@@ -361,19 +365,19 @@ func (d aiSSHDelegate) BridgeGetClientEntry(sessionID string) (*ssh.Client, *sft
 	if d.manager == nil {
 		return nil, nil, fmt.Errorf("ssh manager unavailable")
 	}
-	return d.manager.getClientEntry(sessionID)
+	return d.manager.GetClientEntry(sessionID)
 }
 
 func (d aiSSHDelegate) BridgeExecuteCmdWithClientContext(ctx context.Context, client *ssh.Client, command string) (string, error) {
 	if d.manager == nil {
 		return "", fmt.Errorf("ssh manager unavailable")
 	}
-	return d.manager.executeCmdWithClientContext(ctx, client, command)
+	return d.manager.ExecuteCmdWithClientContext(ctx, client, command)
 }
 
 func (d aiSSHDelegate) BridgeGetSFTPClient(sessionID string) (*sftp.Client, error) {
 	if d.manager == nil {
 		return nil, fmt.Errorf("ssh manager unavailable")
 	}
-	return d.manager.getSFTPClient(sessionID)
+	return d.manager.GetSFTPClient(sessionID)
 }

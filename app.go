@@ -24,6 +24,18 @@ import (
 	"time"
 
 	ai "luminssh-go/internal/ai"
+	"luminssh-go/internal/config"
+	"luminssh-go/internal/externaledit"
+	"luminssh-go/internal/localopen"
+	"luminssh-go/internal/mcpbridge"
+	"luminssh-go/internal/ping"
+	"luminssh-go/internal/platformruntime"
+	"luminssh-go/internal/platformupdate"
+	"luminssh-go/internal/programfonts"
+	"luminssh-go/internal/sshmanager"
+	"luminssh-go/internal/transfer"
+	"luminssh-go/internal/updatedownload"
+	"luminssh-go/internal/wsbuffer"
 	runtimebundle "luminssh-go/module/runtimebundle"
 	runtimeenv "luminssh-go/module/runtimeenv"
 	runtimeinstaller "luminssh-go/module/runtimeinstaller"
@@ -32,18 +44,74 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+type externalEditRemoteFiles struct {
+	manager *sshmanager.SSHManager
+}
+
+func (r externalEditRemoteFiles) Size(sessionID string, remotePath string) (int64, error) {
+	client, err := r.manager.GetSFTPClient(sessionID)
+	if err != nil {
+		return 0, err
+	}
+	info, err := client.Stat(remotePath)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
+}
+
+func (r externalEditRemoteFiles) Read(sessionID string, remotePath string) ([]byte, error) {
+	return r.manager.ReadFileBytes(sessionID, remotePath)
+}
+
+func (r externalEditRemoteFiles) Write(sessionID string, remotePath string, data []byte) error {
+	return r.manager.WriteFile(sessionID, remotePath, string(data))
+}
+
+type externalEditEventSink struct {
+	app *App
+}
+
+func (s externalEditEventSink) Emit(event string, payload map[string]interface{}) {
+	if s.app != nil && s.app.ctx != nil {
+		runtime.EventsEmit(s.app.ctx, event, payload)
+	}
+}
+
+type externalEditOpener struct{}
+
+func (externalEditOpener) OpenDefault(localPath string) error {
+	return localopen.OpenDocument(localPath)
+}
+
+func (externalEditOpener) OpenWith(editorPath string, localPath string) error {
+	cleanedEditor := filepath.Clean(strings.TrimSpace(editorPath))
+	cleanedFile := filepath.Clean(strings.TrimSpace(localPath))
+	if cleanedEditor == "" {
+		return fmt.Errorf("missing editor path")
+	}
+	if _, err := os.Stat(cleanedEditor); err != nil {
+		return err
+	}
+	if _, err := os.Stat(cleanedFile); err != nil {
+		return err
+	}
+	if goruntime.GOOS == "darwin" && strings.HasSuffix(strings.ToLower(cleanedEditor), ".app") {
+		return exec.Command("open", "-a", cleanedEditor, cleanedFile).Start()
+	}
+	return exec.Command(cleanedEditor, cleanedFile).Start()
+}
+
 // App struct
 type App struct {
 	ctx                       context.Context
-	sshManager                *SSHManager
-	configManager             *ConfigManager
+	sshManager                *sshmanager.SSHManager
+	configManager             *config.ConfigManager
 	wsPort                    int
 	wsToken                   string
-	wsMu                      sync.Mutex
-	wsConns                   map[string]*wsEntry    // sessionId -> active WebSocket
-	wsPending                 map[string]*wsPendingBuf // WS 注册前到达的输出缓冲（本地终端 PTY 首帧）
-	wsServer                  *http.Server        // WebSocket HTTP 服务器，用于优雅关闭
-	wsListener                net.Listener        // WebSocket 监听器，用于关闭时释放端口
+	wsManager                 *wsbuffer.Manager        // WebSocket 连接与缓冲管理器
+	wsServer                  *http.Server             // WebSocket HTTP 服务器，用于优雅关闭
+	wsListener                net.Listener             // WebSocket 监听器，用于关闭时释放端口
 	mainLivenessLockPath      string
 	mainLivenessLockRelease   func()
 	builtinProcessMu          sync.Mutex
@@ -66,27 +134,8 @@ type App struct {
 	aiSkipNextAutomaticReqMap map[string]bool
 	liveWorkspaceStateMu      sync.RWMutex
 	liveWorkspaceState        string
-	externalEdit              *ExternalEditManager
+	externalEdit              *externaledit.Manager
 }
-
-// wsEntry 包装一个 WebSocket 连接及其独立写锁。
-// wsMu 仅保护 map 增删改查；写消息时用每连接独立锁，避免慢客户端阻塞其他 session。
-type wsEntry struct {
-	conn    *websocket.Conn
-	writeMu sync.Mutex
-}
-
-// wsPendingBuf 缓冲 WS 注册前到达的输出（本地终端启动极快，PTY 首帧提示符
-// 往往早于前端 WS 注册到达；直接丢弃会表现为「首屏空白，回车才出提示符」）。
-// firstAt 用于过期：前端始终不连接时过期作废，避免陈旧数据在之后误 flush。
-type wsPendingBuf struct {
-	data    []byte
-	firstAt time.Time
-}
-
-// 每 session 首帧缓冲上限与过期时间
-const wsPendingMaxBytes = 256 * 1024
-const wsPendingMaxAge = 30 * time.Second
 
 type BuiltinProviderRuntimeStatus struct {
 	ProviderID string `json:"providerId"`
@@ -126,10 +175,9 @@ const githubContributorsMaxRetries = 5
 // NewApp creates a new App application struct
 func NewApp() *App {
 	app := &App{
-		sshManager:                NewSSHManager(),
-		configManager:             NewConfigManager(),
-		wsConns:                   make(map[string]*wsEntry),
-		wsPending:                 make(map[string]*wsPendingBuf),
+		sshManager:                sshmanager.NewSSHManager(),
+		configManager:             config.NewConfigManager(),
+		wsManager:                 wsbuffer.NewManager(),
 		builtinProcesses:          make(map[string]*exec.Cmd),
 		builtinBundleReady:        make(map[string]bool),
 		builtinInitCommands:       make(map[string]*exec.Cmd),
@@ -139,7 +187,13 @@ func NewApp() *App {
 		aiToolExecutions:          make(map[string]*ai.ToolExecutionState),
 		aiSkipNextAutomaticReqMap: make(map[string]bool),
 	}
-	app.externalEdit = NewExternalEditManager(app)
+	app.configManager.SetProgramDir(getProgramDirectory())
+	app.configManager.SetOnDeleteConnection(ping.ClearPingHostState)
+	app.externalEdit = externaledit.NewManager(
+		externalEditRemoteFiles{manager: app.sshManager},
+		externalEditEventSink{app: app},
+		externalEditOpener{},
+	)
 	return app
 }
 
@@ -147,10 +201,10 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.sshManager.ctx = ctx // Give SSH manager access to Wails events
-	a.sshManager.app = a   // Give SSH manager access to WebSocket registry
-	a.configManager.wailsCtx = ctx
-	setTransferTuningResolver(a.configManager.GetTransferTuningSettings)
+	a.sshManager.SetCtx(ctx) // Give SSH manager access to Wails events
+	a.sshManager.SetApp(a)   // Give SSH manager access to WebSocket registry
+	a.configManager.SetWailsCtx(ctx)
+	a.sshManager.ApplyTransferTuning(a.configManager.GetTransferTuningSettings())
 	if err := a.ensureMainLivenessLock(); err != nil {
 		log.Printf("failed to acquire main liveness lock: %v", err)
 	}
@@ -203,24 +257,10 @@ func (a *App) startup(ctx context.Context) {
 		}
 		defer conn.Close()
 
-		// 注册当前 WebSocket 连接
-		entry := &wsEntry{conn: conn}
-		a.wsMu.Lock()
-		if old := a.wsConns[sessionId]; old != nil {
-			go old.conn.Close() // 同 session 重连时关闭被覆盖的旧连接，避免 fd 泄漏
-		}
-		a.wsConns[sessionId] = entry
-		a.wsMu.Unlock()
-		// 注册完成后立即 flush 注册前缓冲的首帧，保证本地终端首屏提示符立即可见
-		a.flushPendingWsOutput(sessionId)
-		defer func() {
-			a.wsMu.Lock()
-			// 仅删除自己的 entry：若已被新连接覆盖，cur != entry，不能误删新连接
-			if cur, ok := a.wsConns[sessionId]; ok && cur == entry {
-				delete(a.wsConns, sessionId)
-			}
-			a.wsMu.Unlock()
-		}()
+		// 注册当前 WebSocket 连接（同 session 重连时自动关闭旧连接），并 flush 注册前缓冲
+		entry := a.wsManager.Register(sessionId, conn)
+		a.wsManager.FlushPending(sessionId)
+		defer a.wsManager.Unregister(sessionId, entry)
 
 		// 读取 WebSocket 消息，直通 SSH stdin
 		for {
@@ -261,9 +301,9 @@ func (a *App) startup(ctx context.Context) {
 
 	a.configManager.CleanupOrphanedHistory()
 	go a.configManager.AutoSync()
-	applyMCPOutputCompressionSettings(a.configManager.GetMCPOutputCompressionSettings())
+	mcpbridge.InitOutputCompression(a.configManager.GetConfigDir())
 	// MCP 客户端会连远端（内置 context7），同步握手会拖慢首屏；后台启动即可。
-	go startMCPServer(a)
+	go mcpbridge.StartServer(a.configManager.GetConfigDir(), newMCPHost(a))
 }
 
 // AckClose 前端响应了关闭弹窗（tray/cancel），取消 5s 兜底强制退出
@@ -311,102 +351,16 @@ func (a *App) GetWsToken() string {
 	return a.wsToken
 }
 
-// WriteWsToSession 将 WebSocket 输出写入给指定 session 的 WS 连接
+// WriteWsOutput 将 WebSocket 输出写入给指定 session 的 WS 连接
 func (a *App) WriteWsOutput(sessionId string, data []byte) {
-	// 仅在 wsMu 下取出 entry，并原子取走可能存在的注册前缓冲；
-	// 写消息时用每连接独立锁，避免慢客户端阻塞其他 session
-	a.wsMu.Lock()
-	entry, ok := a.wsConns[sessionId]
-	var pending []byte
-	if ok && entry != nil {
-		if p := a.wsPending[sessionId]; p != nil {
-			pending = p.data
-			delete(a.wsPending, sessionId)
-		}
-	}
-	a.wsMu.Unlock()
-
-	if !ok || entry == nil {
-		// WS 尚未注册（本地终端 PTY 首帧竞态）：缓冲而非丢弃，注册时 flush。
-		if len(data) > 0 {
-			a.bufferPendingWsOutput(sessionId, data)
-		}
-		return
-	}
-
-	// 先写缓冲首帧再写当前数据，保证前端帧顺序
-	if len(pending) > 0 {
-		a.writeWsFrame(sessionId, entry, pending)
-	}
-	if len(data) > 0 {
-		a.writeWsFrame(sessionId, entry, data)
-	}
+	a.wsManager.WriteOutput(sessionId, data)
 }
 
-// bufferPendingWsOutput 在 wsMu 下累积注册前输出，带上限与过期保护。
-func (a *App) bufferPendingWsOutput(sessionId string, data []byte) {
-	a.wsMu.Lock()
-	defer a.wsMu.Unlock()
-	p := a.wsPending[sessionId]
-	if p == nil || time.Since(p.firstAt) > wsPendingMaxAge {
-		p = &wsPendingBuf{firstAt: time.Now()}
-		a.wsPending[sessionId] = p
-	}
-	if len(p.data) >= wsPendingMaxBytes {
-		return // 已达上限：只保留头部首帧数据
-	}
-	if remain := wsPendingMaxBytes - len(p.data); len(data) > remain {
-		data = data[:remain]
-	}
-	p.data = append(p.data, data...)
-}
-
-// flushPendingWsOutput 在 WS 注册时把注册前缓冲 flush 给新连接。
-// 与 WriteWsOutput 的取缓冲操作同在 wsMu 下原子完成，二者只会有一方取到，
-// 因此「flush 路径」与「注册后首条实时数据路径」不会重复或乱序。
-func (a *App) flushPendingWsOutput(sessionId string) {
-	a.wsMu.Lock()
-	entry, ok := a.wsConns[sessionId]
-	var pending []byte
-	if ok && entry != nil {
-		if p := a.wsPending[sessionId]; p != nil {
-			pending = p.data
-			delete(a.wsPending, sessionId)
-		}
-	}
-	a.wsMu.Unlock()
-	if !ok || entry == nil || len(pending) == 0 {
-		return
-	}
-	a.writeWsFrame(sessionId, entry, pending)
-}
-
-// cleanupWsPending 在会话彻底销毁时清理其注册前缓冲，避免 wsPending map 残留。
+// CleanupWsPending 在会话彻底销毁时清理其注册前缓冲，避免 pending map 残留。
 // 注意：不能在单条 WS 重连时调用——重连期间 PTY 可能仍在向 pending 缓冲首帧，
-// 那些数据需要留给新连接 flush。仅在 session 从 m.sessions 删除（彻底断开）时调用。
-func (a *App) cleanupWsPending(sessionId string) {
-	a.wsMu.Lock()
-	delete(a.wsPending, sessionId)
-	a.wsMu.Unlock()
-}
-
-// writeWsFrame 在连接独立写锁下写一帧二进制消息；写失败时移除并关闭连接。
-func (a *App) writeWsFrame(sessionId string, entry *wsEntry, data []byte) {
-	entry.writeMu.Lock()
-	defer entry.writeMu.Unlock()
-	// 设置写超时，防止前端停止读取后 goroutine 永久阻塞
-	entry.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	err := entry.conn.WriteMessage(websocket.BinaryMessage, data)
-	if err != nil {
-		// 写失败（超时/连接断开），关闭并移除该连接
-		a.wsMu.Lock()
-		// 二次校验：可能已被其他 goroutine 替换或移除
-		if cur, ok := a.wsConns[sessionId]; ok && cur == entry {
-			delete(a.wsConns, sessionId)
-		}
-		a.wsMu.Unlock()
-		entry.conn.Close()
-	}
+// 那些数据需要留给新连接 flush。仅在 session 彻底断开时调用。
+func (a *App) CleanupWsPending(sessionId string) {
+	a.wsManager.CleanupPending(sessionId)
 }
 
 // IsPortableVersion checks if the current executable is the portable version
@@ -434,20 +388,20 @@ func (a *App) GetArch() string {
 }
 
 // GetConnections returns all saved SSH connections
-func (a *App) GetConnections() []Connection {
+func (a *App) GetConnections() []config.Connection {
 	return a.configManager.GetConnections()
 }
 
 // GetConnectionsMasked 返回掩码后的连接列表，用于前端显示
-func (a *App) GetConnectionsMasked() []Connection {
+func (a *App) GetConnectionsMasked() []config.Connection {
 	return a.configManager.GetConnectionsMasked()
 }
 
 // GetConnectionByID 返回指定连接的真实数据（含解密密码），供克隆等场景使用
-func (a *App) GetConnectionByID(id string) (Connection, error) {
+func (a *App) GetConnectionByID(id string) (config.Connection, error) {
 	conn, ok := a.configManager.GetConnectionByID(id)
 	if !ok {
-		return Connection{}, fmt.Errorf("connection not found")
+		return config.Connection{}, fmt.Errorf("connection not found")
 	}
 	return conn, nil
 }
@@ -471,7 +425,7 @@ func (a *App) GetConnectionPassword(id string) (string, error) {
 }
 
 // SaveConnection saves a new or existing connection
-func (a *App) SaveConnection(conn Connection, noSync bool) Connection {
+func (a *App) SaveConnection(conn config.Connection, noSync bool) config.Connection {
 	return a.configManager.SaveConnection(conn, noSync)
 }
 
@@ -524,7 +478,7 @@ func (a *App) ExportConnections(useEncryption bool, password string) (string, er
 	conns := a.configManager.GetConnections()
 	creds := a.configManager.GetCredentials()
 	proxyNodes := a.configManager.GetAIProxyNodes()
-	exp := buildConnectionsExportWithProxyNodes(conns, creds, proxyNodes)
+	exp := config.BuildConnectionsExportWithProxyNodes(conns, creds, proxyNodes)
 
 	if !useEncryption {
 		// 明文：序列化后直接写文件
@@ -532,18 +486,18 @@ func (a *App) ExportConnections(useEncryption bool, password string) (string, er
 		if err != nil {
 			return "", fmt.Errorf("导出失败: %w", err)
 		}
-		if err := atomicWriteFile(path, data, 0600); err != nil {
+		if err := config.AtomicWriteFile(path, data, 0600); err != nil {
 			return "", fmt.Errorf("导出失败: %w", err)
 		}
 		return path, nil
 	}
 
 	// 密文：序列化 → LUMIN2 加密
-	encrypted, err := a.configManager.encryptExportData(exp, password)
+	encrypted, err := a.configManager.EncryptExportData(exp, password)
 	if err != nil {
 		return "", fmt.Errorf("导出失败: %w", err)
 	}
-	if err := atomicWriteFile(path, []byte(encrypted), 0600); err != nil {
+	if err := config.AtomicWriteFile(path, []byte(encrypted), 0600); err != nil {
 		return "", fmt.Errorf("导出失败: %w", err)
 	}
 	return path, nil
@@ -587,7 +541,7 @@ func (a *App) ExportConnectionsByIDs(ids []string, useEncryption bool, password 
 	allConns := a.configManager.GetConnections()
 
 	// 按 ID 过滤（空列表 = 全部）
-	var conns []Connection
+	var conns []config.Connection
 	if len(ids) == 0 {
 		conns = allConns
 	} else {
@@ -604,25 +558,25 @@ func (a *App) ExportConnectionsByIDs(ids []string, useEncryption bool, password 
 
 	creds := a.configManager.GetCredentials()
 	proxyNodes := a.configManager.GetAIProxyNodes()
-	exp := buildConnectionsExportWithProxyNodes(conns, creds, proxyNodes)
+	exp := config.BuildConnectionsExportWithProxyNodes(conns, creds, proxyNodes)
 
 	if !useEncryption {
 		data, err := json.MarshalIndent(exp, "", "  ")
 		if err != nil {
 			return "", fmt.Errorf("导出失败: %w", err)
 		}
-		if err := atomicWriteFile(path, data, 0600); err != nil {
+		if err := config.AtomicWriteFile(path, data, 0600); err != nil {
 			return "", fmt.Errorf("导出失败: %w", err)
 		}
 		return path, nil
 	}
 
 	// 密文：序列化 → LUMIN2 加密
-	encrypted, err := a.configManager.encryptExportData(exp, password)
+	encrypted, err := a.configManager.EncryptExportData(exp, password)
 	if err != nil {
 		return "", fmt.Errorf("导出失败: %w", err)
 	}
-	if err := atomicWriteFile(path, []byte(encrypted), 0600); err != nil {
+	if err := config.AtomicWriteFile(path, []byte(encrypted), 0600); err != nil {
 		return "", fmt.Errorf("导出失败: %w", err)
 	}
 	return path, nil
@@ -647,27 +601,27 @@ func (a *App) SelectImportFile() (string, error) {
 // filePath 由前端通过 SelectImportFile 获取；password 为弹窗输入的自定义解密密码（可空）。
 // 智能识别明文 JSON / LUMIN2 密文：
 //   - 明文直接解析
-//   - 密文优先用本机恢复密码，失败返回 errNeedPassword，前端弹窗输入自定义密码后再试
-func (a *App) ImportConnections(filePath string, password string) (ImportResult, error) {
+//   - 密文优先用本机恢复密码，失败返回 config.ErrNeedPassword，前端弹窗输入自定义密码后再试
+func (a *App) ImportConnections(filePath string, password string) (config.ImportResult, error) {
 	if filePath == "" {
-		return ImportResult{}, nil
+		return config.ImportResult{}, nil
 	}
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return ImportResult{}, fmt.Errorf("导入失败: %w", err)
+		return config.ImportResult{}, fmt.Errorf("导入失败: %w", err)
 	}
 
 	if strings.TrimSpace(password) == "" {
 		password = a.configManager.GetRecoveryPassword()
 	}
 
-	exp, err := a.configManager.parseImportData(data, password)
+	exp, err := a.configManager.ParseImportData(data, password)
 	if err != nil {
-		if errors.Is(err, errNeedPassword) {
+		if errors.Is(err, config.ErrNeedPassword) {
 			// 原样返回，前端识别此 sentinel 并弹密码框
-			return ImportResult{}, err
+			return config.ImportResult{}, err
 		}
-		return ImportResult{}, fmt.Errorf("导入失败: %w", err)
+		return config.ImportResult{}, fmt.Errorf("导入失败: %w", err)
 	}
 	return a.configManager.ImportConnections(exp.Connections, exp.Credentials, exp.ProxyNodes)
 }
@@ -692,7 +646,7 @@ func (a *App) DownloadImportTemplate(lang string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	tmpl := buildImportTemplate(lang)
+	tmpl := config.BuildImportTemplate(lang)
 	data, err := json.MarshalIndent(tmpl, "", "  ")
 	if err != nil {
 		if lang == "en-US" {
@@ -700,7 +654,7 @@ func (a *App) DownloadImportTemplate(lang string) (string, error) {
 		}
 		return "", fmt.Errorf("生成模板失败: %w", err)
 	}
-	if err := atomicWriteFile(path, data, 0600); err != nil {
+	if err := config.AtomicWriteFile(path, data, 0600); err != nil {
 		if lang == "en-US" {
 			return "", fmt.Errorf("failed to save template: %w", err)
 		}
@@ -748,7 +702,7 @@ func (a *App) ConnectSSH(sessionId string, connId string) error {
 }
 
 func (a *App) StartLocalPortForward(sessionId string, localAddr string, remoteAddr string) (string, error) {
-	connKey := a.sshManager.connKeyForSession(sessionId)
+	connKey := a.sshManager.ConnKeyForSession(sessionId)
 	if connKey == "" {
 		return "", fmt.Errorf("session not found")
 	}
@@ -756,15 +710,15 @@ func (a *App) StartLocalPortForward(sessionId string, localAddr string, remoteAd
 }
 
 func (a *App) StartRemotePortForward(sessionId string, remoteAddr string, localAddr string) (string, error) {
-	connKey := a.sshManager.connKeyForSession(sessionId)
+	connKey := a.sshManager.ConnKeyForSession(sessionId)
 	if connKey == "" {
 		return "", fmt.Errorf("session not found")
 	}
 	return a.sshManager.StartRemotePortForward(connKey, remoteAddr, localAddr)
 }
 
-func (a *App) ListPortForwards(sessionId string) ([]PortForwardInfo, error) {
-	connKey := a.sshManager.connKeyForSession(sessionId)
+func (a *App) ListPortForwards(sessionId string) ([]sshmanager.PortForwardInfo, error) {
+	connKey := a.sshManager.ConnKeyForSession(sessionId)
 	if connKey == "" {
 		return nil, fmt.Errorf("session not found")
 	}
@@ -773,15 +727,7 @@ func (a *App) ListPortForwards(sessionId string) ([]PortForwardInfo, error) {
 
 // portForwardBelongsToSession 校验某端口映射是否归属给定会话对应的连接, 防止仅凭全局 id 越权操作。
 func (a *App) portForwardBelongsToSession(sessionId string, id string) bool {
-	connKey := a.sshManager.connKeyForSession(sessionId)
-	if connKey == "" {
-		return false
-	}
-	a.sshManager.ensurePersistedPortForwardsLoadedForConnKey(connKey)
-	a.sshManager.mu.RLock()
-	defer a.sshManager.mu.RUnlock()
-	entry, ok := a.sshManager.portForwards[id]
-	return ok && entry != nil && entry.connKey == connKey
+	return a.sshManager.PortForwardBelongsToSession(sessionId, id)
 }
 
 func (a *App) StopPortForward(id string) error {
@@ -849,7 +795,7 @@ func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword
 	err = a.sshManager.Connect(sessionId, resolved)
 	// 重连失败且非认证失败（认证失败会再弹密码框继续重试）时清除临时密钥，
 	// 与 AcceptHostKeyChange 的失败处理保持一致，避免残留导致静默绕过校验。
-	if hadTempKey && err != nil && !errors.Is(err, ErrAuthFailed) {
+	if hadTempKey && err != nil && !errors.Is(err, sshmanager.ErrAuthFailed) {
 		a.sshManager.ClearTempAcceptedKey(sessionId)
 	}
 	return err
@@ -935,9 +881,7 @@ func (a *App) AcceptHostKeyChange(sessionId string, action int) error {
 
 // OpenTerminal 在当前服务器连接上打开新的终端标签页
 func (a *App) OpenTerminal(sessionId string) (string, error) {
-	a.sshManager.mu.RLock()
-	existing, ok := a.sshManager.sessions[sessionId]
-	a.sshManager.mu.RUnlock()
+	existing, ok := a.sshManager.GetSession(sessionId)
 	if !ok {
 		return "", fmt.Errorf("session not found")
 	}
@@ -949,7 +893,7 @@ func (a *App) OpenTerminal(sessionId string) (string, error) {
 		}
 		newId := fmt.Sprintf("term_%x", randomId)
 
-		err := a.connectLocal(newId, filepath.Base(existing.ShellPath), existing.ShellPath, "")
+		err := a.sshManager.ConnectLocal(newId, filepath.Base(existing.ShellPath), existing.ShellPath, "")
 		if err != nil {
 			return "", err
 		}
@@ -971,22 +915,22 @@ func (a *App) ResizeTerminal(sessionId string, cols, rows int) {
 
 // GetLocalShells lists detected shells on the local system.
 func (a *App) GetLocalShells() ([]string, error) {
-	return a.getLocalShells()
+	return a.sshManager.GetLocalShells()
 }
 
 // ListSerialPorts returns the list of available serial port names.
 func (a *App) ListSerialPorts() ([]string, error) {
-	return a.listSerialPorts()
+	return a.sshManager.ListSerialPorts()
 }
 
 // ConnectLocal spawns a local command process and pipes it to the WebSocket path.
 func (a *App) ConnectLocal(sessionId string, name string, shellPath string, cwd string) error {
-	return a.connectLocal(sessionId, name, shellPath, cwd)
+	return a.sshManager.ConnectLocal(sessionId, name, shellPath, cwd)
 }
 
 // ConnectSerial connects to a local serial port and pipes it to the WebSocket path.
 func (a *App) ConnectSerial(sessionId string, name string, portName string, baudRate int, dataBits int, stopBits float64, parity string) error {
-	return a.connectSerial(sessionId, name, portName, baudRate, dataBits, stopBits, parity)
+	return a.sshManager.ConnectSerial(sessionId, name, portName, baudRate, dataBits, stopBits, parity)
 }
 
 // SystemInfo retrieves basic system probe info
@@ -1089,7 +1033,11 @@ func (a *App) GetFileManagerSettings() map[string]interface{} {
 }
 
 func (a *App) SaveTransferTuningSettings(maxPacketKiB int, maxRequestsPerFile int, concurrentWrites bool, applyToSharedClient bool) error {
-	return a.configManager.SaveTransferTuningSettings(maxPacketKiB, maxRequestsPerFile, concurrentWrites, applyToSharedClient)
+	if err := a.configManager.SaveTransferTuningSettings(maxPacketKiB, maxRequestsPerFile, concurrentWrites, applyToSharedClient); err != nil {
+		return err
+	}
+	a.sshManager.ApplyTransferTuning(a.configManager.GetTransferTuningSettings())
+	return nil
 }
 
 // SaveChmodDialogSettings persists chmod dialog preferences
@@ -1113,11 +1061,11 @@ func (a *App) SetFileManagerSmartUncompressConflictStrategy(strategy string) err
 	return a.configManager.SetFileManagerSmartUncompressConflictStrategy(strategy)
 }
 
-func (a *App) ListOwnershipCandidates(sessionId string) (OwnershipCandidates, error) {
+func (a *App) ListOwnershipCandidates(sessionId string) (sshmanager.OwnershipCandidates, error) {
 	return a.sshManager.ListOwnershipCandidates(sessionId)
 }
 
-func (a *App) GetPathOwnership(sessionId string, path string) (PathOwnershipInfo, error) {
+func (a *App) GetPathOwnership(sessionId string, path string) (sshmanager.PathOwnershipInfo, error) {
 	return a.sshManager.GetPathOwnership(sessionId, path)
 }
 
@@ -1155,7 +1103,7 @@ func (a *App) UncompressItem(sessionId string, remotePath string) error {
 	if a != nil && a.configManager != nil {
 		settings := a.configManager.GetFileManagerSettings()
 		if configuredStrategy, ok := settings["smartUncompressConflictStrategy"].(string); ok {
-			strategy = normalizeFileManagerSmartUncompressConflictStrategy(configuredStrategy)
+			strategy = config.NormalizeFileManagerSmartUncompressConflictStrategy(configuredStrategy)
 		}
 	}
 	return a.sshManager.UncompressItemWithStrategy(sessionId, remotePath, strategy)
@@ -1289,8 +1237,8 @@ func (a *App) ensureMainLivenessLock() error {
 	if a.mainLivenessLockRelease != nil && strings.TrimSpace(a.mainLivenessLockPath) != "" {
 		return nil
 	}
-	lockPath := filepath.Join(a.configManager.configDir, "luminssh-main.lock")
-	release, err := acquireMainLivenessLock(lockPath)
+	lockPath := filepath.Join(a.configManager.GetConfigDir(), "luminssh-main.lock")
+	release, err := platformruntime.AcquireMainLivenessLock(lockPath)
 	if err != nil {
 		return err
 	}
@@ -1756,7 +1704,7 @@ func resolveDownloadBasePath(remotePath string, defaultDir string, isDirectory b
 	}
 	baseName := filepath.Base(strings.TrimSpace(remotePath))
 	if isDirectory {
-		baseName = remoteDownloadBaseName(remotePath)
+		baseName = transfer.RemoteDownloadBaseName(remotePath)
 	}
 	return filepath.Join(defaultDirectory, baseName)
 }
@@ -1766,14 +1714,14 @@ func resolveDownloadLocalPath(localPath string, isDirectory bool, optionsJSON st
 	if cleaned == "" {
 		return ""
 	}
-	options := parseDownloadConflictOptions(optionsJSON)
-	if options.strategyFor(".") != downloadConflictStrategyAutoRename {
+	options := transfer.ParseDownloadConflictOptions(optionsJSON)
+	if options.StrategyFor(".") != transfer.DownloadConflictStrategyAutoRename {
 		return cleaned
 	}
 	if _, err := os.Stat(cleaned); os.IsNotExist(err) {
 		return cleaned
 	}
-	renamedPath, err := buildDownloadRenamedPath(cleaned, options.RenameSuffixMode, isDirectory)
+	renamedPath, err := transfer.BuildDownloadRenamedPath(cleaned, options.RenameSuffixMode, isDirectory)
 	if err != nil {
 		return cleaned
 	}
@@ -1797,11 +1745,11 @@ func (a *App) GetThemePackagesDirectory() (string, error) {
 }
 
 func (a *App) GetThemePackageSettings() map[string]interface{} {
-	return themePackageSettingsToMap(a.configManager.GetThemePackageSettings())
+	return config.ThemePackageSettingsToMap(a.configManager.GetThemePackageSettings())
 }
 
 func (a *App) SaveThemePackageSettings(payload map[string]string) error {
-	return a.configManager.SaveThemePackageSettings(ThemePackageSettings{
+	return a.configManager.SaveThemePackageSettings(config.ThemePackageSettings{
 		ThemeMode:           payload["themeMode"],
 		LightThemePackageID: payload["lightThemePackageId"],
 		DarkThemePackageID:  payload["darkThemePackageId"],
@@ -1815,7 +1763,7 @@ func (a *App) ListThemePackages() ([]map[string]interface{}, error) {
 	}
 	result := make([]map[string]interface{}, 0, len(items))
 	for _, item := range items {
-		result = append(result, themePackageSummaryToMap(item))
+		result = append(result, config.ThemePackageSummaryToMap(item))
 	}
 	return result, nil
 }
@@ -1836,7 +1784,7 @@ func (a *App) ImportThemePackageFiles(paths []string) ([]map[string]interface{},
 	}
 	result := make([]map[string]interface{}, 0, len(items))
 	for _, item := range items {
-		result = append(result, themePackageSummaryToMap(item))
+		result = append(result, config.ThemePackageSummaryToMap(item))
 	}
 	return result, nil
 }
@@ -1850,7 +1798,7 @@ func (a *App) CopyThemePackageToMode(themeID string, targetMode string) (map[str
 	if err != nil {
 		return nil, err
 	}
-	return themePackageSummaryToMap(item), nil
+	return config.ThemePackageSummaryToMap(item), nil
 }
 
 func getGitHubContributorsOnce(client *http.Client) ([]GitHubContributor, error) {
@@ -1899,8 +1847,8 @@ func (a *App) GetGitHubContributors() ([]GitHubContributor, error) {
 	return nil, lastErr
 }
 
-func (a *App) ListProgramFonts() ([]ProgramFontInfo, error) {
-	return listProgramFontsFromDirectory()
+func (a *App) ListProgramFonts() ([]programfonts.ProgramFontInfo, error) {
+	return programfonts.ListFonts(getProgramDirectory())
 }
 
 func (a *App) SelectProgramFontFiles() ([]string, error) {
@@ -1912,15 +1860,15 @@ func (a *App) SelectProgramFontFiles() ([]string, error) {
 	})
 }
 
-func (a *App) ImportProgramFontFiles(paths []string) ([]ProgramFontInfo, error) {
-	fontsDirectory, err := ensureProgramFontsDirectory()
+func (a *App) ImportProgramFontFiles(paths []string) ([]programfonts.ProgramFontInfo, error) {
+	fontsDirectory, err := programfonts.EnsureDir(getProgramDirectory())
 	if err != nil {
 		return nil, err
 	}
-	imported := make([]ProgramFontInfo, 0, len(paths))
+	imported := make([]programfonts.ProgramFontInfo, 0, len(paths))
 	seen := map[string]bool{}
 	for _, path := range paths {
-		fontInfo, copyErr := copyProgramFontFile(path, fontsDirectory)
+		fontInfo, copyErr := programfonts.CopyFile(path, fontsDirectory)
 		if copyErr != nil {
 			return nil, copyErr
 		}
@@ -1934,11 +1882,11 @@ func (a *App) ImportProgramFontFiles(paths []string) ([]ProgramFontInfo, error) 
 }
 
 func (a *App) DeleteProgramFont(fileName string) error {
-	return deleteProgramFontFile(fileName)
+	return programfonts.DeleteFile(fileName, getProgramDirectory())
 }
 
 func (a *App) GetProgramFontDataURL(fileName string) (string, error) {
-	return buildProgramFontDataURL(fileName)
+	return programfonts.DataURL(fileName, getProgramDirectory())
 }
 
 func (a *App) ResolveDownloadPath(remotePath string, defaultDir string, isDirectory bool, optionsJSON string) string {
@@ -1980,24 +1928,6 @@ func (a *App) AbortDownloadTransfer(identifier string) error {
 	return a.sshManager.AbortDownloadTransfer(identifier)
 }
 
-func openLocalDocument(path string) error {
-	cleaned := filepath.Clean(strings.TrimSpace(path))
-	if cleaned == "" {
-		return fmt.Errorf("missing local path")
-	}
-	if _, err := os.Stat(cleaned); err != nil {
-		return err
-	}
-	switch goruntime.GOOS {
-	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", cleaned).Start()
-	case "darwin":
-		return exec.Command("open", cleaned).Start()
-	default:
-		return exec.Command("xdg-open", cleaned).Start()
-	}
-}
-
 func (a *App) OpenBuiltinProviderDoc(providerID string) error {
 	normalizedProviderID := strings.TrimSpace(providerID)
 	if normalizedProviderID == "" {
@@ -2014,11 +1944,11 @@ func (a *App) OpenBuiltinProviderDoc(providerID string) error {
 		return err
 	}
 	docPath := filepath.Join(getProgramDirectory(), "modules", "kimiapi", fileName)
-	return openLocalDocument(docPath)
+	return localopen.OpenDocument(docPath)
 }
 
 func (a *App) OpenLocalPathInExplorer(localPath string, isDirectory bool) error {
-	return openLocalPathInExplorer(localPath, isDirectory)
+	return localopen.Reveal(localPath, isDirectory)
 }
 
 // ReadPrivateKeyFile opens a file dialog to read a private key file
@@ -2131,30 +2061,30 @@ func (a *App) GetLastSyncTime() int64 {
 	if a == nil || a.configManager == nil {
 		return 0
 	}
-	return a.configManager.loadLastSyncTimeMax()
+	return a.configManager.LoadLastSyncTimeMax()
 }
 
 // GetSyncTombstoneStats 返回本地同步删除记录条数。
-func (a *App) GetSyncTombstoneStats() SyncTombstoneStats {
+func (a *App) GetSyncTombstoneStats() config.SyncTombstoneStats {
 	if a == nil || a.configManager == nil {
-		return SyncTombstoneStats{}
+		return config.SyncTombstoneStats{}
 	}
 	return a.configManager.GetSyncTombstoneStats()
 }
 
 // PruneSyncTombstones 按天数清理删除记录并上传到已配置云端。
 // days <= 0 表示清理全部。
-func (a *App) PruneSyncTombstones(days int) (SyncTombstonePruneResult, error) {
+func (a *App) PruneSyncTombstones(days int) (config.SyncTombstonePruneResult, error) {
 	if a == nil || a.configManager == nil {
-		return SyncTombstonePruneResult{}, fmt.Errorf("配置未初始化")
+		return config.SyncTombstonePruneResult{}, fmt.Errorf("配置未初始化")
 	}
 	return a.configManager.PruneSyncTombstones(days)
 }
 
 // PreviewTombstoneConflicts 合并同步前：先读目标云，列出本地墓碑将删掉的远端项。
-func (a *App) PreviewTombstoneConflicts() (TombstoneConflictPreview, error) {
+func (a *App) PreviewTombstoneConflicts() (config.TombstoneConflictPreview, error) {
 	if a == nil || a.configManager == nil {
-		return TombstoneConflictPreview{}, fmt.Errorf("配置未初始化")
+		return config.TombstoneConflictPreview{}, fmt.Errorf("配置未初始化")
 	}
 	return a.configManager.PreviewTombstoneConflicts()
 }
@@ -2212,7 +2142,7 @@ func (a *App) SaveProxyNodes(jsonStr string) error {
 	if err := a.configManager.SaveAIProxyNodes(nodes); err != nil {
 		return err
 	}
-	a.configManager.bumpSnapshotTime()
+	a.configManager.BumpSnapshotTime()
 	go a.configManager.AutoSync()
 	return nil
 }
@@ -2242,11 +2172,11 @@ func (a *App) SaveFTPConfig(config map[string]string) error {
 	return a.configManager.SaveFTPConfig(config)
 }
 
-func (a *App) TestFTPConnection(host string, port int, username, password, mode string) (*FTPConnectionTestResult, error) {
+func (a *App) TestFTPConnection(host string, port int, username, password, mode string) (*config.FTPConnectionTestResult, error) {
 	return a.configManager.TestFTPConnection(host, port, username, password, mode)
 }
 
-func (a *App) TestFTPConnectionWithCertificateApproval(host string, port int, username, password, mode, approvedFingerprint, expectedPinnedFingerprint string) (*FTPConnectionTestResult, error) {
+func (a *App) TestFTPConnectionWithCertificateApproval(host string, port int, username, password, mode, approvedFingerprint, expectedPinnedFingerprint string) (*config.FTPConnectionTestResult, error) {
 	return a.configManager.TestFTPConnectionWithCertificateApproval(host, port, username, password, mode, approvedFingerprint, expectedPinnedFingerprint)
 }
 
@@ -2292,11 +2222,11 @@ func (a *App) SaveSFTPConfig(config map[string]string) error {
 	return a.configManager.SaveSFTPConfig(config)
 }
 
-func (a *App) TestSFTPConnection(host string, port int, username, password, authMethod, privateKey, passphrase string) (*SFTPConnectionTestResult, error) {
+func (a *App) TestSFTPConnection(host string, port int, username, password, authMethod, privateKey, passphrase string) (*config.SFTPConnectionTestResult, error) {
 	return a.configManager.TestSFTPConnection(host, port, username, password, authMethod, privateKey, passphrase)
 }
 
-func (a *App) TestSFTPConnectionWithHostKeyApproval(host string, port int, username, password, authMethod, privateKey, passphrase, approvedFingerprint string) (*SFTPConnectionTestResult, error) {
+func (a *App) TestSFTPConnectionWithHostKeyApproval(host string, port int, username, password, authMethod, privateKey, passphrase, approvedFingerprint string) (*config.SFTPConnectionTestResult, error) {
 	return a.configManager.TestSFTPConnectionWithHostKeyApproval(host, port, username, password, authMethod, privateKey, passphrase, approvedFingerprint)
 }
 
@@ -2786,47 +2716,7 @@ func (a *App) PingServer(connId string, mode string) map[string]interface{} {
 			"latency": 0,
 		}
 	}
-	return PingServer(resolvedConn, mode)
-}
-
-// isAllowedUpdateDownloadURL 仅允许 GitHub Release 资产下载地址（含常见 ghproxy 前缀）。
-// 拒绝 html_url / 网页 / 非 download 路径，避免把 Release 页面当安装包热替换。
-func isAllowedUpdateDownloadURL(raw string) bool {
-	raw = strings.TrimSpace(raw)
-	if !strings.HasPrefix(raw, "https://") {
-		return false
-	}
-	// 允许直连与常见镜像前缀：镜像通常是 https://proxy/https://github.com/...
-	// 统一在完整字符串里找 github.com/.../releases/download/
-	lower := strings.ToLower(raw)
-	idx := strings.Index(lower, "github.com/")
-	if idx < 0 {
-		return false
-	}
-	rest := lower[idx+len("github.com/"):]
-	// 期望: owner/repo/releases/download/...
-	if !strings.Contains(rest, "/releases/download/") {
-		return false
-	}
-	// 拒绝 .sha256 自身
-	if strings.HasSuffix(lower, ".sha256") {
-		return false
-	}
-	return true
-}
-
-func isAllowedUpdateFilename(filename string) bool {
-	name := strings.ToLower(strings.TrimSpace(filename))
-	if name == "" || name == "." || name == ".." {
-		return false
-	}
-	if strings.HasSuffix(name, ".sha256") {
-		return false
-	}
-	return strings.HasSuffix(name, ".exe") ||
-		strings.HasSuffix(name, ".deb") ||
-		strings.HasSuffix(name, ".rpm") ||
-		strings.HasSuffix(name, ".dmg")
+	return ping.PingServer(resolvedConn, mode)
 }
 
 // UpdateApp downloads a platform update package, verifies it, and starts the
@@ -2836,19 +2726,19 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 	if !strings.HasPrefix(downloadUrl, "https://") {
 		return fmt.Errorf("更新地址必须使用 HTTPS")
 	}
-	if !isAllowedUpdateDownloadURL(downloadUrl) {
+	if !platformupdate.IsAllowedDownloadURL(downloadUrl) {
 		return fmt.Errorf("更新地址无效：仅允许 GitHub Release 安装包下载链接")
 	}
 	// Release asset names must not escape the temporary/download directory.
 	filename = filepath.Base(strings.TrimSpace(filename))
-	if !isAllowedUpdateFilename(filename) {
+	if !platformupdate.IsAllowedFilename(filename) {
 		return fmt.Errorf("更新文件名无效或不受支持: %s", filename)
 	}
 	// 2. 下载新文件（带超时，防止慢网络永久阻塞）
 	// ponytail: 对每个 URL 尝试完整的 下载→写入磁盘 流程，失败再试下一个。
 	// 旧实现只在 Get() 阶段切换 URL，io.Copy 阶段超时直接放弃（"failed to save update file"），
 	// 不会重试代理 URL。大文件 + 慢网络下直连极易在 body 读取阶段超时。
-	client := newUpdateDownloadHTTPClient()
+	client := updatedownload.NewHTTPClient()
 	ghProxies := []string{"https://ghproxy.net/", "https://gh-proxy.com/", "https://proxy.gitwarp.top/"}
 	var tryUrls []string
 	if strings.Contains(downloadUrl, "github.com") {
@@ -2900,20 +2790,28 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 		}
 	}
 
+	downloader := updatedownload.Downloader{
+		Client: client,
+		Progress: func(progress float64) {
+			if a.ctx != nil {
+				runtime.EventsEmit(a.ctx, "app-update-progress", progress)
+			}
+		},
+	}
 	var lastErr error
 	var failedSources []string
 	for i, u := range tryUrls {
-		src := updateDownloadSourceLabel(u)
-		err := downloadUpdatePackageWithFallback(client, a.ctx, u, targetPath, "app-update-progress")
+		src := updatedownload.SourceLabel(u)
+		err := downloader.Download(a.ctx, u, targetPath)
 		if err != nil {
 			_ = os.Remove(targetPath)
 			failedSources = append(failedSources, src)
 			lastErr = err
 			if i+1 < len(tryUrls) {
-				next := updateDownloadSourceLabel(tryUrls[i+1])
+				next := updatedownload.SourceLabel(tryUrls[i+1])
 				fmt.Printf("[UpdateApp] %s 整源失败，换源 → %s: %v\n", src, next, err)
 				// 换源时进度归零，避免接在上一源半成品后面
-				emitUpdateDownloadProgress(a.ctx, "app-update-progress", 0)
+				downloader.Progress(0)
 			} else {
 				fmt.Printf("[UpdateApp] %s 整源失败，无更多源: %v\n", src, err)
 			}
@@ -2986,11 +2884,11 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 
 	// 3. 处理 .deb 包安装（Linux）
 	if isDeb {
-		if err := installDebPackage(targetPath); err != nil {
+		if err := platformupdate.InstallDeb(targetPath); err != nil {
 			return err
 		}
 		// dpkg -i 已替换 /usr/bin/lumin，重启为新版本
-		if err := restartApp(exePath); err != nil {
+		if err := platformupdate.Restart(exePath); err != nil {
 			return err
 		}
 		os.Exit(0)
@@ -2999,10 +2897,10 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 
 	// 3.5 处理 .rpm 包安装（Linux）
 	if isRpm {
-		if err := installRpmPackage(targetPath); err != nil {
+		if err := platformupdate.InstallRPM(targetPath); err != nil {
 			return err
 		}
-		if err := restartApp(exePath); err != nil {
+		if err := platformupdate.Restart(exePath); err != nil {
 			return err
 		}
 		os.Exit(0)
@@ -3011,7 +2909,7 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 
 	// 4. macOS DMG 由独立更新进程替换 .app，并在旧进程退出后重启。
 	if isDmg {
-		if err := installDmgPackage(targetPath, exePath); err != nil {
+		if err := platformupdate.InstallDMG(targetPath, exePath); err != nil {
 			return err
 		}
 		os.Exit(0)
@@ -3020,7 +2918,7 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 
 	// Windows 安装包交给系统安装器处理；其他文件走 Portable 替换。
 	if isSetup {
-		if err := launchInstaller(targetPath); err != nil {
+		if err := platformupdate.LaunchInstaller(targetPath); err != nil {
 			return err
 		}
 		// 退出当前应用以解除目录锁定
@@ -3030,7 +2928,7 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 
 	// Portable 热更替换逻辑
 	if needsElevated {
-		if err := applyUpdateElevated(targetPath, exePath); err != nil {
+		if err := platformupdate.ApplyElevated(targetPath, exePath); err != nil {
 			return err
 		}
 		os.Exit(0)
@@ -3050,7 +2948,7 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 		return fmt.Errorf("failed to apply update file: %w", err)
 	}
 
-	if err := restartApp(exePath); err != nil {
+	if err := platformupdate.Restart(exePath); err != nil {
 		return err
 	}
 
@@ -3058,13 +2956,13 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 	return nil
 }
 
-// ── Credential 凭据管理 ──────────────────────────────────────────
+// ── config.Credential 凭据管理 ──────────────────────────────────────────
 
-func (a *App) GetCredentials() []Credential {
+func (a *App) GetCredentials() []config.Credential {
 	return a.configManager.GetCredentialsMasked()
 }
 
-func (a *App) SaveCredential(cred Credential) Credential {
+func (a *App) SaveCredential(cred config.Credential) config.Credential {
 	return a.configManager.SaveCredential(cred)
 }
 
