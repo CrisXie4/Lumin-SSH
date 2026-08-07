@@ -7,6 +7,8 @@ import { CanResolveFilePaths, EventsOn, OnFileDrop, OnFileDropOff } from '../../
 import { useTranslation, t as tKey, getLanguage } from '../i18n.js';
 import { Z } from '../constants/zIndex.js';
 import { clampMenuPosition } from '../utils/menuPosition.js';
+import { isArchive, isBinaryLike, isViewable } from '../utils/fileTypeClassify.js';
+import { suppressDragOutClick } from '../utils/dragOutClickGuard.js';
 import FileUploadQueuePanel from './FileUploadQueuePanel.jsx';
 import Tiptop from './Tiptop.jsx';
 import {
@@ -163,14 +165,55 @@ function isEditable(name) {
   return false;
 }
 
-// 判断是否为压缩包
-function isArchive(name) {
-  const ext = (name.split('.').pop() || '').toLowerCase();
-  return ['zip', 'tar', 'gz', 'bz2', 'tgz', 'rar', '7z'].includes(ext) || name.toLowerCase().endsWith('.tar.gz');
+// Track files currently being downloaded/opened
+const globalOpeningFiles = new Set();
+const globalOpeningListeners = new Set();
+// key -> safety-timeout id, so removeOpeningFile can clear pending timers
+const globalOpeningTimers = new Map();
+
+function addOpeningFile(sessionId, path) {
+  if (!sessionId || !path) return;
+  const key = `${sessionId}:${path}`;
+  globalOpeningFiles.add(key);
+  notifyOpeningListeners();
+
+  // 5-minute safety timeout to prevent permanent lock leakage in case of backend hang.
+  // Defensive: replace any stale timer for this key before scheduling a new one.
+  if (globalOpeningTimers.has(key)) {
+    clearTimeout(globalOpeningTimers.get(key));
+  }
+  const timer = setTimeout(() => {
+    globalOpeningTimers.delete(key);
+    if (globalOpeningFiles.has(key)) {
+      globalOpeningFiles.delete(key);
+      notifyOpeningListeners();
+    }
+  }, 5 * 60 * 1000);
+  globalOpeningTimers.set(key, timer);
 }
 
-// 文件编辑大小上限
-const MAX_EDIT_SIZE = 5 * 1024 * 1024; // 5MB
+function removeOpeningFile(sessionId, path) {
+  if (!sessionId || !path) return;
+  const key = `${sessionId}:${path}`;
+  // Cancel the pending safety-timeout so normal fast opens leave no dangling timer
+  if (globalOpeningTimers.has(key)) {
+    clearTimeout(globalOpeningTimers.get(key));
+    globalOpeningTimers.delete(key);
+  }
+  globalOpeningFiles.delete(key);
+  notifyOpeningListeners();
+}
+
+function notifyOpeningListeners() {
+  const currentSet = new Set(globalOpeningFiles);
+  globalOpeningListeners.forEach(listener => listener(currentSet));
+}
+
+
+// 压缩包/二进制/媒体文件类型判定已抽到 utils/fileTypeClassify.js（isArchive/isBinaryLike/isViewable）
+
+// 文件编辑大小上限默认值（MB）；实际值由用户配置，组件内 maxEditSizeMB state 持有
+const DEFAULT_MAX_EDIT_SIZE_MB = 5;
 const MAX_CHUNK_UPLOAD_RETRIES = 5;
 const UPLOAD_ABORT_SENTINEL = '__LUMIN_UPLOAD_ABORTED__';
 const DEFAULT_FILE_MANAGER_DOWNLOAD_DIR = '${APP_DIR}\\download';
@@ -1063,6 +1106,68 @@ function ChmodDialog({ path, permission, mode, rememberedMode = '', autoApplyLas
   );
 }
 
+// 行内重命名输入框。
+//
+// 设计要点：
+//   - 非受控（defaultValue + ref 读值），避免受控渲染竞态丢字符。
+//   - suppressDragOutClick 抑制"框内 mousedown 拖出 mouseup"派生的 click，
+//     防止冒泡到行级 onClick 抢焦点、触发 onBlur 误提交。
+//   - committedRef 保证 onBlur / Enter / 外部取消 三条提交路径只生效一次。
+//   - 虚拟化卸载（Virtuoso 把该行滚出视口）时 React 不触发 onBlur，renamingItem
+//     会残留——卸载后 cleanup 故意保留已脱离 DOM 的元素引用，
+//     由 F2 入口（handleFileListKeyDown）与行级点击路径检测“input 已脱离 DOM”
+//     并读取 .value 兜底提交。之所以不用 useEffect cleanup 提交：
+//     StrictMode 下会 mount→unmount→remount，cleanup 会在用户什么都没做时就误触发提交。
+function RenameInput({ initialValue, isDirectory, onConfirm, onCancel, mountedRef }) {
+  const inputRef = useRef(null);
+  const committedRef = useRef(false);
+
+  const commit = useCallback((refocus) => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    const el = inputRef.current;
+    const value = el ? el.value : '';
+    onConfirm(value, refocus);
+  }, [onConfirm]);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    if (mountedRef) mountedRef.current = el; // 登记：供残留检测路径判断 input 是否还在 DOM
+    const name = el.value;
+    const extensionIndex = isDirectory ? -1 : name.lastIndexOf('.');
+    const selectionEnd = extensionIndex > 0 && extensionIndex < name.length - 1 ? extensionIndex : name.length;
+    el.setSelectionRange(0, selectionEnd);
+    // 卸载时不清空 mountedRef：保留已脱离 DOM 的元素引用，
+    // 让残留清理路径（F2 / 行级点击）能读到 .value 提交用户最后输入；
+    // 读取方都必须先做 document.body.contains 判断。绝不在 cleanup 做业务提交。
+  }, [isDirectory, mountedRef]);
+
+  return (
+    <input
+      ref={inputRef}
+      id="fm-rename-input"
+      name="fm-rename-input"
+      className="rename-input"
+      autoComplete="off"
+      defaultValue={initialValue}
+      onMouseDown={suppressDragOutClick}
+      onBlur={() => commit(false)}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Enter') commit(true);
+        if (event.key === 'Escape') {
+          if (committedRef.current) return;
+          committedRef.current = true;
+          onCancel();
+        }
+      }}
+      onClick={(event) => event.stopPropagation()}
+      autoFocus
+    />
+  );
+}
+
 // Context menu component
 function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinned = false, canTogglePinned = false, canCloseTab = false, showCreateActions = false, deleteItemCount = 1, clipboardItemCount = 1, canPaste = false, clipboardActionArrow = '', onClose, onDownload, onEdit, onOpenSystemEditor, onOpenWithEditor, onRename, onDelete, onDeleteShell, onMkdir, onNewFile, onCompress, onUncompress, onChmod, onCopyPath, onCopyItem, onCutItem, onPaste, onOpenInNewTab, onTogglePinned, onCloseTab, t }) {
   const ref = useRef(null);
@@ -1075,8 +1180,9 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
 
   React.useLayoutEffect(() => {
     if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const clamped = clampMenuPosition(pos.x, pos.y, rect.width, rect.height);
+    // 使用 offsetWidth/offsetHeight 测量：菜单带有 scale(0.94) 入场动画，
+    // getBoundingClientRect 会拿到变换后的缩小尺寸，导致底部 clamp 不足、末尾项被裁剪
+    const clamped = clampMenuPosition(pos.x, pos.y, ref.current.offsetWidth, ref.current.offsetHeight);
     setAdjusted({ left: clamped.x, top: clamped.y });
   }, [pos.x, pos.y]);
 
@@ -1192,6 +1298,24 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
 
 export default function FileManager({ sessionId, sessionGroupId = sessionId, addToast, isActive = true, initialPath = '' }) {
   const { t } = useTranslation();
+
+  const [openingFiles, setOpeningFiles] = useState(new Set());
+
+  useEffect(() => {
+    setOpeningFiles(new Set(globalOpeningFiles));
+    const listener = (newSet) => {
+      setOpeningFiles(newSet);
+    };
+    globalOpeningListeners.add(listener);
+    return () => {
+      globalOpeningListeners.delete(listener);
+    };
+  }, []);
+
+  const openingFilesRef = useRef(new Set());
+  useEffect(() => {
+    openingFilesRef.current = openingFiles;
+  }, [openingFiles]);
   const joinPath = (base, name) => base === '/' ? `/${name}` : `${base}/${name}`;
   const normalizePath = useCallback((value) => {
     const trimmed = String(value || '').trim();
@@ -1239,6 +1363,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return tabs.find((tab) => tab.id === activeTabId) || tabs[0] || null;
   }, [fileManagerWorkspace]);
   const activeFileManagerTabIdRef = useRef(activeFileManagerTab?.id || '');
+  const lastStateTabIdRef = useRef(activeFileManagerTab?.id || '');
   const displayedTabIdRef = useRef(activeFileManagerTab?.id || '');
   const [cwdSystemTabHighlight, setCwdSystemTabHighlight] = useState({ tabId: '', token: 0 });
   const cwdSystemTabHighlightTimerRef = useRef(0);
@@ -1322,7 +1447,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   useEffect(() => () => clearFileListSwitchFrame(), [clearFileListSwitchFrame]);
   useEffect(() => { currentPathRef.current = currentPath; }, [currentPath]);
   useEffect(() => { fileManagerWorkspaceRef.current = fileManagerWorkspace; }, [fileManagerWorkspace]);
-  useEffect(() => { activeFileManagerTabIdRef.current = activeFileManagerTab?.id || ''; }, [activeFileManagerTab]);
+  useEffect(() => {
+    const stateId = activeFileManagerTab?.id || '';
+    if (stateId !== lastStateTabIdRef.current) {
+      activeFileManagerTabIdRef.current = stateId;
+      lastStateTabIdRef.current = stateId;
+    }
+  }, [activeFileManagerTab]);
   useEffect(() => () => {
     if (cwdSystemTabHighlightTimerRef.current) {
       window.clearTimeout(cwdSystemTabHighlightTimerRef.current);
@@ -1351,6 +1482,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
   const [fileManagerAutoRefreshDisabled, setFileManagerAutoRefreshDisabled] = useState(false);
+  const [maxEditSizeMB, setMaxEditSizeMB] = useState(DEFAULT_MAX_EDIT_SIZE_MB);
   const fileManagerAutoRefreshDisabledRef = useRef(false);
   useEffect(() => { fileManagerAutoRefreshDisabledRef.current = fileManagerAutoRefreshDisabled; }, [fileManagerAutoRefreshDisabled]);
   useEffect(() => {
@@ -1413,6 +1545,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             : 'auto_rename'
         );
         setFileManagerAutoRefreshDisabled(settings.autoRefreshDisabled === true);
+        if (Number.isFinite(Number(settings.maxEditSizeMB)) && Number(settings.maxEditSizeMB) >= 1) {
+          setMaxEditSizeMB(Number(settings.maxEditSizeMB));
+        }
       })
       .catch(() => {});
     return () => {
@@ -1425,13 +1560,19 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       e.detail === 'overwrite' || e.detail === 'prompt' ? e.detail : 'auto_rename'
     );
     const handleAutoRefreshChange = (e) => setFileManagerAutoRefreshDisabled(e.detail === true);
+    const handleMaxEditSizeChange = (e) => {
+      const v = Number(e.detail);
+      if (Number.isFinite(v) && v >= 1) setMaxEditSizeMB(v);
+    };
     window.addEventListener('file-manager-double-click-uncompress-archive-changed', handleDoubleClickChange);
     window.addEventListener('file-manager-smart-uncompress-conflict-strategy-changed', handleStrategyChange);
     window.addEventListener('file-manager-auto-refresh-disabled-changed', handleAutoRefreshChange);
+    window.addEventListener('file-manager-max-edit-size-changed', handleMaxEditSizeChange);
     return () => {
       window.removeEventListener('file-manager-double-click-uncompress-archive-changed', handleDoubleClickChange);
       window.removeEventListener('file-manager-smart-uncompress-conflict-strategy-changed', handleStrategyChange);
       window.removeEventListener('file-manager-auto-refresh-disabled-changed', handleAutoRefreshChange);
+      window.removeEventListener('file-manager-max-edit-size-changed', handleMaxEditSizeChange);
     };
   }, []);
   useEffect(() => {
@@ -2414,7 +2555,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [sessionGroupId]);
 
   const [renamingItem, setRenamingItem] = useState(null);
-  const [renameValue, setRenameValue] = useState('');
+  // 跟踪重命名 input 是否仍挂在 DOM：Virtuoso 把行滚出视口会卸载 input，此时
+  // renamingItem 仍残留。F2 入口据此判断是否需要先提交残留的重命名再继续。
+  const renamingInputMountedRef = useRef(null);
   const [chmodTarget, setChmodTarget] = useState(null); // { item, path, mode, includeSubdirectories, showIncludeSubdirectories }
   const [openEditFiles, setOpenEditFiles] = useState([]);      // [{ path, name, content }]
   const openEditFilesRef = useRef([]);
@@ -4373,16 +4516,21 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     localStorage.setItem('fileEditorRecentApps', JSON.stringify(recent));
   }, []);
 
-  const openExternalEditor = useCallback(async (remotePath, content, editorPath = '') => {
+  const openExternalEditor = useCallback(async (remotePath, content, editorPath = '', readOnly = false, size = 0) => {
     if (!sessionId || !remotePath) return false;
+    // 下载前拦截大文件，避免把 GB 级文件读进内存后才报错（后端也会再校验一道）
+    if (size && size > maxEditSizeMB * 1024 * 1024) {
+      addToast(`${t('文件过大')} (${(size / 1024 / 1024).toFixed(1)}MB)，${t('最大支持 {size}MB 编辑', { size: maxEditSizeMB })}`, 'error');
+      return false;
+    }
     setExternalOpening(true);
     try {
       if (editorPath) {
-        await AppGo.OpenRemoteFileWithEditor(sessionId, remotePath, content || '', editorPath);
+        await AppGo.OpenRemoteFileWithEditor(sessionId, remotePath, content || '', editorPath, readOnly);
         rememberExternalEditorPath(editorPath);
         addToast(t('已用外部编辑器打开'), 'success');
       } else {
-        await AppGo.OpenRemoteFileInSystemEditor(sessionId, remotePath, content || '');
+        await AppGo.OpenRemoteFileInSystemEditor(sessionId, remotePath, content || '', readOnly);
         addToast(t('已用系统编辑器打开'), 'success');
       }
       return true;
@@ -4392,17 +4540,33 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     } finally {
       setExternalOpening(false);
     }
-  }, [sessionId, addToast, t, rememberExternalEditorPath]);
+  }, [sessionId, addToast, t, rememberExternalEditorPath, maxEditSizeMB]);
 
-  const handleOpenSystemEditor = useCallback(async (file, content) => {
+  const handleOpenSystemEditor = useCallback(async (file, content, readOnly = false) => {
     if (!file?.path) return;
-    await openExternalEditor(file.path, content ?? file.content ?? '');
-  }, [openExternalEditor]);
+    if (openingFilesRef.current.has(`${sessionId}:${file.path}`)) {
+      addToast(t('文件正在打开中，请稍候...'), 'warning');
+      return;
+    }
+    try {
+      addOpeningFile(sessionId, file.path);
+      addToast(t('正在打开文件...'), 'info');
+      await openExternalEditor(file.path, content ?? file.content ?? '', '', readOnly, file?.size || 0);
+    } finally {
+      removeOpeningFile(sessionId, file.path);
+    }
+  }, [sessionId, openExternalEditor, addToast, t]);
 
   // forcePick=true：始终弹出选择框；false：有记忆路径则直接打开（对齐 electerm）
-  const handleOpenWithEditor = useCallback(async (file, content, forcePick = false) => {
+  const handleOpenWithEditor = useCallback(async (file, content, forcePick = false, readOnly = false) => {
     if (!file?.path) return;
+    if (openingFilesRef.current.has(`${sessionId}:${file.path}`)) {
+      addToast(t('文件正在打开中，请稍候...'), 'warning');
+      return;
+    }
     try {
+      addOpeningFile(sessionId, file.path);
+      addToast(t('正在打开文件...'), 'info');
       let editorPath = '';
       if (!forcePick) {
         editorPath = (localStorage.getItem('fileEditorPreferredApp') || '').trim();
@@ -4414,27 +4578,34 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           return;
         }
       }
-      const ok = await openExternalEditor(file.path, content ?? file.content ?? '', editorPath);
+      const ok = await openExternalEditor(file.path, content ?? file.content ?? '', editorPath, readOnly, file?.size || 0);
       // 记忆路径失效时，自动再选一次
       if (!ok && !forcePick && (localStorage.getItem('fileEditorPreferredApp') || '').trim()) {
         localStorage.removeItem('fileEditorPreferredApp');
         const nextPath = await AppGo.SelectExternalEditor();
         if (nextPath) {
-          await openExternalEditor(file.path, content ?? file.content ?? '', nextPath);
+          await openExternalEditor(file.path, content ?? file.content ?? '', nextPath, readOnly, file?.size || 0);
         }
       }
     } catch (err) {
       addToast(`${t('打开外部编辑器失败')}: ${err}`, 'error');
+    } finally {
+      removeOpeningFile(sessionId, file.path);
     }
-  }, [openExternalEditor, addToast, t]);
+  }, [sessionId, openExternalEditor, addToast, t]);
 
   // Open file editor / external editor according to settings default.
   const handleEdit = async (item) => {
     const remotePath = joinPath(currentPath, item.name);
 
+    if (openingFilesRef.current.has(`${sessionId}:${remotePath}`)) {
+      addToast(t('文件正在打开中，请稍候...'), 'warning');
+      return;
+    }
+
     // 文件大小检查，避免加载过大文件导致卡顿
-    if (item.size && item.size > MAX_EDIT_SIZE) {
-      addToast(`${t('文件过大')} (${(item.size / 1024 / 1024).toFixed(1)}MB)，${t('最大支持 5MB 编辑')}`, 'error');
+    if (item.size && item.size > maxEditSizeMB * 1024 * 1024) {
+      addToast(`${t('文件过大')} (${(item.size / 1024 / 1024).toFixed(1)}MB)，${t('最大支持 {size}MB 编辑', { size: maxEditSizeMB })}`, 'error');
       return;
     }
 
@@ -4463,12 +4634,16 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
 
     try {
+      addOpeningFile(sessionId, remotePath);
+      addToast(t('正在下载并打开文件...'), 'info');
       const content = await AppGo.ReadFile(sessionId, remotePath);
       const newFile = { path: remotePath, name: item.name, content };
       setOpenEditFiles(prev => [...prev, newFile]);
       setActiveEditPath(remotePath);
     } catch (err) {
       addToast(`${t('无法打开文件')}: ${err}`, 'error');
+    } finally {
+      removeOpeningFile(sessionId, remotePath);
     }
   };
 
@@ -5180,7 +5355,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   // Keyboard shortcuts for file list
   const handleFileListKeyDown = (e) => {
     if (operationInProgressRef.current) return;
-    if (renamingItem) return;
+    // 重命名残留兜底：若上一次重命名的 input 已被虚拟化滚出视口而卸载（React 不会
+    // 触发 onBlur，renamingItem 会残留），这里先把它提交掉，再继续本次按键。
+    // 仅当 input 仍挂在 DOM 时，才认为用户正在编辑、需挡住快捷键。
+    if (renamingItem) {
+      const el = renamingInputMountedRef.current;
+      const stillInDom = el && document.body.contains(el);
+      if (stillInDom) return;
+      confirmRename(el ? el.value : '');
+    }
     const eventTarget = e.target;
     const isEditableTarget = eventTarget instanceof HTMLElement
       && (
@@ -5525,19 +5708,30 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   // Rename
   const startRename = (item) => {
+    // 切换到另一个条目的重命名时，先提交当前编辑中的值（input 卸载不会触发 onBlur）
+    if (renamingItem && renamingItem.name !== item.name) {
+      const el = renamingInputMountedRef.current;
+      void confirmRename(el ? el.value : '');
+    }
     setRenamingItem(item);
-    setRenameValue(item.name);
   };
 
-  const confirmRename = async (refocus = false) => {
-    const nextName = renameValue.trim();
-    if (!renamingItem || !nextName || nextName === renamingItem.name) {
-      setRenamingItem(null);
+  const renameCommittingRef = useRef(null);
+
+  const confirmRename = async (nextValue, refocus = false) => {
+    const targetItem = renamingItem;
+    // 同一 item 的提交正在进行中时忽略重复触发（残留清理可能被连续点击多次调用）
+    if (!targetItem || renameCommittingRef.current === targetItem) return;
+    const nextName = String(nextValue ?? '').trim();
+    if (!nextName || nextName === targetItem.name) {
+      // 函数式更新 + 身份比较：避免异步窗口内清掉刚启动的新重命名
+      setRenamingItem((current) => (current === targetItem ? null : current));
       if (refocus) fileListRef.current?.focus();
       return;
     }
-    const oldPath = joinPath(currentPath, renamingItem.name);
+    const oldPath = joinPath(currentPath, targetItem.name);
     const newPath = joinPath(currentPath, nextName);
+    renameCommittingRef.current = targetItem;
     try {
       await AppGo.RenameItem(sessionId, oldPath, newPath);
       pushFileManagerUndoEntry({
@@ -5562,14 +5756,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       clearActiveRowEffect(oldPath);
       queueRowEffectForMatchingPanes(currentPathRef.current || currentPath, newPath, newPath, 'changed');
       updateItemsPreservingView((prev) => prev.map((entry) => (
-        entry.name === renamingItem.name
+        entry.name === targetItem.name
           ? { ...entry, name: nextName, modifyTime: Date.now() }
           : entry
       )), anchor);
     } catch (err) {
       addToast(`${t('重命名失败')}: ${err}`, 'error');
     } finally {
-      setRenamingItem(null);
+      if (renameCommittingRef.current === targetItem) renameCommittingRef.current = null;
+      setRenamingItem((current) => (current === targetItem ? null : current));
       if (refocus) fileListRef.current?.focus();
     }
   };
@@ -6408,6 +6603,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           } : undefined}
           onClick={isInteractive ? (event) => {
             if ((event.detail || 1) >= 2) return;
+            if (renamingItem) {
+              const staleRenameEl = renamingInputMountedRef.current;
+              if (!(staleRenameEl && document.body.contains(staleRenameEl))) {
+                void confirmRename(staleRenameEl ? staleRenameEl.value : '');
+              }
+            }
             setSelectedPaths([]);
             fileListRef.current?.focus();
           } : undefined}
@@ -6447,6 +6648,14 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const handleItemClick = (event) => {
       if (!isInteractive || isDeletedPlaceholder) return;
       if ((event.detail || 1) >= 2) return;
+      // 重命名 input 已被虚拟化卸载时（renamingItem 残留、onBlur 不会触发），
+      // 先提交残留重命名（读取脱离 DOM 元素的最后值），再处理本次点击
+      if (renamingItem) {
+        const staleRenameEl = renamingInputMountedRef.current;
+        if (!(staleRenameEl && document.body.contains(staleRenameEl))) {
+          void confirmRename(staleRenameEl ? staleRenameEl.value : '');
+        }
+      }
       fileListRef.current?.focus();
       if (event.ctrlKey || event.metaKey) {
         setSelectedPaths((previousSelectedPaths) => (
@@ -6513,10 +6722,22 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           lastClickedPathRef.current = itemPath;
           if (item.isDirectory) {
             navigate(item);
-          } else if (isArchive(item.name) && fileManagerDoubleClickUncompressArchive) {
-            void handleUncompress(item);
+          } else if (isArchive(item.name)) {
+            // 压缩包永不进入编辑器路径：开关开启时解压，否则仅提示
+            if (fileManagerDoubleClickUncompressArchive) {
+              void handleUncompress(item);
+            } else {
+              addToast(t('该文件是压缩包，可通过右键菜单解压'), 'warning');
+            }
+          } else if (isBinaryLike(item.name)) {
+            // 二进制文件不适合编辑，直接拦截
+            addToast(t('该文件类型不适合用编辑器打开'), 'warning');
           } else if (isEditable(item.name)) {
             void handleEdit(item);
+          } else if (isViewable(item.name)) {
+            // 媒体类可看不可编：一律走系统关联程序，不受“指定编辑器”模式影响
+            // readOnly=true：只下载查看，不监听修改回写远程
+            void handleOpenSystemEditor({ path: itemPath, name: item.name, size: item.size }, '', true);
           } else {
             const file = { path: itemPath, name: item.name };
             if (defaultOpenMode === 'external') {
@@ -6548,32 +6769,23 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         } : undefined}
       >
         <div className="file-name-cell">
-          <span className="file-icon">{fileIcon(item.name, item.isDirectory, item.isSymlink)}</span>
+          <span className="file-icon">
+            {openingFiles.has(`${sessionId}:${itemPath}`) ? (
+              <RefreshCw className="spin" size={14} style={{ color: 'var(--text-accent)' }} />
+            ) : (
+              fileIcon(item.name, item.isDirectory, item.isSymlink)
+            )}
+          </span>
           {isInteractive && renamingItem?.name === item.name ? (
-            <input
-              id="fm-rename-input"
-              name="fm-rename-input"
-              className="rename-input"
-              autoComplete="off"
-              value={renameValue}
-              onChange={(event) => setRenameValue(event.target.value)}
-              onBlur={() => confirmRename(false)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === 'Enter') confirmRename(true);
-                if (event.key === 'Escape') {
-                  setRenamingItem(null);
-                  fileListRef.current?.focus();
-                }
+            <RenameInput
+              initialValue={item.name}
+              isDirectory={item.isDirectory}
+              mountedRef={renamingInputMountedRef}
+              onConfirm={(value, refocus) => confirmRename(value, refocus)}
+              onCancel={() => {
+                setRenamingItem(null);
+                fileListRef.current?.focus();
               }}
-              onFocus={(event) => {
-                const name = event.currentTarget.value;
-                const extensionIndex = item.isDirectory ? -1 : name.lastIndexOf('.');
-                const selectionEnd = extensionIndex > 0 && extensionIndex < name.length - 1 ? extensionIndex : name.length;
-                event.currentTarget.setSelectionRange(0, selectionEnd);
-              }}
-              autoFocus
-              onClick={(event) => event.stopPropagation()}
             />
           ) : (
             <span className={`file-name ${item.isDirectory ? 'is-dir' : ''}${isDeletedPlaceholder ? ' is-deleted-placeholder' : ''}`}>
@@ -6599,12 +6811,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         {isInteractive ? (
           <div className="file-actions file-col-actions">
             {!item.isDirectory && isEditable(item.name) && (
-              <Tiptop text={t('编辑')}>
+              <Tiptop text={openingFiles.has(`${sessionId}:${itemPath}`) ? t('正在打开文件...') : t('编辑')}>
                 <button
                   className="btn btn-ghost btn-sm btn-icon"
                   aria-label={t('编辑')}
+                  disabled={openingFiles.has(`${sessionId}:${itemPath}`)}
                   onClick={(event) => { event.stopPropagation(); void handleEdit(item); }}
-                ><SquarePen size={14} /></button>
+                >
+                  {openingFiles.has(`${sessionId}:${itemPath}`) ? <RefreshCw className="spin" size={14} /> : <SquarePen size={14} />}
+                </button>
               </Tiptop>
             )}
             <Tiptop text={item.isDirectory ? t('下载文件夹到本地') : t('下载到本地')}>
@@ -6642,7 +6857,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         )}
       </div>
     );
-  }, [activePaneKey, activeRowEffects, addToast, buildFileManagerDragPayload, clipboard, confirmRename, contextMenuTargetPath, defaultOpenMode, effectiveLocatorActiveRowKey, fileManagerDoubleClickUncompressArchive, fileManagerDualPaneDragTransferEnabled, handleChmod, handleDelete, handleDownload, handleEdit, handleOpenSystemEditor, handleOpenWithEditor, handleUncompress, hideFileManagerDragTip, isDeletedPlaceholderItem, isDualPaneLayout, navigate, normalizePath, renamingItem, renameValue, t, updateFileManagerDragTip]);
+  }, [activePaneKey, activeRowEffects, addToast, buildFileManagerDragPayload, clipboard, confirmRename, contextMenuTargetPath, defaultOpenMode, effectiveLocatorActiveRowKey, fileManagerDoubleClickUncompressArchive, fileManagerDualPaneDragTransferEnabled, handleChmod, handleDelete, handleDownload, handleEdit, handleOpenSystemEditor, handleOpenWithEditor, handleUncompress, hideFileManagerDragTip, isDeletedPlaceholderItem, isDualPaneLayout, navigate, normalizePath, renamingItem, t, updateFileManagerDragTip, openingFiles, sessionId]);
 
   const renderFileManagerVirtualViewport = useCallback((paneState, options = {}) => {
     const normalizedPaneKey = paneState?.key === 'right' ? 'right' : 'left';
@@ -6995,28 +7210,32 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               {fileLocatorMatches.length > 0 ? `${fileLocatorActiveIndex + 1}/${fileLocatorMatches.length}` : '0'}
             </span>
           ) : null}
-          <Tiptop text={t('上一个命中')} placement="bottom">
-            <button
-              className="btn file-toolbar-outline-btn"
-              aria-label={t('上一个命中')}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => navigateFileLocatorMatch(-1)}
-              disabled={fileLocatorMatches.length === 0}
-            >
-              <ChevronUp size={14} />
-            </button>
-          </Tiptop>
-          <Tiptop text={t('下一个命中')} placement="bottom">
-            <button
-              className="btn file-toolbar-outline-btn"
-              aria-label={t('下一个命中')}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => navigateFileLocatorMatch(1)}
-              disabled={fileLocatorMatches.length === 0}
-            >
-              <ChevronDown size={14} />
-            </button>
-          </Tiptop>
+          {fileLocatorQuery.trim() ? (
+            <>
+              <Tiptop text={t('上一个命中')} placement="bottom">
+                <button
+                  className="btn file-toolbar-outline-btn"
+                  aria-label={t('上一个命中')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => navigateFileLocatorMatch(-1)}
+                  disabled={fileLocatorMatches.length === 0}
+                >
+                  <ChevronUp size={14} />
+                </button>
+              </Tiptop>
+              <Tiptop text={t('下一个命中')} placement="bottom">
+                <button
+                  className="btn file-toolbar-outline-btn"
+                  aria-label={t('下一个命中')}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => navigateFileLocatorMatch(1)}
+                  disabled={fileLocatorMatches.length === 0}
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </Tiptop>
+            </>
+          ) : null}
         </div>
 
         <div className="file-toolbar-actions">

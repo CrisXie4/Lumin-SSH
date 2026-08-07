@@ -277,9 +277,9 @@ function resolveCompactDiffRowPalette(row) {
   }
 }
 
-function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, t }) {
+function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, t, lang }) {
   const normalizedRawDiff = typeof rawDiff === 'string' ? rawDiff.trim() : ''
-  const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff, reviewBlocks, t), [normalizedRawDiff, reviewBlocks, t])
+  const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff, reviewBlocks, t), [normalizedRawDiff, reviewBlocks, t, lang])
   if (loading) {
     return (
       <div style={{ padding: '10px 12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12 }}>
@@ -385,7 +385,7 @@ function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, 
 }
 
 export default function AIChatToolCard({ restoreArtifactPath = '', copyContent = '', actionLabel, title, summary, code, result = '', status, remainingFileEdits = 0, extra = {}, isLast = false, hasSubsequentAssistantMessage = false, onPreviewRestore, onPreviewDiffFetch, onApplyRestore }) {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const [isAutoExpanded, setIsAutoExpanded] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -672,7 +672,7 @@ export default function AIChatToolCard({ restoreArtifactPath = '', copyContent =
         </div>
         {showInlineDiffPreview ? (
           <div style={{ padding: '12px' }}>
-            <CompactDiffPreview reviewBlocks={inlineDiffBlocks} rawDiff={inlineDiffRaw} loading={inlineDiffLoading} t={t} />
+            <CompactDiffPreview reviewBlocks={inlineDiffBlocks} rawDiff={inlineDiffRaw} loading={inlineDiffLoading} t={t} lang={lang} />
           </div>
         ) : null}
         {expanded ? (

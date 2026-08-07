@@ -23,6 +23,17 @@ import SyncTab from './settings/SyncTab';
 import { DEFAULT_RUNTIME_ENVIRONMENT_SETTINGS, getRuntimeEnvironmentSettings, resolveRuntimeEnvironmentPathPreview, saveRuntimeEnvironmentSettings } from './settings/runtimeEnvironmentBridge.js';
 import { SETTINGS_SEARCH_DEFINITIONS, SETTINGS_SECTIONS } from './settings/settingDefinitions';
 
+const SETTINGS_DIALOG_OPTIONS = { priority: 'settings' };
+const settingsConfirm = (message, title = $t('操作确认'), checkboxLabel = '') => (
+  window.luminDialog?.confirm?.(message, title, checkboxLabel, SETTINGS_DIALOG_OPTIONS)
+);
+const settingsChoice = (message, title, buttons, checkboxLabel = '') => (
+  window.luminDialog?.choice?.(message, title, buttons, checkboxLabel, SETTINGS_DIALOG_OPTIONS)
+);
+const settingsPrompt = (message, defaultValue = '', title = $t('输入信息'), checkboxLabel = '', options = {}) => (
+  window.luminDialog?.prompt?.(message, defaultValue, title, checkboxLabel, { ...options, ...SETTINGS_DIALOG_OPTIONS })
+);
+
 const TAB_ICON = { general: SlidersHorizontal, network: Globe, fileManager: Folder, runtimeEnvironment: Database, appearance: Palette, shortcuts: Keyboard, sync: Cloud, app: Info };
 
 const TAB_LABELS = { general: '通用', network: '网络', fileManager: '文件管理器', runtimeEnvironment: '运行环境', appearance: '外观', shortcuts: '快捷键', sync: '同步与云', app: '关于' };
@@ -419,6 +430,7 @@ export default function SettingsModal({
   const defaultShortcuts = {
     copy: 'Ctrl+C',
     paste: 'Ctrl+V',
+    pasteSelection: 'Ctrl+Shift+V',
     clear: 'Ctrl+L',
     newTab: 'Ctrl+T',
     find: 'Ctrl+F',
@@ -437,10 +449,20 @@ export default function SettingsModal({
   });
   const [listeningKey, setListeningKey] = useState(null); // 'copy' | 'paste' | 'clear' | 'newTab' | null
 
+  const handleResetShortcuts = () => {
+    const defaults = { ...defaultShortcuts };
+    setListeningKey(null);
+    setShortcuts(defaults);
+    localStorage.removeItem('appShortcuts');
+    window.dispatchEvent(new CustomEvent('app-shortcuts-changed', { detail: defaults }));
+    addToast($t('恢复成功'), 'success');
+  };
+
   // Esc 关闭模态框（仅在未监听快捷键时生效）
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !listeningKey) {
+      if (e.key === 'Escape' && !e.defaultPrevented && !listeningKey) {
+        if (document.querySelector('[data-global-dialog-active="true"]')) return;
         e.preventDefault();
         handleClose();
       }
@@ -688,7 +710,7 @@ export default function SettingsModal({
     if (!themePackage?.id || themePackage.source === 'builtin') {
       return;
     }
-    const ok = await window.luminDialog?.confirm?.(`${$t('确定删除')}${$t(themePackage.name)}${$t('？此操作不可撤销')}`);
+    const ok = await settingsConfirm(`${$t('确定删除')}${$t(themePackage.name)}${$t('？此操作不可撤销')}`);
     if (!ok) {
       return;
     }
@@ -979,6 +1001,7 @@ export default function SettingsModal({
   const [confirmCloseAll, setConfirmCloseAll] = useState(localStorage.getItem('skipCloseAllConfirm') !== 'true');
   const [confirmFileDelete, setConfirmFileDelete] = useState(localStorage.getItem('skipFileDeleteConfirm') !== 'true');
   const [confirmProcessKill, setConfirmProcessKill] = useState(localStorage.getItem('skipProcessKillConfirm') !== 'true');
+  const [confirmTerminalSelectionPaste, setConfirmTerminalSelectionPaste] = useState(localStorage.getItem('skipTerminalSelectionPasteConfirm') !== 'true');
   const [windowCloseAction, setWindowCloseAction] = useState(localStorage.getItem('windowCloseAction') || 'ask');
   const [updateUseProxy, setUpdateUseProxy] = useState(localStorage.getItem('updateUseProxy') === 'true');
   const [rememberWorkspace, setRememberWorkspace] = useState(false);
@@ -1014,6 +1037,7 @@ export default function SettingsModal({
   const [fileManagerDoubleClickUncompressArchive, setFileManagerDoubleClickUncompressArchive] = useState(false);
   const [fileManagerSmartUncompressConflictStrategy, setFileManagerSmartUncompressConflictStrategy] = useState('auto_rename');
   const [fileManagerAutoRefreshDisabled, setFileManagerAutoRefreshDisabled] = useState(false);
+  const [fileManagerMaxEditSizeMB, setFileManagerMaxEditSizeMB] = useState(5);
   const [fileManagerDefaultOpenMode, setFileManagerDefaultOpenMode] = useState(() => {
     const mode = localStorage.getItem('fileManagerDefaultOpenMode') || 'builtin';
     return ['builtin', 'system', 'external'].includes(mode) ? mode : 'builtin';
@@ -1049,6 +1073,12 @@ export default function SettingsModal({
     setConfirmProcessKill(next);
     if (next) localStorage.removeItem('skipProcessKillConfirm');
     else localStorage.setItem('skipProcessKillConfirm', 'true');
+  };
+  const handleToggleConfirmTerminalSelectionPaste = () => {
+    const next = !confirmTerminalSelectionPaste;
+    setConfirmTerminalSelectionPaste(next);
+    if (next) localStorage.removeItem('skipTerminalSelectionPasteConfirm');
+    else localStorage.setItem('skipTerminalSelectionPasteConfirm', 'true');
   };
   const handleWindowCloseActionChange = (value) => {
     setWindowCloseAction(value);
@@ -1300,6 +1330,30 @@ export default function SettingsModal({
       addToast($t('请求失败') + `: ${err}`, 'error');
     }
   };
+  const handleFileManagerMaxEditSizeChange = async (e) => {
+    const raw = e.target.value;
+    // 用 Number 而非 parseInt：避免 "12abc" 被解析为 12 而误持久化
+    const next = Number(raw);
+    // 非法值（空/非数字/越界）只更新 UI 态，不持久化
+    if (!Number.isFinite(next) || next < 1 || next > 50) {
+      setFileManagerMaxEditSizeMB(raw);
+      addToast($t('文件编辑大小上限范围为 1-50 MB'), 'warning');
+      return;
+    }
+    const previous = fileManagerMaxEditSizeMB;
+    setFileManagerMaxEditSizeMB(next);
+    try {
+      const setter = window?.go?.main?.App?.SetFileManagerMaxEditSize;
+      if (typeof setter !== 'function') {
+        throw new Error($t('应用不可用'));
+      }
+      await setter(next);
+      window.dispatchEvent(new CustomEvent('file-manager-max-edit-size-changed', { detail: next }));
+    } catch (err) {
+      setFileManagerMaxEditSizeMB(previous);
+      addToast($t('请求失败') + `: ${err}`, 'error');
+    }
+  };
   const handleFileManagerSmartUncompressConflictStrategyChange = async (value) => {
     const next = value === 'overwrite' || value === 'prompt' ? value : 'auto_rename';
     const previous = fileManagerSmartUncompressConflictStrategy;
@@ -1493,6 +1547,9 @@ export default function SettingsModal({
             : 'auto_rename'
         );
         setFileManagerAutoRefreshDisabled(settings.autoRefreshDisabled === true);
+        if (Number.isFinite(Number(settings.maxEditSizeMB)) && Number(settings.maxEditSizeMB) >= 1) {
+          setFileManagerMaxEditSizeMB(Number(settings.maxEditSizeMB));
+        }
         if (Number.isFinite(Number(settings.transferMaxPacketKiB)) && Number(settings.transferMaxPacketKiB) > 0) {
           setTransferMaxPacketKiB(String(settings.transferMaxPacketKiB));
         }
@@ -1642,7 +1699,7 @@ export default function SettingsModal({
     if (!certificate) return;
 
     const names = [...(certificate.dnsNames || []), ...(certificate.ipAddresses || [])].join(', ') || '-';
-    const action = await window.luminDialog?.choice?.(
+    const action = await settingsChoice(
       [
         $t('FTPS 服务器证书不受系统信任。'),
         $t('请先通过可信渠道核对证书指纹，再决定是否接受。'),
@@ -1674,7 +1731,7 @@ export default function SettingsModal({
     const mismatch = result?.hostKeyMismatch;
     if (!mismatch) return;
 
-    const action = await window.luminDialog?.choice?.(
+    const action = await settingsChoice(
       [
         $t('远程主机密钥已变更，可能存在中间人攻击！'),
         '',
@@ -1839,7 +1896,7 @@ export default function SettingsModal({
           if (connNames.length) lines.push(`${$t('服务器')}：${connNames.slice(0, 8).join('、')}${connNames.length > 8 ? '…' : ''}`);
           if (credNames.length) lines.push(`${$t('凭据')}：${credNames.slice(0, 8).join('、')}${credNames.length > 8 ? '…' : ''}`);
           const body = `${$t('目标云上仍存在以下项，本地删除记录同步后将删除它们：')}\n${lines.join('\n')}\n\n${$t('请选择：删除它们，或保留它们并与本地合并。')}`;
-          const action = await window.luminDialog?.choice?.(
+          const action = await settingsChoice(
             body,
             $t('同步删除确认'),
             [
@@ -1857,7 +1914,7 @@ export default function SettingsModal({
           }
         }
       } catch (previewErr) {
-        const cont = await window.luminDialog?.choice?.(
+        const cont = await settingsChoice(
           `${$t('无法检查删除冲突，仍继续同步可能按本地删除记录静默删除目标云上的项。')}\n${previewErr}`,
           $t('预检失败'),
           [
@@ -1874,7 +1931,7 @@ export default function SettingsModal({
       const { result: res, cancelled } = await syncWithRecoveryPassword({
         sync,
         retry: (password) => AppGo.SyncWithRecoveryPassword(password),
-        prompt: (...args) => window.luminDialog.prompt(...args),
+        prompt: (...args) => settingsPrompt(...args),
         t: $t,
       });
       if (cancelled) return;
@@ -1925,7 +1982,7 @@ export default function SettingsModal({
     if (total <= 0) return;
     const dayNum = Number(days);
     const label = dayNum > 0 ? `${$t('清理超过')} ${dayNum} ${$t('天的删除记录')}` : $t('清理全部删除记录');
-    const action = await window.luminDialog?.choice?.(
+    const action = await settingsChoice(
       $t('将清理本地并上传到当前同步模式对应的云端，避免下次同步再次合并回来。确定？'),
       label,
       [
@@ -1958,7 +2015,7 @@ export default function SettingsModal({
         await AppGo.ChangeRecoveryPassword(password);
       } catch (e) {
         if (!String(e).includes('RECOVERY_PASSWORD_RESET_REQUIRED')) throw e;
-        const action = await window.luminDialog?.choice?.(
+        const action = await settingsChoice(
           $t('旧密码和新密码都无法解密云端备份。继续将不读取或合并云端数据，而是以本机当前数据覆盖所有已配置的云端同步目标。旧备份会保留，但其他设备尚未同步到本机的数据可能丢失。'),
           $t('确认强制重置恢复密码'),
           [
@@ -1986,7 +2043,7 @@ export default function SettingsModal({
   const isAnyConfigured = isConfigured || r2Configured || ftpConfigured || sftpConfigured;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: Z.MODAL }}>
+    <div className="modal-overlay" style={{ zIndex: Z.SETTINGS }}>
       <style>{`[data-settings-highlight="true"]{outline:2px solid var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),0.18);border-radius:var(--radius-md);}`}</style>
       <div className="modal modal-xl" style={{ display: 'flex', flexDirection: 'column', height: '80vh', background: 'var(--surface-raised)' }}>
         
@@ -2126,6 +2183,8 @@ export default function SettingsModal({
                 onToggleConfirmFileDelete={handleToggleConfirmFileDelete}
                 confirmProcessKill={confirmProcessKill}
                 onToggleConfirmProcessKill={handleToggleConfirmProcessKill}
+                confirmTerminalSelectionPaste={confirmTerminalSelectionPaste}
+                onToggleConfirmTerminalSelectionPaste={handleToggleConfirmTerminalSelectionPaste}
                 windowCloseAction={windowCloseAction}
                 onWindowCloseActionChange={handleWindowCloseActionChange}
                 updateUseProxy={updateUseProxy}
@@ -2193,6 +2252,8 @@ export default function SettingsModal({
                 onFileManagerSmartUncompressConflictStrategyChange={handleFileManagerSmartUncompressConflictStrategyChange}
                 fileManagerAutoRefreshDisabled={fileManagerAutoRefreshDisabled}
                 onToggleFileManagerAutoRefreshDisabled={handleToggleFileManagerAutoRefreshDisabled}
+                fileManagerMaxEditSizeMB={fileManagerMaxEditSizeMB}
+                onFileManagerMaxEditSizeChange={handleFileManagerMaxEditSizeChange}
                 fileManagerDefaultOpenMode={fileManagerDefaultOpenMode}
                 onFileManagerDefaultOpenModeChange={handleFileManagerDefaultOpenModeChange}
                 fileManagerPreferredExternalApp={fileManagerPreferredExternalApp}
@@ -2300,7 +2361,12 @@ export default function SettingsModal({
             )}
 
             {activeTab === 'shortcuts' && (
-              <ShortcutsTab shortcuts={shortcuts} listeningKey={listeningKey} onSetListeningKey={setListeningKey} />
+              <ShortcutsTab
+                shortcuts={shortcuts}
+                listeningKey={listeningKey}
+                onSetListeningKey={setListeningKey}
+                onResetShortcuts={handleResetShortcuts}
+              />
             )}
 
             {activeTab === 'sync' && (

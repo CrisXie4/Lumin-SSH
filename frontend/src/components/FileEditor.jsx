@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, { keymap, EditorView, EditorState, Prec, EditorSelection, showDialog } from '@uiw/react-codemirror';
 import { useTranslation } from '../i18n.js';
 import { formatShortcut } from '../utils/platform.js';
 import { clampMenuPosition } from '../utils/menuPosition.js';
@@ -196,6 +196,79 @@ const BASIC_SETUP = {
   lintKeymap: true,
 };
 
+// Ctrl+G 跳转到行号（覆盖 searchKeymap 默认的 findNext）。
+// CM6 keymap 同 key 时按 facet 顺序执行第一个返回 true 的胜出，basicSetup 的 searchKeymap 先注册。
+// 用 Prec.highest 提升优先级，确保我们的 Mod-g 先执行。
+//
+// 自定义 gotoLineTop：复制 @codemirror/search 的 gotoLine 逻辑，但 dialog 放顶部（top: true），
+// 符合 VSCode/Sublime 等主流编辑器习惯（CM6 默认底部是 Emacs 风格）。
+// 支持输入 行号 / 行:列 / +N / -N / N%
+const gotoLineTop = (view) => {
+  let { state } = view;
+  let { close, result } = showDialog(view, {
+    label: state.phrase('Go to line'),
+    input: { type: 'text', name: 'line', value: '' },
+    focus: true,
+    top: true,
+    submitLabel: state.phrase('go'),
+  });
+  result.then(form => {
+    let match = form && /^([+-])?(\d+)?(:\d+)?(%)?$/.exec(form.elements['line'].value);
+    if (!match) { view.dispatch({ effects: close }); return; }
+    let startLine = state.doc.lineAt(state.selection.main.head);
+    let [, sign, ln, cl, percent] = match;
+    let col = cl ? +cl.slice(1) : 0;
+    let lineNum = ln ? +ln : startLine.number;
+    if (ln && percent) {
+      let pc = lineNum / 100;
+      if (sign) pc = pc * (sign == '-' ? -1 : 1) + (startLine.number / state.doc.lines);
+      lineNum = Math.round(state.doc.lines * pc);
+    } else if (ln && sign) {
+      lineNum = lineNum * (sign == '-' ? -1 : 1) + startLine.number;
+    }
+    let docLine = state.doc.line(Math.max(1, Math.min(state.doc.lines, lineNum)));
+    let selection = EditorSelection.cursor(docLine.from + Math.max(0, Math.min(col, docLine.length)));
+    view.dispatch({
+      effects: [close, EditorView.scrollIntoView(selection.from, { y: 'center' })],
+      selection,
+    });
+  });
+  return true;
+};
+// CM6 的 showDialog 每次创建新 dialog 不自动关闭旧的，连按 Ctrl+G 会堆积。
+// 调用前先 click 已有 dialog 的关闭按钮（.cm-dialog-close 的 onclick 触发 done→resolve，
+// microtask 里 dispatch close effect 移除旧 dialog），避免重复堆积。
+const gotoLineSingle = (view) => {
+  view.dom.querySelectorAll('.cm-dialog-close').forEach(btn => btn.click());
+  return gotoLineTop(view);
+};
+const gotoLineKeymap = Prec.highest(keymap.of([{ key: 'Mod-g', run: gotoLineSingle }]));
+
+// 当前行标记：oneDark 默认 #6699ff0b 几乎透明看不出。
+// 蓝色只用于行号区（gutter）标记当前行；代码区 .cm-activeLine 用淡灰（见 index.css），
+// 避免与选区蓝色冲突。{ dark: true } 让规则带 &dark 前缀，与 oneDark 同层级可覆盖。
+const editorActiveLineTheme = EditorView.theme({
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(77, 158, 255, 0.22)' },
+  '&.cm-focused .cm-activeLineGutter': { backgroundColor: 'rgba(77, 158, 255, 0.30)' },
+}, { dark: true });
+
+// CodeMirror 对话框/面板文案 phrase 表（英文 key → 当前语言翻译）。
+// 走 i18n：值由组件内 useMemo 用 t() 填充，覆盖 gotoLine 与 search 面板的所有英文文案。
+// 见组件内 editorPhrases（依赖 i18nLang，语言切换时重建）。
+
+// 浮动面板八方向 resize handle：四边窄条 + 四角方块。角 handle 在边之后渲染以覆盖重叠区。
+// 边条贴容器内边缘（容器 overflow:hidden 不裁剪），拖拽用 window mousemove 不受容器限制。
+const POPUP_RESIZE_HANDLES = [
+  { dir: 'n',  pos: { top: 0, left: 0, right: 0, height: 6 }, cursor: 'n-resize' },
+  { dir: 's',  pos: { bottom: 0, left: 0, right: 0, height: 6 }, cursor: 's-resize' },
+  { dir: 'e',  pos: { right: 0, top: 0, bottom: 0, width: 6 }, cursor: 'e-resize' },
+  { dir: 'w',  pos: { left: 0, top: 0, bottom: 0, width: 6 }, cursor: 'w-resize' },
+  { dir: 'ne', pos: { top: 0, right: 0, width: 14, height: 14 }, cursor: 'ne-resize' },
+  { dir: 'nw', pos: { top: 0, left: 0, width: 14, height: 14 }, cursor: 'nw-resize' },
+  { dir: 'se', pos: { bottom: 0, right: 0, width: 14, height: 14 }, cursor: 'se-resize' },
+  { dir: 'sw', pos: { bottom: 0, left: 0, width: 14, height: 14 }, cursor: 'sw-resize' },
+];
+
 export default function FileEditor({
   files,
   activePath,
@@ -214,7 +287,7 @@ export default function FileEditor({
   onOpenWithEditor,
   externalOpening = false,
 }) {
-  const { t } = useTranslation();
+  const { t, lang: i18nLang } = useTranslation();
   const C = getTerminalTheme().container;
 
   // 每个文件的编辑内容缓存：{ [path]: content }
@@ -391,12 +464,6 @@ export default function FileEditor({
     onCloseFile(path);
   };
 
-  const handleCloseCurrent = async () => {
-    if (activeFile) {
-      await closeFileWithConfirm(activeFile.path);
-    }
-  };
-
   const handleCloseAllEditors = async () => {
     const hasModified = files.some(f => {
       const edited = editedContents[f.path];
@@ -420,7 +487,7 @@ export default function FileEditor({
       const next = {
         ...popupPosRef.current,
         x: Math.max(0, Math.min(window.innerWidth - 200, dragStartRef.current.px + dx)),
-        y: Math.max(64, Math.min(window.innerHeight - 100, dragStartRef.current.py + dy)),
+        y: Math.max(40, Math.min(window.innerHeight - 100, dragStartRef.current.py + dy)),
       };
       setPopupPos(next);
     };
@@ -437,26 +504,27 @@ export default function FileEditor({
     window.addEventListener('mouseup', onUp);
   };
 
-  // popup 右下角 resize 逻辑
-  const startPopupResize = (e) => {
+  // popup 八方向 resize：dir 含 n/s/e/w 组合，各方向独立 clamp，角方向两轴同时处理。
+  // ponytail: 各轴独立 clamp 不做跨轴联合求解，极端拖拽下尺寸/位置可能非最优但够用。
+  const startPopupResize = (dir) => (e) => {
     e.stopPropagation();
     if (e.button !== 0) return;
     isDraggingRef.current = true;
     const startX = e.clientX;
     const startY = e.clientY;
-    const startW = popupPosRef.current.w;
-    const startH = popupPosRef.current.h;
+    const start = { ...popupPosRef.current };
+    const MIN_W = 320, MIN_H = 200;
     document.body.style.userSelect = 'none';
 
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      const next = {
-        ...popupPosRef.current,
-        w: Math.max(320, Math.min(window.innerWidth - popupPosRef.current.x - 20, startW + dx)),
-        h: Math.max(200, Math.min(window.innerHeight - popupPosRef.current.y - 20, startH + dy)),
-      };
-      setPopupPos(next);
+      let { x, y, w, h } = start;
+      if (dir.includes('e')) w = Math.max(MIN_W, Math.min(window.innerWidth - start.x, start.w + dx));
+      if (dir.includes('s')) h = Math.max(MIN_H, Math.min(window.innerHeight - start.y, start.h + dy));
+      if (dir.includes('w')) { w = Math.max(MIN_W, Math.min(start.x + start.w, start.w - dx)); x = start.x + start.w - w; }
+      if (dir.includes('n')) { h = Math.max(MIN_H, Math.min(start.y + start.h - 40, start.h - dy)); y = start.y + start.h - h; }
+      setPopupPos({ x, y, w, h });
     };
 
     const onUp = () => {
@@ -476,7 +544,32 @@ export default function FileEditor({
     () => (activeFile ? getLanguage(activeFile.path || activeFile.name) : null),
     [activeFile?.path, activeFile?.name],
   );
-  const extensions = useMemo(() => lang ? [lang] : [], [lang]);
+  // CodeMirror phrase 表：英文 key → t() 返回的当前语言翻译。
+  // 依赖 i18nLang，语言切换时重建；t 引用稳定故不触发重建。
+  const editorPhrases = useMemo(() => EditorState.phrases.of({
+    'Go to line': t('跳转到行'),
+    'go': t('跳转'),
+    'Find': t('查找'),
+    'Replace': t('替换'),
+    'next': t('下一个'),
+    'previous': t('上一个'),
+    'all': t('全部'),
+    'match case': t('区分大小写'),
+    'regexp': t('正则'),
+    'by word': t('按词'),
+    'replace': t('替换'),
+    'replace all': t('全部替换'),
+    'replaced $ matches': t('替换了 $ 处'),
+    'replaced match on line $': t('在第 $ 行替换了匹配'),
+    'current match': t('当前匹配'),
+    'on line': t('第'),
+    'close': t('关闭'),
+  }), [i18nLang, t]);
+  const extensions = useMemo(() => {
+    const exts = [gotoLineKeymap, editorActiveLineTheme, editorPhrases];
+    if (lang) exts.push(lang);
+    return exts;
+  }, [lang, editorPhrases]);
   const ext = activeFile ? (activeFile.name.split('.').pop() || '').toLowerCase() : '';
 
   // 控制 split host / container 布局
@@ -837,8 +930,8 @@ export default function FileEditor({
             </button>
           </Tiptop>
         )}
-        <Tiptop text={t('关闭当前文件')} placement="bottom" style={{ position: 'absolute', top: 8, right: 8, zIndex: Z.PANEL_BUTTON }}>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCloseCurrent} aria-label={t('关闭当前文件')}>
+        <Tiptop text={files.length > 1 ? t('关闭全部') : t('关闭')} placement="bottom" style={{ position: 'absolute', top: 8, right: 8, zIndex: Z.PANEL_BUTTON }}>
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={handleCloseAllEditors} aria-label={files.length > 1 ? t('关闭全部') : t('关闭')}>
             <X size={14} />
           </button>
         </Tiptop>
@@ -999,22 +1092,14 @@ export default function FileEditor({
         onContextMenu={handleContextMenu}
       >
         {editorContent}
-        {/* resize handle */}
-        <Tiptop text={t('调整大小')} style={{ position: 'absolute', right: 0, bottom: 0, zIndex: Z.STACK }}>
+        {/* 八方向 resize handle：四边 + 四角透明热区 */}
+        {POPUP_RESIZE_HANDLES.map(h => (
           <div
-            onMouseDown={startPopupResize}
-            aria-label={t('调整大小')}
-            style={{
-              width: 16,
-              height: 16,
-              cursor: 'se-resize',
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" style={{ position: 'absolute', right: 2, bottom: 2, opacity: 0.3 }}>
-              <path d="M8 12v-2h2v2H8zm0-4V6h2v2H8zm0-4V2h2v2H8zM4 12v-2h2v2H4z" fill="currentColor" />
-            </svg>
-          </div>
-        </Tiptop>
+            key={h.dir}
+            onMouseDown={startPopupResize(h.dir)}
+            style={{ position: 'absolute', zIndex: Z.STACK, cursor: h.cursor, ...h.pos }}
+          />
+        ))}
       </div>,
       document.body
     );
@@ -1073,9 +1158,12 @@ export default function FileEditor({
 
   // modal mode (default) — portal to body so file-manager stacking context cannot bury the editor
   if (typeof document === 'undefined') return null;
+  // 非 active 会话不渲染 modal overlay：portal 挂在 document.body，不受父容器 display:none 影响，
+  // 会导致切换服务器后旧会话的弹窗仍盖在最上层（跨服务器显示）。组件未 unmount，state 保留，切回时恢复。
+  if (!isActive) return null;
   return createPortal(
-    <div className="modal-overlay" style={{ zIndex: Z.MODAL }} onContextMenu={handleContextMenu}>
-      <div className="modal modal-xl" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh', marginTop: 48 }}>
+    <div className="modal-overlay" style={{ zIndex: Z.FULLSCREEN_OVERLAY }} onContextMenu={handleContextMenu}>
+      <div className="modal modal-xl" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 40px)', maxHeight: 'calc(100vh - 40px)', maxWidth: '100vw', marginTop: 40 }}>
         {editorContent}
       </div>
     </div>,

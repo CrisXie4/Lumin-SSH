@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -106,6 +108,19 @@ func cloneAIProviderCacheObjects(cacheObjects *ProviderCacheObjects) *ProviderCa
 	}
 }
 
+var (
+	responsesPromptCacheGPTVersionPattern = regexp.MustCompile(`^gpt-(\d+)(?:\.(\d+))?`)
+	responsesPromptCache24hOnlyPattern    = regexp.MustCompile(`^gpt-5\.5(?:$|[-.])`)
+	responsesPromptCache24hCapablePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`^gpt-5\.4(?:$|[-.])`),
+		regexp.MustCompile(`^gpt-5\.2(?:$|[-.])`),
+		regexp.MustCompile(`^gpt-5\.1(?:$|[-.])`),
+		regexp.MustCompile(`^gpt-5-codex(?:$|[-.])`),
+		regexp.MustCompile(`^gpt-5(?:$|-20\d{2}-\d{2}-\d{2})`),
+		regexp.MustCompile(`^gpt-4\.1(?:$|[-.])`),
+	}
+)
+
 func normalizeCacheStrategy(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "off":
@@ -116,9 +131,113 @@ func normalizeCacheStrategy(value string) string {
 		return "5m"
 	case "1h":
 		return "1h"
+	case "30m":
+		return "30m"
+	case "in_memory":
+		return "in_memory"
+	case "24h":
+		return "24h"
 	default:
 		return "model"
 	}
+}
+
+func normalizeResponsesPromptCacheModelID(modelID string) string {
+	return strings.ToLower(strings.TrimSpace(modelID))
+}
+
+func supportsResponsesPromptCacheTTL(modelID string) bool {
+	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
+	matches := responsesPromptCacheGPTVersionPattern.FindStringSubmatch(normalizedModelID)
+	if len(matches) < 2 {
+		return false
+	}
+	majorVersion, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return false
+	}
+	minorVersion := 0
+	if len(matches) > 2 && strings.TrimSpace(matches[2]) != "" {
+		minorVersion, err = strconv.Atoi(matches[2])
+		if err != nil {
+			return false
+		}
+	}
+	return majorVersion > 5 || (majorVersion == 5 && minorVersion >= 6)
+}
+
+func supportsResponsesExtendedPromptCacheRetention(modelID string, capability AIProviderModelCapability) bool {
+	if strings.EqualFold(strings.TrimSpace(capability.PromptCacheRetention), "24h") {
+		return true
+	}
+	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
+	for _, pattern := range responsesPromptCache24hCapablePatterns {
+		if pattern.MatchString(normalizedModelID) {
+			return true
+		}
+	}
+	return false
+}
+
+func GetResponsesPromptCacheStrategyOptions(modelID string, capability AIProviderModelCapability) []string {
+	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
+	if normalizedModelID == "" {
+		return []string{"off", "model"}
+	}
+	if supportsResponsesPromptCacheTTL(normalizedModelID) {
+		return []string{"off", "model", "30m"}
+	}
+	if responsesPromptCache24hOnlyPattern.MatchString(normalizedModelID) {
+		return []string{"off", "model", "24h"}
+	}
+	supportsExtendedRetention := supportsResponsesExtendedPromptCacheRetention(normalizedModelID, capability)
+	if !capability.SupportsPromptCache && !supportsExtendedRetention {
+		return []string{"off", "model"}
+	}
+	options := []string{"off", "model", "in_memory"}
+	if supportsExtendedRetention {
+		options = append(options, "24h")
+	}
+	return options
+}
+
+func containsCacheStrategyOption(options []string, target string) bool {
+	normalizedTarget := strings.TrimSpace(target)
+	for _, option := range options {
+		if option == normalizedTarget {
+			return true
+		}
+	}
+	return false
+}
+
+func ResolveResponsesPromptCacheStrategy(profile Profile, capability AIProviderModelCapability) string {
+	if !providerSupportsAIQuickEditPromptCache(profile.Provider) {
+		return "off"
+	}
+	modelID := strings.TrimSpace(profile.Model)
+	if modelID == "" {
+		modelID = capability.ModelID
+	}
+	availableOptions := GetResponsesPromptCacheStrategyOptions(modelID, capability)
+	selectedStrategy := normalizeCacheStrategy(profile.CacheStrategy)
+	if selectedStrategy != "model" && containsCacheStrategyOption(availableOptions, selectedStrategy) {
+		return selectedStrategy
+	}
+	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
+	if supportsResponsesPromptCacheTTL(normalizedModelID) {
+		return "30m"
+	}
+	if responsesPromptCache24hOnlyPattern.MatchString(normalizedModelID) {
+		return "24h"
+	}
+	if supportsResponsesExtendedPromptCacheRetention(normalizedModelID, capability) {
+		return "24h"
+	}
+	if capability.SupportsPromptCache {
+		return "in_memory"
+	}
+	return "off"
 }
 
 const (

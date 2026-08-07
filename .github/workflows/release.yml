@@ -114,7 +114,7 @@ jobs:
           sudo apt-get install -y \
             libgtk-3-dev libwebkit2gtk-4.1-dev libglib2.0-dev \
             libc6-dev libayatana-appindicator3-dev \
-            rpm alien fakeroot upx-ucl
+            rpm upx-ucl
 
       - uses: actions/setup-go@v7
         with:
@@ -148,6 +148,7 @@ jobs:
         env:
           VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
+          # ===== .deb =====
           mkdir -p build/deb/DEBIAN
           mkdir -p build/deb/usr/bin
           mkdir -p build/deb/usr/share/applications
@@ -168,24 +169,44 @@ jobs:
           sudo chown root:root build/deb/usr/bin/lumin
           cp build/appicon.png build/deb/usr/share/icons/hicolor/256x256/apps/lumin.png
           cp build/linux/lumin.desktop build/deb/usr/share/applications/lumin.desktop
+          # postinst/postrm 用独立脚本文件安装（不用 heredoc）：
+          # heredoc 顶格会破坏 YAML 结构，带缩进又会破坏 shebang，两者无法兼得。
+          cp build/linux/postinst build/deb/DEBIAN/postinst
+          cp build/linux/postrm build/deb/DEBIAN/postrm
+          sudo chmod 755 build/deb/DEBIAN/postinst build/deb/DEBIAN/postrm
+          sudo chown root:root build/deb/DEBIAN/postinst build/deb/DEBIAN/postrm
           sudo dpkg-deb --root-owner-group --build build/deb "build/Lumin-V${VERSION}-amd64.deb"
           shasum -a 256 "build/Lumin-V${VERSION}-amd64.deb" | sed 's|build/||' > "build/Lumin-V${VERSION}-amd64.deb.sha256"
           echo "deb=${{ github.workspace }}/build/Lumin-V${VERSION}-amd64.deb" >> $GITHUB_ENV
           echo "deb_sha=${{ github.workspace }}/build/Lumin-V${VERSION}-amd64.deb.sha256" >> $GITHUB_ENV
-          sudo alien -r "build/Lumin-V${VERSION}-amd64.deb" --scripts || echo "alien_rpm_failed=true" >> $GITHUB_ENV
-          RPM_FILE=$(find . -name "*.rpm" 2>/dev/null | head -1)
-          if [ -n "$RPM_FILE" ]; then
-            mv "$RPM_FILE" build/
-            RPM_BASENAME=$(basename "$RPM_FILE")
-            RPM_BASENAME_CLEAN=$(echo "$RPM_BASENAME" | sed "s/lumin-[0-9.]\+-\([0-9]\+\)\.x86_64\.rpm/Lumin-V${VERSION}-amd64.rpm/")
-            if [ "$RPM_BASENAME" != "$RPM_BASENAME_CLEAN" ] && [ -f "build/$RPM_BASENAME" ]; then
-              mv "build/$RPM_BASENAME" "build/$RPM_BASENAME_CLEAN"
-              RPM_BASENAME="$RPM_BASENAME_CLEAN"
-            fi
-            shasum -a 256 "build/$RPM_BASENAME" | sed 's|build/||' > "build/$RPM_BASENAME.sha256"
-            echo "rpm=${{ github.workspace }}/build/$RPM_BASENAME" >> $GITHUB_ENV
-            echo "rpm_sha=${{ github.workspace }}/build/$RPM_BASENAME.sha256" >> $GITHUB_ENV
+
+          # ===== .rpm（rpmbuild 原生构建，不再依赖 alien 转换）=====
+          RPM_TOPDIR="$HOME/rpmbuild"
+          mkdir -p "${RPM_TOPDIR}/SOURCES" "${RPM_TOPDIR}/SPECS" "${RPM_TOPDIR}/BUILD" "${RPM_TOPDIR}/RPMS" "${RPM_TOPDIR}/SRPMS"
+          cp build/bin/Lumin "${RPM_TOPDIR}/SOURCES/Lumin"
+          cp build/appicon.png "${RPM_TOPDIR}/SOURCES/appicon.png"
+          cp build/linux/lumin.desktop "${RPM_TOPDIR}/SOURCES/lumin.desktop"
+          cp build/linux/lumin.spec "${RPM_TOPDIR}/SPECS/lumin.spec"
+          # rpm Version 字段不允许 '-'（它是 Version/Release 的分隔符）：
+          # 把 1.2.6-test-ipc 拆成 Version=1.2.6, Release=1.test_ipc
+          VER_RAW="${VERSION#V}"
+          RPM_VER="${VER_RAW%%-*}"
+          RPM_REL_SUFFIX="${VER_RAW#*-}"
+          if [ "${RPM_REL_SUFFIX}" = "${VER_RAW}" ]; then
+            RPM_RELEASE="1"
+          else
+            RPM_RELEASE="1.$(echo "${RPM_REL_SUFFIX}" | sed 's/[^a-zA-Z0-9.]/_/g')"
           fi
+          rpmbuild -bb "${RPM_TOPDIR}/SPECS/lumin.spec" \
+            --define "lum_version ${RPM_VER}" \
+            --define "lum_release ${RPM_RELEASE}" \
+            --define "_topdir ${RPM_TOPDIR}" \
+            --target x86_64
+          BUILT_RPM=$(find "${RPM_TOPDIR}/RPMS" -name "lumin-*.x86_64.rpm" | head -1)
+          cp "${BUILT_RPM}" "build/Lumin-V${VERSION}-amd64.rpm"
+          shasum -a 256 "build/Lumin-V${VERSION}-amd64.rpm" | sed 's|build/||' > "build/Lumin-V${VERSION}-amd64.rpm.sha256"
+          echo "rpm=${{ github.workspace }}/build/Lumin-V${VERSION}-amd64.rpm" >> $GITHUB_ENV
+          echo "rpm_sha=${{ github.workspace }}/build/Lumin-V${VERSION}-amd64.rpm.sha256" >> $GITHUB_ENV
 
       - name: Upload to Draft Release
         env:
@@ -193,14 +214,10 @@ jobs:
           TAG: ${{ needs.create-draft.outputs.tag }}
         run: |
           set -euo pipefail
-          files=("${binary}" "${binary_sha}" "${deb}" "${deb_sha}")
-          if [ -n "${rpm:-}" ] && [ -f "${rpm}" ]; then
-            files+=("${rpm}" "${rpm_sha}")
-          fi
           gh release upload "${TAG}" \
             --repo "${{ github.repository }}" \
             --clobber \
-            "${files[@]}"
+            "${binary}" "${binary_sha}" "${deb}" "${deb_sha}" "${rpm}" "${rpm_sha}"
 
   build-macos:
     needs: create-draft

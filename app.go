@@ -777,21 +777,30 @@ func (a *App) DisconnectSSH(sessionId string) {
 }
 
 // OpenRemoteFileInSystemEditor downloads a remote file to a local temp path and opens it
-// with the OS default application. Local changes are watched and synced back via SFTP.
+// with the OS default application. When readOnly is false, local changes are watched and
+// synced back via SFTP; when true (e.g. media files opened for viewing), no watch/sync is set up.
 // content may be empty to re-read from remote; non-empty content is used as the initial temp file.
-func (a *App) OpenRemoteFileInSystemEditor(sessionId string, remotePath string, content string) (map[string]interface{}, error) {
+// 编辑大小上限由用户配置（GetFileManagerMaxEditSizeBytes），每次打开实时读取以反映最新设置。
+func (a *App) OpenRemoteFileInSystemEditor(sessionId string, remotePath string, content string, readOnly bool) (map[string]interface{}, error) {
 	if a.externalEdit == nil {
 		return nil, fmt.Errorf("external editor not ready")
 	}
-	return a.externalEdit.Open(sessionId, remotePath, content, "")
+	maxBytes := a.configManager.GetFileManagerMaxEditSizeBytes()
+	return a.externalEdit.Open(sessionId, remotePath, content, "", readOnly, maxBytes)
 }
 
 // OpenRemoteFileWithEditor is like OpenRemoteFileInSystemEditor but launches a specific editor binary/.app.
-func (a *App) OpenRemoteFileWithEditor(sessionId string, remotePath string, content string, editorPath string) (map[string]interface{}, error) {
+func (a *App) OpenRemoteFileWithEditor(sessionId string, remotePath string, content string, editorPath string, readOnly bool) (map[string]interface{}, error) {
 	if a.externalEdit == nil {
 		return nil, fmt.Errorf("external editor not ready")
 	}
-	return a.externalEdit.Open(sessionId, remotePath, content, editorPath)
+	maxBytes := a.configManager.GetFileManagerMaxEditSizeBytes()
+	return a.externalEdit.Open(sessionId, remotePath, content, editorPath, readOnly, maxBytes)
+}
+
+// SetFileManagerMaxEditSize sets the max editable file size (MB), normalized to [1, 50].
+func (a *App) SetFileManagerMaxEditSize(mb int) error {
+	return a.configManager.SetFileManagerMaxEditSize(mb)
 }
 
 // SelectExternalEditor opens a native file dialog for choosing an editor executable.
@@ -839,6 +848,27 @@ func (a *App) AcceptHostKeyChange(sessionId string, action int) error {
 
 // OpenTerminal 在当前服务器连接上打开新的终端标签页
 func (a *App) OpenTerminal(sessionId string) (string, error) {
+	a.sshManager.mu.RLock()
+	existing, ok := a.sshManager.sessions[sessionId]
+	a.sshManager.mu.RUnlock()
+	if !ok {
+		return "", fmt.Errorf("session not found")
+	}
+
+	if existing.IsLocal {
+		randomId := make([]byte, 8)
+		if _, err := rand.Read(randomId); err != nil {
+			return "", fmt.Errorf("生成 session ID 失败: %w", err)
+		}
+		newId := fmt.Sprintf("term_%x", randomId)
+
+		err := a.connectLocal(newId, filepath.Base(existing.ShellPath), existing.ShellPath, "")
+		if err != nil {
+			return "", err
+		}
+		return newId, nil
+	}
+
 	return a.sshManager.OpenTerminal(sessionId)
 }
 

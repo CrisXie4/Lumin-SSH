@@ -12,6 +12,9 @@ import { Z } from '../constants/zIndex';
 import { useTranslation } from '../i18n.js';
 
 const HISTORY_SIZE = 30;
+// ponytail: 前端 fetch 超时兜底。后端 deployProbeScript(15s)+executeCmd(30s) 最坏约 45s,
+// 设 50s 略余。超时保证递归 setTimeout 链不断裂,避免后端 hang 时面板永久停在旧数据。
+const PROBE_FETCH_TIMEOUT_MS = 50000;
 const clampPct = (value) => Math.min(Math.max(Number(value) || 0, 0), 100);
 const pctColor = (pct, warn = 60, danger = 85) => pct >= danger ? 'var(--danger)' : pct >= warn ? 'var(--warning)' : 'var(--success)';
 const createEmptyHist = () => ({ cpu: Array(HISTORY_SIZE).fill(0), up: Array(HISTORY_SIZE).fill(0), down: Array(HISTORY_SIZE).fill(0) });
@@ -860,7 +863,16 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
   const fetchInfo = useCallback(async () => {
     if (!sessionId || !enabled || !activeRef.current) return;
     try {
-      const data = await AppGo.SystemInfo(sessionId);
+      // ponytail: 后端 SystemInfo 在 SFTP/命令慢时可能长期 pending(deployProbeScript 已有 15s 兜底,
+      // executeCmd 30s 兜底,合计约 45s)。race 超时保证 await 必返回,递归 setTimeout 链不断裂,
+      // 面板不会停在最后一次数据。超时后后端 goroutine 仍独立跑完,不阻塞下次调用。
+      const data = await Promise.race([
+        AppGo.SystemInfo(sessionId),
+        new Promise((_, reject) => setTimeout(
+          () => reject(new Error('probe fetch timeout')),
+          PROBE_FETCH_TIMEOUT_MS,
+        )),
+      ]);
       if (!activeRef.current || activeSessionIdRef.current !== sessionId) return; // 切换服务器后丢弃旧响应
       const si = staticInfoRef.current || { os: 'Linux', timezone: 'UTC', cpuModel: '' };
       const uptimeData = data.uptime || {};

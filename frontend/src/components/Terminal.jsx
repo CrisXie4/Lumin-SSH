@@ -31,6 +31,18 @@ loadKeywordRulesFromStorage();
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
+const DEFAULT_TERMINAL_SHORTCUTS = Object.freeze({
+  copy: 'Ctrl+C',
+  paste: 'Ctrl+V',
+  pasteSelection: 'Ctrl+Shift+V',
+  clear: 'Ctrl+L',
+  newTab: 'Ctrl+T',
+  find: 'Ctrl+F',
+  sigint: 'Ctrl+C',
+  eof: 'Ctrl+D',
+  suspend: 'Ctrl+Z',
+  clearLine: 'Ctrl+U',
+});
 
 // SearchAddon 只上背景、不改字色。按终端底色选高亮，不按界面 mode。
 // 深色终端必须用「够深」的底：偏亮的半透明底会触发 minimumContrastRatio 把白字压成黑字。
@@ -227,6 +239,41 @@ function isInteractivePromptText(value) {
   if (/^(choose|select|enter|input|please enter|press enter|would you like|do you have|port to use)\b/i.test(text)) return true
   if (/\b(default|leave empty|skip|y\/n|yes\/no|option|selection)\b/i.test(text) && /[:?]\s*(?:\d+)?\s*$/.test(text)) return true
   return /\[[yn0-9/\-]+\]:?\s*(?:\d+)?\s*$/i.test(text)
+}
+
+// 从 xterm 可见缓冲区的"当前命令行"剥离提示符，返回真正执行的命令。
+// 兼容：
+//   - Linux user@host:path$ / # / %
+//   - PowerShell "PS C:\path>" 与 Windows CMD "C:\path>"
+//   - Starship/oh-my-posh 等自定义 prompt 的 Unicode 符号（❯ ➜ › » λ ƒ ψ）
+//   - Python/Node 等 REPL 的 >>> / ...
+// 用行首锚定的提示符结构匹配（非贪婪），只消费"提示符"本身、保留命令文本，
+// 避免命令内部含 $/#（如 echo $HOME、含 # 注释）被误切。
+const SHELL_PROMPT_PREFIX_PATTERNS = [
+  /^[\w.-]+@[\w.-]+:[^\n]*?[#$%]\s*/,    // user@host:path$ cmd
+  /^\[[^\]]+\][#$%]\s*/,                 // [user@host dir]$ cmd
+  /^[\w.-]+@[\w.-]+\s+[^\n]*?[#$%]\s*/,  // root@host ~]# cmd
+  /^[#$%]\s+/,                            // 极简：单独的 $/#/% 起命令
+  // Windows：兼容 "PS C:\path>" 与裸 "C:\path>"，盘符/路径后以 > 结尾。
+  // 行首可选 PS，后跟 X:\... 路径，再 > 与空格（空格可选，空提示符也匹配）。
+  /^(?:PS\s+)?[A-Za-z]:[\\\/][^\n]*?>\s*/,
+  // 自定义 Unicode 符号提示符：可能重复（如 ❯❯）或带颜色，后接空格再接命令。
+  // 符号取自常见自定义 prompt：❯ ➜ › » λ ƒ ψ 等。
+  /^[❯➜›»λƒψ▶▷]+[=>]?\s+/,
+  // REPL 提示符：Python/Node 等的 >>> 与续行 ...
+  /^(?:>>>|\.\.\.)\s+/,
+]
+function extractCommandFromBufferLine(line) {
+  if (!line) return ''
+  let t = String(line)
+  for (const re of SHELL_PROMPT_PREFIX_PATTERNS) {
+    const m = t.match(re)
+    if (m) {
+      t = t.slice(m[0].length)
+      break
+    }
+  }
+  return t.trim()
 }
 
 function splitTrailingIncompleteEscapeSequence(input) {
@@ -483,6 +530,8 @@ export default function Terminal({
       if (!(target instanceof Node)) return;
       if (historyPopupRef.current?.contains(target)) return;
       if (historyBtnRef.current?.contains(target)) return;
+      // 全局对话框（luminDialog，如清空确认）打开时，点确认/取消不应收起历史弹窗
+      if (target.closest?.('[data-global-dialog-active="true"]')) return;
       setShowHistory(false);
       setHistoryPopupPos(null);
     };
@@ -1245,6 +1294,7 @@ export default function Terminal({
       },
     });
     term.open(containerRef.current);
+    try { fitAddon.fit(); } catch (_) {}
     const terminalInput = containerRef.current.querySelector('.xterm-helper-textarea');
     if (terminalInput) {
       terminalInput.name = 'terminalInput';
@@ -1401,9 +1451,11 @@ export default function Terminal({
     if (shortcutsRef.current === null) {
       try {
         const saved = localStorage.getItem('appShortcuts');
-        shortcutsRef.current = saved ? JSON.parse(saved) : { copy: 'Ctrl+C', paste: 'Ctrl+V', clear: 'Ctrl+L', newTab: 'Ctrl+T', find: 'Ctrl+F' };
+        shortcutsRef.current = saved
+          ? { ...DEFAULT_TERMINAL_SHORTCUTS, ...JSON.parse(saved) }
+          : { ...DEFAULT_TERMINAL_SHORTCUTS };
       } catch (_) {
-        shortcutsRef.current = { copy: 'Ctrl+C', paste: 'Ctrl+V', clear: 'Ctrl+L', newTab: 'Ctrl+T', find: 'Ctrl+F' };
+        shortcutsRef.current = { ...DEFAULT_TERMINAL_SHORTCUTS };
       }
     }
 
@@ -1444,13 +1496,6 @@ export default function Terminal({
         e.preventDefault();
         const selection = term.getSelection();
         if (selection) navigator.clipboard.writeText(selection);
-        return false;
-      }
-
-      // ── Ctrl+Shift+V：将终端当前选区粘贴回终端 ────────────────
-      if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toUpperCase() === 'V') {
-        e.preventDefault();
-        void pasteTerminalSelectionToTerminal();
         return false;
       }
 
@@ -1514,6 +1559,13 @@ export default function Terminal({
           }
           return false;
         }
+      }
+
+      // 已有动作优先，避免重复绑定时一次按键执行两个动作
+      if (pressedStr === customShortcuts.pasteSelection) {
+        e.preventDefault();
+        void pasteTerminalSelectionToTerminal();
+        return false;
       }
 
       // ── 其他标准控制字符全部透传给服务器处理 ────────────────────────
@@ -1685,11 +1737,16 @@ export default function Terminal({
         wsRef.current.send(textEncoder.encode(out));
       }
 
-      // ── 命令记录：回车时优先用逐字符累加的命令（用户真实输入），
-      // 累加为空才 fallback 到 xterm buffer（方向键调历史 / Tab 补全 / 粘贴）。
-      // ponytail: buffer 提取用 $/# 切提示符，交互脚本输出也含 $ 导致误抓整行，
-      // 优先用 pendingCmdRef 可排除 y/1/3 等单字符脚本应答。
+      // ── 命令记录：优先读取终端可见缓冲区的当前行（屏幕上实际渲染、
+      // 真正被 shell 执行的命令），可正确捕捉 Tab 补全 / 方向键调历史 /
+      // Ctrl+R 等 shell 编辑结果；pendingCmdRef 仅在缓冲读取失败时作兜底。
       if (out.includes('\r') || out.includes('\n')) {
+        // 备用屏（vim/htop/less 等 TUI）下不记录历史：此时缓冲里是文件内容，
+        // 按 Enter 会被误当成命令。顺带清空 pendingCmdRef，退出 TUI 后从头计。
+        if (alternateBufferActiveRef.current) {
+          pendingCmdRef.current = '';
+          return;
+        }
         // 多行粘贴：只把最后一行之前的可见内容并入历史，避免把整段 paste 拆烂
         const lines = out.split(/\r/).filter((line, i, arr) => i < arr.length - 1 || line.length > 0);
         if (lines.length > 1) {
@@ -1703,17 +1760,27 @@ export default function Terminal({
             pendingCmdRef.current += out.slice(0, nlIdx).replace(/[\x00-\x1F\x7F]/g, '');
           }
         }
-        let cmd = pendingCmdRef.current.trim();
-        if (!cmd) {
-          const buf = term.buffer.active;
+        let cmd = '';
+        const buf = term.buffer.active;
+        if (buf) {
           const bufLine = buf.getLine(buf.baseY + buf.cursorY);
-          if (bufLine) {
-            const text = bufLine.translateToString(true);
-            const idx = Math.max(text.lastIndexOf('#'), text.lastIndexOf('$'));
-            cmd = idx >= 0 ? text.slice(idx + 1).trim() : text.trim();
-            // ponytail: buffer 提取只作兜底，过滤安装向导这类交互提示，避免把问题文本当命令。
-            if (/[^\x20-\x7E]/.test(cmd) || isInteractivePromptText(cmd)) cmd = '';
-          }
+          const text = bufLine ? bufLine.translateToString(true) : '';
+          cmd = extractCommandFromBufferLine(text);
+          // 含控制字符（C0 0x00-0x1F / DEL / C1 0x80-0x9F，多为 ANSI 序列残留）
+          // 或交互脚本提示：视为无效，回退到逐字符累加。注意保留合法 Unicode
+          // （如提示符 ❯、中文路径、emoji 参数），不再按"非 ASCII"一刀切丢弃。
+          if (/[\x00-\x1F\x7F-\x9F]/.test(cmd) || isInteractivePromptText(cmd)) cmd = '';
+        }
+        // 智能 fallback：buffer 提取是"屏幕上真正执行的命令"，优先采用；但
+        // 当手敲值 pendingCmdRef 与之明显不一致（无前缀关系）时，说明当前不是
+        // 普通 shell 命令行（如交互脚本 "Continue? [y/n]? y"），应信任手敲值，
+        // 避免把整行提示文本当成命令记入历史。
+        const pending = pendingCmdRef.current.trim();
+        if (!cmd) {
+          cmd = pending;
+        } else if (pending) {
+          const c = cmd.toLowerCase(), p = pending.toLowerCase();
+          if (!c.startsWith(p) && !p.startsWith(c)) cmd = pending;
         }
         if (!awaitingPasswordRef.current && cmd.length > 1 && !/^\d+$/.test(cmd)) {
           window.dispatchEvent(new CustomEvent('ssh-command-history', {
@@ -2155,7 +2222,7 @@ export default function Terminal({
       const result = await window.luminDialog?.confirm(
         t('所选内容超过3行，是否继续粘贴？'),
         t('确认粘贴'),
-        t('以后不再提醒')
+        t('不再询问')
       );
       const confirmed = typeof result === 'object' ? result.confirmed : result === true;
       if (!confirmed) {
@@ -2626,49 +2693,66 @@ export default function Terminal({
 
   // ── 底部命令输入栏逻辑 ──────────────────────────────────────
 
-  // 监听清除事件（CommandHistory 标签页清空时同步）
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.detail?.sessionId === serverId) setHistoryList([]);
-    };
-    window.addEventListener('ssh-history-cleared', handler);
-    return () => window.removeEventListener('ssh-history-cleared', handler);
-  }, [serverId]);
-
   const scrollOnNextUpdate = useRef(false);
+  // 加载请求序号：快速切换模式/服务器时丢弃旧结果，避免倒灌
+  const historyLoadSeqRef = useRef(0);
 
-  // 弹窗打开或切换模式时加载历史数据
-  useEffect(() => {
+  // 弹窗打开/切换模式/收到变更事件时加载历史数据
+  const reloadHistoryList = useCallback(() => {
     if (!showHistory) return;
+    const seq = ++historyLoadSeqRef.current;
     scrollOnNextUpdate.current = true;
-    let cancelled = false;
     (async () => {
       try {
         const raw = historyMode === 'global'
           ? await AppGo.GetGlobalCommandHistory()
           : await AppGo.GetCommandHistory(historyServerId);
-        if (cancelled) return;
+        if (seq !== historyLoadSeqRef.current) return;
         const entries = JSON.parse(raw);
         const arr = Array.isArray(entries) ? entries : [];
         setHistoryList(arr);
         // 数据为空则无需滚动，直接清空列表
         if (arr.length === 0) scrollOnNextUpdate.current = false;
       } catch {
-        if (cancelled) return;
+        if (seq !== historyLoadSeqRef.current) return;
         setHistoryList([]);
         scrollOnNextUpdate.current = false;
       }
     })();
-    return () => { cancelled = true; };
-  }, [showHistory, historyMode]);
+  }, [showHistory, historyMode, historyServerId]);
 
-  // 数据渲染后定位到顶部，与键盘导航默认选中的第一项保持一致
+  useEffect(() => {
+    if (!showHistory) return;
+    reloadHistoryList();
+  }, [showHistory, reloadHistoryList]);
+
+  // 监听清空/变更事件：按作用域刷新弹窗列表
+  // - 全局清空/变更：仅当前为全局模式时刷新
+  // - 服务器清空/变更：仅当前为服务器模式且目标服务器匹配时刷新
+  useEffect(() => {
+    if (!showHistory) return;
+    const handler = (e) => {
+      const d = e.detail;
+      const scope = d?.scope || 'server';
+      if (scope !== historyMode) return;
+      if (scope === 'server' && d?.historyServerId && d.historyServerId !== historyServerId) return;
+      reloadHistoryList();
+    };
+    window.addEventListener('ssh-history-cleared', handler);
+    window.addEventListener('ssh-history-changed', handler);
+    return () => {
+      window.removeEventListener('ssh-history-cleared', handler);
+      window.removeEventListener('ssh-history-changed', handler);
+    };
+  }, [showHistory, historyMode, historyServerId, reloadHistoryList]);
+
+  // 数据渲染后定位到底部，默认选中最新一项
   useEffect(() => {
     if (!showHistory || !scrollOnNextUpdate.current) return;
     // 数据还没加载完（空状态），等待下一次更新
     if (historyList.length === 0) return;
     const el = historyScrollRef.current;
-    if (el) requestAnimationFrame(() => { el.scrollTop = 0; });
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
     scrollOnNextUpdate.current = false;
   }, [historyList, showHistory]);
 
@@ -2682,7 +2766,7 @@ export default function Terminal({
   const displayHistory = useMemo(() => [...filteredHistory].reverse(), [filteredHistory]);
 
   useEffect(() => {
-    setHistorySelectedIndex(displayHistory.length > 0 ? 0 : -1);
+    setHistorySelectedIndex(displayHistory.length - 1);
   }, [displayHistory, showHistory]);
 
   useEffect(() => {
@@ -2842,13 +2926,22 @@ export default function Terminal({
     awaitingCommandFinishRef.current = pending.item.addCR !== false;
   };
 
-  const deleteHistoryItem = (id) => {
-    const next = historyListRef.current.filter(item => item.id !== id);
-    setHistoryList(next);
-    if (historyMode === 'global') {
-      AppGo.SaveGlobalCommandHistory(JSON.stringify(next)).catch(() => {});
-    } else {
-      AppGo.SaveCommandHistory(historyServerId, JSON.stringify(next)).catch(() => {});
+  const deleteHistoryItem = async (id) => {
+    const scope = historyMode;
+    try {
+      const next = historyListRef.current.filter(item => item.id !== id);
+      if (scope === 'global') {
+        await AppGo.SaveGlobalCommandHistory(JSON.stringify(next));
+      } else {
+        await AppGo.SaveCommandHistory(historyServerId, JSON.stringify(next));
+      }
+      setHistoryList(next);
+      // 通知历史页 / 自动补全刷新，避免继续显示已删除条目
+      window.dispatchEvent(new CustomEvent('ssh-history-changed', {
+        detail: { sessionId: serverId, historyServerId, scope }
+      }));
+    } catch (error) {
+      console.error('[Terminal] 删除历史失败:', error);
     }
   };
 
@@ -3088,9 +3181,11 @@ export default function Terminal({
 
     window.addEventListener('ssh-command-history', invalidate);
     window.addEventListener('ssh-history-cleared', invalidate);
+    window.addEventListener('ssh-history-changed', invalidate);
     return () => {
       window.removeEventListener('ssh-command-history', invalidate);
       window.removeEventListener('ssh-history-cleared', invalidate);
+      window.removeEventListener('ssh-history-changed', invalidate);
     };
   }, []);
 
@@ -3236,7 +3331,7 @@ export default function Terminal({
         pointerEvents: 'none',
         zIndex: Z.STACK,
       }} />
-      {/* 壁纸层：叠在内容上方，保留质感 */}
+      {/* 壁纸层：叠在内容上方，浅色底下使用 multiply 混合模式，避免亮色/白色壁纸部分遮盖冲淡字色 */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -3244,6 +3339,7 @@ export default function Terminal({
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: Number.isFinite(bgInfo.opacity) ? bgInfo.opacity : 0.15,
+        mixBlendMode: isDarkTerminalSurface(T) ? 'normal' : 'multiply',
         pointerEvents: 'none',
         zIndex: Z.STACK,
       }} />
@@ -3643,7 +3739,7 @@ export default function Terminal({
             }
 
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-              if (e.shiftKey || e.ctrlKey) {
+              if (e.shiftKey) {
                 return;
               }
               e.preventDefault();
@@ -3651,7 +3747,7 @@ export default function Terminal({
               executeCommand();
             }
           }}
-          placeholder={`${t('输入命令(/ 快捷命令), 按Ctrl+回车 或 Shift+回车 换行')} · Alt → ${t('历史指令')} ${t('搜索')}`}
+          placeholder={`${t('输入命令')} (/ ${t('快捷命令')}) · Shift+Enter ${t('换行')} · Alt → ${t('历史指令')} ${t('搜索')}`}
           style={{
             flex: 1,
             fontSize: 12,
@@ -3864,7 +3960,9 @@ export default function Terminal({
             left: historyPopupPos.left,
             bottom: historyPopupPos.bottom,
             width: 480,
+            maxWidth: 'calc(100vw - 16px)',
             maxHeight: 280,
+            boxSizing: 'border-box',
             display: 'flex', flexDirection: 'column',
             zIndex: Z.POPUP,
             fontFamily: 'var(--font-terminal)',
@@ -3880,12 +3978,28 @@ export default function Terminal({
               <span style={{ color: 'var(--term-status-color)', fontSize: 11 }}>{t('历史命令')}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button
-                  onClick={() => {
-                    setHistoryList([]);
-                    if (historyMode === 'global') {
-                      AppGo.SaveGlobalCommandHistory('[]').catch(() => {});
-                    } else {
-                      AppGo.SaveCommandHistory(historyServerId, '[]').catch(() => {});
+                  onClick={async () => {
+                    const scope = historyMode;
+                    // 二次确认，与历史页清空行为一致；按作用域给出不同提示
+                    const msg = scope === 'global'
+                      ? t('确定要清空全部服务器的历史指令吗？')
+                      : t('确定要清空该服务器的历史指令吗？');
+                    const result = await window.luminDialog?.confirm(msg);
+                    const confirmed = typeof result === 'object' ? result?.confirmed : result === true;
+                    if (!confirmed) return;
+                    try {
+                      if (scope === 'global') {
+                        await AppGo.SaveGlobalCommandHistory('[]');
+                      } else {
+                        await AppGo.SaveCommandHistory(historyServerId, '[]');
+                      }
+                      setHistoryList([]);
+                      // 通知历史页 / 自动补全按作用域刷新（全局清空不触碰服务器历史）
+                      window.dispatchEvent(new CustomEvent('ssh-history-cleared', {
+                        detail: { sessionId: serverId, historyServerId, scope }
+                      }));
+                    } catch (error) {
+                      console.error('[Terminal] 清空历史失败:', error);
                     }
                   }}
                   style={{ ...btnStyle('red'), fontSize: 11, padding: '2px 8px' }}
@@ -3916,7 +4030,6 @@ export default function Terminal({
                 role="option"
                 aria-selected={historySelectedIndex === index}
                 onClick={() => selectHistoryCmd(item.command)}
-                onMouseEnter={() => setHistorySelectedIndex(index)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '6px 10px',
@@ -4129,7 +4242,7 @@ export default function Terminal({
             : [
                 { icon: <Copy size={13} />, label: t('复制'), action: 'copy', shortcut: formatShortcut('Ctrl+C'), disabled: !contextHasSelection },
                 { icon: <Clipboard size={13} />, label: t('粘贴'), action: 'paste', shortcut: formatShortcut('Ctrl+V') },
-                { icon: <Clipboard size={13} />, label: t('粘贴所选项'), action: 'pasteSelection', shortcut: formatShortcut('Ctrl+Shift+V'), disabled: !contextHasSelection },
+                { icon: <Clipboard size={13} />, label: t('粘贴所选项'), action: 'pasteSelection', shortcut: formatShortcut(shortcutsRef.current?.pasteSelection || DEFAULT_TERMINAL_SHORTCUTS.pasteSelection), disabled: !contextHasSelection },
                 { type: 'separator' },
                 { icon: <CheckSquare size={13} />, label: t('全选'), action: 'selectAll' },
                 { icon: <Search size={13} />, label: t('查找'), action: 'find', shortcut: formatShortcut(shortcutsRef.current?.find || 'Ctrl+F') },

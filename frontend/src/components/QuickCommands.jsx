@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { Folder, FolderPlus, Zap, Save, Pencil, Trash2, Rocket, SquarePen, X, List } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/main/App.js';
@@ -7,6 +7,7 @@ import Tiptop from './Tiptop.jsx';
 import { Z } from '../constants/zIndex';
 import { getThemeComponentTheme } from '../utils/theme.js';
 import { extractQuickCommandParams, fillQuickCommandParams } from '../utils/quickCommandParams.js';
+import { clampMenuPosition } from '../utils/menuPosition.js';
 
 // ── 加载命令数据（从 Go 后端文件）────────────────────
 async function loadCommands() {
@@ -223,7 +224,7 @@ function TreeNode({ item, index, path, selectedPath, onSelect, contextMenu, onCo
   );
 }
 
-const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, connectedSessions = [], onClose }, ref) {
+const QuickCommands = forwardRef(function QuickCommands({ sessionId, historySessionId, addToast, connectedSessions = [], onClose }, ref) {
   const { t } = useTranslation();
   const [commands, setCommands] = useState([]);
   const [selectedPath, setSelectedPath] = useState(null);
@@ -271,7 +272,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
   const [editCmdName, setEditCmdName] = useState('');
   const [editCmdText, setEditCmdText] = useState('');
 
-  const treeRef = useRef(null);
+  const contextMenuRef = useRef(null);
   const groupPickerRef = useRef(null);
   const dragSourceRef = useRef(null);
   const mountedRef = useRef(true);
@@ -419,8 +420,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
       setHistorySearch('');
     };
     // 用 click 捕获，避免 mousedown 阶段干扰面板内其它控件
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
   }, [historyDropdown]);
 
   // ── 点击外部关闭命令编辑器「选项」菜单 ───────────────
@@ -664,8 +665,9 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
 
   // ── 右键菜单 ────────────────────────────────────────
   const handleContextMenu = (e, path, type, index) => {
-    const rect = treeRef.current?.getBoundingClientRect?.() || { left: 0, top: 0 };
     setContextMenu({
+      anchorX: e.clientX,
+      anchorY: e.clientY,
       x: e.clientX,
       y: e.clientY,
       path,
@@ -674,6 +676,24 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
     });
     setSelectedPath(path);
   };
+
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return;
+    const rect = contextMenuRef.current.getBoundingClientRect();
+    const next = clampMenuPosition(
+      contextMenu.anchorX,
+      contextMenu.anchorY,
+      rect.width,
+      rect.height,
+    );
+    if (next.x === contextMenu.x && next.y === contextMenu.y) return;
+    setContextMenu(current => {
+      if (!current || current.anchorX !== contextMenu.anchorX || current.anchorY !== contextMenu.anchorY || current.path !== contextMenu.path) {
+        return current;
+      }
+      return { ...current, ...next };
+    });
+  }, [contextMenu]);
 
   const closeContextMenu = () => setContextMenu(null);
 
@@ -829,21 +849,27 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
       AppGo.SaveParamHistory(JSON.stringify(pHist)).catch(() => {});
     }
 
-    window.dispatchEvent(new CustomEvent('ssh-command-history', {
-      detail: { sessionId, command: filled, time: new Date().toISOString(), source: 'input' }
-    }));
-
+    const timestamp = new Date().toISOString();
     if (sendTarget === 'all' && connectedSessions.length > 0) {
+      // 发送到全部：为每个目标服务器按其归组 id 派发历史事件，
+      // 避免只记录一台服务器；WriteTerminal 写入各自会话。
       connectedSessions.forEach(s => {
         AppGo.WriteTerminal(s.id, finalCmd).catch((err) => {
           console.error('WriteTerminal failed:', err);
         });
+        window.dispatchEvent(new CustomEvent('ssh-command-history', {
+          detail: { sessionId: s.id, command: filled, time: timestamp, source: 'input' }
+        }));
       });
       if (addToast) addToast(t('已发送到 ') + connectedSessions.length + t(' 个会话'), 'info', 2000);
     } else {
+      // 当前目标：写入活动终端；历史事件用父会话归组 id，避免副终端快捷命令不入历史
       AppGo.WriteTerminal(sessionId, finalCmd).catch((err) => {
         console.error('WriteTerminal failed:', err);
       });
+      window.dispatchEvent(new CustomEvent('ssh-command-history', {
+        detail: { sessionId: historySessionId || sessionId, command: filled, time: timestamp, source: 'input' }
+      }));
       if (addToast) addToast(t('已发送指令到终端'), 'info', 2000);
     }
   };
@@ -854,19 +880,28 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
     const text = cmd.trim();
     if (!text) return;
     const finalCmd = cmdEditorAddCR ? (text + '\r') : text;
+    const timestamp = new Date().toISOString();
     if (sendTarget === 'all' && connectedSessions.length > 0) {
-      connectedSessions.forEach(s => AppGo.WriteTerminal(s.id, finalCmd).catch((err) => {
-        console.error('WriteTerminal failed:', err);
-      }));
+      connectedSessions.forEach(s => {
+        AppGo.WriteTerminal(s.id, finalCmd).catch((err) => {
+          console.error('WriteTerminal failed:', err);
+        });
+        window.dispatchEvent(new CustomEvent('ssh-command-history', {
+          detail: { sessionId: s.id, command: text, time: timestamp, source: 'input' }
+        }));
+      });
       if (addToast) addToast(t('已发送到 ') + connectedSessions.length + t(' 个会话'), 'info', 2000);
     } else {
       AppGo.WriteTerminal(sessionId, finalCmd).catch((err) => {
         console.error('WriteTerminal failed:', err);
       });
+      window.dispatchEvent(new CustomEvent('ssh-command-history', {
+        detail: { sessionId: historySessionId || sessionId, command: text, time: timestamp, source: 'input' }
+      }));
       if (addToast) addToast(t('已发送'), 'info', 1500);
     }
     if (cmdEditorClearAfterSend) setCmdEditorText('');
-  }, [addToast, cmdEditorAddCR, cmdEditorClearAfterSend, cmdEditorText, connectedSessions, sendTarget, sessionId, t]);
+  }, [addToast, cmdEditorAddCR, cmdEditorClearAfterSend, cmdEditorText, connectedSessions, sendTarget, sessionId, historySessionId, t]);
 
   // ── 插入参数按钮 ────────────────────────────────────
   const insertParam = (n) => {
@@ -1123,7 +1158,6 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
           <>
         {/* ── 左侧树形列表 ── */}
         <div
-          ref={treeRef}
           onClick={(e) => { if (e.target === e.currentTarget) { setSelectedPath(null); closeContextMenu(); } }}
           onDragOver={(e) => { e.preventDefault(); setRootDragOver(true); }}
           onDragEnter={(e) => { e.preventDefault(); setRootDragOver(true); }}
@@ -1381,7 +1415,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                                   left: historyDropdown.left ?? 0,
                                   top: historyDropdown.top ?? 0,
                                   zIndex: Z.MENU,
-                                  minWidth: 200, maxHeight: 220, display: 'flex', flexDirection: 'column',
+                                  width: 220, maxHeight: 220, display: 'flex', flexDirection: 'column',
+                                  boxSizing: 'border-box', overflow: 'hidden',
                                   background: 'var(--surface-raised, ' + C.popupBg + ')',
                                   border: '1px solid var(--border, ' + C.btnBorder + ')',
                                   borderRadius: 6,
@@ -1438,6 +1473,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                                     ) : filtered.map((val, i) => (
                                       <div
                                         key={i}
+                                        title={val}
                                         onClick={() => {
                                           setParamValues(prev => ({ ...prev, [p.num]: val }));
                                           setHistoryDropdown(null);
@@ -1447,6 +1483,7 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
                                           padding: '7px 12px', fontSize: 12,
                                           color: C.inputColor, cursor: 'pointer',
                                           fontFamily: "'JetBrains Mono', monospace",
+                                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                           borderBottom: '1px solid var(--border-subtle)',
                                         }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
@@ -1529,10 +1566,10 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
       </div>
 
       {/* ── 右键上下文菜单 ── */}
-      {contextMenu && (
+      {contextMenu && createPortal(
         <>
           <div onClick={closeContextMenu} style={{ position: 'fixed', inset: 0, zIndex: Z.MENU_BACKDROP, background: 'transparent' }} />
-          <div style={{
+          <div ref={contextMenuRef} style={{
             position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: Z.MENU,
             background: C.popupBg, border: '1px solid ' + C.btnBorder, borderRadius: 6,
             boxShadow: 'var(--shadow-md)', padding: '4px 0', minWidth: 160,
@@ -1556,7 +1593,8 @@ const QuickCommands = forwardRef(function QuickCommands({ sessionId, addToast, c
               </>
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
 
       {/* ── 未保存修改确认对话框 ── */}

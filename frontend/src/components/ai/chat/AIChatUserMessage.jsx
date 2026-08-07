@@ -1,4 +1,3 @@
-import { Bot } from 'lucide-react'
 import AIChatMessageActionBar from './AIChatMessageActionBar.jsx'
 
 const userTitleKey = '用户'
@@ -116,7 +115,6 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
           overflow: 'hidden',
         }}
       >
-        <Bot size={12} style={{ flexShrink: 0 }} />
         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 600 }}>
           {requestModelLabel}
         </span>

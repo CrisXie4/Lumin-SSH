@@ -265,7 +265,9 @@ export default function Dashboard({
                       const displayName = sh.startsWith('wsl://') 
                         ? `WSL - ${sh.slice(6)}` 
                         : sh === 'powershell.exe' 
-                        ? 'PowerShell' 
+                        ? 'Windows PowerShell' 
+                        : sh === 'pwsh.exe' || sh.endsWith('pwsh.exe')
+                        ? 'PowerShell 7' 
                         : sh === 'cmd.exe' 
                         ? 'Command Prompt' 
                         : sh;

@@ -3,7 +3,7 @@ import { EventsOn, WindowHide } from '../../wailsjs/runtime/runtime.js';
 import * as AppGo from '../../wailsjs/go/main/App.js';
 
 export default function useSessionConnections(deps) {
-  const { activeSessionIdRef, activeTerminalIdRef, addToast, authPromptTokenRef, awaitDisconnectTerminals, buildTerminalCloneCwdCommand, cancelledConnectionsRef, clearSessionAuthPrompt, cloneSessionFileManagerWorkspaceState, connectingServersRef, contentTabRef, creatingTerminalRef, credentials, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition, getAllSessionFileManagerWorkspaces, getSessionFileManagerWorkspace, isRecoveryPasswordError, isUnsupportedMonitorSession, lastContentTabRef, lastTerminalRef, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, mountedRef, normalizeWorkspaceContentTab, persistServerWorkspaceSessionSnapshot, persistWorkspaceSnapshotRef, recordRecentConnection, registerServerDisconnect, remapSessionFileManagerWorkspaceMap, remapSessionFileManagerWorkspaces, remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal, rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId, replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef, serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId, setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials, setMonitoringEnabled, setMountedSessions, setRestoringWorkspaceSessionIds, setServers, setServersLoaded, setSessionAuthPrompts, setSessionFileManagerWorkspace, setSessions, setSettingsInitialTab, setShowSettings, setSshChannelUsage, setSyncFailed, setTabContextMenu, setTerminalPaneLayouts, setTerminalSubTabCanScrollLeft, setTerminalSubTabCanScrollRight, setTerminalSubTabOverflow, setTerminalTabContextMenu, setWorkspaceRestoreReady, sortTerminalPaneCells, syncFailed, syncWithRecoveryPassword, t, terminalPaneLayoutsRef, terminalSubTabScrollBySessionRef, terminalSubTabScrollRef, terminalSubTabScrollTargetRef, updateSessionStatus, waitForServerDisconnect, workspacePersistenceLevel, workspaceRestoreNavigationOverrideRef, workspaceRestoreStartedRef } = deps;
+  const { activeSessionIdRef, activeTerminalIdRef, addToast, authPromptTokenRef, awaitDisconnectTerminals, buildTerminalCloneCwdCommand, cancelledConnectionsRef, clearSessionAuthPrompt, cloneSessionFileManagerWorkspaceState, connectingServersRef, contentTabRef, creatingTerminalRef, credentials, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition, getAllSessionFileManagerWorkspaces, getSessionFileManagerWorkspace, isRecoveryPasswordError, isUnsupportedMonitorSession, lastContentTabRef, lastTerminalRef, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, mountedRef, normalizeWorkspaceContentTab, persistServerWorkspaceSessionSnapshot, persistWorkspaceSnapshotRef, recordRecentConnection, registerServerDisconnect, remapSessionFileManagerWorkspaceMap, remapSessionFileManagerWorkspaces, remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal, rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId, replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef, serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId, setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials, setMonitoringEnabled, setMountedSessions, setRestoringWorkspaceSessionIds, setServers, setServersLoaded, setSessionAuthPrompts, setSessionFileManagerWorkspace, setSessions, setSettingsInitialTab, setShowSettings, setSshChannelUsage, setSyncFailed, setTabContextMenu, setTerminalPaneLayouts, setTerminalSubTabOverflow, setTerminalTabContextMenu, setWorkspaceRestoreReady, sortTerminalPaneCells, syncFailed, syncWithRecoveryPassword, t, terminalPaneLayoutsRef, terminalSubTabScrollBySessionRef, terminalSubTabScrollRef, terminalSubTabScrollTargetRef, updateSessionStatus, waitForServerDisconnect, workspacePersistenceLevel, workspaceRestoreNavigationOverrideRef, workspaceRestoreStartedRef } = deps;
   const handleConnectError = useCallback((sessionId, err) => {
     // 如果用户已取消该连接，不再弹错误提示
     if (cancelledConnectionsRef.current.has(sessionId)) {
@@ -723,7 +723,9 @@ export default function useSessionConnections(deps) {
           { label: t('仍然退出'), value: 'quit', primary: true },
           { label: t('重试同步'), value: 'retry', secondary: true },
           { label: t('取消'), value: 'cancel', secondary: true },
-        ]
+        ],
+        '',
+        { priority: 'system' },
       );
       if (choice === 'quit') {
         AppGo.DoQuit();
@@ -747,7 +749,8 @@ export default function useSessionConnections(deps) {
         { label: t('系统托盘'), value: 'tray', secondary: true },
         { label: t('取消'), value: 'cancel', secondary: true },
       ],
-      t('记住选择')
+      t('记住选择'),
+      { priority: 'system' },
     );
     if (!result) return;
     const { value, checked } = result;
@@ -1222,12 +1225,36 @@ export default function useSessionConnections(deps) {
         .catch(() => '')
       : Promise.resolve('');
 
-    let maxNum = 0;
+    // 新 tab 命名为 "<serverName> <序号>"。序号取所有现有标签中最大的「编号后缀」+1,
+    // 目的是无论历史标签是哪种格式都不重名：
+    //   - 本地终端根标签 == serverName（如 "PowerShell 7"），后续 tab 为 "PowerShell 7 2/3…"；
+    //   - SSH 根标签是 "终端N"（与 serverName 不同），旧逻辑用 ^serverName\s+\d+$ 一个都匹配不上，
+    //     导致新 tab 永远叫 "serverName 2" 甚至和已有的 "终端2" 重名。
+    // 编号后缀的判定以 serverName 为参照前缀：去掉前缀后剩余部分是纯数字才算编号
+    // （避免把 serverName 自带的数字，如 "PowerShell 7" 的 7，误当成编号）；
+    // 与 serverName 完全无关的标签（历史 "终端N" 或用户改的 "test2"）则直接取其尾部数字，
+    // 取全局最大值，保证新 tab 不与任何已有标签重名。
+    const baseName = session.serverName || t('终端');
+    let maxNum = 0; // 无任何带编号 tab 时，首个新 tab 落在 2
     (session.terminals || []).forEach(term => {
-      const match = term.label?.match(/(\d+)$/);
-      if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+      const label = String(term?.label || '').trim();
+      if (!label) return;
+      let n = null;
+      if (label === baseName) {
+        n = null; // 根标签，无编号后缀
+      } else if (label.startsWith(baseName)) {
+        // 形如 "<baseName> 2" / "<baseName>2" / "<baseName>-2"，去掉前缀后剩纯数字才算编号
+        const rest = label.slice(baseName.length);
+        const m = rest.match(/^\s*(\d+)$/);
+        n = m ? parseInt(m[1], 10) : null;
+      } else {
+        // 与 serverName 无关的标签（历史 "终端N" 或用户改名），直接取尾部数字
+        const m = label.match(/(\d+)\s*$/);
+        n = m ? parseInt(m[1], 10) : null;
+      }
+      if (n != null) maxNum = Math.max(maxNum, n);
     });
-    const termLabel = `${t('终端')}${maxNum + 1}`;
+    const termLabel = `${baseName} ${Math.max(1, maxNum) + 1}`;
 
     try {
       const newTermId = await AppGo.OpenTerminal(baseTermId);
@@ -1276,8 +1303,6 @@ export default function useSessionConnections(deps) {
           terminalSubTabScrollTargetRef.current = nextLeft;
           el.scrollLeft = nextLeft;
           setTerminalSubTabOverflow(maxLeft > 1);
-          setTerminalSubTabCanScrollLeft(maxLeft > 1 && nextLeft > 1);
-          setTerminalSubTabCanScrollRight(maxLeft > 1 && nextLeft < maxLeft - 1);
         });
       });
     } catch (err) {
