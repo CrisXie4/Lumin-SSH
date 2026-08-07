@@ -165,6 +165,51 @@ function isEditable(name) {
   return false;
 }
 
+// Track files currently being downloaded/opened
+const globalOpeningFiles = new Set();
+const globalOpeningListeners = new Set();
+// key -> safety-timeout id, so removeOpeningFile can clear pending timers
+const globalOpeningTimers = new Map();
+
+function addOpeningFile(sessionId, path) {
+  if (!sessionId || !path) return;
+  const key = `${sessionId}:${path}`;
+  globalOpeningFiles.add(key);
+  notifyOpeningListeners();
+
+  // 5-minute safety timeout to prevent permanent lock leakage in case of backend hang.
+  // Defensive: replace any stale timer for this key before scheduling a new one.
+  if (globalOpeningTimers.has(key)) {
+    clearTimeout(globalOpeningTimers.get(key));
+  }
+  const timer = setTimeout(() => {
+    globalOpeningTimers.delete(key);
+    if (globalOpeningFiles.has(key)) {
+      globalOpeningFiles.delete(key);
+      notifyOpeningListeners();
+    }
+  }, 5 * 60 * 1000);
+  globalOpeningTimers.set(key, timer);
+}
+
+function removeOpeningFile(sessionId, path) {
+  if (!sessionId || !path) return;
+  const key = `${sessionId}:${path}`;
+  // Cancel the pending safety-timeout so normal fast opens leave no dangling timer
+  if (globalOpeningTimers.has(key)) {
+    clearTimeout(globalOpeningTimers.get(key));
+    globalOpeningTimers.delete(key);
+  }
+  globalOpeningFiles.delete(key);
+  notifyOpeningListeners();
+}
+
+function notifyOpeningListeners() {
+  const currentSet = new Set(globalOpeningFiles);
+  globalOpeningListeners.forEach(listener => listener(currentSet));
+}
+
+
 // 压缩包/二进制/媒体文件类型判定已抽到 utils/fileTypeClassify.js（isArchive/isBinaryLike/isViewable）
 
 // 文件编辑大小上限默认值（MB）；实际值由用户配置，组件内 maxEditSizeMB state 持有
@@ -1253,6 +1298,24 @@ function ContextMenu({ pos, item, mode = 'item', isPinned = false, isSystemPinne
 
 export default function FileManager({ sessionId, sessionGroupId = sessionId, addToast, isActive = true, initialPath = '' }) {
   const { t } = useTranslation();
+
+  const [openingFiles, setOpeningFiles] = useState(new Set());
+
+  useEffect(() => {
+    setOpeningFiles(new Set(globalOpeningFiles));
+    const listener = (newSet) => {
+      setOpeningFiles(newSet);
+    };
+    globalOpeningListeners.add(listener);
+    return () => {
+      globalOpeningListeners.delete(listener);
+    };
+  }, []);
+
+  const openingFilesRef = useRef(new Set());
+  useEffect(() => {
+    openingFilesRef.current = openingFiles;
+  }, [openingFiles]);
   const joinPath = (base, name) => base === '/' ? `/${name}` : `${base}/${name}`;
   const normalizePath = useCallback((value) => {
     const trimmed = String(value || '').trim();
@@ -4481,13 +4544,29 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   const handleOpenSystemEditor = useCallback(async (file, content, readOnly = false) => {
     if (!file?.path) return;
-    await openExternalEditor(file.path, content ?? file.content ?? '', '', readOnly, file?.size || 0);
-  }, [openExternalEditor]);
+    if (openingFilesRef.current.has(`${sessionId}:${file.path}`)) {
+      addToast(t('文件正在打开中，请稍候...'), 'warning');
+      return;
+    }
+    try {
+      addOpeningFile(sessionId, file.path);
+      addToast(t('正在打开文件...'), 'info');
+      await openExternalEditor(file.path, content ?? file.content ?? '', '', readOnly, file?.size || 0);
+    } finally {
+      removeOpeningFile(sessionId, file.path);
+    }
+  }, [sessionId, openExternalEditor, addToast, t]);
 
   // forcePick=true：始终弹出选择框；false：有记忆路径则直接打开（对齐 electerm）
   const handleOpenWithEditor = useCallback(async (file, content, forcePick = false, readOnly = false) => {
     if (!file?.path) return;
+    if (openingFilesRef.current.has(`${sessionId}:${file.path}`)) {
+      addToast(t('文件正在打开中，请稍候...'), 'warning');
+      return;
+    }
     try {
+      addOpeningFile(sessionId, file.path);
+      addToast(t('正在打开文件...'), 'info');
       let editorPath = '';
       if (!forcePick) {
         editorPath = (localStorage.getItem('fileEditorPreferredApp') || '').trim();
@@ -4510,12 +4589,19 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
     } catch (err) {
       addToast(`${t('打开外部编辑器失败')}: ${err}`, 'error');
+    } finally {
+      removeOpeningFile(sessionId, file.path);
     }
-  }, [openExternalEditor, addToast, t]);
+  }, [sessionId, openExternalEditor, addToast, t]);
 
   // Open file editor / external editor according to settings default.
   const handleEdit = async (item) => {
     const remotePath = joinPath(currentPath, item.name);
+
+    if (openingFilesRef.current.has(`${sessionId}:${remotePath}`)) {
+      addToast(t('文件正在打开中，请稍候...'), 'warning');
+      return;
+    }
 
     // 文件大小检查，避免加载过大文件导致卡顿
     if (item.size && item.size > maxEditSizeMB * 1024 * 1024) {
@@ -4548,12 +4634,16 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
 
     try {
+      addOpeningFile(sessionId, remotePath);
+      addToast(t('正在下载并打开文件...'), 'info');
       const content = await AppGo.ReadFile(sessionId, remotePath);
       const newFile = { path: remotePath, name: item.name, content };
       setOpenEditFiles(prev => [...prev, newFile]);
       setActiveEditPath(remotePath);
     } catch (err) {
       addToast(`${t('无法打开文件')}: ${err}`, 'error');
+    } finally {
+      removeOpeningFile(sessionId, remotePath);
     }
   };
 
@@ -6679,7 +6769,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         } : undefined}
       >
         <div className="file-name-cell">
-          <span className="file-icon">{fileIcon(item.name, item.isDirectory, item.isSymlink)}</span>
+          <span className="file-icon">
+            {openingFiles.has(`${sessionId}:${itemPath}`) ? (
+              <RefreshCw className="spin" size={14} style={{ color: 'var(--text-accent)' }} />
+            ) : (
+              fileIcon(item.name, item.isDirectory, item.isSymlink)
+            )}
+          </span>
           {isInteractive && renamingItem?.name === item.name ? (
             <RenameInput
               initialValue={item.name}
@@ -6715,12 +6811,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         {isInteractive ? (
           <div className="file-actions file-col-actions">
             {!item.isDirectory && isEditable(item.name) && (
-              <Tiptop text={t('编辑')}>
+              <Tiptop text={openingFiles.has(`${sessionId}:${itemPath}`) ? t('正在打开文件...') : t('编辑')}>
                 <button
                   className="btn btn-ghost btn-sm btn-icon"
                   aria-label={t('编辑')}
+                  disabled={openingFiles.has(`${sessionId}:${itemPath}`)}
                   onClick={(event) => { event.stopPropagation(); void handleEdit(item); }}
-                ><SquarePen size={14} /></button>
+                >
+                  {openingFiles.has(`${sessionId}:${itemPath}`) ? <RefreshCw className="spin" size={14} /> : <SquarePen size={14} />}
+                </button>
               </Tiptop>
             )}
             <Tiptop text={item.isDirectory ? t('下载文件夹到本地') : t('下载到本地')}>
@@ -6758,7 +6857,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         )}
       </div>
     );
-  }, [activePaneKey, activeRowEffects, addToast, buildFileManagerDragPayload, clipboard, confirmRename, contextMenuTargetPath, defaultOpenMode, effectiveLocatorActiveRowKey, fileManagerDoubleClickUncompressArchive, fileManagerDualPaneDragTransferEnabled, handleChmod, handleDelete, handleDownload, handleEdit, handleOpenSystemEditor, handleOpenWithEditor, handleUncompress, hideFileManagerDragTip, isDeletedPlaceholderItem, isDualPaneLayout, navigate, normalizePath, renamingItem, t, updateFileManagerDragTip]);
+  }, [activePaneKey, activeRowEffects, addToast, buildFileManagerDragPayload, clipboard, confirmRename, contextMenuTargetPath, defaultOpenMode, effectiveLocatorActiveRowKey, fileManagerDoubleClickUncompressArchive, fileManagerDualPaneDragTransferEnabled, handleChmod, handleDelete, handleDownload, handleEdit, handleOpenSystemEditor, handleOpenWithEditor, handleUncompress, hideFileManagerDragTip, isDeletedPlaceholderItem, isDualPaneLayout, navigate, normalizePath, renamingItem, t, updateFileManagerDragTip, openingFiles, sessionId]);
 
   const renderFileManagerVirtualViewport = useCallback((paneState, options = {}) => {
     const normalizedPaneKey = paneState?.key === 'right' ? 'right' : 'left';

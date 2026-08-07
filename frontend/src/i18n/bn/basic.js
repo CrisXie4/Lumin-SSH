@@ -1792,5 +1792,8 @@ export default {
   "在第 $ 行替换了匹配": "$ নম্বর লাইনে মিল প্রতিস্থাপিত",
   "当前匹配": "বর্তমান মিল",
   "第": "লাইনে",
+  "文件正在打开中，请稍候...": "File is opening, please wait...",
+  "正在下载并打开文件...": "Downloading and opening file...",
+  "正在打开文件...": "Opening file...",
 };
 

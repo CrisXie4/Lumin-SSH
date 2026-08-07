@@ -1792,5 +1792,8 @@ export default {
   "在第 $ 行替换了匹配": "पंक्ति $ में मिलान बदला गया",
   "当前匹配": "वर्तमान मिलान",
   "第": "पंक्ति में",
+  "文件正在打开中，请稍候...": "File is opening, please wait...",
+  "正在下载并打开文件...": "Downloading and opening file...",
+  "正在打开文件...": "Opening file...",
 };
 
