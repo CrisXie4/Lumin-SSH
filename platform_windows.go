@@ -372,6 +372,13 @@ func ensureSingleInstance() {
 	}
 }
 
+// startSingletonServer Windows 上为空操作：Windows 用命名 mutex + HWND 直接激活，
+// 不需要 socket IPC（findAndShowWindow 已在二进程内完成跨进程窗口唤起）。
+func startSingletonServer(_ func()) {}
+
+// stopSingletonServer Windows 上无 socket 资源需要清理。
+func stopSingletonServer() {}
+
 func acquireMainLivenessLock(path string) (func(), error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {

@@ -5,9 +5,11 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
@@ -19,10 +21,28 @@ var icon []byte
 // singletonLock holds the lock file descriptor to prevent GC from closing it
 var singletonLock *os.File
 
-// findAndShowWindow 在 macOS 上为空实现
-func findAndShowWindow() {}
+// singletonSocketPath 是单实例 IPC 用的 Unix Domain Socket 路径。
+const singletonSocketPath = "lumin-ssh.sock"
 
-// platformForceShowWindow macOS 暂无原生兜底，依赖 Wails WindowShow
+// singletonShowWindow 收到二次启动信号时被 main 注入：
+// 主进程通过 Wails runtime 唤起自己的主窗口（与托盘点击同路径）。
+var singletonShowWindow func()
+
+// singletonSocketListener 主实例持有的 socket 监听器，退出时关闭。
+var singletonSocketListener net.Listener
+
+// findAndShowWindow 二次启动时调用：通知已运行的主实例显示窗口。
+func findAndShowWindow() {
+	conn, err := net.DialTimeout("unix", singleInstanceSocketPath(), 2*time.Second)
+	if err != nil {
+		return
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	_, _ = conn.Write([]byte("show\n"))
+}
+
+// platformForceShowWindow macOS 暂无原生兜底，依赖 Wails WindowShow（托盘路径已覆盖）
 func platformForceShowWindow() {}
 
 // removeTrayIconSync Windows 幽灵托盘修复专用；macOS 无此问题
@@ -31,9 +51,66 @@ func removeTrayIconSync() {}
 // platformPrepareTrayMenu Windows 托盘右键菜单前台解锁专用；macOS 无此问题
 func platformPrepareTrayMenu() {}
 
+// singleInstanceSocketPath 返回 socket 文件路径（与 lock 文件同目录，区分用户避免多用户冲突）。
+func singleInstanceSocketPath() string {
+	if runDir := os.Getenv("XDG_RUNTIME_DIR"); runDir != "" {
+		return filepath.Join(runDir, singletonSocketPath)
+	}
+	return filepath.Join(os.TempDir(), fmt.Sprintf("lumin-ssh-%d.sock", os.Getuid()))
+}
+
+// startSingletonServer 在主实例上启动 Unix Socket 监听，
+// 二次启动的实例会连接并发送 "show" 指令，此处回调 showFn 显示主窗口。
+// showFn 通常包装 runtime.WindowShow（与托盘点击同路径）。
+func startSingletonServer(showFn func()) {
+	socketPath := singleInstanceSocketPath()
+	_ = os.Remove(socketPath) // 清理上次崩溃残留
+
+	l, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return
+	}
+	singletonSocketListener = l
+	singletonShowWindow = showFn
+
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return // listener 已关闭
+			}
+			go handleSingletonConn(conn)
+		}
+	}()
+}
+
+// handleSingletonConn 读取一帧指令并执行，处理完即关闭连接。
+func handleSingletonConn(conn net.Conn) {
+	defer func() { _ = conn.Close() }()
+	buf := make([]byte, 16)
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n, _ := conn.Read(buf)
+	cmd := string(buf[:n])
+	switch cmd {
+	case "show\n", "show":
+		if singletonShowWindow != nil {
+			singletonShowWindow()
+		}
+	}
+}
+
+// stopSingletonServer 关闭并清理 socket（主实例退出时调用）。
+func stopSingletonServer() {
+	if singletonSocketListener != nil {
+		_ = singletonSocketListener.Close()
+		singletonSocketListener = nil
+	}
+	_ = os.Remove(singleInstanceSocketPath())
+}
+
 // ensureSingleInstance 使用 flock 检查是否已有实例运行（macOS 支持 flock）
 func ensureSingleInstance() {
-	lockFile := filepath.Join(os.TempDir(), "lumin-ssh.lock")
+	lockFile := filepath.Join(os.TempDir(), fmt.Sprintf("lumin-ssh-%d.lock", os.Getuid()))
 	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return

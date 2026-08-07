@@ -109,9 +109,14 @@ func main() {
 			// 先挂托盘：startup 里 MCP 等可能阻塞，托盘若排后面会出现「窗口已能关到托盘但图标很久才出」。
 			app.ctx = ctx
 			startSystray(app)
+			// 启动单实例 socket：二次启动会发 show 指令，经 forceShowWindow 走托盘同一路径唤起主窗口。
+			startSingletonServer(func() {
+				forceShowWindow(app.ctx)
+			})
 			app.startup(ctx)
 		},
 		OnShutdown: func(ctx context.Context) {
+			stopSingletonServer()
 			stopMCPServer(app)
 			cleanupTray()
 		},
