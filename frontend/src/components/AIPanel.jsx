@@ -1881,6 +1881,17 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     void refreshAIHomeData()
   }, [refreshAIHomeData])
 
+  // 代理节点变更时刷新 AI 设置中的代理列表
+  useEffect(() => {
+    const handler = (event) => {
+      const newProxyNodes = event?.detail
+      if (!Array.isArray(newProxyNodes)) return
+      setGlobalAISettings((prev) => prev ? { ...prev, proxyNodes: newProxyNodes } : prev)
+    }
+    window.addEventListener('lumin:proxy-nodes-changed', handler)
+    return () => window.removeEventListener('lumin:proxy-nodes-changed', handler)
+  }, [])
+
   useEffect(() => subscribeAIConversationChanges((change) => {
     if (change?.type === 'upsert' && change.summary?.id) {
       setConversationList((current) => upsertConversationSummary(current, change.summary))

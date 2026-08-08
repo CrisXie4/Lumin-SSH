@@ -574,6 +574,17 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     }
   }, [open, provider])
 
+  // 代理节点变更时实时刷新下拉列表
+  useEffect(() => {
+    if (!open) return undefined
+    const handler = (event) => {
+      const newProxyNodes = event?.detail
+      if (Array.isArray(newProxyNodes)) setProxyNodes(newProxyNodes)
+    }
+    window.addEventListener('lumin:proxy-nodes-changed', handler)
+    return () => window.removeEventListener('lumin:proxy-nodes-changed', handler)
+  }, [open])
+
   useEffect(() => {
     if (!open || !builtinProvider) {
       setBuiltinProviderRuntimeState('idle')
