@@ -224,6 +224,7 @@ export default function AIPanelSettingsOverlay({
   const approvalButtonOrder = globalAISettings?.approvalButtonOrder || 'reject-approve'
   const commandActionButtonOrder = globalAISettings?.commandActionButtonOrder || 'terminate-continue'
   const messageActionBarAtBottom = Boolean(globalAISettings?.messageActionBarAtBottom)
+  const messageNavEnabled = globalAISettings?.messageNavEnabled !== false
   const mcpEnabled = globalAISettings?.mcpEnabled !== false
   const mcpAllowBrowserCalls = Boolean(globalAISettings?.mcpAllowBrowserCalls)
   const continueAfterToolRejection = globalAISettings?.continueAfterToolRejection !== false
@@ -662,6 +663,18 @@ export default function AIPanelSettingsOverlay({
                     checked={messageActionBarAtBottom}
                     onChange={() => onSaveGlobalAISettings?.({
                       messageActionBarAtBottom: !messageActionBarAtBottom,
+                    })}
+                  />
+                </div>
+                <div style={{ background: 'var(--surface-base)', padding: 14, borderRadius: 12, border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('用户消息导航')}</div>
+                    <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.')}</div>
+                  </div>
+                  <ToggleSwitchControl
+                    checked={messageNavEnabled}
+                    onChange={() => onSaveGlobalAISettings?.({
+                      messageNavEnabled: !messageNavEnabled,
                     })}
                   />
                 </div>

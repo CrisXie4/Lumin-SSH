@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Sol taraf önizleme alanıdır ve \"Devam Etmeye/Sonlandırmaya Zorla Aracı\"nın sol ve sağ sırasını değiştirmek için sağ tarafa tıklayın.",
   "消息操作条置底": "Mesaj işlem çubuğunun alt kısmı",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Etkinleştirildiğinde, kullanıcı mesajları ve Ai mesajları için işlem çubukları mesaj gövdesinin her turunun altında görüntülenir; kapatıldığında üstte görüntülenirler.",
+  "用户消息导航": "Kullanıcı mesajı navigasyonu",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Etkinleştirildiğinde, kullanıcı mesajları için gezinme noktaları sohbet alanının sol tarafında görünür. İçeriği önizlemek için üzerine gelin, ilgili mesaja atlamak için tıklayın.",
   "未命名供应商": "İsimsiz tedarikçi",
   "未选择模型": "Hiçbir model seçilmedi",
   "创建对话能力未就绪": "Konuşma oluşturma yeteneği hazır değil",

@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Levá strana je oblast náhledu a kliknutím na pravou stranu prohodíte levé a pravé pořadí nástroje \"Vynutit pokračování/ukončení\".",
   "消息操作条置底": "Spodní lišta ovládání zpráv",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Je-li povoleno, ovládací lišty pro uživatelské zprávy a zprávy Ai se zobrazují ve spodní části každého kola těla zprávy; když jsou vypnuté, zobrazí se nahoře.",
+  "用户消息导航": "Navigace zpráv uživatele",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Pokud je povoleno, navigační tečky pro zprávy uživatele se objeví na levé straně oblasti chatu. Najeďte myší pro náhled obsahu, klikněte pro přechod na odpovídající zprávu.",
   "未命名供应商": "Nejmenovaný dodavatel",
   "未选择模型": "Není vybrán žádný model",
   "创建对话能力未就绪": "Schopnost vytvářet konverzace není připravena",

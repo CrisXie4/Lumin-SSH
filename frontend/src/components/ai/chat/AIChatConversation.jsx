@@ -176,7 +176,7 @@ function getTouchClientY(event) {
   return Number.isFinite(value) ? value : null
 }
 
-export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', conversationId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }) {
+export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', conversationId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, messageNavEnabled = true, side = 'right', scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }) {
   const { t } = useTranslation()
   const containerRef = useRef(null)
   const virtuosoRef = useRef(null)
@@ -187,9 +187,20 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const lastTouchClientYRef = useRef(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedEntryKey, setHighlightedEntryKey] = useState('')
+  const [hoveredNavIndex, setHoveredNavIndex] = useState(-1)
+  const isLeftSide = side !== 'left'
   const groupedMessages = useMemo(() => groupConversationMessages(messages), [messages])
   const lastAssistantTurnIndex = useMemo(() => getLastAssistantTurnIndex(groupedMessages), [groupedMessages])
   const firstUserMessageIndex = useMemo(() => groupedMessages.findIndex((entry) => entry?.type === 'user'), [groupedMessages])
+  const userMessageEntries = useMemo(() => {
+    const result = []
+    groupedMessages.forEach((entry, idx) => {
+      if (entry?.type === 'user' && entry.message) {
+        result.push({ entry, index: idx })
+      }
+    })
+    return result
+  }, [groupedMessages])
 
   const suspendFollow = useCallback(() => {
     const scroller = scrollerElementRef.current
@@ -198,6 +209,21 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     }
     followIntentRef.current = false
     setShowScrollToBottom(true)
+  }, [])
+
+  const handleJumpToUserMessage = useCallback((targetIndex, entry) => {
+    followIntentRef.current = false
+    setShowScrollToBottom(true)
+    if (typeof virtuosoRef.current?.scrollToIndex === 'function') {
+      // ponytail: auto(瞬跳)而非smooth, Virtuoso对未渲染的远端item只能按均高估算,
+      // smooth会停在估算位置需要多点几次; auto能快速多次修正到准确位置
+      virtuosoRef.current.scrollToIndex({
+        index: targetIndex,
+        align: 'center',
+        behavior: 'auto',
+      })
+    }
+    setHighlightedEntryKey(getEntryKey(entry, targetIndex))
   }, [])
 
   const scrollToBottom = useCallback((behavior = 'auto') => {
@@ -518,6 +544,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
           scrollerElementRef.current = element instanceof HTMLElement ? element : null
           if (element instanceof HTMLElement) {
             element.style.overflowX = 'hidden'
+            // ponytail: 面板在左侧时, direction: rtl 把滚动条翻到左侧(远离终端), 内容保持 LTR
+            element.style.direction = isLeftSide ? 'rtl' : 'ltr'
           }
         }}
         style={{ height: '100%', overflowX: 'hidden' }}
@@ -546,6 +574,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
               style={{
                 padding: `0 14px ${index === groupedMessages.length - 1 ? 18 : 14}px`,
                 borderRadius: 14,
+                direction: 'ltr',
                 animation: isHighlighted
                   ? 'ai-chat-message-flash 0.72s ease-in-out 4'
                   : `${entryAnimName} 1500ms cubic-bezier(0.16, 1, 0.3, 1) both`,
@@ -574,6 +603,78 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
           )
         }}
       />
+      {userMessageEntries.length >= 1 && messageNavEnabled ? (
+        <div style={{
+          position: 'absolute',
+          [isLeftSide ? 'right' : 'left']: 3,
+          top: 14,
+          bottom: 44,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 5,
+          zIndex: 8,
+        }}>
+          {userMessageEntries.map(({ entry, index }, navIndex) => {
+            const navText = typeof entry.message?.text === 'string' ? entry.message.text.trim() : ''
+            const navTime = typeof entry.message?.time === 'string' ? entry.message.time : ''
+            const navPreview = navText.length > 60 ? navText.slice(0, 60) + '…' : navText
+            const isNavHovered = hoveredNavIndex === navIndex
+            return (
+              <div
+                key={entry.message?.id || `nav-${navIndex}`}
+                style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}
+                onMouseEnter={() => setHoveredNavIndex(navIndex)}
+                onMouseLeave={() => setHoveredNavIndex(-1)}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleJumpToUserMessage(index, entry)}
+                  aria-label={navPreview || '图片消息'}
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    border: '1px solid var(--border)',
+                    background: isNavHovered ? 'var(--accent)' : 'var(--surface-overlay)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    transition: 'transform 150ms ease, background 150ms ease, border-color 150ms ease',
+                    transform: isNavHovered ? 'scale(1.4)' : 'scale(1)',
+                  }}
+                />
+                {isNavHovered ? (
+                  <div style={{
+                    position: 'absolute',
+                    [isLeftSide ? 'right' : 'left']: '100%',
+                    [isLeftSide ? 'marginRight' : 'marginLeft']: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 'max-content',
+                    maxWidth: 240,
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    background: 'rgba(30, 35, 42, 0.96)',
+                    color: '#fff',
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                    boxShadow: 'var(--shadow-lg)',
+                    pointerEvents: 'none',
+                    zIndex: 100,
+                  }}>
+                    {navTime ? <div style={{ fontSize: 10, opacity: 0.55, marginBottom: 3 }}>{navTime}</div> : null}
+                    {navPreview || '📷 图片消息'}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
       {showScrollToBottom ? (
         <div
           style={{

@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Sisi kiri adalah area pratinjau, dan klik di sisi kanan untuk menukar urutan kiri dan kanan \"Alat Paksa Lanjutkan/Terminasi\".",
   "消息操作条置底": "Bilah operasi pesan di bagian bawah",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Jika diaktifkan, bilah operasi untuk pesan pengguna dan pesan Ai ditampilkan di bagian bawah setiap putaran isi pesan; ketika dimatikan, mereka ditampilkan di bagian atas.",
+  "用户消息导航": "Navigasi pesan pengguna",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Saat diaktifkan, titik navigasi untuk pesan pengguna muncul di sisi kiri area obrolan. Arahkan kursor untuk pratinjau konten, klik untuk melompat ke pesan yang sesuai.",
   "未命名供应商": "Pemasok tanpa nama",
   "未选择模型": "Tidak ada model yang dipilih",
   "创建对话能力未就绪": "Kemampuan menciptakan percakapan belum siap",

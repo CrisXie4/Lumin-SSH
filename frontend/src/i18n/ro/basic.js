@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Partea stângă este zona de previzualizare și faceți clic pe partea dreaptă pentru a schimba ordinea din stânga și din dreapta a „Forceți continuarea/Terminarea instrumentului”.",
   "消息操作条置底": "Bara de operare a mesajelor de jos",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Când este activată, barele de operare pentru mesajele utilizatorului și mesajele Ai sunt afișate în partea de jos a fiecărei runde a corpului mesajului; când sunt dezactivate, acestea sunt afișate în partea de sus.",
+  "用户消息导航": "Navigare mesaje utilizator",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Când este activat, punctele de navigare pentru mesajele utilizatorului apar în partea stângă a zonei de chat. Treceți cursorul pentru a previzualiza conținutul, faceți clic pentru a sări la mesajul corespunzător.",
   "未命名供应商": "Furnizor fără nume",
   "未选择模型": "Niciun model selectat",
   "创建对话能力未就绪": "Capacitatea de a crea conversații nu este gata",

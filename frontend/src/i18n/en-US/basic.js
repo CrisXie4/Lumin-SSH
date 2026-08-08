@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Preview on the left. Click the button on the right to swap the order of Force Continue / Terminate Tool.",
   "消息操作条置底": "Bottom Message Action Bar",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "When enabled, the action bar for user and AI messages is shown at the bottom of each message turn; when disabled, it remains at the top.",
+  "用户消息导航": "User Message Navigation",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "When enabled, navigation dots for user messages appear on the left side of the chat area. Hover to preview content, click to jump to the corresponding message.",
   "未命名供应商": "Unnamed Provider",
   "未选择模型": "No Model Selected",
   "创建对话能力未就绪": "Conversation creation is unavailable",

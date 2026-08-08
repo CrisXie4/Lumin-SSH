@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Die linke Seite ist der Vorschaubereich. Klicken Sie auf die rechte Seite, um die linke und rechte Reihenfolge des „Fortfahren/Beenden-Werkzeugs“ zu vertauschen.",
   "消息操作条置底": "Nachrichten-Bedienleiste unten",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Wenn diese Option aktiviert ist, werden die Betriebsleisten für Benutzernachrichten und Ai-Nachrichten unten in jeder Runde des Nachrichtentexts angezeigt. Wenn sie ausgeschaltet sind, werden sie oben angezeigt.",
+  "用户消息导航": "Benutzernachrichten-Navigation",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Wenn aktiviert, erscheinen Navigationspunkte für Benutzernachrichten auf der linken Seite des Chatbereichs. Zum Vorschauen des Inhalts darüberhalten, zum Springen zur entsprechenden Nachricht klicken.",
   "未命名供应商": "Unbenannter Lieferant",
   "未选择模型": "Kein Modell ausgewählt",
   "创建对话能力未就绪": "Die Möglichkeit, Konversationen zu erstellen, ist noch nicht verfügbar",

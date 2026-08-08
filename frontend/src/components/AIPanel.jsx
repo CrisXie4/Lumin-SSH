@@ -1473,6 +1473,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   const approvalButtonOrder = normalizedGlobalAISettings.approvalButtonOrder
   const commandActionButtonOrder = normalizedGlobalAISettings.commandActionButtonOrder
   const messageActionBarAtBottom = Boolean(normalizedGlobalAISettings.messageActionBarAtBottom)
+  const messageNavEnabled = normalizedGlobalAISettings.messageNavEnabled !== false
   const shouldLockAssistantCollaboration = Boolean(effectiveAutoApprovalSettings.alwaysAllowFollowupQuestions)
   const collaborationLocked = Boolean(panelState.collaborationLocked) && Boolean(activeConversation)
   const collaborationActive = Boolean(panelState.collaborationActive)
@@ -5749,6 +5750,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                 onApplyRestore={handleApplyRestore}
                 followupInteractionLocked={collaborationFollowupInteractionLocked}
                 messageActionBarAtBottom={messageActionBarAtBottom}
+                messageNavEnabled={messageNavEnabled}
+                side={side}
                 scrollToBottomSignal={conversationScrollSignal}
                 sendPerfMetricsRef={sendPerfMetricsRef}
                 editingTargetMessageId={composerEditState.mode === 'edit' ? composerEditState.targetMessageId : ''}

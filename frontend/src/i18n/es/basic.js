@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "El lado izquierdo es el área de vista previa y haga clic en el lado derecho para intercambiar el orden izquierdo y derecho de la \"Herramienta Forzar continuación/Terminar\".",
   "消息操作条置底": "Parte inferior de la barra de operación de mensajes",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Cuando está habilitado, las barras de operación para mensajes de usuario y mensajes Ai se muestran en la parte inferior de cada ronda del cuerpo del mensaje; cuando están apagados, se muestran en la parte superior.",
+  "用户消息导航": "Navegación de mensajes de usuario",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Cuando está activado, los puntos de navegación de mensajes de usuario aparecen en el lado izquierdo del área de chat. Desplaza el cursor para previsualizar el contenido, haz clic para saltar al mensaje correspondiente.",
   "未命名供应商": "Proveedor anónimo",
   "未选择模型": "Ningún modelo seleccionado",
   "创建对话能力未就绪": "La capacidad de crear conversaciones no está lista",

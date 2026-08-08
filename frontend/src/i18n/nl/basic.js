@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "De linkerkant is het voorbeeldgebied en klik op de rechterkant om de linker- en rechtervolgorde van het \"Forceer Doorgaan/Terminate Tool\" te wisselen.",
   "消息操作条置底": "Berichtbedieningsbalk onderaan",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Indien ingeschakeld, worden de bedieningsbalken voor gebruikersberichten en Ai-berichten weergegeven onder aan elke ronde van de berichttekst; wanneer uitgeschakeld, worden ze bovenaan weergegeven.",
+  "用户消息导航": "Gebruikersberichtnavigatie",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Indien ingeschakeld, verschijnen navigatiepunten voor gebruikersberichten aan de linkerkant van het chatgebied. Houd de muis erop om de inhoud te bekijken, klik om naar het bijbehorende bericht te springen.",
   "未命名供应商": "Naamloze leverancier",
   "未选择模型": "Geen model geselecteerd",
   "创建对话能力未就绪": "De mogelijkheid om gesprekken te creëren is nog niet klaar",

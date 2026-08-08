@@ -1236,6 +1236,8 @@ export default {
   "左侧为预览区,右侧点击交换\"强制继续 / 终止工具\"的左右顺序.": "Phía bên trái là khu vực xem trước và nhấp vào phía bên phải để hoán đổi thứ tự trái và phải của \"Công cụ bắt buộc tiếp tục/chấm dứt\".",
   "消息操作条置底": "Phía dưới thanh thao tác tin nhắn",
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Khi được bật, các thanh thao tác cho tin nhắn người dùng và tin nhắn Ai sẽ được hiển thị ở cuối mỗi vòng nội dung tin nhắn; khi tắt, chúng được hiển thị ở trên cùng.",
+  "用户消息导航": "Điều hướng tin nhắn người dùng",
+  "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Khi bật, các chấm điều hướng cho tin nhắn người dùng xuất hiện ở bên trái khu vực trò chuyện. Di chuột để xem trước nội dung, nhấp để chuyển đến tin nhắn tương ứng.",
   "未命名供应商": "Nhà cung cấp không tên",
   "未选择模型": "Không có mô hình nào được chọn",
   "创建对话能力未就绪": "Khả năng tạo cuộc hội thoại chưa sẵn sàng",
