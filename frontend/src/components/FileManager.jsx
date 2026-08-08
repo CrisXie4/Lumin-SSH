@@ -16,13 +16,16 @@ import {
   getSessionFileManagerWorkspace,
   getSessionSharedPinnedTabs,
   getSessionUploadQueue,
+  getSessionUploadPanelState,
   getSessionWorkbenchState,
   setSessionCachedFileManagerPathItems,
   setSessionFileManagerWorkspace,
   setSessionSharedPinnedTabs,
+  setSessionUploadPanelState,
   setSessionWorkbenchState,
   subscribeSessionFileManagerWorkspace,
   subscribeSessionSharedPinnedTabs,
+  subscribeSessionUploadPanelState,
   subscribeSessionUploadQueue,
   subscribeSessionWorkbenchState,
   updateSessionUploadQueue,
@@ -2602,6 +2605,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const uploadInputRef = useRef(null);
   const uploadFolderInputRef = useRef(null);
   const [workbenchState, setWorkbenchStateState] = useState(() => getSessionWorkbenchState(sessionGroupId));
+  const [uploadPanelState, setUploadPanelState] = useState(() => getSessionUploadPanelState(sessionGroupId, sessionId));
   const [uploadQueueItems, setUploadQueueItems] = useState(() => getSessionUploadQueue(sessionGroupId));
   const activeUploadCount = useMemo(() => uploadQueueItems.filter((item) => item.status === 'queued' || item.status === 'uploading').length, [uploadQueueItems]);
   const uploadPanelCloseTimerRef = useRef(0);
@@ -2647,31 +2651,49 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [sessionGroupId]);
 
   useEffect(() => {
+    if (!sessionGroupId || !sessionId) return undefined;
+    return subscribeSessionUploadPanelState(sessionGroupId, sessionId, setUploadPanelState);
+  }, [sessionGroupId, sessionId]);
+
+  useEffect(() => {
     if (!sessionGroupId) return undefined;
     return subscribeSessionUploadQueue(sessionGroupId, setUploadQueueItems);
   }, [sessionGroupId]);
 
+  useEffect(() => {
+    if (isActive || !sessionGroupId || !sessionId) return;
+    clearUploadPanelCloseTimer();
+    setUploadPanelClosing(false);
+    if (uploadPanelState.uploadOpen) {
+      setSessionUploadPanelState(sessionGroupId, sessionId, { uploadOpen: false });
+    }
+  }, [clearUploadPanelCloseTimer, isActive, sessionGroupId, sessionId, uploadPanelState.uploadOpen]);
+
   const openUploadPanel = useCallback(() => {
     clearUploadPanelCloseTimer();
     setUploadPanelClosing(false);
-    setSessionWorkbenchState(sessionGroupId, {
+    setSessionUploadPanelState(sessionGroupId, sessionId, {
       uploadOpen: true,
+    });
+    setSessionWorkbenchState(sessionGroupId, {
       activeTab: 'upload',
     });
-  }, [clearUploadPanelCloseTimer, sessionGroupId]);
+  }, [clearUploadPanelCloseTimer, sessionGroupId, sessionId]);
 
   const finishUploadPanelClose = useCallback(() => {
     clearUploadPanelCloseTimer();
     setUploadPanelClosing(false);
     const current = getSessionWorkbenchState(sessionGroupId);
-    setSessionWorkbenchState(sessionGroupId, {
+    setSessionUploadPanelState(sessionGroupId, sessionId, {
       uploadOpen: false,
+    });
+    setSessionWorkbenchState(sessionGroupId, {
       activeTab: current.editorSplitOpen ? 'editor' : current.activeTab,
     });
-  }, [clearUploadPanelCloseTimer, sessionGroupId]);
+  }, [clearUploadPanelCloseTimer, sessionGroupId, sessionId]);
 
   const closeUploadPanel = useCallback(() => {
-    const current = getSessionWorkbenchState(sessionGroupId);
+    const current = getSessionUploadPanelState(sessionGroupId, sessionId);
     if (!current.uploadOpen && !uploadPanelClosing) {
       return;
     }
@@ -2728,13 +2750,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       openUploadPanel();
       return;
     }
-    const current = getSessionWorkbenchState(sessionGroupId);
+    const current = getSessionUploadPanelState(sessionGroupId, sessionId);
     if (current.uploadOpen) {
       closeUploadPanel();
       return;
     }
     openUploadPanel();
-  }, [closeUploadPanel, openUploadPanel, sessionGroupId, uploadPanelClosing]);
+  }, [closeUploadPanel, openUploadPanel, sessionGroupId, sessionId, uploadPanelClosing]);
 
   useEffect(() => {
     const host = document.getElementById('editor-split-host');
@@ -2759,7 +2781,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       host.style.order = '2';
     };
 
-    if (!isActive || !workbenchState.uploadOpen || workbenchState.editorSplitOpen) {
+    if (!isActive || !uploadPanelState.uploadOpen || workbenchState.editorSplitOpen) {
       if (!workbenchState.editorSplitOpen) resetLayout();
       return undefined;
     }
@@ -2785,12 +2807,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     host.style.order = '2';
 
     return () => {
-      const latest = getSessionWorkbenchState(sessionGroupId);
-      if (!latest.uploadOpen && !latest.editorSplitOpen) {
+      const latestWorkbench = getSessionWorkbenchState(sessionGroupId);
+      const latestUploadPanel = getSessionUploadPanelState(sessionGroupId, sessionId);
+      if (!latestUploadPanel.uploadOpen && !latestWorkbench.editorSplitOpen) {
         resetLayout();
       }
     };
-  }, [isActive, sessionGroupId, workbenchState.editorSplitOpen, workbenchState.uploadOpen]);
+  }, [isActive, sessionGroupId, sessionId, workbenchState.editorSplitOpen, uploadPanelState.uploadOpen]);
 
   const loadDir = useCallback(async (path, options = {}) => {
     const normalizedPath = normalizePath(path) || '/';
@@ -7010,7 +7033,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     );
   }, [activateFileManagerPane, fileManagerPaneDropTarget, handleDualPaneTransferDragOver, handleDualPaneTransferDrop, hideFileManagerDragTip, renderFileManagerVirtualViewport, t]);
 
-  const uploadPanelTarget = isActive && workbenchState.uploadOpen
+  const uploadPanelTarget = isActive && uploadPanelState.uploadOpen
     ? (
       workbenchState.editorSplitOpen
         ? document.getElementById(`workbench-upload-panel-${sessionGroupId}`)
@@ -7273,7 +7296,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           </Tiptop>
           <Tiptop text={t('传输队列')} placement="bottom">
             <button
-              className={`btn btn-ghost btn-sm btn-icon${workbenchState.uploadOpen ? ' active' : ''}`}
+              className={`btn btn-ghost btn-sm btn-icon${uploadPanelState.uploadOpen ? ' active' : ''}`}
               aria-label={t('传输队列')}
               onClick={toggleUploadPanel}
               style={{ position: 'relative' }}

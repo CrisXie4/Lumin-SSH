@@ -1,5 +1,6 @@
 const WORKBENCH_STATE_KEY = '__luminFileWorkbenchState';
 const UPLOAD_QUEUE_STATE_KEY = '__luminFileUploadQueueState';
+const UPLOAD_PANEL_STATE_KEY = '__luminFileUploadPanelState';
 const FILE_MANAGER_WORKSPACE_STATE_KEY = '__luminFileManagerWorkspaceState';
 const FILE_MANAGER_PATH_CACHE_STATE_KEY = '__luminFileManagerPathCacheState';
 const FILE_MANAGER_WORKSPACE_CHANGED_EVENT = 'lumin-file-manager-workspace-changed';
@@ -23,6 +24,10 @@ function uploadQueueEventName(sessionGroupId) {
   return `lumin-file-upload-queue:${normalizeSessionGroupId(sessionGroupId)}`;
 }
 
+function uploadPanelEventName(sessionGroupId, sessionId) {
+  return `lumin-file-upload-panel:${normalizeSessionGroupId(sessionGroupId)}:${normalizeSessionGroupId(sessionId)}`;
+}
+
 function fileManagerWorkspaceEventName(sessionId) {
   return `lumin-file-manager-workspace:${normalizeSessionGroupId(sessionId)}`;
 }
@@ -37,6 +42,12 @@ function ensureUploadQueueStore() {
   const root = getRoot();
   if (!root[UPLOAD_QUEUE_STATE_KEY]) root[UPLOAD_QUEUE_STATE_KEY] = {};
   return root[UPLOAD_QUEUE_STATE_KEY];
+}
+
+function ensureUploadPanelStore() {
+  const root = getRoot();
+  if (!root[UPLOAD_PANEL_STATE_KEY]) root[UPLOAD_PANEL_STATE_KEY] = {};
+  return root[UPLOAD_PANEL_STATE_KEY];
 }
 
 function ensureFileManagerWorkspaceStore() {
@@ -243,6 +254,44 @@ export function subscribeSessionUploadQueue(sessionGroupId, callback) {
   callback(getSessionUploadQueue(key));
   root.addEventListener(uploadQueueEventName(key), handler);
   return () => root.removeEventListener(uploadQueueEventName(key), handler);
+}
+
+export function getSessionUploadPanelState(sessionGroupId, sessionId) {
+  const store = ensureUploadPanelStore();
+  const groupKey = normalizeSessionGroupId(sessionGroupId);
+  const terminalKey = normalizeSessionGroupId(sessionId);
+  const groupStore = store[groupKey];
+  return {
+    uploadOpen: false,
+    ...(groupStore && typeof groupStore === 'object' ? groupStore[terminalKey] : {}),
+  };
+}
+
+export function setSessionUploadPanelState(sessionGroupId, sessionId, patch) {
+  const root = getRoot();
+  const store = ensureUploadPanelStore();
+  const groupKey = normalizeSessionGroupId(sessionGroupId);
+  const terminalKey = normalizeSessionGroupId(sessionId);
+  if (!store[groupKey] || typeof store[groupKey] !== 'object') {
+    store[groupKey] = {};
+  }
+  const current = getSessionUploadPanelState(groupKey, terminalKey);
+  const nextPatch = typeof patch === 'function' ? patch(current) : patch;
+  const next = { ...current, ...(nextPatch || {}) };
+  store[groupKey][terminalKey] = next;
+  root.dispatchEvent(new CustomEvent(uploadPanelEventName(groupKey, terminalKey), { detail: next }));
+  return next;
+}
+
+export function subscribeSessionUploadPanelState(sessionGroupId, sessionId, callback) {
+  const root = getRoot();
+  const groupKey = normalizeSessionGroupId(sessionGroupId);
+  const terminalKey = normalizeSessionGroupId(sessionId);
+  const eventName = uploadPanelEventName(groupKey, terminalKey);
+  const handler = (event) => callback(event.detail);
+  callback(getSessionUploadPanelState(groupKey, terminalKey));
+  root.addEventListener(eventName, handler);
+  return () => root.removeEventListener(eventName, handler);
 }
 
 export function getSessionFileManagerPathCache(sessionGroupId) {

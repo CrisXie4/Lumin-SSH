@@ -31,7 +31,7 @@ import { cmake } from '@codemirror/legacy-modes/mode/cmake';
 import { c, cpp, java, csharp } from '@codemirror/legacy-modes/mode/clike';
 import { X, Pencil, Save, SquarePen, Upload, ExternalLink, AppWindow } from 'lucide-react';
 import { Z } from '../constants/zIndex';
-import { getSessionWorkbenchState, setSessionWorkbenchState, subscribeSessionWorkbenchState } from '../utils/fileWorkbench.js';
+import { getSessionUploadPanelState, getSessionWorkbenchState, setSessionWorkbenchState, subscribeSessionUploadPanelState, subscribeSessionWorkbenchState } from '../utils/fileWorkbench.js';
 import Tiptop from './Tiptop.jsx';
 
 const EXTERNAL_PREFERRED_APP_KEY = 'fileEditorPreferredApp';
@@ -312,9 +312,10 @@ export default function FileEditor({
   }, [activePath]);
   const [contextMenu, setContextMenu] = useState(null);
   const [workbenchState, setWorkbenchStateState] = useState(() => getSessionWorkbenchState(workbenchSessionId));
+  const [uploadPanelState, setUploadPanelState] = useState(() => getSessionUploadPanelState(workbenchSessionId, workbenchOwnerId));
 
   const activeFile = files.find(f => f.path === activePath) || files[0];
-  const showWorkbenchTabs = !!workbenchState.uploadOpen;
+  const showWorkbenchTabs = !!uploadPanelState.uploadOpen;
   const activeWorkbenchTab = showWorkbenchTabs && workbenchState.activeTab === 'upload' ? 'upload' : 'editor';
 
   // popup 模式的位置状态
@@ -340,12 +341,17 @@ export default function FileEditor({
 
   useEffect(() => {
     if (!workbenchSessionId || !workbenchOwnerId) return undefined;
+    return subscribeSessionUploadPanelState(workbenchSessionId, workbenchOwnerId, setUploadPanelState);
+  }, [workbenchOwnerId, workbenchSessionId]);
+
+  useEffect(() => {
+    if (!workbenchSessionId || !workbenchOwnerId) return undefined;
     if (mode === 'split' && isActive) {
       const current = getSessionWorkbenchState(workbenchSessionId);
       setSessionWorkbenchState(workbenchSessionId, {
         editorSplitOpen: true,
         editorOwnerId: workbenchOwnerId,
-        activeTab: current.uploadOpen ? current.activeTab || 'upload' : 'editor',
+        activeTab: getSessionUploadPanelState(workbenchSessionId, workbenchOwnerId).uploadOpen ? current.activeTab || 'upload' : 'editor',
       });
       return () => {
         const latest = getSessionWorkbenchState(workbenchSessionId);
@@ -353,7 +359,7 @@ export default function FileEditor({
           setSessionWorkbenchState(workbenchSessionId, {
             editorSplitOpen: false,
             editorOwnerId: '',
-            activeTab: latest.uploadOpen ? 'upload' : 'editor',
+            activeTab: getSessionUploadPanelState(workbenchSessionId, workbenchOwnerId).uploadOpen ? latest.activeTab || 'upload' : 'editor',
           });
         }
       };
@@ -363,7 +369,7 @@ export default function FileEditor({
       setSessionWorkbenchState(workbenchSessionId, {
         editorSplitOpen: false,
         editorOwnerId: '',
-        activeTab: latest.uploadOpen ? 'upload' : 'editor',
+        activeTab: getSessionUploadPanelState(workbenchSessionId, workbenchOwnerId).uploadOpen ? latest.activeTab || 'upload' : 'editor',
       });
     }
     return undefined;
@@ -625,7 +631,7 @@ export default function FileEditor({
 
     return () => {
       const latest = getSessionWorkbenchState(workbenchSessionId);
-      if (latest.uploadOpen) return;
+      if (getSessionUploadPanelState(workbenchSessionId, workbenchOwnerId).uploadOpen) return;
       const nextResizer = document.getElementById('editor-split-resizer');
       const nextMainContent = document.getElementById('editor-main-content');
       if (nextResizer) nextResizer.style.display = 'none';
