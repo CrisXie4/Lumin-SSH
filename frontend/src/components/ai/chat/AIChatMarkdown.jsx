@@ -6,6 +6,59 @@ import { useTranslation } from '../../../i18n.js'
 import { openGlobalContextMenu } from '../../../utils/contextMenu.js'
 import * as runtime from '../../../../wailsjs/runtime/runtime.js'
 
+// 清理 GFM 自动链接中误吞的非 URL 字符（未匹配的括号、尾部标点）
+// 返回 { cleaned, removed } — removed 是被截断的文本，需作为纯文本插回
+function cleanAutolinkUrl(url) {
+  if (typeof url !== 'string' || !url) return { cleaned: url, removed: '' }
+  let cleaned = url
+  let removed = ''
+  for (const [open, close] of [['(', ')'], ['[', ']'], ['{', '}']]) {
+    const closeIdx = cleaned.indexOf(close)
+    if (closeIdx >= 0) {
+      const openIdx = cleaned.indexOf(open)
+      if (openIdx < 0 || openIdx > closeIdx) {
+        removed = cleaned.slice(closeIdx) + removed
+        cleaned = cleaned.slice(0, closeIdx)
+      }
+    }
+  }
+  const trailingMatch = cleaned.match(/[.,:!?;]+$/)
+  if (trailingMatch) {
+    removed = trailingMatch[0] + removed
+    cleaned = cleaned.replace(/[.,:!?;]+$/, '')
+  }
+  return { cleaned, removed }
+}
+
+function remarkCleanAutolinks() {
+  return (tree) => {
+    const walk = (node) => {
+      if (!node.children) return
+      const nextChildren = []
+      for (const child of node.children) {
+        if (child.type === 'link' && /^https?:\/\//.test(child.url || '')) {
+          const { cleaned, removed } = cleanAutolinkUrl(child.url)
+          if (cleaned !== child.url) {
+            child.url = cleaned
+            if (child.children?.length === 1 && child.children[0].type === 'text') {
+              child.children[0].value = cleaned
+            }
+            nextChildren.push(child)
+            if (removed) {
+              nextChildren.push({ type: 'text', value: removed })
+            }
+            continue
+          }
+        }
+        nextChildren.push(child)
+      }
+      node.children = nextChildren
+      node.children.forEach(walk)
+    }
+    walk(tree)
+  }
+}
+
 function openExternalLink(event, href) {
   const nextHref = typeof href === 'string' ? href.trim() : ''
   if (!nextHref) {
@@ -194,7 +247,7 @@ export default function AIChatMarkdown({ text, enableQuoteContextMenu = false })
       ref={containerRef}
       onContextMenu={handleContextMenu}
       style={{ minWidth: 0, color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7, wordBreak: 'break-word', position: 'relative' }}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={markdownComponents}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkCleanAutolinks]} rehypePlugins={[rehypeSanitize]} components={markdownComponents}>
         {text || ''}
       </ReactMarkdown>
     </div>
