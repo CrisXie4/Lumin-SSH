@@ -464,6 +464,18 @@ func aiConversationID() string {
 }
 
 func (c *ConfigManager) aiConversationsRootDir() string {
+	// 读取 app_settings.json 获取自定义 tasks 目录, 失败则用默认 configDir/tasks
+	settingsPath := filepath.Join(c.configDir, "app_settings.json")
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		var s struct {
+			TasksDir string `json:"tasksDir"`
+		}
+		if json.Unmarshal(data, &s) == nil {
+			if dir := strings.TrimSpace(s.TasksDir); dir != "" {
+				return dir
+			}
+		}
+	}
 	return filepath.Join(c.configDir, "tasks")
 }
 

@@ -157,7 +157,11 @@ func (b *AIBindings) OpenAIConversationFolder(conversationID string) error {
 	if b == nil || b.app == nil || b.app.configManager == nil {
 		return fmt.Errorf("config manager unavailable")
 	}
-	return localopen.Reveal(filepath.Join(b.app.configManager.GetConfigDir(), "tasks", trimmedConversationID), true)
+	tasksDir := b.app.configManager.GetTasksDir()
+	if tasksDir == "" {
+		tasksDir = filepath.Join(b.app.configManager.GetConfigDir(), "tasks")
+	}
+	return localopen.Reveal(filepath.Join(tasksDir, trimmedConversationID), true)
 }
 
 func (b *AIBindings) PreprocessAIConversationLongText(conversationID string, text string) (string, error) {

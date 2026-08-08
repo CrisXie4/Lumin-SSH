@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, FolderOpen, Pencil, Scissors, Search } from 'lucide-react'
+import { Bot, FolderOpen, Loader2, Pencil, Scissors, Search } from 'lucide-react'
 import { EventsOn } from '../../wailsjs/runtime/runtime.js'
 import * as AppGo from '../../wailsjs/go/main/App.js'
 import { useTranslation, t as translate, getLanguage } from '../i18n.js'
@@ -1152,6 +1152,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
   const [popupDismissVersion, setPopupDismissVersion] = useState(0)
   const [activeSettingsTab, setActiveSettingsTab] = useState('')
+  const [tasksDirMigrating, setTasksDirMigrating] = useState(false)
   const [isDevilMode, setIsDevilMode] = useState(false)
   const [conversationList, setConversationList] = useState([])
   const [globalAISettings, setGlobalAISettings] = useState(null)
@@ -5580,6 +5581,13 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         } : {}),
       }}
     >
+      {tasksDirMigrating ? (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(5, 10, 18, 0.6)', backdropFilter: 'blur(3px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <Loader2 size={36} className="spin" style={{ color: 'var(--accent)' }} />
+          <div style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}>{t('正在迁移对话数据...')}</div>
+          <div style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>{t('迁移期间请勿使用 AI 对话')}</div>
+        </div>
+      ) : null}
       <AIPanelHeader
         showSettingsPanel={showSettingsPanel}
         onToggleSettings={handleToggleSettingsPanel}
@@ -5880,6 +5888,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         onToggleMCPClientServer={handleToggleMCPClientServer}
         onToggleMCPClientServerDisabledForPrompts={handleToggleMCPClientServerDisabledForPrompts}
         onUpdateMCPClientServerTimeout={handleUpdateMCPClientServerTimeout}
+        onMigratingChange={setTasksDirMigrating}
       />
     </div>
   )

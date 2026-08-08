@@ -1,5 +1,5 @@
-import { ArrowRightLeft, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ArrowRightLeft, FolderOpen, Loader2, RotateCcw, X } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from '../../i18n.js'
 import MCPAccessView from './MCPAccessView.jsx'
 import MCPServersView from './MCPServersView.jsx'
@@ -145,11 +145,70 @@ export default function AIPanelSettingsOverlay({
   onToggleMCPClientServer,
   onToggleMCPClientServerDisabledForPrompts,
   onUpdateMCPClientServerTimeout,
+  onMigratingChange,
 }) {
   const { t } = useTranslation()
   const overlayRef = useRef(null)
   const tabListRef = useRef(null)
   const [overlayBounds, setOverlayBounds] = useState(null)
+
+  // AI 对话存储目录设置
+  const [tasksDir, setTasksDir] = useState('')
+  const [isCustomTasksDir, setIsCustomTasksDir] = useState(false)
+  const [tasksDirMigrating, setTasksDirMigrating] = useState(false)
+
+  const refreshTasksDir = useCallback(async () => {
+    try {
+      const [dir, isCustom] = await Promise.all([
+        window?.go?.main?.App?.GetTasksDir?.(),
+        window?.go?.main?.App?.IsCustomTasksDir?.(),
+      ])
+      if (typeof dir === 'string') setTasksDir(dir)
+      if (typeof isCustom === 'boolean') setIsCustomTasksDir(isCustom)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { void refreshTasksDir() }, [refreshTasksDir])
+
+  useEffect(() => { onMigratingChange?.(tasksDirMigrating) }, [tasksDirMigrating, onMigratingChange])
+
+  const handleChangeTasksDir = async () => {
+    if (tasksDirMigrating) return
+    try {
+      const selected = await window?.go?.main?.App?.SelectTasksDirectory?.()
+      if (!selected) return
+      setTasksDirMigrating(true)
+      await window?.go?.main?.App?.MigrateAITasksDir?.(selected)
+      await refreshTasksDir()
+      window.luminDialog?.alert?.(t('AI 对话数据已迁移到新目录。'), t('提示'), { priority: 'settings' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e || '')
+      if (msg.trim()) window.luminDialog?.alert?.(msg, t('错误'), { priority: 'settings' })
+      await refreshTasksDir()
+    } finally {
+      setTasksDirMigrating(false)
+    }
+  }
+
+  const handleResetTasksDir = async () => {
+    if (tasksDirMigrating) return
+    try {
+      const ok = await window.luminDialog?.confirm?.(
+        t('恢复为默认目录？数据将自动迁移到默认目录。')
+      )
+      if (!ok) return
+      setTasksDirMigrating(true)
+      await window?.go?.main?.App?.ResetTasksDir?.()
+      await refreshTasksDir()
+      window.luminDialog?.alert?.(t('AI 对话数据已迁移到默认目录。'), t('提示'), { priority: 'settings' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e || '')
+      if (msg.trim()) window.luminDialog?.alert?.(msg, t('错误'), { priority: 'settings' })
+      await refreshTasksDir()
+    } finally {
+      setTasksDirMigrating(false)
+    }
+  }
 
   useLayoutEffect(() => {
     if (!show) {
@@ -261,8 +320,9 @@ export default function AIPanelSettingsOverlay({
             <button
               type="button"
               onClick={onClose}
+              disabled={tasksDirMigrating}
               aria-label={t('关闭设置面板')}
-              style={{ width: 30, height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--text-secondary)', background: 'transparent', border: '1px solid transparent', transition: 'var(--transition)' }}
+              style={{ width: 30, height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--text-secondary)', background: 'transparent', border: '1px solid transparent', transition: 'var(--transition)', opacity: tasksDirMigrating ? 0.4 : 1, cursor: tasksDirMigrating ? 'not-allowed' : 'pointer' }}
             >
               <X size={16} />
             </button>
@@ -604,6 +664,48 @@ export default function AIPanelSettingsOverlay({
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: 4, marginTop: 4 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{t('数据存储')}</div>
+                </div>
+                <div style={{ background: 'var(--surface-base)', padding: 16, borderRadius: 12, border: '1px solid var(--border)', display: 'grid', gap: 12 }}>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('对话存储目录')}</div>
+                      <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('AI 对话数据保存在此目录。更改目录会自动迁移现有数据。')}</div>
+                    </div>
+                    <input
+                      className="input"
+                      type="text"
+                      value={tasksDir || ''}
+                      readOnly
+                      style={{ width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleChangeTasksDir}
+                        disabled={tasksDirMigrating}
+                        style={{ height: 30, padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        {tasksDirMigrating ? <Loader2 size={14} className="spin" /> : <FolderOpen size={14} />}
+                        {tasksDirMigrating ? t('迁移中...') : t('更改目录')}
+                      </button>
+                      {isCustomTasksDir ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleResetTasksDir}
+                          disabled={tasksDirMigrating}
+                          style={{ height: 30, padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}
+                        >
+                          <RotateCcw size={14} />
+                          {t('恢复默认')}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </>

@@ -2309,6 +2309,65 @@ func (a *App) SetWebviewGpuDisabled(enabled bool) error {
 	return a.configManager.SetWebviewGpuDisabled(enabled)
 }
 
+// GetTasksDir 返回当前 AI 对话存储目录（自定义路径或默认 configDir/tasks）
+func (a *App) GetTasksDir() string {
+	if a == nil || a.configManager == nil {
+		return ""
+	}
+	tasksDir := a.configManager.GetTasksDir()
+	if tasksDir != "" {
+		return tasksDir
+	}
+	return filepath.Join(a.configManager.GetConfigDir(), "tasks")
+}
+
+// IsCustomTasksDir 返回是否使用了自定义 AI 对话存储目录
+func (a *App) IsCustomTasksDir() bool {
+	if a == nil || a.configManager == nil {
+		return false
+	}
+	tasksDir := a.configManager.GetTasksDir()
+	if tasksDir == "" {
+		return false
+	}
+	// 存储路径与默认路径相同时不算自定义
+	defaultDir := filepath.Join(a.configManager.GetConfigDir(), "tasks")
+	absTasks, err1 := filepath.Abs(tasksDir)
+	absDefault, err2 := filepath.Abs(defaultDir)
+	if err1 != nil || err2 != nil {
+		return true // 无法比较时按自定义处理
+	}
+	return absTasks != absDefault
+}
+
+// SelectTasksDirectory 弹出目录选择对话框，返回用户选择的目录路径
+func (a *App) SelectTasksDirectory() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择 AI 对话存储目录",
+	})
+}
+
+// MigrateAITasksDir 将 AI 对话数据迁移到目标目录
+func (a *App) MigrateAITasksDir(targetDir string) error {
+	if a == nil || a.configManager == nil {
+		return fmt.Errorf("config manager unavailable")
+	}
+	return a.configManager.MigrateAITasksDir(targetDir)
+}
+
+// ResetTasksDir 重置为默认目录（迁移数据后清除自定义路径设置）
+func (a *App) ResetTasksDir() error {
+	if a == nil || a.configManager == nil {
+		return fmt.Errorf("config manager unavailable")
+	}
+	defaultDir := filepath.Join(a.configManager.GetConfigDir(), "tasks")
+	if err := a.configManager.MigrateAITasksDir(defaultDir); err != nil {
+		return err
+	}
+	// 迁移成功后清除自定义路径，使其回到默认
+	return a.configManager.SetTasksDir("")
+}
+
 func (a *App) GetRuntimeEnvironmentSettings() runtimeenv.Settings {
 	if a == nil || a.configManager == nil {
 		return runtimeenv.DefaultSettings()

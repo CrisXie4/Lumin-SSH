@@ -143,6 +143,7 @@ type AppSettings struct {
 	WebviewGpuDisabled bool                 `json:"webviewGpuDisabled,omitempty"`
 	RuntimeEnvironment runtimeenv.Settings  `json:"runtimeEnvironment,omitempty"`
 	ThemePackages      ThemePackageSettings `json:"themePackages,omitempty"`
+	TasksDir           string               `json:"tasksDir,omitempty"` // ponytail: 自定义 AI 对话存储路径, 空则用默认 configDir/tasks
 }
 
 type WorkspacePrefs struct {
@@ -1938,6 +1939,116 @@ func (c *ConfigManager) SaveRuntimeEnvironmentSettings(settings runtimeenv.Setti
 	appSettings := c.getAppSettingsLocked()
 	appSettings.RuntimeEnvironment = runtimeenv.NormalizeSettings(settings)
 	return c.saveAppSettingsLocked(appSettings)
+}
+
+func (c *ConfigManager) GetTasksDir() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return strings.TrimSpace(c.getAppSettingsLocked().TasksDir)
+}
+
+func (c *ConfigManager) SetTasksDir(dir string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	appSettings := c.getAppSettingsLocked()
+	appSettings.TasksDir = strings.TrimSpace(dir)
+	return c.saveAppSettingsLocked(appSettings)
+}
+
+// MigrateAITasksDir 将 AI 对话数据从当前目录迁移到目标目录。
+// 成功后更新 TasksDir 设置并删除旧目录数据。
+func (c *ConfigManager) MigrateAITasksDir(targetDir string) error {
+	targetDir = strings.TrimSpace(targetDir)
+	if targetDir == "" {
+		return fmt.Errorf("目标目录不能为空")
+	}
+	absTarget, err := filepath.Abs(targetDir)
+	if err != nil {
+		return fmt.Errorf("无法解析目标路径: %w", err)
+	}
+	// 获取当前 tasks 目录（自定义路径或默认 configDir/tasks）
+	currentTasksDir := c.GetTasksDir()
+	var sourceDir string
+	if currentTasksDir != "" {
+		sourceDir = currentTasksDir
+	} else {
+		sourceDir = filepath.Join(c.configDir, "tasks")
+	}
+	if absTarget == sourceDir {
+		return fmt.Errorf("目标目录与当前目录相同")
+	}
+	// 确保目标目录存在
+	if err := os.MkdirAll(absTarget, 0755); err != nil {
+		return fmt.Errorf("无法创建目标目录: %w", err)
+	}
+	// 目标目录必须为空或仅含隐藏文件, 避免覆盖已有数据
+	entries, err := os.ReadDir(absTarget)
+	if err != nil {
+		return fmt.Errorf("无法读取目标目录: %w", err)
+	}
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".") {
+			return fmt.Errorf("目标目录不为空, 请选择一个空目录")
+		}
+	}
+	// 源目录不存在或为空时直接切换路径
+	sourceEntries, err := os.ReadDir(sourceDir)
+	if err != nil || len(sourceEntries) == 0 {
+		return c.SetTasksDir(absTarget)
+	}
+	// 复制全部内容
+	if err := copyDir(sourceDir, absTarget); err != nil {
+		return fmt.Errorf("迁移失败: %w", err)
+	}
+	// 验证: 对比新旧目录条目数一致
+	newEntries, err := os.ReadDir(absTarget)
+	if err != nil {
+		return fmt.Errorf("迁移后验证失败: %w", err)
+	}
+	if len(newEntries) != len(sourceEntries) {
+		return fmt.Errorf("迁移后验证失败: 文件数量不一致 (%d → %d)", len(sourceEntries), len(newEntries))
+	}
+	// 更新设置
+	if err := c.SetTasksDir(absTarget); err != nil {
+		return err
+	}
+	// 删除旧目录数据, 失败仅记录不阻断（数据已在新目录）
+	if err := os.RemoveAll(sourceDir); err != nil {
+		log.Printf("[MigrateAITasksDir] 清理旧目录失败: %v (数据已迁移到 %s)", err, absTarget)
+	}
+	return nil
+}
+
+func copyDir(source, target string) error {
+	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(target, rel)
+		if info.IsDir() {
+			return os.MkdirAll(targetPath, info.Mode())
+		}
+		return copyFile(path, targetPath, info.Mode())
+	})
+}
+
+func copyFile(source, target string, mode os.FileMode) error {
+	src, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	_, err = io.Copy(dst, src)
+	return err
 }
 
 func (c *ConfigManager) GetChmodDialogSettings() map[string]interface{} {

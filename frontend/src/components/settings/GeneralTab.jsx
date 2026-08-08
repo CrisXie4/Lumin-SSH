@@ -156,6 +156,7 @@ export default function GeneralTab({
     }
     return [];
   };
+
   return (
     <SettingsTabRoot>
       {generalTabNode.children.map((sectionNode) => {
