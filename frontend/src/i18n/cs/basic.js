@@ -708,6 +708,9 @@ export default {
   "打开外部编辑器失败": "Otevření externího editoru selhalo",
   "该文件是压缩包，可通过右键菜单解压": "Tento soubor je archiv. Můžete jej rozbalit pomocí kontextové nabídky",
   "该文件类型不适合用编辑器打开": "Tento typ souboru není vhodný k úpravám",
+  "文件正在打开中，请稍候...": "File is opening, please wait...",
+  "正在下载并打开文件...": "Downloading and opening file...",
+  "正在打开文件...": "Opening file...",
   "未选择编辑器": "Nebyl vybrán editor",
   "左侧分栏": "levý sloupec",
   "右侧分栏": "Pravý sloupec",
@@ -1796,8 +1799,4 @@ export default {
   "在第 $ 行替换了匹配": "Nahrazen výskyt na řádku $",
   "当前匹配": "Aktuální výskyt",
   "第": "na řádku",
-  "文件正在打开中，请稍候...": "File is opening, please wait...",
-  "正在下载并打开文件...": "Downloading and opening file...",
-  "正在打开文件...": "Opening file...",
 };
-
