@@ -255,13 +255,11 @@ func TestChangeRecoveryPasswordRollsBackUploadsWhenPasswordPersistFails(t *testi
 
 func TestPersistSyncSnapshotSavesAllMergedFields(t *testing.T) {
 	cm := testSyncManager(t)
-	settings := &ai.AIGlobalSettings{CurrentProviderID: "provider", UpdatedAt: 1}
 	snap := &SyncSnapshot{
 		Connections:      []Connection{{ID: "connection", Host: "host"}},
 		Credentials:      []Credential{{ID: "credential", Name: "凭据"}},
 		QuickCommands:    "[]",
 		AIProviders:      []ai.AIProviderProfile{{ID: "provider", Name: "供应商", UpdatedAt: 1}},
-		AIGlobalSettings: settings,
 		ProxyNodes:       []ai.AIProxyNode{{ID: "proxy", Name: "代理", Host: "127.0.0.1", Port: 1080, UpdatedAt: 1}},
 		SnapshotTime:     123,
 	}
@@ -270,9 +268,6 @@ func TestPersistSyncSnapshotSavesAllMergedFields(t *testing.T) {
 	}
 	if got := cm.GetAIProviderRegistry().Providers; len(got) != 1 || got[0].ID != "provider" {
 		t.Fatalf("AI 供应商未完整持久化：%+v", got)
-	}
-	if got := cm.GetAIGlobalSettings(); got.CurrentProviderID != "provider" {
-		t.Fatalf("AI 全局设置未完整持久化：%+v", got)
 	}
 	if got := cm.GetAIProxyNodes(); len(got) != 1 || got[0].ID != "proxy" {
 		t.Fatalf("AI 代理节点未完整持久化：%+v", got)
@@ -470,7 +465,6 @@ func TestSyncAllProvidersUploadsOnlyDifferentAndNoBackup(t *testing.T) {
 		HasCredentials:      true,
 		HasQuickCommands:    true,
 		HasAIProviders:      true,
-		HasAIGlobalSettings: true,
 		HasProxyNodes:       true,
 	}
 	if err := cm.persistSyncSnapshot(local); err != nil {
@@ -1271,8 +1265,7 @@ func TestConnsEqualNormalizesAndroidDefaultProxyFields(t *testing.T) {
 }
 
 func TestAIGlobalSettingsEqualTreatsNilCollaborationPresetsAsEmpty(t *testing.T) {
-	// 本地 Load 会把缺失字段规范成空切片；远端 omitempty 缺失字段解成 nil。
-	// 若比较不归一，每次启动都会误判 AI 全局设置变化并重复上传。
+	// ponytail: ai_global_settings 不再同步, aiGlobalSettingsEqual 始终返回 true
 	local := &ai.AIGlobalSettings{
 		CurrentProviderID:          "p1",
 		AlwaysAllowExecute:         true,
@@ -1288,13 +1281,7 @@ func TestAIGlobalSettingsEqualTreatsNilCollaborationPresetsAsEmpty(t *testing.T)
 		UpdatedAt:                  200,
 	}
 	if !aiGlobalSettingsEqual(local, remote) {
-		t.Fatalf("nil collaboration presets 应与空切片等价，diff=%s", aiGlobalSettingsDiffSummary(local, remote))
-	}
-	if !snapshotEqual(
-		&SyncSnapshot{AIGlobalSettings: local, HasAIGlobalSettings: true},
-		&SyncSnapshot{AIGlobalSettings: remote, HasAIGlobalSettings: true},
-	) {
-		t.Fatal("快照比较也应忽略 collaboration presets 的 nil/空切片差异")
+		t.Fatal("ai_global_settings 不再同步, aiGlobalSettingsEqual 应始终返回 true")
 	}
 }
 

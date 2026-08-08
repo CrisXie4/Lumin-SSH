@@ -62,10 +62,10 @@ type SyncSnapshot struct {
 	Credentials            []Credential           `json:"credentials"`
 	QuickCommands          string                 `json:"quick_commands"`
 	AIProviders            []ai.AIProviderProfile `json:"ai_providers"`
-	AIGlobalSettings       *ai.AIGlobalSettings   `json:"ai_global_settings"`
+	AIGlobalSettings       *ai.AIGlobalSettings   `json:"-"` // ponytail: ai_global_settings 不再同步, 字段保留仅供本地读写
 	ProxyNodes             []ai.AIProxyNode       `json:"proxy_nodes"`
-	// PortForwards 端口映射持久化(按 serverId 分组)。本工程仅负责读写与兼容, 合并逻辑由同步维护者接入。
-	PortForwards map[string][]PersistedPortForward `json:"port_forwards,omitempty"`
+	// PortForwards 端口映射持久化(按 serverId 分组)。不同设备端口占用不同, 不同步。
+	PortForwards map[string][]PersistedPortForward `json:"-"` // ponytail: 端口映射不同步, 设备运行时状态
 	// deleted_* 始终写出（含 []），与安卓 desktopSnapshotJson 一致，避免「字段缺失 vs 空数组」语义分叉。
 	DeletedConnections []SyncTombstone `json:"deleted_connections"`
 	DeletedCredentials []SyncTombstone `json:"deleted_credentials"`
@@ -98,8 +98,10 @@ func (s *SyncSnapshot) UnmarshalJSON(data []byte) error {
 	_, s.HasQuickCommands = raw["quick_commands"]
 	_, s.HasAIProviders = raw["ai_providers"]
 	_, s.HasAIGlobalSettings = raw["ai_global_settings"]
+	s.HasAIGlobalSettings = false // ponytail: ai_global_settings 不再同步, 强制忽略远端
 	_, s.HasProxyNodes = raw["proxy_nodes"]
 	_, s.HasPortForwards = raw["port_forwards"]
+	s.HasPortForwards = false // ponytail: 端口映射不同步, 强制忽略远端
 	_, s.HasDeletedConnections = raw["deleted_connections"]
 	_, s.HasDeletedCredentials = raw["deleted_credentials"]
 	_, s.HasTombstonePrunedBefore = raw["tombstone_pruned_before"]
@@ -270,12 +272,8 @@ func normalizeAIGlobalSettingsForCompare(settings ai.AIGlobalSettings) ai.AIGlob
 }
 
 func aiGlobalSettingsEqual(a, b *ai.AIGlobalSettings) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-	aa := normalizeAIGlobalSettingsForCompare(*a)
-	bb := normalizeAIGlobalSettingsForCompare(*b)
-	return reflect.DeepEqual(aa, bb)
+	// ponytail: ai_global_settings 不再同步, 始终返回 true 跳过变更检测
+	return true
 }
 
 func aiGlobalSettingsDiffSummary(a, b *ai.AIGlobalSettings) string {
@@ -545,13 +543,8 @@ func (c *ConfigManager) fetchLatestBackup(s RemoteStorage, password string) (*Sy
 }
 
 func (c *ConfigManager) localAIGlobalSettingsForSync() *ai.AIGlobalSettings {
-	raw := strings.TrimSpace(c.loadRawFile(c.aiGlobalSettingsPath()))
-	if raw == "" {
-		return nil
-	}
-	settings := c.GetAIGlobalSettings()
-	settings.ProxyNodes = nil
-	return &settings
+	// ponytail: ai_global_settings 不再同步, 返回 nil 使上传快照不含此字段
+	return nil
 }
 
 // backupConnections 上传本地所有可同步数据到远端，同时清理超出 maxBackups 的旧备份。
@@ -587,7 +580,7 @@ func (c *ConfigManager) localSyncSnapshot() *SyncSnapshot {
 		HasCredentials:           true,
 		HasQuickCommands:         true,
 		HasAIProviders:           true,
-		HasAIGlobalSettings:      true,
+		HasAIGlobalSettings:      false, // ponytail: ai_global_settings 不再同步
 		HasProxyNodes:            true,
 		HasDeletedConnections:    true,
 		HasDeletedCredentials:    true,
@@ -839,7 +832,6 @@ func (c *ConfigManager) syncFromProvider(s RemoteStorage, maxBackups int, passwo
 		}
 		uploadSnap.QuickCommands = mergedQuickCmds
 		uploadSnap.AIProviders = mergedAIProviders
-		uploadSnap.AIGlobalSettings = &mergedAIGlobalSettings
 		uploadSnap.ProxyNodes = mergedProxyNodes
 		uploadSnap.DeletedConnections = mergedConnTombs
 		uploadSnap.DeletedCredentials = mergedCredTombs
@@ -1173,7 +1165,7 @@ func (c *ConfigManager) syncAllProviders(entries []providerEntry, password strin
 		HasCredentials:           true,
 		HasQuickCommands:         true,
 		HasAIProviders:           true,
-		HasAIGlobalSettings:      true,
+		HasAIGlobalSettings:      false, // ponytail: ai_global_settings 不再同步
 		HasProxyNodes:            true,
 		HasDeletedConnections:    true,
 		HasDeletedCredentials:    true,
@@ -2019,15 +2011,7 @@ func (c *ConfigManager) PruneSyncTombstones(days int) (SyncTombstonePruneResult,
 }
 
 func mergeAIGlobalSettings(localSettings ai.AIGlobalSettings, remoteSettings *ai.AIGlobalSettings) ai.AIGlobalSettings {
-	if remoteSettings == nil || remoteSettings.UpdatedAt <= 0 {
-		return localSettings
-	}
-	if localSettings.UpdatedAt <= 0 || remoteSettings.UpdatedAt > localSettings.UpdatedAt {
-		merged := *remoteSettings
-		merged.ProxyNodes = nil
-		return merged
-	}
-	localSettings.ProxyNodes = nil
+	// ponytail: ai_global_settings 不再同步, 保留本地设置不变
 	return localSettings
 }
 
@@ -2340,13 +2324,7 @@ func (c *ConfigManager) persistSyncSnapshot(snap *SyncSnapshot) error {
 	if err := c.SaveAIProviderRegistry(ai.AIProviderRegistry{Providers: snap.AIProviders}); err != nil {
 		return fmt.Errorf("保存 AI 供应商失败：%w", err)
 	}
-	if snap.AIGlobalSettings != nil {
-		if err := c.SaveAIGlobalSettings(*snap.AIGlobalSettings); err != nil {
-			return fmt.Errorf("保存 AI 全局设置失败：%w", err)
-		}
-	} else if err := c.clearAIGlobalSettings(); err != nil {
-		return fmt.Errorf("清除 AI 全局设置失败：%w", err)
-	}
+	// ponytail: ai_global_settings 不再同步, 不在 persistSyncSnapshot 中保存/清除
 	if err := c.SaveAIProxyNodes(snap.ProxyNodes); err != nil {
 		return fmt.Errorf("保存 AI 代理节点失败：%w", err)
 	}
