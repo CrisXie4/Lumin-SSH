@@ -708,6 +708,9 @@ export default {
   "打开外部编辑器失败": "Falha ao abrir o editor externo",
   "该文件是压缩包，可通过右键菜单解压": "Este arquivo é um pacote compactado. Use o menu de contexto para extraí-lo",
   "该文件类型不适合用编辑器打开": "Este tipo de arquivo não é adequado para edição",
+  "文件正在打开中，请稍候...": "File is opening, please wait...",
+  "正在下载并打开文件...": "Downloading and opening file...",
+  "正在打开文件...": "Opening file...",
   "未选择编辑器": "Nenhum editor selecionado",
   "左侧分栏": "coluna da esquerda",
   "右侧分栏": "Coluna direita",
@@ -1796,8 +1799,4 @@ export default {
   "在第 $ 行替换了匹配": "Ocorrência substituída na linha $",
   "当前匹配": "Ocorrência atual",
   "第": "na linha",
-  "文件正在打开中，请稍候...": "File is opening, please wait...",
-  "正在下载并打开文件...": "Downloading and opening file...",
-  "正在打开文件...": "Opening file...",
 };
-

@@ -708,6 +708,9 @@ export default {
   "打开外部编辑器失败": "Externe editor openen mislukt",
   "该文件是压缩包，可通过右键菜单解压": "Dit bestand is een archief. Gebruik het rechtermuisknopmenu om het uit te pakken",
   "该文件类型不适合用编辑器打开": "Dit bestandstype is niet geschikt om te bewerken",
+  "文件正在打开中，请稍候...": "File is opening, please wait...",
+  "正在下载并打开文件...": "Downloading and opening file...",
+  "正在打开文件...": "Opening file...",
   "未选择编辑器": "Geen editor geselecteerd",
   "左侧分栏": "linker kolom",
   "右侧分栏": "Rechter kolom",
@@ -1796,8 +1799,4 @@ export default {
   "在第 $ 行替换了匹配": "Overeenkomst vervangen op regel $",
   "当前匹配": "Huidige overeenkomst",
   "第": "op regel",
-  "文件正在打开中，请稍候...": "File is opening, please wait...",
-  "正在下载并打开文件...": "Downloading and opening file...",
-  "正在打开文件...": "Opening file...",
 };
-

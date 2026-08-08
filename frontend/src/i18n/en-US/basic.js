@@ -1800,4 +1800,3 @@ export default {
   "当前匹配": "Current match",
   "第": "on line",
 };
-
