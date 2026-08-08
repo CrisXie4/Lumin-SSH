@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { createContext, useCallback, useContext, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
@@ -6,12 +6,20 @@ import { useTranslation } from '../../../i18n.js'
 import { openGlobalContextMenu } from '../../../utils/contextMenu.js'
 import * as runtime from '../../../../wailsjs/runtime/runtime.js'
 
-// 清理 GFM 自动链接中误吞的非 URL 字符（未匹配的括号、尾部标点）
+// 清理 GFM 自动链接中误吞的非 URL 字符
+// 1. 硬截断：HTML 定界符/引号/反斜杠不应出现在 URL 中
+// 2. 不匹配的括号：右括号无左括号 → 截断；左括号无右括号 → 截断
+// 3. 尾部标点剥离
 // 返回 { cleaned, removed } — removed 是被截断的文本，需作为纯文本插回
 function cleanAutolinkUrl(url) {
   if (typeof url !== 'string' || !url) return { cleaned: url, removed: '' }
   let cleaned = url
   let removed = ''
+  const hardStop = cleaned.search(/["'<>\\]/)
+  if (hardStop >= 0) {
+    removed = cleaned.slice(hardStop) + removed
+    cleaned = cleaned.slice(0, hardStop)
+  }
   for (const [open, close] of [['(', ')'], ['[', ']'], ['{', '}']]) {
     const closeIdx = cleaned.indexOf(close)
     if (closeIdx >= 0) {
@@ -19,6 +27,12 @@ function cleanAutolinkUrl(url) {
       if (openIdx < 0 || openIdx > closeIdx) {
         removed = cleaned.slice(closeIdx) + removed
         cleaned = cleaned.slice(0, closeIdx)
+      }
+    } else {
+      const openIdx = cleaned.indexOf(open)
+      if (openIdx >= 0) {
+        removed = cleaned.slice(openIdx) + removed
+        cleaned = cleaned.slice(0, openIdx)
       }
     }
   }
@@ -69,6 +83,43 @@ function openExternalLink(event, href) {
     event.preventDefault()
     openUrl(nextHref)
   }
+}
+
+// react-markdown v9 移除了 code 组件的 inline prop，用 Context 区分行内/块级代码
+const PreContext = createContext(false)
+
+// 代码块内 URL 高亮（remark-gfm 不会在 code/inlineCode 内自动链接）
+const CODE_URL_RE = /\bhttps?:\/\/[^\s]+/g
+
+function renderCodeChildren(children) {
+  const text = typeof children === 'string' ? children
+    : Array.isArray(children) ? children.map((c) => (typeof c === 'string' ? c : '')).join('')
+    : ''
+  if (!text) return children
+  CODE_URL_RE.lastIndex = 0
+  const parts = []
+  let lastIndex = 0
+  let match
+  while ((match = CODE_URL_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index))
+    const rawUrl = match[0]
+    const { cleaned, removed } = cleanAutolinkUrl(rawUrl)
+    if (cleaned && /^https?:\/\//.test(cleaned)) {
+      parts.push(
+        <a key={`code-url-${match.index}`} href={cleaned} target="_blank" rel="noreferrer"
+          onClick={(event) => openExternalLink(event, cleaned)}
+          style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+          {cleaned}
+        </a>
+      )
+      if (removed) parts.push(removed)
+    } else {
+      parts.push(rawUrl)
+    }
+    lastIndex = match.index + rawUrl.length
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts.length > 0 ? parts : children
 }
 
 function getSelectedTextWithinContainer(container) {
@@ -122,8 +173,10 @@ const markdownComponents = {
       {children}
     </a>
   ),
-  code: ({ inline, children }) => {
-    if (inline) {
+  code: ({ children }) => {
+    const isBlock = useContext(PreContext)
+    const content = renderCodeChildren(children)
+    if (!isBlock) {
       return (
         <code
           style={{
@@ -135,7 +188,7 @@ const markdownComponents = {
             fontSize: 12,
           }}
         >
-          {children}
+          {content}
         </code>
       )
     }
@@ -146,26 +199,28 @@ const markdownComponents = {
           fontSize: 12,
         }}
       >
-        {children}
+        {content}
       </code>
     )
   },
   pre: ({ children }) => (
-    <pre
-      style={{
-        margin: '0 0 12px',
-        padding: '12px',
-        borderRadius: 10,
-        border: '1px solid var(--border)',
-        background: 'var(--surface-base)',
-        color: 'var(--text-primary)',
-        overflowX: 'auto',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}
-    >
-      {children}
-    </pre>
+    <PreContext.Provider value={true}>
+      <pre
+        style={{
+          margin: '0 0 12px',
+          padding: '12px',
+          borderRadius: 10,
+          border: '1px solid var(--border)',
+          background: 'var(--surface-base)',
+          color: 'var(--text-primary)',
+          overflowX: 'auto',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {children}
+      </pre>
+    </PreContext.Provider>
   ),
   blockquote: ({ children }) => (
     <blockquote
