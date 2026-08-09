@@ -1,6 +1,6 @@
 import React from 'react';
 import { t as $t } from '../../i18n.js';
-import * as AppGo from '../../../wailsjs/go/main/App.js';
+import * as AppGo from '../../../wailsjs/go/wailsapp/App.js';
 import { Save, Cloud, Database, Folder, FolderOpen, Lock, RefreshCw, Sparkles, Plug } from 'lucide-react';
 import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot } from './SharedComponents';
 import { settings } from './settingDefinitions';

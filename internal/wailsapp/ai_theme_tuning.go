@@ -1,4 +1,4 @@
-package main
+package wailsapp
 
 // ponytail: AI 主题调色实现。纯逻辑已迁移至 internal/ai/theme_tuning_impl.go。
 // 本文件仅保留 config 类型依赖部分（draft 状态管理、HandleThemeToolRequest 等）。

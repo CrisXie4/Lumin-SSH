@@ -259,7 +259,7 @@ export default function FileUploadQueuePanel({
       return;
     }
     try {
-      await window?.go?.main?.App?.OpenLocalPathInExplorer?.(localPath, item.mode !== 'download-file');
+      await window?.go?.wailsapp?.App?.OpenLocalPathInExplorer?.(localPath, item.mode !== 'download-file');
     } catch (err) {
       window.luminDialog?.alert?.(`${t('打开所在目录失败')}: ${err}`);
     }

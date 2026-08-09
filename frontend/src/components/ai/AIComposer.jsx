@@ -1,6 +1,6 @@
 import { Check, ChevronUp, ChevronsUpDown, ImagePlus, ListEnd, Monitor, Play, SendHorizonal, Square, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import * as AppGo from '../../../wailsjs/go/main/App.js'
+import * as AppGo from '../../../wailsjs/go/wailsapp/App.js'
 import { ClipboardGetText } from '../../../wailsjs/runtime/runtime.js'
 import { useTranslation, t as translate } from '../../i18n.js'
 import AIAutoApproveDropdown from './AIAutoApproveDropdown.jsx'

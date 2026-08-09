@@ -1,4 +1,4 @@
-import * as AppGo from '../../wailsjs/go/main/App.js'
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js'
 
 export const PROGRAM_FONT_STORAGE_KEYS = {
   ui: 'programFont.ui.fileName',

@@ -1,7 +1,7 @@
 import { normalizeAIConversationSnapshot, publishAIConversationUpsert } from './aiConversationBridge.js'
 
 function getAppBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.App
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
 }
 
 export function normalizeAIConversationBackup(backup) {

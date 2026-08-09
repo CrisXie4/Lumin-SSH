@@ -1,4 +1,4 @@
-package main
+package wailsapp
 
 // ponytail: provider 归一化函数已迁移至 internal/ai/provider_binding.go。
 // 本文件仅保留 AIProviderBindings 结构体（含 config.ConfigManager 文件 I/O 依赖）。

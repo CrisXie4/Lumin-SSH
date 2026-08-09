@@ -48,7 +48,7 @@ export default function Dashboard({
   const localMenuRef = useRef(null);
 
   useEffect(() => {
-    window.go?.main?.App?.GetLocalShells?.()
+    window.go?.wailsapp?.App?.GetLocalShells?.()
       .then((list) => {
         setLocalShells(list || []);
       })

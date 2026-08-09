@@ -43,7 +43,7 @@ const VALID_APPROVAL_BUTTON_ORDERS = new Set(['reject-approve', 'approve-reject'
 const VALID_COMMAND_ACTION_BUTTON_ORDERS = new Set(['terminate-continue', 'continue-terminate'])
 
 function getAppBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.App
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
 }
 
 function normalizeStringList(values) {

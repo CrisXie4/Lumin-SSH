@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t } from '../i18n.js';
 import { getModKey } from '../utils/platform.js';
 import logoImg from '../assets/logo.webp';
@@ -1095,7 +1095,7 @@ export default function SettingsModal({
     const next = !rememberWorkspace;
     setRememberWorkspace(next);
     try {
-      await window?.go?.main?.App?.SetRememberWorkspace?.(next);
+      await window?.go?.wailsapp?.App?.SetRememberWorkspace?.(next);
       window.dispatchEvent(new CustomEvent('workspace-remember-changed', { detail: next }));
     } catch (err) {
       setRememberWorkspace(!next);
@@ -1107,7 +1107,7 @@ export default function SettingsModal({
     const previous = workspacePersistenceLevel;
     setWorkspacePersistenceLevel(next);
     try {
-      await window?.go?.main?.App?.SetWorkspacePersistenceLevel?.(next);
+      await window?.go?.wailsapp?.App?.SetWorkspacePersistenceLevel?.(next);
       window.dispatchEvent(new CustomEvent('workspace-persistence-level-changed', { detail: next }));
     } catch (err) {
       setWorkspacePersistenceLevel(previous);
@@ -1118,7 +1118,7 @@ export default function SettingsModal({
     const next = !webviewGpuDisabled;
     setWebviewGpuDisabled(next);
     try {
-      await window?.go?.main?.App?.SetWebviewGpuDisabled?.(next);
+      await window?.go?.wailsapp?.App?.SetWebviewGpuDisabled?.(next);
       addToast($t('设置已保存，重启后生效'), 'success');
     } catch (err) {
       setWebviewGpuDisabled(!next);
@@ -1290,7 +1290,7 @@ export default function SettingsModal({
     const next = !fileManagerChmodAutoApplyLastSettings;
     setFileManagerChmodAutoApplyLastSettings(next);
     try {
-      const setter = window?.go?.main?.App?.SetChmodAutoApplyLastSettings;
+      const setter = window?.go?.wailsapp?.App?.SetChmodAutoApplyLastSettings;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1304,7 +1304,7 @@ export default function SettingsModal({
     const next = !fileManagerDoubleClickUncompressArchive;
     setFileManagerDoubleClickUncompressArchive(next);
     try {
-      const setter = window?.go?.main?.App?.SetFileManagerDoubleClickUncompressArchive;
+      const setter = window?.go?.wailsapp?.App?.SetFileManagerDoubleClickUncompressArchive;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1319,7 +1319,7 @@ export default function SettingsModal({
     const next = !fileManagerAutoRefreshDisabled;
     setFileManagerAutoRefreshDisabled(next);
     try {
-      const setter = window?.go?.main?.App?.SetFileManagerAutoRefreshDisabled;
+      const setter = window?.go?.wailsapp?.App?.SetFileManagerAutoRefreshDisabled;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1343,7 +1343,7 @@ export default function SettingsModal({
     const previous = fileManagerMaxEditSizeMB;
     setFileManagerMaxEditSizeMB(next);
     try {
-      const setter = window?.go?.main?.App?.SetFileManagerMaxEditSize;
+      const setter = window?.go?.wailsapp?.App?.SetFileManagerMaxEditSize;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1359,7 +1359,7 @@ export default function SettingsModal({
     const previous = fileManagerSmartUncompressConflictStrategy;
     setFileManagerSmartUncompressConflictStrategy(next);
     try {
-      const setter = window?.go?.main?.App?.SetFileManagerSmartUncompressConflictStrategy;
+      const setter = window?.go?.wailsapp?.App?.SetFileManagerSmartUncompressConflictStrategy;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1480,7 +1480,7 @@ export default function SettingsModal({
         if (!cancelled && mode) setSyncMode(mode);
       })
       .catch(() => {});
-    Promise.resolve(window?.go?.main?.App?.GetAutoSyncEnabled?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetAutoSyncEnabled?.())
       .then((enabled) => {
         if (!cancelled && typeof enabled === 'boolean') setAutoSyncEnabled(enabled);
       })
@@ -1491,28 +1491,28 @@ export default function SettingsModal({
       .then((configured) => { if (!cancelled) setHasRecoveryPassword(!!configured); })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.main?.App?.GetProgramDirectory?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetProgramDirectory?.())
       .then((dir) => {
         if (!cancelled && dir) setProgramDirectory(dir);
       })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.main?.App?.GetRememberWorkspace?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetRememberWorkspace?.())
       .then((enabled) => {
         if (!cancelled && typeof enabled === 'boolean') setRememberWorkspace(enabled);
       })
       .catch(() => {});
-    Promise.resolve(window?.go?.main?.App?.GetWorkspacePersistenceLevel?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetWorkspacePersistenceLevel?.())
       .then((level) => {
         if (!cancelled && typeof level === 'string') setWorkspacePersistenceLevel(level === 'session' ? 'session' : 'program');
       })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.main?.App?.SupportsWebviewGpuDisable?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.SupportsWebviewGpuDisable?.())
       .then((supported) => {
         if (cancelled || supported !== true) return;
         setSupportsWebviewGpuDisable(true);
-        Promise.resolve(window?.go?.main?.App?.GetWebviewGpuDisabled?.())
+        Promise.resolve(window?.go?.wailsapp?.App?.GetWebviewGpuDisabled?.())
           .then((enabled) => {
             if (!cancelled && typeof enabled === 'boolean') setWebviewGpuDisabled(enabled);
           })
@@ -1537,7 +1537,7 @@ export default function SettingsModal({
       })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.main?.App?.GetFileManagerSettings?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetFileManagerSettings?.())
       .then((settings) => {
         if (cancelled || !settings) return;
         setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);

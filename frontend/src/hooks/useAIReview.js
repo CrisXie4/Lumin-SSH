@@ -187,7 +187,7 @@ export default function useAIReview({ sessionsRef, addToast, t }) {
   }, []);
 
   const previewConversationDiffArtifact = useCallback(async (artifactPath, targetTerminalId) => {
-    const bridge = window?.go?.main?.AIBindings || window?.go?.main?.App;
+    const bridge = window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App;
     if (!bridge?.PreviewAIChatToolDiff) {
       throw new Error(t('差异预览能力未就绪'));
     }
@@ -196,7 +196,7 @@ export default function useAIReview({ sessionsRef, addToast, t }) {
   }, []);
 
   const handleReapplyConversationDiffItem = useCallback(async (artifactPath, targetSessionId, targetTerminalId) => {
-    const bridge = window?.go?.main?.AIBindings || window?.go?.main?.App;
+    const bridge = window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App;
     const effectiveTerminalId = typeof targetTerminalId === 'string' && targetTerminalId.trim()
       ? targetTerminalId.trim()
       : typeof targetSessionId === 'string'

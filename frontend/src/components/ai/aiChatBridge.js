@@ -1,7 +1,7 @@
 import { t } from '../../i18n.js'
 
 function getAppBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.App
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
 }
 
 export async function startAIChat(requestId, payload) {

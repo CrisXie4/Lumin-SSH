@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useReducer } from 'react';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { useTranslation } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
 import { clampMenuPosition } from '../utils/menuPosition.js';

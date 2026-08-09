@@ -512,7 +512,7 @@ function buildEmbeddedBrowserAuthRequest(context) {
 }
 
 function getAppBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.AIProviderBindings || window?.go?.main?.App
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.AIProviderBindings || window?.go?.wailsapp?.App
 }
 
 export default function AIProviderSelector({
@@ -1542,7 +1542,7 @@ export default function AIProviderSelector({
       if (targetWindow) {
         targetWindow.postMessage(requestPayload, targetOrigin || '*')
       }
-      const injectBridge = window?.go?.main?.App?.InjectAIBuiltinLoginBridge
+      const injectBridge = window?.go?.wailsapp?.App?.InjectAIBuiltinLoginBridge
       if (typeof injectBridge === 'function') {
         Promise.resolve(injectBridge(JSON.stringify({
           frameSrc: tokenStoreFrameURL,

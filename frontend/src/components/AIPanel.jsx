@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, FolderOpen, Loader2, Pencil, Scissors, Search } from 'lucide-react'
 import { EventsOn } from '../../wailsjs/runtime/runtime.js'
-import * as AppGo from '../../wailsjs/go/main/App.js'
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js'
 import { useTranslation, t as translate, getLanguage } from '../i18n.js'
 import AIPanelHeader from './ai/AIPanelHeader.jsx'
 import AIConversationBackupSettings from './ai/AIConversationBackupSettings.jsx'
@@ -24,7 +24,7 @@ import assistantThinkingActiveImg from '../assets/assistant-thinking-active.webm
 import Tiptop from './Tiptop.jsx'
 
 function getAIBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.App || null
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App || null
 }
 
 function formatMessageTime() {

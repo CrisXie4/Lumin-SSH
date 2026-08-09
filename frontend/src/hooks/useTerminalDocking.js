@@ -245,7 +245,7 @@ export default function useTerminalDocking(deps) {
         activeTerminalId: activeSessionIdRef.current === sessionId ? activeTerminalIdRef.current : lastTerminalRef.current[sessionId],
         contentTab: activeSessionIdRef.current === sessionId ? contentTabRef.current : (lastContentTabRef.current[sessionId] || 'terminal'),
       });
-      window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
+      window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
       setSessions((prev) => prev.filter((item) => item.id !== sessionId));
       setMountedSessions((prev) => {
         if (!prev.has(sessionId)) return prev;

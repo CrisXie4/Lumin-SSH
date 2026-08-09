@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { Virtuoso } from 'react-virtuoso';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 const FileEditor = React.lazy(() => import('./FileEditor.jsx'));
 import { CanResolveFilePaths, EventsOn, OnFileDrop, OnFileDropOff } from '../../wailsjs/runtime/runtime.js';
 import { useTranslation, t as tKey, getLanguage } from '../i18n.js';
@@ -1538,7 +1538,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [fileManagerLayoutMode]);
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve(window?.go?.main?.App?.GetFileManagerSettings?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetFileManagerSettings?.())
       .then((settings) => {
         if (cancelled || !settings) return;
         setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);
@@ -3406,8 +3406,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return lines.join('\n');
   }, [t]);
   const resolvePromptDownloadConflict = useCallback(async (item, remotePath, localPath, settings) => {
-    const previewDownloadConflicts = window?.go?.main?.App?.PreviewDownloadConflicts;
-    const resolveDownloadLocalPath = window?.go?.main?.App?.ResolveDownloadLocalPath;
+    const previewDownloadConflicts = window?.go?.wailsapp?.App?.PreviewDownloadConflicts;
+    const resolveDownloadLocalPath = window?.go?.wailsapp?.App?.ResolveDownloadLocalPath;
     if (typeof previewDownloadConflicts !== 'function') {
       throw new Error(t('当前环境不支持下载冲突处理'));
     }
@@ -3522,11 +3522,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     markUploadAborted(item.id, detail);
     try {
       if (item.direction === 'download') {
-        await window?.go?.main?.App?.AbortDownloadTransfer?.(item.id);
+        await window?.go?.wailsapp?.App?.AbortDownloadTransfer?.(item.id);
         return;
       }
       if (item.mode === 'compressed') {
-        await window?.go?.main?.App?.AbortCompressedUpload?.(item.id);
+        await window?.go?.wailsapp?.App?.AbortCompressedUpload?.(item.id);
         return;
       }
       if (item.taskId && item.fileId) {
@@ -3775,7 +3775,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
       patchQueueItem(queueId, { status: 'uploading', updatedAt: Date.now() });
       try {
-        await window?.go?.main?.App?.UploadLocalPathsCompressed?.(
+        await window?.go?.wailsapp?.App?.UploadLocalPathsCompressed?.(
           sessionId,
           queueId,
           Math.max(1, settings.maxChunksPerFile),
@@ -4365,13 +4365,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const remotePath = joinPath(basePath, item.name);
     const defaultDownloadDir = getDefaultDownloadDir();
     const askDownloadEveryTime = localStorage.getItem('fileManagerAskDownloadEveryTime') === 'true';
-    const resolveDownloadPath = window?.go?.main?.App?.ResolveDownloadPath;
-    const resolveDownloadLocalPath = window?.go?.main?.App?.ResolveDownloadLocalPath;
-    const selectDownloadFilePath = window?.go?.main?.App?.SelectDownloadFilePath;
-    const selectDownloadDirectory = window?.go?.main?.App?.SelectDownloadDirectory;
-    const downloadFileToLocal = window?.go?.main?.App?.DownloadFileToLocal;
-    const downloadDirectoryToLocal = window?.go?.main?.App?.DownloadDirectoryToLocal;
-    const downloadDirectoryCompressed = window?.go?.main?.App?.DownloadDirectoryCompressed;
+    const resolveDownloadPath = window?.go?.wailsapp?.App?.ResolveDownloadPath;
+    const resolveDownloadLocalPath = window?.go?.wailsapp?.App?.ResolveDownloadLocalPath;
+    const selectDownloadFilePath = window?.go?.wailsapp?.App?.SelectDownloadFilePath;
+    const selectDownloadDirectory = window?.go?.wailsapp?.App?.SelectDownloadDirectory;
+    const downloadFileToLocal = window?.go?.wailsapp?.App?.DownloadFileToLocal;
+    const downloadDirectoryToLocal = window?.go?.wailsapp?.App?.DownloadDirectoryToLocal;
+    const downloadDirectoryCompressed = window?.go?.wailsapp?.App?.DownloadDirectoryCompressed;
     const createdAt = Date.now();
     let queueId = '';
 
@@ -5674,8 +5674,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const isZip = String(item.name || '').toLowerCase().endsWith('.zip');
     const autoInstallAttempted = typeof options === 'object' && options !== null && options.__autoInstallUnzipAttempted === true;
     try {
-      const previewSmartUncompressItem = window?.go?.main?.App?.PreviewSmartUncompressItem;
-      const uncompressItemWithStrategy = window?.go?.main?.App?.UncompressItemWithStrategy;
+      const previewSmartUncompressItem = window?.go?.wailsapp?.App?.PreviewSmartUncompressItem;
+      const uncompressItemWithStrategy = window?.go?.wailsapp?.App?.UncompressItemWithStrategy;
       let requestedStrategy = fileManagerSmartUncompressConflictStrategy;
       if (requestedStrategy === 'prompt' && typeof previewSmartUncompressItem === 'function') {
         const preview = await previewSmartUncompressItem(sessionId, remotePath);
@@ -5710,7 +5710,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
     } catch (err) {
       if (isZip && !autoInstallAttempted && isMissingUnzipError(err)) {
-        const installUnzip = window?.go?.main?.App?.InstallUnzip;
+        const installUnzip = window?.go?.wailsapp?.App?.InstallUnzip;
         if (typeof installUnzip === 'function') {
           try {
             await installUnzip(sessionId);
@@ -5808,7 +5808,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       rememberedAutoApplyLastSettings = settings?.autoApplyLastSettings === true;
     } catch (_) {}
     let resolvedItem = item;
-    const getPathOwnership = window?.go?.main?.App?.GetPathOwnership;
+    const getPathOwnership = window?.go?.wailsapp?.App?.GetPathOwnership;
     const needsMetadata = !item?.permission || !item?.mode || !item?.uid || item?.uid === '-' || !item?.gid || item?.gid === '-';
     if (needsMetadata && typeof getPathOwnership === 'function') {
       try {
@@ -5838,7 +5838,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       includeSubdirectories: rememberedIncludeSubdirectories,
       showIncludeSubdirectories: resolvedItem.isDirectory,
     });
-    const listOwnershipCandidates = window?.go?.main?.App?.ListOwnershipCandidates;
+    const listOwnershipCandidates = window?.go?.wailsapp?.App?.ListOwnershipCandidates;
     if (typeof listOwnershipCandidates !== 'function') {
       return;
     }
@@ -5891,7 +5891,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         console.warn('SaveChmodDialogSettings failed:', saveErr);
       }
       if (ownerChanged || groupChanged) {
-        const chownFile = window?.go?.main?.App?.ChownFile;
+        const chownFile = window?.go?.wailsapp?.App?.ChownFile;
         if (typeof chownFile !== 'function') {
           throw new Error(t('应用不可用'));
         }
@@ -5903,7 +5903,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       pushFileManagerUndoEntry({
         undo: async () => {
           if (ownerChanged || groupChanged) {
-            const chownFile = window?.go?.main?.App?.ChownFile;
+            const chownFile = window?.go?.wailsapp?.App?.ChownFile;
             if (typeof chownFile !== 'function') {
               throw new Error(t('应用不可用'));
             }
@@ -7108,7 +7108,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               const p = editingPath.trim();
               const normalizedTargetPath = normalizePath(p);
               if (normalizedTargetPath && normalizedTargetPath !== currentPath) {
-                const resolveDirectoryPath = window?.go?.main?.App?.ResolveDirectoryPath;
+                const resolveDirectoryPath = window?.go?.wailsapp?.App?.ResolveDirectoryPath;
                 let resolvedDirectoryPath = normalizedTargetPath;
                 if (typeof resolveDirectoryPath === 'function') {
                   try {

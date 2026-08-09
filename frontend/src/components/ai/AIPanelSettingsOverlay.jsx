@@ -160,8 +160,8 @@ export default function AIPanelSettingsOverlay({
   const refreshTasksDir = useCallback(async () => {
     try {
       const [dir, isCustom] = await Promise.all([
-        window?.go?.main?.App?.GetTasksDir?.(),
-        window?.go?.main?.App?.IsCustomTasksDir?.(),
+        window?.go?.wailsapp?.App?.GetTasksDir?.(),
+        window?.go?.wailsapp?.App?.IsCustomTasksDir?.(),
       ])
       if (typeof dir === 'string') setTasksDir(dir)
       if (typeof isCustom === 'boolean') setIsCustomTasksDir(isCustom)
@@ -175,10 +175,10 @@ export default function AIPanelSettingsOverlay({
   const handleChangeTasksDir = async () => {
     if (tasksDirMigrating) return
     try {
-      const selected = await window?.go?.main?.App?.SelectTasksDirectory?.()
+      const selected = await window?.go?.wailsapp?.App?.SelectTasksDirectory?.()
       if (!selected) return
       setTasksDirMigrating(true)
-      await window?.go?.main?.App?.MigrateAITasksDir?.(selected)
+      await window?.go?.wailsapp?.App?.MigrateAITasksDir?.(selected)
       await refreshTasksDir()
       window.luminDialog?.alert?.(t('AI 对话数据已迁移到新目录。'), t('提示'), { priority: 'settings' })
     } catch (e) {
@@ -198,7 +198,7 @@ export default function AIPanelSettingsOverlay({
       )
       if (!ok) return
       setTasksDirMigrating(true)
-      await window?.go?.main?.App?.ResetTasksDir?.()
+      await window?.go?.wailsapp?.App?.ResetTasksDir?.()
       await refreshTasksDir()
       window.luminDialog?.alert?.(t('AI 对话数据已迁移到默认目录。'), t('提示'), { priority: 'settings' })
     } catch (e) {

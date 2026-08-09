@@ -1,4 +1,4 @@
-import * as AppGo from '../../../wailsjs/go/main/App.js'
+import * as AppGo from '../../../wailsjs/go/wailsapp/App.js'
 
 function normalizeServerTool(tool) {
   return {

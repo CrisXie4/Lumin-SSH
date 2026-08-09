@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as AppGo from '../../../wailsjs/go/main/App.js';
+import * as AppGo from '../../../wailsjs/go/wailsapp/App.js';
 import { t as $t } from '../../i18n.js';
 import {
   APP_GITHUB_ANDROID_RELEASES_URL,

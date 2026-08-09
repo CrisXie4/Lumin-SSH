@@ -1,4 +1,4 @@
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 
 const THEME_PACKAGE_SCHEMA_VERSION = 1;
 const DEFAULT_LIGHT_THEME_PACKAGE_ID = 'lumin-light';

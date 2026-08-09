@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { APP_GITHUB_RELEASE_API, APP_VERSION } from '../config.js';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
 import { t } from '../i18n.js';
@@ -41,8 +41,8 @@ function isMacOS() {
 // 判断当前 macOS 的 CPU 架构，用于选择对应的 dmg 下载
 async function getMacArch() {
   try {
-    if (window?.go?.main?.App?.GetArch) {
-      const arch = await window.go.main.App.GetArch();
+    if (window?.go?.wailsapp?.App?.GetArch) {
+      const arch = await window.go.wailsapp.App.GetArch();
       if (arch === 'arm64') return 'arm64';
       if (arch === 'amd64') return 'amd64';
     }
@@ -111,9 +111,9 @@ async function resolveDownloadAsset(data) {
 
   // Windows: 便携版 / 安装版
   let isPortable = false;
-  if (window?.go?.main?.App?.IsPortableVersion) {
+  if (window?.go?.wailsapp?.App?.IsPortableVersion) {
     try {
-      isPortable = await window.go.main.App.IsPortableVersion();
+      isPortable = await window.go.wailsapp.App.IsPortableVersion();
     } catch {
       isPortable = false;
     }

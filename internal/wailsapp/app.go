@@ -1,4 +1,4 @@
-package main
+package wailsapp
 
 import (
 	"bytes"
@@ -135,6 +135,7 @@ type App struct {
 	liveWorkspaceStateMu      sync.RWMutex
 	liveWorkspaceState        string
 	externalEdit              *externaledit.Manager
+	icon                      []byte
 }
 
 type BuiltinProviderRuntimeStatus struct {

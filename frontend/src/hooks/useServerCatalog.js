@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 
 export default function useServerCatalog({
   servers,

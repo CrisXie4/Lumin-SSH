@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Cpu, Folder, Globe, Monitor, Plus, RefreshCw, ScrollText, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import AIChangeReviewWorkbench from './ai/AIChangeReviewWorkbench.jsx';
 import AIConversationDiffOverlay from './ai/AIConversationDiffOverlay.jsx';
 import CommandHistory from './CommandHistory.jsx';

@@ -1,5 +1,5 @@
 function getAppBridge() {
-  return window?.go?.main?.App;
+  return window?.go?.wailsapp?.App;
 }
 
 function createProxyId() {

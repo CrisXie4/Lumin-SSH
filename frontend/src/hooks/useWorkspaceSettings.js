@@ -7,7 +7,7 @@ export default function useWorkspaceSettings() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve(window?.go?.main?.App?.GetRememberWorkspace?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetRememberWorkspace?.())
       .then((enabled) => {
         if (!cancelled) {
           setRememberWorkspace(!!enabled);
@@ -20,7 +20,7 @@ export default function useWorkspaceSettings() {
           setRememberWorkspaceLoaded(true);
         }
       });
-    Promise.resolve(window?.go?.main?.App?.GetWorkspacePersistenceLevel?.())
+    Promise.resolve(window?.go?.wailsapp?.App?.GetWorkspacePersistenceLevel?.())
       .then((level) => {
         if (!cancelled) setWorkspacePersistenceLevel(level === 'session' ? 'session' : 'program');
       })

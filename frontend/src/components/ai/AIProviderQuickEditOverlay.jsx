@@ -49,11 +49,11 @@ function getProviderDisplayLabel(provider, t) {
 }
 
 function getAppBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.AIProviderBindings || window?.go?.main?.App
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.AIProviderBindings || window?.go?.wailsapp?.App
 }
 
 async function getBuiltinProviderRuntimeStatus(providerId) {
-  const getter = window?.go?.main?.App?.GetBuiltinProviderRuntimeStatus
+  const getter = window?.go?.wailsapp?.App?.GetBuiltinProviderRuntimeStatus
   if (typeof getter !== 'function') {
     return { providerId: 'builtin-kimi', state: 'idle', ready: false }
   }
@@ -89,7 +89,7 @@ async function initializeBuiltinProvider(providerId, language) {
     return { blockedByRuntimeEnvironment: true }
   }
 
-  const initializer = window?.go?.main?.App?.InitializeBuiltinProvider
+  const initializer = window?.go?.wailsapp?.App?.InitializeBuiltinProvider
   if (typeof initializer !== 'function') {
     return { blockedByRuntimeEnvironment: false }
   }
@@ -1145,7 +1145,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     : (builtinProviderRuntimeState === 'starting' ? '[启动中]' : '[初始化]')
 
   const handleTerminateBuiltinProviderInitialization = async () => {
-    const terminator = window?.go?.main?.App?.CancelBuiltinProviderInitialization
+    const terminator = window?.go?.wailsapp?.App?.CancelBuiltinProviderInitialization
     if (typeof terminator !== 'function' || builtinProviderInitTerminating) {
       return
     }

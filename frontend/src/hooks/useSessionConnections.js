@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { EventsOn, WindowHide } from '../../wailsjs/runtime/runtime.js';
-import * as AppGo from '../../wailsjs/go/main/App.js';
+import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 
 export default function useSessionConnections(deps) {
   const { activeSessionIdRef, activeTerminalIdRef, addToast, authPromptTokenRef, awaitDisconnectTerminals, buildTerminalCloneCwdCommand, cancelledConnectionsRef, clearSessionAuthPrompt, cloneSessionFileManagerWorkspaceState, connectingServersRef, contentTabRef, creatingTerminalRef, credentials, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition, getAllSessionFileManagerWorkspaces, getSessionFileManagerWorkspace, isRecoveryPasswordError, isUnsupportedMonitorSession, lastContentTabRef, lastTerminalRef, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, mountedRef, normalizeWorkspaceContentTab, persistServerWorkspaceSessionSnapshot, persistWorkspaceSnapshotRef, recordRecentConnection, registerServerDisconnect, remapSessionFileManagerWorkspaceMap, remapSessionFileManagerWorkspaces, remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal, rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId, replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef, serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId, setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials, setMonitoringEnabled, setMountedSessions, setRestoringWorkspaceSessionIds, setServers, setServersLoaded, setSessionAuthPrompts, setSessionFileManagerWorkspace, setSessions, setSettingsInitialTab, setShowSettings, setSshChannelUsage, setSyncFailed, setTabContextMenu, setTerminalPaneLayouts, setTerminalSubTabOverflow, setTerminalTabContextMenu, setWorkspaceRestoreReady, sortTerminalPaneCells, syncFailed, syncWithRecoveryPassword, t, terminalPaneLayoutsRef, terminalSubTabScrollBySessionRef, terminalSubTabScrollRef, terminalSubTabScrollTargetRef, updateSessionStatus, waitForServerDisconnect, workspacePersistenceLevel, workspaceRestoreNavigationOverrideRef, workspaceRestoreStartedRef } = deps;
@@ -186,7 +186,7 @@ export default function useSessionConnections(deps) {
       const serverObj = { id: session.serverId, name: session.serverName, host: 'localhost' };
       setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
       try {
-        await window.go.main.App.ConnectLocal(session.id, session.serverName, session.shellPath, '');
+        await window.go.wailsapp.App.ConnectLocal(session.id, session.serverName, session.shellPath, '');
         // 本地/串口复用同一 sessionId 重连：自增 wsRebuildKey 让 Terminal 重建 WebSocket
         if (!deferState) {
           setSessions((prev) =>
@@ -212,7 +212,7 @@ export default function useSessionConnections(deps) {
       setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
       try {
         const config = session.serialConfig;
-        await window.go.main.App.ConnectSerial(
+        await window.go.wailsapp.App.ConnectSerial(
           session.id,
           session.serverName,
           config.port,
@@ -322,7 +322,7 @@ export default function useSessionConnections(deps) {
       return;
     }
     (async () => {
-      const raw = await window?.go?.main?.App?.GetWorkspaceState?.();
+      const raw = await window?.go?.wailsapp?.App?.GetWorkspaceState?.();
       if (typeof raw !== 'string' || !raw.trim()) {
         return;
       }
@@ -1049,7 +1049,7 @@ export default function useSessionConnections(deps) {
     setContentTab('terminal');
     setConnectingServers((prev) => [...prev, { server: { id: newSession.serverId, name: name, host: 'localhost' }, sessionId, startTime: Date.now() }]);
 
-    window.go.main.App.ConnectLocal(sessionId, name, shellPath, '')
+    window.go.wailsapp.App.ConnectLocal(sessionId, name, shellPath, '')
       .then(() => {
         setSessions((prev) =>
           prev.map((s) => (s.id === sessionId ? { ...s, status: 'connected' } : s))
@@ -1087,7 +1087,7 @@ export default function useSessionConnections(deps) {
     setContentTab('terminal');
     setConnectingServers((prev) => [...prev, { server: { id: newSession.serverId, name: displayName, host: config.port }, sessionId, startTime: Date.now() }]);
 
-    window.go.main.App.ConnectSerial(
+    window.go.wailsapp.App.ConnectSerial(
       sessionId,
       displayName,
       config.port,
@@ -1128,7 +1128,7 @@ export default function useSessionConnections(deps) {
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== sessionId);
       if (next.length === 0) {
-        window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
+        window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
       }
       return next;
     });
@@ -1189,7 +1189,7 @@ export default function useSessionConnections(deps) {
       .map((session) => session?.serverId)
       .filter(Boolean)
       .forEach((serverId) => registerServerDisconnect(serverId, disconnectPromise));
-    window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
+    window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
     setSessions([]);
     setTerminalPaneLayouts({});
     terminalSubTabScrollBySessionRef.current = {};
@@ -1380,7 +1380,7 @@ export default function useSessionConnections(deps) {
         return { ...s, terminals: remaining };
       }).filter(Boolean);
       if (next.length === 0) {
-        window?.go?.main?.App?.ClearWorkspaceState?.().catch(() => { });
+        window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
       }
       return next;
     });

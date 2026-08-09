@@ -6,7 +6,7 @@ const VALID_PROTOCOLS = new Set(['Compatible', 'Responses', 'Messages'])
 const VALID_CACHE_STRATEGIES = new Set(['off', 'model', '5m', '1h', '30m', 'in_memory', '24h'])
 const VALID_REASONING_EFFORTS = new Set(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
 function getAppBridge() {
-  return window?.go?.main?.AIBindings || window?.go?.main?.AIProviderBindings || window?.go?.main?.App
+  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.AIProviderBindings || window?.go?.wailsapp?.App
 }
 
 function normalizeProtocol(value) {
