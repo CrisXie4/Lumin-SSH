@@ -4,40 +4,27 @@ $version = $wailsJson.info.productVersion
 Write-Host "Start LuminSSH packaging process: V$version" -ForegroundColor Cyan
 
 $basePath = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$exePath = "$basePath\exe"
-$portablePath = "$basePath\Portable"
 $nsisPath = "$basePath\Packaging_Tools\nsis\nsis-3.08"
 $goPath = "$basePath\Source_Codes\Lumin-Source\go\bin"
 
-if (!(Test-Path $exePath)) { New-Item -ItemType Directory -Path $exePath | Out-Null }
-if (!(Test-Path $portablePath)) { New-Item -ItemType Directory -Path $portablePath | Out-Null }
-
-# Sync wails.json version to config.js
-$configPath = "frontend\src\config.js"
-if (Test-Path $configPath) {
-    $configContent = Get-Content $configPath -Raw
-    $configContent = $configContent -replace "APP_VERSION = '.*?';", "APP_VERSION = '$version';"
-    Set-Content -Path $configPath -Value $configContent
-    Write-Host "Synced version $version to frontend config.js" -ForegroundColor Green
-}
+# Sync version to config.js, package.json, package-lock.json
+node -e "const fs=require('fs');const v=process.argv[1];let c=fs.readFileSync('frontend/src/config.js','utf8');c=c.replace(/APP_VERSION\s*=\s*'[^']*'/,'APP_VERSION = '+String.fromCharCode(39)+v+String.fromCharCode(39));fs.writeFileSync('frontend/src/config.js',c);const p=JSON.parse(fs.readFileSync('frontend/package.json','utf8'));p.version=v;fs.writeFileSync('frontend/package.json',JSON.stringify(p,null,2)+'\n');const pl=JSON.parse(fs.readFileSync('frontend/package-lock.json','utf8'));pl.version=v;if(pl.packages&&pl.packages[''])pl.packages[''].version=v;fs.writeFileSync('frontend/package-lock.json',JSON.stringify(pl,null,2)+'\n');console.log('Synced version '+v+' to config.js, package.json, package-lock.json')" "$version"
 
 # Inject required paths
-$env:PATH = "$goPath;$nsisPath;" + $env:PATH
+$env:PATH = "$goPath;$nsisPath;$env:USERPROFILE\go\bin;" + $env:PATH
 
-Write-Host "`n[1/2] Compiling Portable Edition..." -ForegroundColor Yellow
-wails build -clean -upx -ldflags "-s -w"
-if ($LASTEXITCODE -ne 0) { Write-Error "Portable build failed"; exit 1 }
+Write-Host "`n[1/2] Building with Wails (portable + installer)..." -ForegroundColor Yellow
+wails build -clean -upx -nsis -ldflags "-s -w"
+if ($LASTEXITCODE -ne 0) { Write-Error "Build failed"; exit 1 }
 
-$portableDest = "$portablePath\Lumin_Portable_V$version.exe"
-Write-Host "Output portable to: $portableDest" -ForegroundColor Green
-Copy-Item -Path "build\bin\Lumin.exe" -Destination $portableDest -Force
+Write-Host "`n[2/2] Renaming output files..." -ForegroundColor Yellow
+$portableDest = "build\bin\Lumin-V$version-portable.exe"
+$setupDest = "build\bin\Lumin-V$version-amd64-installer.exe"
+Move-Item -Path "build\bin\Lumin.exe" -Destination $portableDest -Force
+Move-Item -Path "build\bin\Lumin-amd64-installer.exe" -Destination $setupDest -Force
 
-Write-Host "`n[2/2] Compiling Setup Edition..." -ForegroundColor Yellow
-wails build -clean -nsis -upx -ldflags "-s -w"
-if ($LASTEXITCODE -ne 0) { Write-Error "Setup build failed"; exit 1 }
-
-$setupDest = "$exePath\Lumin_Setup_V$version.exe"
-Write-Host "Output setup to: $setupDest" -ForegroundColor Green
-Copy-Item -Path "build\bin\Lumin-amd64-installer.exe" -Destination $setupDest -Force
-
-Write-Host "`nPackaging completed successfully!" -ForegroundColor Cyan
+Write-Host "`n==============================================" -ForegroundColor Cyan
+Write-Host "  SUCCESS!" -ForegroundColor Cyan
+Write-Host "  Portable:  $portableDest" -ForegroundColor Green
+Write-Host "  Installer: $setupDest" -ForegroundColor Green
+Write-Host "==============================================" -ForegroundColor Cyan
