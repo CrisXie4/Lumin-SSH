@@ -9,6 +9,7 @@ import (
 	"context"
 	"embed"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -55,18 +56,24 @@ func setupSystray(app *App) {
 			forceShowWindow(app.ctx)
 		}
 
-		// 左键点击托盘图标：显示窗口
-		systray.SetOnClick(func(menu systray.IMenu) {
-			showMain()
-		})
-
-		// 右键点击托盘图标：显示菜单。
-		// Windows 久置后 TrackPopupMenu 常因托盘窗抢不到前台而不弹出；
-		// 先解锁前台再 ShowMenu（与主窗久置唤起同源限制）。
-		systray.SetOnRClick(func(menu systray.IMenu) {
-			platformruntime.PrepareTrayMenu()
-			menu.ShowMenu()
-		})
+		if runtime.GOOS == "darwin" {
+			// macOS: CreateMenu 将菜单永久挂到 statusItem，
+			// 左键点托盘图标自动弹菜单（macOS 惯例）。
+			// 不调 SetOnClick/SetOnRClick：enableOnClick 会覆盖菜单行为，
+			// 且库注释明确 ShowMenu() 在 macOS 只支持 OnRClick 回调内调用。
+			systray.CreateMenu()
+		} else {
+			// Windows/Linux: 左键直接显示窗口
+			systray.SetOnClick(func(menu systray.IMenu) {
+				showMain()
+			})
+			// 右键弹菜单；Windows 久置后 TrackPopupMenu 常因前台锁不弹出，
+			// 先解锁再 ShowMenu。
+			systray.SetOnRClick(func(menu systray.IMenu) {
+				platformruntime.PrepareTrayMenu()
+				menu.ShowMenu()
+			})
+		}
 
 		mShow.Click(func() {
 			showMain()
@@ -118,6 +125,9 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 		OnStartup: func(ctx context.Context) {
 			// 先挂托盘：startup 里 MCP 等可能阻塞，托盘若排后面会出现「窗口已能关到托盘但图标很久才出」。
 			app.ctx = ctx
+			// macOS: 窗口隐藏到托盘后，点 Dock 图标恢复窗口。
+			// Wails 的 AppDelegate 未实现 applicationShouldHandleReopen:hasVisibleWindows:。
+			platformruntime.SetupDockReopenHandler(func() { forceShowWindow(app.ctx) })
 			platformruntime.StartSystray(func() { setupSystray(app) })
 			// 启动单实例 socket：二次启动会发 show 指令，经 forceShowWindow 走托盘同一路径唤起主窗口。
 			platformruntime.StartSingletonServer(func() {
