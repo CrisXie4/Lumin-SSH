@@ -42,7 +42,8 @@ Lumin 是一款面向开发者和运维人员的桌面 SSH 客户端。基于 **
 - **终端链接** — URL 可点击，用系统浏览器打开
 - **终端时间戳** — 可选行首时间戳（xterm marker，随 scrollback 同步）
 - **敏感信息隐藏** — 一键隐藏/显示密码、密钥等
-- **会话级 shell hook（bash）** — 连接 bash 时注入会话级 `PROMPT_COMMAND`，采集命令历史与 CWD（不写 `.bashrc`）；用于历史面板 / AI 与补全
+- **会话级 shell hook（bash）** — 连接 bash 时注入会话级 `PROMPT_COMMAND`，采集命令历史与 CWD（不写 `.bashrc`）；用于历史面板 / AI 与补全；另支持 OSC 733 序列兼容 zsh/fish 等非 bash shell 的目录跟随
+- **端口转发** — SSH 本地/远程端口转发，增删改查，按会话持久化，断连自动回收
 
 ### 仪表盘
 - **内联服务器编辑** — 左侧常驻添加/编辑表单，支持「保存」或「保存并连接」
@@ -111,6 +112,9 @@ Lumin 是一款面向开发者和运维人员的桌面 SSH 客户端。基于 **
 - **工具审批** — 读写/执行等可配置自动批准或逐项确认；支持继续/终止、终端重新指派
 - **变更审阅** — 远端编辑类工具提供 diff / patch / 恢复工作台
 - **上下文压缩与对话备份** — Token 压缩；自动/手动备份与还原；任务标题可编辑
+- **对话搜索** — 对 AI 对话历史做全文检索（SQLite FTS5 + CJK 回退）
+- **联网搜索** — 支持 Responses API `web_search` 工具；可按供应商开关或指定专用联网搜索供应商
+- **对话存储目录** — 可在 AI 设置中自定义对话数据存储路径，更改时自动迁移现有数据
 - **协同相关能力** — 对话协同接管等（见 AI 面板）
 - **终端隔离** — 可为终端维护相对独立的 AI 运行期上下文
 - **内置 MCP 服务（Streamable HTTP）** — 默认启用并监听 `127.0.0.1:5779`（可在 AI 设置中关闭）；**无 HTTP token**，主要靠 loopback + Origin 摩擦控制（**不是**同用户恶意进程的安全边界）
@@ -200,13 +204,16 @@ Lumin 是一款面向开发者和运维人员的桌面 SSH 客户端。基于 **
 | `quick_commands.json` | 快捷指令 |
 | `param_history.json` | 动态参数历史 |
 | `history/` | 命令历史 |
-| `sync_mode.json` / `auto_sync_enabled.json` | 同步模式与自动同步开关 |
+| `sync_mode.json` / `auto_sync_enabled.json` / `sync_tombstones.json` 等 | 同步模式、自动同步开关、时间戳与删除墓碑 |
 | `recovery_password` | 恢复密码（由 `lumin.key` 加密存放） |
 | `ai_global_settings.json` | AI 全局（含 MCP 开关、自动批准等） |
 | `ai_providers.json` | AI 供应商列表（含 API Key 等业务字段） |
 | `proxy_nodes.json` | 代理节点 |
-| `tasks/` | AI 对话与备份 |
-| `app_settings.json` 等 | 应用/工作区相关偏好 |
+| `tasks/` | AI 对话与备份（存储目录可在 AI 设置中自定义，路径记录于 `app_settings.json`） |
+| `port_forwards.json` | 端口转发记录 |
+| `file_manager_settings.json` | 文件管理器偏好（双击解压、传输调优等） |
+| `app_settings.json` | 应用偏好（GPU 加速、运行环境、主题包、AI 对话存储路径） |
+| `workspace_*.json` | 工作区状态、偏好与会话恢复 |
 
 > Windows 的 WebView2 用户数据目录固定在 `%APPDATA%\Lumin\`，与 `config\` 同级；便携版可执行文件改名不会再创建多套浏览器数据目录。
 
@@ -218,7 +225,7 @@ Lumin 是一款面向开发者和运维人员的桌面 SSH 客户端。基于 **
 2. 按平台匹配安装包 / 便携包  
 3. HTTPS 下载（可镜像）→ **`.sha256` 校验** → 平台安装或热替换  
 
-版本号以 `wails.json`、`frontend/src/config.js`、`frontend/package.json`、`frontend/package-lock.json` 为准，当前为 **1.2.5**。
+版本号以 `wails.json`、`frontend/src/config.js`、`frontend/package.json`、`frontend/package-lock.json` 为准，当前为 **1.2.6**。
 
 ---
 
@@ -258,6 +265,12 @@ wails build -nsis    # Windows 安装包（需 NSIS）
 ```
 
 常见产物：`build/bin/Lumin` / `Lumin.exe`；安装包与 deb/rpm/dmg 由 CI 或本地脚本按平台生成。
+
+Windows 本地一键构建（自动同步版本号、UPX 压缩、输出 `Lumin-V{版本}-portable.exe` 与 `Lumin-V{版本}-amd64-installer.exe`）：
+
+```powershell
+.\build_release.ps1    # 需本地具备 Go、NSIS、UPX 环境
+```
 
 正式发版（打 tag、更新日志、多平台包）见 [.github/RELEASE.md](.github/RELEASE.md)。
 

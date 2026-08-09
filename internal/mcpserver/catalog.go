@@ -48,6 +48,7 @@ func (c *Catalog) List() []ToolDefinition {
 		askFollowupQuestionToolDefinition(),
 		attemptCompletionToolDefinition(),
 		searchReplaceToolDefinition(),
+		editFileToolDefinition(),
 		applyDiffToolDefinition(),
 		applyPatchToolDefinition(),
 	}

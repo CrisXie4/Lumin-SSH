@@ -42,7 +42,8 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 - **Clickable URLs** — open in the system browser
 - **Timestamps** — optional per-line markers aligned with scrollback
 - **Hide secrets** — one-click mask for passwords/keys in the UI
-- **Bash session hook** — on bash, a session-scoped `PROMPT_COMMAND` captures history/CWD (does **not** rewrite `.bashrc`) for history UI, completion, and AI
+- **Bash session hook** — on bash, a session-scoped `PROMPT_COMMAND` captures history/CWD (does **not** rewrite `.bashrc`) for history UI, completion, and AI; also supports OSC 733 for zsh/fish CWD tracking
+- **Port forwarding** — SSH local/remote port forwarding with CRUD, per-session persistence, auto-reclaim on disconnect
 
 ### Dashboard
 - **Inline host editor** — left rail add/edit with Save or Save & Connect
@@ -108,6 +109,9 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 - Slash commands and `@` mentions (terminal / remote paths)
 - Tool approval policies; reassign command terminals; review diffs/patches
 - Context condense; conversation backups; editable task titles
+- **Conversation search** — full-text search across AI conversation history (SQLite FTS5 + CJK fallback)
+- **Web search** — Responses API `web_search` tool support; per-provider toggle or dedicated search provider
+- **Conversation storage directory** — customizable in AI settings; changing it auto-migrates existing data
 - Collaboration-oriented flows in the AI panel
 - **Built-in MCP** (Streamable HTTP) on `127.0.0.1:5779` — **on by default**, toggle in AI settings; **no HTTP token**; loopback + Origin friction only (**not** a same-user malware boundary)
 - **MCP clients** — stdio / SSE / Streamable HTTP
@@ -173,11 +177,18 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 | `lumin.key` | Local AES master key. **Back it up** — losing it makes locally encrypted fields unrecoverable on this machine |
 | `connections.json` | Hosts (secrets AES-GCM) |
 | `credentials.json` | Credential store |
-| Sync backend JSON | WebDAV/R2/FTP/SFTP settings |
+| `webdav.json` etc. | Sync backend settings (WebDAV/R2/FTP/SFTP) |
 | `quick_commands.json` / `param_history.json` / `history/` | Commands |
-| Sync control files | Mode, auto-sync, timestamps, tombstones |
+| `sync_mode.json` / `auto_sync_enabled.json` / `sync_tombstones.json` etc. | Sync mode, auto-sync, timestamps, tombstones |
 | `recovery_password` | Recovery password (encrypted with `lumin.key`) |
-| `ai_*.json` / `proxy_nodes.json` / `tasks/` | AI and proxy data |
+| `ai_global_settings.json` | AI global settings (MCP toggle, auto-approve, etc.) |
+| `ai_providers.json` | AI provider list (API keys etc.) |
+| `proxy_nodes.json` | Proxy nodes |
+| `tasks/` | AI conversations & backups (storage dir customizable in AI settings; path in `app_settings.json`) |
+| `port_forwards.json` | Port forward records |
+| `file_manager_settings.json` | File manager prefs (double-click extract, transfer tuning, etc.) |
+| `app_settings.json` | App prefs (GPU accel, runtime env, theme packages, AI storage path) |
+| `workspace_*.json` | Workspace state, prefs & session restore |
 
 > On Windows, WebView2 user data is fixed at `%APPDATA%\Lumin\`, alongside `config\`; renaming the portable executable does not create another browser-data directory.
 
@@ -186,7 +197,7 @@ Lumin is a desktop SSH client for developers and operators. It combines **Go-nat
 ## Updates
 
 GitHub Releases for `wmwlwmwl/Lumin-SSH` → platform asset → SHA256 → install/replace.  
-Version sources: `wails.json`, `frontend/src/config.js`, `frontend/package.json`, and `frontend/package-lock.json` — currently **1.2.5**.
+Version sources: `wails.json`, `frontend/src/config.js`, `frontend/package.json`, and `frontend/package-lock.json` — currently **1.2.6**.
 
 ---
 
@@ -218,6 +229,12 @@ cd Lumin-SSH
 wails build
 # Windows installer (NSIS required):
 wails build -nsis
+```
+
+One-click Windows local build (auto-syncs version, UPX compression, outputs `Lumin-V{version}-portable.exe` and `Lumin-V{version}-amd64-installer.exe`):
+
+```powershell
+.\build_release.ps1    # requires local Go, NSIS, UPX
 ```
 
 Tagged releases (changelog + multi-platform packages): [.github/RELEASE_EN.md](.github/RELEASE_EN.md).
