@@ -1,7 +1,8 @@
 import { t } from '../../i18n.js'
+import * as AIBindings from '../../../bindings/luminssh-go/internal/wailsapp/aibindings.js'
 
 function getAppBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
+  return AIBindings
 }
 
 export async function startAIChat(requestId, payload) {

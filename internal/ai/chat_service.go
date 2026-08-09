@@ -14,7 +14,7 @@ import (
 
 	"luminssh-go/internal/mcpserver"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"luminssh-go/internal/events"
 )
 
 type AIChatRequestMessage struct {
@@ -1906,7 +1906,7 @@ func (a *App) emitAIChatEvent(payload map[string]interface{}) {
 	if a == nil || a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, "ai-chat-stream", payload)
+	events.Emit("ai-chat-stream", payload)
 }
 
 func (a *App) emitAIChatRuntimePhase(requestID string, phase string) {

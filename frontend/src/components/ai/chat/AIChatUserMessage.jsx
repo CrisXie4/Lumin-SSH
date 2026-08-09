@@ -1,4 +1,5 @@
 import AIChatMessageActionBar from './AIChatMessageActionBar.jsx'
+import { Browser } from '@wailsio/runtime'
 
 const userTitleKey = '用户'
 
@@ -7,10 +8,9 @@ function openExternalLink(event, href) {
   if (!nextHref) {
     return
   }
-  const openUrl = window?.runtime?.BrowserOpenURL
-  if (typeof openUrl === 'function') {
+  if (Browser?.OpenURL) {
     event.preventDefault()
-    openUrl(nextHref)
+    Browser.OpenURL(nextHref)
   }
 }
 

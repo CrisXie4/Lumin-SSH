@@ -3,8 +3,8 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Copy, Clipboard, Trash2, CheckSquare, Play, Clock, X, Zap, MessageSquarePlus, ExternalLink, Search, ChevronUp, ChevronDown, CaseSensitive } from 'lucide-react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
-import { EventsOn } from '../../wailsjs/runtime/runtime.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
+import { Events, Browser } from "@wailsio/runtime";
 import { getModKey, formatShortcut } from '../utils/platform.js';
 import { clampMenuPosition } from '../utils/menuPosition.js';
 import { extractQuickCommandParams, fillQuickCommandParams } from '../utils/quickCommandParams.js';
@@ -2471,11 +2471,9 @@ export default function Terminal({
 
   const openExternalUrl = (url) => {
     if (!url) return;
-    if (typeof window.runtime?.BrowserOpenURL === 'function') {
-      window.runtime.BrowserOpenURL(url);
-      return;
-    }
-    window.open(url, '_blank', 'noopener,noreferrer');
+    Browser.OpenURL(url).catch(() => {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
   };
 
   const handleLinkMenuAction = (action) => {
@@ -3164,7 +3162,7 @@ export default function Terminal({
         });
     }
 
-    const off = EventsOn(`ssh-terminal-cwd-${sessionId}`, (cwd) => {
+    const off = Events.On(`ssh-terminal-cwd-${sessionId}`, (cwd) => {
       if (cancelled) {
         return;
       }

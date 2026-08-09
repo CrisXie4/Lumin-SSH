@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 import { APP_GITHUB_RELEASE_API, APP_VERSION } from '../config.js';
-import { EventsOn } from '../../wailsjs/runtime/runtime.js';
+import { Events, Browser } from "@wailsio/runtime";
 import { t } from '../i18n.js';
 
 const RELEASE_API = APP_GITHUB_RELEASE_API;
@@ -41,11 +41,9 @@ function isMacOS() {
 // 判断当前 macOS 的 CPU 架构，用于选择对应的 dmg 下载
 async function getMacArch() {
   try {
-    if (window?.go?.wailsapp?.App?.GetArch) {
-      const arch = await window.go.wailsapp.App.GetArch();
-      if (arch === 'arm64') return 'arm64';
-      if (arch === 'amd64') return 'amd64';
-    }
+    const arch = await AppGo.GetArch();
+    if (arch === 'arm64') return 'arm64';
+    if (arch === 'amd64') return 'amd64';
   } catch {}
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes('arm') || ua.includes('aarch64')) return 'arm64';
@@ -111,12 +109,10 @@ async function resolveDownloadAsset(data) {
 
   // Windows: 便携版 / 安装版
   let isPortable = false;
-  if (window?.go?.wailsapp?.App?.IsPortableVersion) {
-    try {
-      isPortable = await window.go.wailsapp.App.IsPortableVersion();
-    } catch {
-      isPortable = false;
-    }
+  try {
+    isPortable = await AppGo.IsPortableVersion();
+  } catch {
+    isPortable = false;
   }
 
   let targetAsset = null;
@@ -150,7 +146,7 @@ export function useUpdateChecker({ onResult, onError } = {}) {
 
   useEffect(() => {
     downloadProgressListeners.add(setDownloadProgress);
-    const off = EventsOn('app-update-progress', (progress) => {
+    const off = Events.On('app-update-progress', (progress) => {
       if (typeof progress === 'number') setSharedDownloadProgress(progress);
     });
     return () => {
@@ -229,7 +225,7 @@ export function useUpdateChecker({ onResult, onError } = {}) {
     if (!isGithubAssetDownloadUrl(updateInfo.url) || !/\.(exe|deb|rpm|dmg)$/.test(packageName)) {
       // 非可安装资产：最多打开浏览器，绝不进入热替换
       if (updateInfo.url) {
-        window.runtime?.BrowserOpenURL(updateInfo.url);
+        Browser.OpenURL(updateInfo.url);
       }
       throw new Error('未找到可安装的更新包，已取消自动替换');
     }

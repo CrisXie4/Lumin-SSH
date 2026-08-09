@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Cpu } from 'lucide-react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 import { useTranslation } from '../i18n.js';
 
 export default function SerialConfigModal({ onClose, onConnect }) {

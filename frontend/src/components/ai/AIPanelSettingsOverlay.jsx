@@ -7,6 +7,7 @@ import AISlashCommandsSettings from './AISlashCommandsSettings.jsx'
 import AIConversationBackupSettings from './AIConversationBackupSettings.jsx'
 import Tiptop from '../Tiptop.jsx'
 import { handleInputDragSelectAll } from './inputDragSelect.js'
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js'
 
 function formatTokenCountInMillions(value) {
   return `${(value / 1000000).toFixed(6)}M`
@@ -160,8 +161,8 @@ export default function AIPanelSettingsOverlay({
   const refreshTasksDir = useCallback(async () => {
     try {
       const [dir, isCustom] = await Promise.all([
-        window?.go?.wailsapp?.App?.GetTasksDir?.(),
-        window?.go?.wailsapp?.App?.IsCustomTasksDir?.(),
+        AppGo.GetTasksDir(),
+        AppGo.IsCustomTasksDir(),
       ])
       if (typeof dir === 'string') setTasksDir(dir)
       if (typeof isCustom === 'boolean') setIsCustomTasksDir(isCustom)
@@ -175,10 +176,10 @@ export default function AIPanelSettingsOverlay({
   const handleChangeTasksDir = async () => {
     if (tasksDirMigrating) return
     try {
-      const selected = await window?.go?.wailsapp?.App?.SelectTasksDirectory?.()
+      const selected = await AppGo.SelectTasksDirectory()
       if (!selected) return
       setTasksDirMigrating(true)
-      await window?.go?.wailsapp?.App?.MigrateAITasksDir?.(selected)
+      await AppGo.MigrateAITasksDir(selected)
       await refreshTasksDir()
       window.luminDialog?.alert?.(t('AI 对话数据已迁移到新目录。'), t('提示'), { priority: 'settings' })
     } catch (e) {
@@ -198,7 +199,7 @@ export default function AIPanelSettingsOverlay({
       )
       if (!ok) return
       setTasksDirMigrating(true)
-      await window?.go?.wailsapp?.App?.ResetTasksDir?.()
+      await AppGo.ResetTasksDir()
       await refreshTasksDir()
       window.luminDialog?.alert?.(t('AI 对话数据已迁移到默认目录。'), t('提示'), { priority: 'settings' })
     } catch (e) {

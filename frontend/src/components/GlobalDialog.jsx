@@ -1,5 +1,6 @@
 import { useState, useEffect, useId, useRef, useCallback } from 'react';
 import { Eye, EyeOff, Clipboard } from 'lucide-react';
+import { Clipboard as WailsClipboard } from '@wailsio/runtime';
 import { useTranslation, t } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
 import { Z } from '../constants/zIndex';
@@ -312,8 +313,7 @@ function DialogContent({ current, active, onClose, onConfirm, onChoice }) {
       return;
     } catch {}
     try {
-      const { ClipboardSetText } = await import('../../wailsjs/runtime/runtime.js');
-      await ClipboardSetText(messageText);
+      await WailsClipboard.SetText(messageText);
     } catch {}
   };
 
@@ -457,8 +457,7 @@ function DialogContent({ current, active, onClose, onConfirm, onChoice }) {
                     }
                   } catch {
                     try {
-                      const { ClipboardGetText } = await import('../../wailsjs/runtime/runtime.js');
-                      const text = await ClipboardGetText();
+                      const text = await WailsClipboard.Text();
                       if (text) {
                         setInputValue(text);
                         if (inputError) setInputError('');

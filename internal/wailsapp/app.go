@@ -41,7 +41,8 @@ import (
 	runtimeinstaller "luminssh-go/module/runtimeinstaller"
 
 	"github.com/gorilla/websocket"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"luminssh-go/internal/events"
 )
 
 type externalEditRemoteFiles struct {
@@ -74,7 +75,7 @@ type externalEditEventSink struct {
 
 func (s externalEditEventSink) Emit(event string, payload map[string]interface{}) {
 	if s.app != nil && s.app.ctx != nil {
-		runtime.EventsEmit(s.app.ctx, event, payload)
+		events.Emit(event, payload)
 	}
 }
 
@@ -105,6 +106,7 @@ func (externalEditOpener) OpenWith(editorPath string, localPath string) error {
 // App struct
 type App struct {
 	ctx                       context.Context
+	wailsApp                  *application.App
 	sshManager                *sshmanager.SSHManager
 	configManager             *config.ConfigManager
 	wsPort                    int
@@ -198,9 +200,9 @@ func NewApp() *App {
 	return app
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
-func (a *App) startup(ctx context.Context) {
+// ServiceStartup is called when the app starts. The context is saved
+// so we can use it for standard library operations.
+func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	a.ctx = ctx
 	a.sshManager.SetCtx(ctx) // Give SSH manager access to Wails events
 	a.sshManager.SetApp(a)   // Give SSH manager access to WebSocket registry
@@ -305,6 +307,7 @@ func (a *App) startup(ctx context.Context) {
 	mcpbridge.InitOutputCompression(a.configManager.GetConfigDir())
 	// MCP 客户端会连远端（内置 context7），同步握手会拖慢首屏；后台启动即可。
 	go mcpbridge.StartServer(a.configManager.GetConfigDir(), newMCPHost(a))
+	return nil
 }
 
 // AckClose 前端响应了关闭弹窗（tray/cancel），取消 5s 兜底强制退出
@@ -339,7 +342,49 @@ func (a *App) DoQuit() {
 		a.wsListener = nil
 	}
 	a.releaseMainLivenessLock()
-	runtime.Quit(a.ctx)
+	a.wailsApp.Quit()
+}
+
+// ── v3 对话框辅助方法 ──────────────────────────────────────────
+// 封装 v3 Dialog API，避免每个调用点重复链式调用。
+
+func (a *App) saveFileDialog(title, filename, directory string, filters []application.FileFilter) (string, error) {
+	// ponytail: SaveFileDialogStruct 无 SetTitle 方法（v3 API 遗漏），
+	// 用 SaveFileWithOptions 一次设置所有选项。
+	opts := &application.SaveFileDialogOptions{
+		Title:    title,
+		Filename: filename,
+		Directory: directory,
+		Filters:  filters,
+	}
+	return a.wailsApp.Dialog.SaveFileWithOptions(opts).PromptForSingleSelection()
+}
+
+func (a *App) openFileDialog(title string, filters []application.FileFilter) (string, error) {
+	dialog := a.wailsApp.Dialog.OpenFile().SetTitle(title)
+	for _, f := range filters {
+		dialog.AddFilter(f.DisplayName, f.Pattern)
+	}
+	return dialog.PromptForSingleSelection()
+}
+
+func (a *App) openMultipleFilesDialog(title string, filters []application.FileFilter) ([]string, error) {
+	dialog := a.wailsApp.Dialog.OpenFile().SetTitle(title)
+	for _, f := range filters {
+		dialog.AddFilter(f.DisplayName, f.Pattern)
+	}
+	return dialog.PromptForMultipleSelection()
+}
+
+func (a *App) openDirectoryDialog(title, directory string) (string, error) {
+	dialog := a.wailsApp.Dialog.OpenFile().
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		SetTitle(title)
+	if directory != "" {
+		dialog.SetDirectory(directory)
+	}
+	return dialog.PromptForSingleSelection()
 }
 
 // GetWsPort 返回本地 WebSocket 服务器端口，前端用于连接终端
@@ -460,13 +505,8 @@ func (a *App) ExportConnections(useEncryption bool, password string) (string, er
 	}
 	timestamp := time.Now().Format("20060102_150405.000_-0700")
 	defaultName := fmt.Sprintf("lumin-ssh-connections-%s%s", timestamp, ext)
-	filters := []runtime.FileFilter{
+	path, err := a.saveFileDialog(title, defaultName, "", []application.FileFilter{
 		{DisplayName: fmt.Sprintf("Lumin-SSH (*%s)", ext), Pattern: "*" + ext},
-	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           title,
-		DefaultFilename: defaultName,
-		Filters:         filters,
 	})
 	if err != nil {
 		return "", err
@@ -524,13 +564,8 @@ func (a *App) ExportConnectionsByIDs(ids []string, useEncryption bool, password 
 	}
 	timestamp := time.Now().Format("20060102_150405.000_-0700")
 	defaultName := fmt.Sprintf("lumin-ssh-connections-%s%s", timestamp, ext)
-	filters := []runtime.FileFilter{
+	path, err := a.saveFileDialog(title, defaultName, "", []application.FileFilter{
 		{DisplayName: fmt.Sprintf("Lumin-SSH (*%s)", ext), Pattern: "*" + ext},
-	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           title,
-		DefaultFilename: defaultName,
-		Filters:         filters,
 	})
 	if err != nil {
 		return "", err
@@ -586,11 +621,8 @@ func (a *App) ExportConnectionsByIDs(ids []string, useEncryption bool, password 
 // SelectImportFile 弹出打开对话框让用户选择导入文件，返回文件路径（用户取消返回空串）。
 // 与 ImportConnections 分离，便于密文导入需要密码时无需重新选文件。
 func (a *App) SelectImportFile() (string, error) {
-	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "导入节点",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "Lumin-SSH (*.json;*.lumin2)", Pattern: "*.json;*.lumin2"},
-		},
+	path, err := a.openFileDialog("导入节点", []application.FileFilter{
+		{DisplayName: "Lumin-SSH (*.json;*.lumin2)", Pattern: "*.json;*.lumin2"},
 	})
 	if err != nil {
 		return "", err
@@ -634,12 +666,8 @@ func (a *App) DownloadImportTemplate(lang string) (string, error) {
 	if lang == "en-US" {
 		title = "Save Import Template"
 	}
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           title,
-		DefaultFilename: "lumin-ssh-import-template.json",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "JSON (*.json)", Pattern: "*.json"},
-		},
+	path, err := a.saveFileDialog(title, "lumin-ssh-import-template.json", "", []application.FileFilter{
+		{DisplayName: "JSON (*.json)", Pattern: "*.json"},
 	})
 	if err != nil {
 		return "", err
@@ -839,19 +867,16 @@ func (a *App) SetFileManagerMaxEditSize(mb int) error {
 
 // SelectExternalEditor opens a native file dialog for choosing an editor executable.
 func (a *App) SelectExternalEditor() (string, error) {
-	filters := []runtime.FileFilter{
+	filters := []application.FileFilter{
 		{DisplayName: "Applications", Pattern: "*.*"},
 	}
 	if goruntime.GOOS == "windows" {
-		filters = []runtime.FileFilter{
+		filters = []application.FileFilter{
 			{DisplayName: "Executables (*.exe)", Pattern: "*.exe"},
 			{DisplayName: "All files", Pattern: "*.*"},
 		}
 	}
-	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:   "选择外部编辑器",
-		Filters: filters,
-	})
+	path, err := a.openFileDialog("选择外部编辑器", filters)
 	if err != nil {
 		return "", err
 	}
@@ -1164,9 +1189,7 @@ func (a *App) AbortChunkedUploadTask(taskID string) error {
 
 // UploadFile opens a file dialog to select a local file and uploads it to the remote path
 func (a *App) UploadFile(sessionId string, remotePath string) error {
-	filepaths, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select File to Upload",
-	})
+	filepaths, err := a.openFileDialog("Select File to Upload", nil)
 	if err != nil || filepaths == "" {
 		return err
 	}
@@ -1174,41 +1197,28 @@ func (a *App) UploadFile(sessionId string, remotePath string) error {
 }
 
 func (a *App) SelectUploadFiles() ([]string, error) {
-	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select Files to Upload",
-	})
+	return a.openMultipleFilesDialog("Select Files to Upload", nil)
 }
 
 func (a *App) SelectUploadDirectory() (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select Folder to Upload",
-	})
+	return a.openDirectoryDialog("Select Folder to Upload", "")
 }
 
 func (a *App) SelectDownloadFilePath(remotePath string, defaultDir string) (string, error) {
 	filename := filepath.Base(remotePath)
-	options := runtime.SaveDialogOptions{
-		Title:           "Save File",
-		DefaultFilename: filename,
-	}
 	defaultDirectory := resolveDownloadDefaultDirectory(defaultDir)
 	if defaultDirectory != "" {
 		_ = os.MkdirAll(defaultDirectory, 0o755)
-		options.DefaultDirectory = defaultDirectory
 	}
-	return runtime.SaveFileDialog(a.ctx, options)
+	return a.saveFileDialog("Save File", filename, defaultDirectory, nil)
 }
 
 func (a *App) SelectDownloadDirectory(defaultDir string) (string, error) {
-	options := runtime.OpenDialogOptions{
-		Title: "Select Download Directory",
-	}
 	defaultDirectory := resolveDownloadDefaultDirectory(defaultDir)
 	if defaultDirectory != "" {
 		_ = os.MkdirAll(defaultDirectory, 0o755)
-		options.DefaultDirectory = defaultDirectory
 	}
-	return runtime.OpenDirectoryDialog(a.ctx, options)
+	return a.openDirectoryDialog("Select Download Directory", defaultDirectory)
 }
 
 func (a *App) UploadLocalPathsCompressed(sessionId string, uploadID string, maxConcurrent int, localPaths []string, remoteDir string) error {
@@ -1441,7 +1451,7 @@ func (a *App) emitBuiltinProviderInitLog(providerID string, text string) {
 	if a == nil || a.ctx == nil || strings.TrimSpace(providerID) == "" || text == "" {
 		return
 	}
-	runtime.EventsEmit(a.ctx, "builtin-provider-init-log", map[string]interface{}{
+	events.Emit("builtin-provider-init-log", map[string]interface{}{
 		"providerId": providerID,
 		"text":       text,
 	})
@@ -1770,11 +1780,8 @@ func (a *App) ListThemePackages() ([]map[string]interface{}, error) {
 }
 
 func (a *App) SelectThemePackageFiles() ([]string, error) {
-	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "选择主题包文件",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "主题包 (*.json)", Pattern: "*.json"},
-		},
+	return a.openMultipleFilesDialog("选择主题包文件", []application.FileFilter{
+		{DisplayName: "主题包 (*.json)", Pattern: "*.json"},
 	})
 }
 
@@ -1853,11 +1860,8 @@ func (a *App) ListProgramFonts() ([]programfonts.ProgramFontInfo, error) {
 }
 
 func (a *App) SelectProgramFontFiles() ([]string, error) {
-	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "选择字体文件",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "字体文件 (*.ttf;*.otf;*.ttc;*.woff;*.woff2)", Pattern: "*.ttf;*.otf;*.ttc;*.woff;*.woff2"},
-		},
+	return a.openMultipleFilesDialog("选择字体文件", []application.FileFilter{
+		{DisplayName: "字体文件 (*.ttf;*.otf;*.ttc;*.woff;*.woff2)", Pattern: "*.ttf;*.otf;*.ttc;*.woff;*.woff2"},
 	})
 }
 
@@ -1954,9 +1958,7 @@ func (a *App) OpenLocalPathInExplorer(localPath string, isDirectory bool) error 
 
 // ReadPrivateKeyFile opens a file dialog to read a private key file
 func (a *App) ReadPrivateKeyFile() (string, error) {
-	keyPath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "选择私钥文件",
-	})
+	keyPath, err := a.openFileDialog("选择私钥文件", nil)
 	if err != nil || keyPath == "" {
 		return "", err
 	}
@@ -2343,9 +2345,7 @@ func (a *App) IsCustomTasksDir() bool {
 
 // SelectTasksDirectory 弹出目录选择对话框，返回用户选择的目录路径
 func (a *App) SelectTasksDirectory() (string, error) {
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "选择 AI 对话存储目录",
-	})
+	return a.openDirectoryDialog("选择 AI 对话存储目录", "")
 }
 
 // MigrateAITasksDir 将 AI 对话数据迁移到目标目录
@@ -2414,7 +2414,9 @@ func (a *App) InjectAIBuiltinLoginBridge(jsonStr string) error {
 		return err
 	}
 	script := `(function(){try{const payload=` + string(payloadBytes) + `;const frames=Array.from(document.querySelectorAll("iframe"));const frame=frames.find((item)=>{const expectedSrc=typeof payload.frameSrc==="string"?payload.frameSrc:"";const expectedTitle=typeof payload.frameTitle==="string"?payload.frameTitle:"";return(expectedSrc&&typeof item.src==="string"&&item.src.indexOf(expectedSrc)===0)||(expectedTitle&&item.title===expectedTitle)})||frames[0];if(!frame||!frame.contentWindow||!payload.message){return;}frame.contentWindow.postMessage(payload.message,payload.targetOrigin||"*");window.__luminBuiltinLoginBridgeLastPayload=payload;}catch(_){}})();`
-	runtime.WindowExecJS(a.ctx, script)
+	if win := a.wailsApp.Window.Current(); win != nil {
+		win.ExecJS(script)
+	}
 	return nil
 }
 
@@ -2854,7 +2856,7 @@ func (a *App) UpdateApp(downloadUrl string, filename string, proxyFirst bool) er
 		Client: client,
 		Progress: func(progress float64) {
 			if a.ctx != nil {
-				runtime.EventsEmit(a.ctx, "app-update-progress", progress)
+				events.Emit("app-update-progress", progress)
 			}
 		},
 	}

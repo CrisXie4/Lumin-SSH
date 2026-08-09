@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { Upload, Download, FolderOpen, X, CheckCircle2, AlertCircle, Clock3, ClipboardList } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js'
 
 const MAX_RENDER_UPLOAD_CARDS = 1000;
 
@@ -259,7 +260,7 @@ export default function FileUploadQueuePanel({
       return;
     }
     try {
-      await window?.go?.wailsapp?.App?.OpenLocalPathInExplorer?.(localPath, item.mode !== 'download-file');
+      await AppGo.OpenLocalPathInExplorer?.(localPath, item.mode !== 'download-file');
     } catch (err) {
       window.luminDialog?.alert?.(`${t('打开所在目录失败')}: ${err}`);
     }

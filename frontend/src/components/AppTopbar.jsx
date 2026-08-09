@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { House, Minus, Square, X, Bot, Settings, RefreshCw, Rocket, Sun, Moon, ChevronDown } from 'lucide-react';
 import Tiptop from './Tiptop.jsx';
-import { WindowMinimise } from '../../wailsjs/runtime/runtime.js';
+import { Window } from "@wailsio/runtime";
 import { Z } from '../constants/zIndex.js';
 
 export default function AppTopbar({
@@ -371,7 +371,7 @@ export default function AppTopbar({
             </Tiptop>
             <div className="window-divider" />
             <Tiptop text={t('最小化')} placement="bottom">
-              <button className="btn btn-ghost btn-icon no-drag" onClick={WindowMinimise} aria-label={t('最小化')}><Minus size={14} /></button>
+              <button className="btn btn-ghost btn-icon no-drag" onClick={() => Window.Minimise()} aria-label={t('最小化')}><Minus size={14} /></button>
             </Tiptop>
             <Tiptop text={t('最大化')} placement="bottom">
               <button className="btn btn-ghost btn-icon no-drag" onClick={handleToggleMaximise} aria-label={t('最大化')}><Square size={14} /></button>

@@ -1,11 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import {
-  WindowGetSize,
-  WindowIsMaximised,
-  WindowMaximise,
-  WindowSetSize,
-  WindowToggleMaximise,
-} from '../../wailsjs/runtime/runtime.js';
+import { Window } from "@wailsio/runtime";
 
 function shouldRememberWindowSize() {
   return typeof localStorage !== 'undefined'
@@ -28,8 +22,8 @@ export default function useWindowState() {
     if (!saved) return undefined;
     const frame = window.requestAnimationFrame(async () => {
       try {
-        await WindowSetSize(saved.w, saved.h);
-        if (saved.maximized) await WindowMaximise();
+        await Window.SetSize(saved.w, saved.h);
+        if (saved.maximized) await Window.Maximise();
       } catch { }
     });
     return () => window.cancelAnimationFrame(frame);
@@ -45,7 +39,7 @@ export default function useWindowState() {
 
     const persist = async () => {
       try {
-        const [size, maximized] = await Promise.all([WindowGetSize(), WindowIsMaximised()]);
+        const [size, maximized] = await Promise.all([Window.Size(), Window.IsMaximised()]);
         if (maximized) {
           if (lastMaximized === true) return;
           lastMaximized = true;
@@ -82,12 +76,12 @@ export default function useWindowState() {
   return useCallback(async () => {
     try {
       if (shouldRememberWindowSize()) {
-        const [size, maximized] = await Promise.all([WindowGetSize(), WindowIsMaximised()]);
+        const [size, maximized] = await Promise.all([Window.Size(), Window.IsMaximised()]);
         if (!maximized && size?.w > 100 && size?.h > 100) {
           localStorage.setItem('windowSize', JSON.stringify({ w: size.w, h: size.h, maximized: true }));
         }
       }
     } catch { }
-    WindowToggleMaximise();
+    Window.ToggleMaximise();
   }, []);
 }

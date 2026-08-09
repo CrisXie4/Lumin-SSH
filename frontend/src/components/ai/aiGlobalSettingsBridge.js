@@ -1,5 +1,6 @@
 import { normalizeAISlashCommands } from './aiSlashCommands.js'
 import { getProxyNodes } from '../settings/proxyNodesBridge.js'
+import * as AIBindings from '../../../bindings/luminssh-go/internal/wailsapp/aibindings.js'
 
 const DEFAULT_AI_GLOBAL_SETTINGS = {
   currentProviderId: '',
@@ -43,7 +44,7 @@ const VALID_APPROVAL_BUTTON_ORDERS = new Set(['reject-approve', 'approve-reject'
 const VALID_COMMAND_ACTION_BUTTON_ORDERS = new Set(['terminate-continue', 'continue-terminate'])
 
 function getAppBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
+  return AIBindings
 }
 
 function normalizeStringList(values) {

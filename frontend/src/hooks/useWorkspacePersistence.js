@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { getAllSessionFileManagerWorkspaces } from '../utils/fileWorkbench.js';
 import { normalizeWorkspaceContentTab } from '../utils/sessionWorkspace.js';
 import { sortTerminalPaneCells } from '../utils/terminalPaneLayout.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js'
 
 export function useWorkspaceSessionPersistence({
   activeSessionIdRef,
@@ -75,12 +76,12 @@ export function useWorkspaceSessionPersistence({
     }
     const snapshot = buildSessionWorkspaceSnapshot(session, overrides);
     if (snapshot) {
-      window?.go?.wailsapp?.App?.SaveWorkspaceSessionState?.(session.serverId, JSON.stringify(snapshot)).catch(() => { });
+      AppGo.SaveWorkspaceSessionState?.(session.serverId, JSON.stringify(snapshot)).catch(() => { });
     }
   }, [buildSessionWorkspaceSnapshot, rememberWorkspace, workspacePersistenceLevel]);
 
   const loadServerWorkspaceSessionSnapshot = useCallback(async (serverId) => {
-    const raw = await window?.go?.wailsapp?.App?.GetWorkspaceSessionState?.(serverId);
+    const raw = await AppGo.GetWorkspaceSessionState?.(serverId);
     if (typeof raw !== 'string' || !raw.trim()) {
       return null;
     }
@@ -139,8 +140,8 @@ export default function useWorkspacePersistence({
 }) {
   const persistWorkspaceSnapshot = useCallback((overrides = {}) => {
     if (!rememberWorkspaceLoaded || !workspaceRestoreReady || restoringWorkspaceRef.current) return;
-    const clearSnapshot = () => window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
-    const setLiveSnapshot = (payload) => window?.go?.wailsapp?.App?.SetLiveWorkspaceState?.(payload).catch(() => { });
+    const clearSnapshot = () => AppGo.ClearWorkspaceState?.().catch(() => { });
+    const setLiveSnapshot = (payload) => AppGo.SetLiveWorkspaceState?.(payload).catch(() => { });
     const nextSessions = overrides.sessions || sessionsRef.current;
     const nextActiveSessionId = overrides.activeSessionId ?? activeSessionIdRef.current;
     const nextActiveTerminalId = overrides.activeTerminalId ?? activeTerminalIdRef.current;
@@ -216,7 +217,7 @@ export default function useWorkspacePersistence({
       clearSnapshot();
       return;
     }
-    window?.go?.wailsapp?.App?.SaveWorkspaceState?.(workspaceStatePayload).catch(() => { });
+    AppGo.SaveWorkspaceState?.(workspaceStatePayload).catch(() => { });
     if (workspacePersistenceLevel === 'session') {
       openSessions.forEach((session) => persistServerWorkspaceSessionSnapshot(session, {
         session,

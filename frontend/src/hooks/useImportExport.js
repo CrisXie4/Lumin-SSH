@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 
 export default function useImportExport({ addToast, loadServers, t, lang }) {
   const [showImportExportDialog, setShowImportExportDialog] = useState(false);

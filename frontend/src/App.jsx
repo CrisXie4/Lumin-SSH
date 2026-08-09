@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { EventsOn, WindowMinimise, WindowShow } from '../wailsjs/runtime/runtime.js';
-import * as AppGo from '../wailsjs/go/wailsapp/App.js';
+import { Events, Window } from "@wailsio/runtime";
+import * as AppGo from '../bindings/luminssh-go/internal/wailsapp/app.js';
 import ProbePanel from './components/ProbePanel.jsx';
 import FileManager from './components/FileManager.jsx';
 import AIPanel from './components/AIPanel.jsx';

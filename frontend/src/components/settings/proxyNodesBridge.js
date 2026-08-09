@@ -1,5 +1,7 @@
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js'
+
 function getAppBridge() {
-  return window?.go?.wailsapp?.App;
+  return AppGo;
 }
 
 function createProxyId() {

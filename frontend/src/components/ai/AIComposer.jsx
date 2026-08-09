@@ -1,7 +1,7 @@
 import { Check, ChevronUp, ChevronsUpDown, ImagePlus, ListEnd, Monitor, Play, SendHorizonal, Square, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import * as AppGo from '../../../wailsjs/go/wailsapp/App.js'
-import { ClipboardGetText } from '../../../wailsjs/runtime/runtime.js'
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js'
+import { Clipboard } from "@wailsio/runtime"
 import { useTranslation, t as translate } from '../../i18n.js'
 import AIAutoApproveDropdown from './AIAutoApproveDropdown.jsx'
 import AICollaborationPromptDropdown from './AICollaborationPromptDropdown.jsx'
@@ -550,7 +550,7 @@ export default function AIComposer({
       }
     } catch {}
     try {
-      const text = await ClipboardGetText()
+      const text = await Clipboard.Text()
       if (text) {
         return text
       }

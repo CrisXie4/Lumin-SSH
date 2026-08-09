@@ -1,4 +1,4 @@
-import * as AppGo from '../../../wailsjs/go/wailsapp/App.js'
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js'
 import { getLanguage } from '../../i18n.js'
 
 export const DEFAULT_RUNTIME_ENVIRONMENT_SETTINGS = {
@@ -80,14 +80,14 @@ export async function saveRuntimeEnvironmentSettings(settings) {
 
 export async function getRuntimeEnvironmentStatus() {
   try {
-    return normalizeRuntimeEnvironmentStatus(await window?.go?.wailsapp?.App?.GetRuntimeEnvironmentStatus?.())
+    return normalizeRuntimeEnvironmentStatus(await AppGo.GetRuntimeEnvironmentStatus?.())
   } catch {
     return DEFAULT_RUNTIME_ENVIRONMENT_STATUS
   }
 }
 
 export async function installRuntimeEnvironment() {
-  const installer = window?.go?.wailsapp?.App?.InstallRuntimeEnvironment
+  const installer = AppGo.InstallRuntimeEnvironment
   const language = getLanguage()
   const result = typeof installer === 'function'
     ? await installer(language)

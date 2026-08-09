@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t } from '../i18n.js';
 import { getModKey } from '../utils/platform.js';
 import logoImg from '../assets/logo.webp';
@@ -7,7 +7,7 @@ import { APP_BUILD_TIME, APP_VERSION } from '../config.js';
 import { formatUpdateError, useUpdateChecker } from '../hooks/useUpdateChecker.js';
 import { Sun, Monitor, Moon, Keyboard, Cloud, Info, Database, Folder, X, RefreshCw, Globe, Palette, Lock, SlidersHorizontal } from 'lucide-react';
 import { Z } from '../constants/zIndex';
-import { EventsOn, WindowSetSize, WindowUnmaximise } from '../../wailsjs/runtime/runtime.js';
+import { Events, Window } from "@wailsio/runtime";
 import { deleteProgramFont, getProgramFontAssignmentSnapshot, listProgramFonts, selectAndImportProgramFontFiles, setProgramFontPreference } from '../utils/programFonts.js';
 import { getAppThemeMode, getThemePackageSettings as getStoredThemePackageSettings, getTerminalTheme, listThemePackages, loadThemePackages, saveThemePackageSettings } from '../utils/theme.js';
 import { loadKeywordRulesFromStorage, saveKeywordRulesToStorage, resetKeywordRulesToDefault, setKeywordRules } from '../utils/terminalKeywordHighlight.js';
@@ -900,10 +900,10 @@ export default function SettingsModal({
 
   const handleResetWindowSize = () => {
     localStorage.removeItem('windowSize');
-    WindowUnmaximise();
+    Window.UnMaximise();
     const w = Math.min(1440, Math.floor(screen.width * 0.9));
     const h = Math.min(900, Math.floor(screen.height * 0.9));
-    WindowSetSize(w, h);
+    Window.SetSize(w, h);
     addToast($t('窗口大小已恢复默认'), 'success');
   };
 
@@ -1095,7 +1095,7 @@ export default function SettingsModal({
     const next = !rememberWorkspace;
     setRememberWorkspace(next);
     try {
-      await window?.go?.wailsapp?.App?.SetRememberWorkspace?.(next);
+      await AppGo.SetRememberWorkspace?.(next);
       window.dispatchEvent(new CustomEvent('workspace-remember-changed', { detail: next }));
     } catch (err) {
       setRememberWorkspace(!next);
@@ -1107,7 +1107,7 @@ export default function SettingsModal({
     const previous = workspacePersistenceLevel;
     setWorkspacePersistenceLevel(next);
     try {
-      await window?.go?.wailsapp?.App?.SetWorkspacePersistenceLevel?.(next);
+      await AppGo.SetWorkspacePersistenceLevel?.(next);
       window.dispatchEvent(new CustomEvent('workspace-persistence-level-changed', { detail: next }));
     } catch (err) {
       setWorkspacePersistenceLevel(previous);
@@ -1118,7 +1118,7 @@ export default function SettingsModal({
     const next = !webviewGpuDisabled;
     setWebviewGpuDisabled(next);
     try {
-      await window?.go?.wailsapp?.App?.SetWebviewGpuDisabled?.(next);
+      await AppGo.SetWebviewGpuDisabled?.(next);
       addToast($t('设置已保存，重启后生效'), 'success');
     } catch (err) {
       setWebviewGpuDisabled(!next);
@@ -1290,7 +1290,7 @@ export default function SettingsModal({
     const next = !fileManagerChmodAutoApplyLastSettings;
     setFileManagerChmodAutoApplyLastSettings(next);
     try {
-      const setter = window?.go?.wailsapp?.App?.SetChmodAutoApplyLastSettings;
+      const setter = AppGo.SetChmodAutoApplyLastSettings;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1304,7 +1304,7 @@ export default function SettingsModal({
     const next = !fileManagerDoubleClickUncompressArchive;
     setFileManagerDoubleClickUncompressArchive(next);
     try {
-      const setter = window?.go?.wailsapp?.App?.SetFileManagerDoubleClickUncompressArchive;
+      const setter = AppGo.SetFileManagerDoubleClickUncompressArchive;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1319,7 +1319,7 @@ export default function SettingsModal({
     const next = !fileManagerAutoRefreshDisabled;
     setFileManagerAutoRefreshDisabled(next);
     try {
-      const setter = window?.go?.wailsapp?.App?.SetFileManagerAutoRefreshDisabled;
+      const setter = AppGo.SetFileManagerAutoRefreshDisabled;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1343,7 +1343,7 @@ export default function SettingsModal({
     const previous = fileManagerMaxEditSizeMB;
     setFileManagerMaxEditSizeMB(next);
     try {
-      const setter = window?.go?.wailsapp?.App?.SetFileManagerMaxEditSize;
+      const setter = AppGo.SetFileManagerMaxEditSize;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1359,7 +1359,7 @@ export default function SettingsModal({
     const previous = fileManagerSmartUncompressConflictStrategy;
     setFileManagerSmartUncompressConflictStrategy(next);
     try {
-      const setter = window?.go?.wailsapp?.App?.SetFileManagerSmartUncompressConflictStrategy;
+      const setter = AppGo.SetFileManagerSmartUncompressConflictStrategy;
       if (typeof setter !== 'function') {
         throw new Error($t('应用不可用'));
       }
@@ -1480,7 +1480,7 @@ export default function SettingsModal({
         if (!cancelled && mode) setSyncMode(mode);
       })
       .catch(() => {});
-    Promise.resolve(window?.go?.wailsapp?.App?.GetAutoSyncEnabled?.())
+    Promise.resolve(AppGo.GetAutoSyncEnabled?.())
       .then((enabled) => {
         if (!cancelled && typeof enabled === 'boolean') setAutoSyncEnabled(enabled);
       })
@@ -1491,28 +1491,28 @@ export default function SettingsModal({
       .then((configured) => { if (!cancelled) setHasRecoveryPassword(!!configured); })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.wailsapp?.App?.GetProgramDirectory?.())
+    Promise.resolve(AppGo.GetProgramDirectory?.())
       .then((dir) => {
         if (!cancelled && dir) setProgramDirectory(dir);
       })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.wailsapp?.App?.GetRememberWorkspace?.())
+    Promise.resolve(AppGo.GetRememberWorkspace?.())
       .then((enabled) => {
         if (!cancelled && typeof enabled === 'boolean') setRememberWorkspace(enabled);
       })
       .catch(() => {});
-    Promise.resolve(window?.go?.wailsapp?.App?.GetWorkspacePersistenceLevel?.())
+    Promise.resolve(AppGo.GetWorkspacePersistenceLevel?.())
       .then((level) => {
         if (!cancelled && typeof level === 'string') setWorkspacePersistenceLevel(level === 'session' ? 'session' : 'program');
       })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.wailsapp?.App?.SupportsWebviewGpuDisable?.())
+    Promise.resolve(AppGo.SupportsWebviewGpuDisable?.())
       .then((supported) => {
         if (cancelled || supported !== true) return;
         setSupportsWebviewGpuDisable(true);
-        Promise.resolve(window?.go?.wailsapp?.App?.GetWebviewGpuDisabled?.())
+        Promise.resolve(AppGo.GetWebviewGpuDisabled?.())
           .then((enabled) => {
             if (!cancelled && typeof enabled === 'boolean') setWebviewGpuDisabled(enabled);
           })
@@ -1537,7 +1537,7 @@ export default function SettingsModal({
       })
       .catch(() => {});
 
-    Promise.resolve(window?.go?.wailsapp?.App?.GetFileManagerSettings?.())
+    Promise.resolve(AppGo.GetFileManagerSettings?.())
       .then((settings) => {
         if (cancelled || !settings) return;
         setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);
@@ -1598,7 +1598,7 @@ export default function SettingsModal({
   }, []);
 
   useEffect(() => {
-    const unbind = EventsOn('sync-completed', () => { void refreshSyncMeta(); });
+    const unbind = Events.On('sync-completed', () => { void refreshSyncMeta(); });
     return () => { if (unbind) unbind(); };
   }, [refreshSyncMeta]);
 

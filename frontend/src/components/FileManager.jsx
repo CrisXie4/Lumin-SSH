@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { Virtuoso } from 'react-virtuoso';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 const FileEditor = React.lazy(() => import('./FileEditor.jsx'));
-import { CanResolveFilePaths, EventsOn, OnFileDrop, OnFileDropOff } from '../../wailsjs/runtime/runtime.js';
+import { Events } from "@wailsio/runtime";
 import { useTranslation, t as tKey, getLanguage } from '../i18n.js';
 import { Z } from '../constants/zIndex.js';
 import { clampMenuPosition } from '../utils/menuPosition.js';
@@ -1538,7 +1538,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [fileManagerLayoutMode]);
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve(window?.go?.wailsapp?.App?.GetFileManagerSettings?.())
+    Promise.resolve(AppGo.GetFileManagerSettings?.())
       .then((settings) => {
         if (cancelled || !settings) return;
         setFileManagerDoubleClickUncompressArchive(settings.doubleClickUncompressArchive === true);
@@ -3280,7 +3280,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   // 始终订阅终端 cwd（不依赖 isActive），避免面板隐藏时丢事件
   useEffect(() => {
     if (!sessionId) return undefined;
-    const off = EventsOn(`ssh-terminal-cwd-${sessionId}`, (cwd) => {
+    const off = Events.On(`ssh-terminal-cwd-${sessionId}`, (cwd) => {
       void applyTerminalCwdFollow(cwd);
     });
     return () => {
@@ -3289,7 +3289,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [applyTerminalCwdFollow, sessionId]);
 
   useEffect(() => {
-    const offCompressed = EventsOn(`compressed-upload-progress-${sessionId}`, (payload = {}) => {
+    const offCompressed = Events.On(`compressed-upload-progress-${sessionId}`, (payload = {}) => {
       const uploadId = typeof payload.uploadId === 'string' ? payload.uploadId.trim() : '';
       if (!uploadId) return;
       if (abortedUploadIdsRef.current.has(uploadId)) return;
@@ -3318,7 +3318,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [sessionId, sessionGroupId]);
 
   useEffect(() => {
-    const offDownload = EventsOn(`download-transfer-progress-${sessionId}`, (payload = {}) => {
+    const offDownload = Events.On(`download-transfer-progress-${sessionId}`, (payload = {}) => {
       const downloadId = typeof payload.downloadId === 'string' ? payload.downloadId.trim() : '';
       if (!downloadId) return;
       if (abortedUploadIdsRef.current.has(downloadId)) return;
@@ -3406,8 +3406,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return lines.join('\n');
   }, [t]);
   const resolvePromptDownloadConflict = useCallback(async (item, remotePath, localPath, settings) => {
-    const previewDownloadConflicts = window?.go?.wailsapp?.App?.PreviewDownloadConflicts;
-    const resolveDownloadLocalPath = window?.go?.wailsapp?.App?.ResolveDownloadLocalPath;
+    const previewDownloadConflicts = AppGo.PreviewDownloadConflicts;
+    const resolveDownloadLocalPath = AppGo.ResolveDownloadLocalPath;
     if (typeof previewDownloadConflicts !== 'function') {
       throw new Error(t('当前环境不支持下载冲突处理'));
     }
@@ -3522,11 +3522,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     markUploadAborted(item.id, detail);
     try {
       if (item.direction === 'download') {
-        await window?.go?.wailsapp?.App?.AbortDownloadTransfer?.(item.id);
+        await AppGo.AbortDownloadTransfer?.(item.id);
         return;
       }
       if (item.mode === 'compressed') {
-        await window?.go?.wailsapp?.App?.AbortCompressedUpload?.(item.id);
+        await AppGo.AbortCompressedUpload?.(item.id);
         return;
       }
       if (item.taskId && item.fileId) {
@@ -3775,7 +3775,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
       patchQueueItem(queueId, { status: 'uploading', updatedAt: Date.now() });
       try {
-        await window?.go?.wailsapp?.App?.UploadLocalPathsCompressed?.(
+        await AppGo.UploadLocalPathsCompressed?.(
           sessionId,
           queueId,
           Math.max(1, settings.maxChunksPerFile),
@@ -4025,7 +4025,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [sessionId, sessionGroupId, currentPath, getTransferTaskRunner, getUploadChunkRunner, getUploadSettings, addToast, t, markUploadAborted, openTransferQueueIfNeeded, normalizePath, refreshDirectoryAfterTransfer]);
 
   useEffect(() => {
-    const off = EventsOn('ssh-disconnected', (payload) => {
+    const off = Events.On('ssh-disconnected', (payload) => {
       const data = (payload && typeof payload === 'object')
         ? payload
         : { sessionId: payload, terminalIds: payload ? [payload] : [] };
@@ -4044,7 +4044,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   useEffect(() => {
     if (!sessionId) return undefined;
-    const offSynced = EventsOn('external-edit-synced', (payload = {}) => {
+    const offSynced = Events.On('external-edit-synced', (payload = {}) => {
       if (payload.sessionId !== sessionId) return;
       const remotePath = payload.remotePath || '';
       addToast(`${t('外部编辑已同步到远程')}${remotePath ? `: ${remotePath}` : ''}`, 'success');
@@ -4057,7 +4057,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           .catch(() => {});
       }
     });
-    const offError = EventsOn('external-edit-error', (payload = {}) => {
+    const offError = Events.On('external-edit-error', (payload = {}) => {
       if (payload.sessionId !== sessionId) return;
       addToast(`${t('外部编辑同步失败')}: ${payload.error || ''}`, 'error');
     });
@@ -4365,13 +4365,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const remotePath = joinPath(basePath, item.name);
     const defaultDownloadDir = getDefaultDownloadDir();
     const askDownloadEveryTime = localStorage.getItem('fileManagerAskDownloadEveryTime') === 'true';
-    const resolveDownloadPath = window?.go?.wailsapp?.App?.ResolveDownloadPath;
-    const resolveDownloadLocalPath = window?.go?.wailsapp?.App?.ResolveDownloadLocalPath;
-    const selectDownloadFilePath = window?.go?.wailsapp?.App?.SelectDownloadFilePath;
-    const selectDownloadDirectory = window?.go?.wailsapp?.App?.SelectDownloadDirectory;
-    const downloadFileToLocal = window?.go?.wailsapp?.App?.DownloadFileToLocal;
-    const downloadDirectoryToLocal = window?.go?.wailsapp?.App?.DownloadDirectoryToLocal;
-    const downloadDirectoryCompressed = window?.go?.wailsapp?.App?.DownloadDirectoryCompressed;
+    const resolveDownloadPath = AppGo.ResolveDownloadPath;
+    const resolveDownloadLocalPath = AppGo.ResolveDownloadLocalPath;
+    const selectDownloadFilePath = AppGo.SelectDownloadFilePath;
+    const selectDownloadDirectory = AppGo.SelectDownloadDirectory;
+    const downloadFileToLocal = AppGo.DownloadFileToLocal;
+    const downloadDirectoryToLocal = AppGo.DownloadDirectoryToLocal;
+    const downloadDirectoryCompressed = AppGo.DownloadDirectoryCompressed;
     const createdAt = Date.now();
     let queueId = '';
 
@@ -5674,8 +5674,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const isZip = String(item.name || '').toLowerCase().endsWith('.zip');
     const autoInstallAttempted = typeof options === 'object' && options !== null && options.__autoInstallUnzipAttempted === true;
     try {
-      const previewSmartUncompressItem = window?.go?.wailsapp?.App?.PreviewSmartUncompressItem;
-      const uncompressItemWithStrategy = window?.go?.wailsapp?.App?.UncompressItemWithStrategy;
+      const previewSmartUncompressItem = AppGo.PreviewSmartUncompressItem;
+      const uncompressItemWithStrategy = AppGo.UncompressItemWithStrategy;
       let requestedStrategy = fileManagerSmartUncompressConflictStrategy;
       if (requestedStrategy === 'prompt' && typeof previewSmartUncompressItem === 'function') {
         const preview = await previewSmartUncompressItem(sessionId, remotePath);
@@ -5710,7 +5710,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
     } catch (err) {
       if (isZip && !autoInstallAttempted && isMissingUnzipError(err)) {
-        const installUnzip = window?.go?.wailsapp?.App?.InstallUnzip;
+        const installUnzip = AppGo.InstallUnzip;
         if (typeof installUnzip === 'function') {
           try {
             await installUnzip(sessionId);
@@ -5808,7 +5808,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       rememberedAutoApplyLastSettings = settings?.autoApplyLastSettings === true;
     } catch (_) {}
     let resolvedItem = item;
-    const getPathOwnership = window?.go?.wailsapp?.App?.GetPathOwnership;
+    const getPathOwnership = AppGo.GetPathOwnership;
     const needsMetadata = !item?.permission || !item?.mode || !item?.uid || item?.uid === '-' || !item?.gid || item?.gid === '-';
     if (needsMetadata && typeof getPathOwnership === 'function') {
       try {
@@ -5838,7 +5838,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       includeSubdirectories: rememberedIncludeSubdirectories,
       showIncludeSubdirectories: resolvedItem.isDirectory,
     });
-    const listOwnershipCandidates = window?.go?.wailsapp?.App?.ListOwnershipCandidates;
+    const listOwnershipCandidates = AppGo.ListOwnershipCandidates;
     if (typeof listOwnershipCandidates !== 'function') {
       return;
     }
@@ -5891,7 +5891,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         console.warn('SaveChmodDialogSettings failed:', saveErr);
       }
       if (ownerChanged || groupChanged) {
-        const chownFile = window?.go?.wailsapp?.App?.ChownFile;
+        const chownFile = AppGo.ChownFile;
         if (typeof chownFile !== 'function') {
           throw new Error(t('应用不可用'));
         }
@@ -5903,7 +5903,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       pushFileManagerUndoEntry({
         undo: async () => {
           if (ownerChanged || groupChanged) {
-            const chownFile = window?.go?.wailsapp?.App?.ChownFile;
+            const chownFile = AppGo.ChownFile;
             if (typeof chownFile !== 'function') {
               throw new Error(t('应用不可用'));
             }
@@ -5951,7 +5951,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   useEffect(() => {
     if (!isActive) return undefined;
-    OnFileDrop((x, y, paths) => {
+    const off = Events.On('file-drop', (ev) => {
+      const { x, y, paths } = ev.data || {};
       const rect = fileManagerRootRef.current?.getBoundingClientRect?.();
       const compressedEnabled = isCompressedTransferEnabled();
       const hit = !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -5960,8 +5961,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       setIsDragOver(false);
       dragCounterRef.current = 0;
       void uploadNativePaths(paths || []);
-    }, true);
-    return () => OnFileDropOff();
+    });
+    return off;
   }, [isActive, uploadNativePaths]);
 
   const isFileTransferDragEvent = useCallback((event) => {
@@ -7108,7 +7109,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               const p = editingPath.trim();
               const normalizedTargetPath = normalizePath(p);
               if (normalizedTargetPath && normalizedTargetPath !== currentPath) {
-                const resolveDirectoryPath = window?.go?.wailsapp?.App?.ResolveDirectoryPath;
+                const resolveDirectoryPath = AppGo.ResolveDirectoryPath;
                 let resolvedDirectoryPath = normalizedTargetPath;
                 if (typeof resolveDirectoryPath === 'function') {
                   try {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ShieldAlert, ShieldQuestion, KeyRound, Eye, EyeOff, Clipboard } from 'lucide-react';
+import { Clipboard as WailsClipboard } from '@wailsio/runtime';
 import { Z } from '../constants/zIndex';
 import { getThemeComponentTheme } from '../utils/theme.js';
 
@@ -109,8 +110,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }) {
       }
     } catch {}
     try {
-      const { ClipboardGetText } = await import('../../wailsjs/runtime/runtime.js');
-      const text = await ClipboardGetText();
+      const text = await WailsClipboard.Text();
       if (text) setValue(text);
     } catch {}
   };

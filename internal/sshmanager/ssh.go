@@ -31,7 +31,7 @@ import (
 	"luminssh-go/internal/transfer"
 
 	"github.com/pkg/sftp"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"luminssh-go/internal/events"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/text/encoding"
@@ -221,7 +221,7 @@ func (s transferSink) Emit(event string, payload any) {
 		}
 	}
 	if s.manager != nil && s.manager.ctx != nil {
-		runtime.EventsEmit(s.manager.ctx, event, payload)
+		events.Emit(event, payload)
 	}
 }
 
@@ -438,7 +438,7 @@ func (m *SSHManager) runPostAuthStep(ctx context.Context, cancel context.CancelF
 			return fmt.Errorf("连接已取消")
 		case <-noticeTimer.C:
 			if m != nil && m.ctx != nil {
-				runtime.EventsEmit(m.ctx, "ssh-status", map[string]interface{}{
+				events.Emit("ssh-status", map[string]interface{}{
 					"sessionId": sessionId,
 					"status":    "post-auth-slow",
 					"message":   "SSH 已认证，但打开终端通道响应较慢，服务器可能正在恢复或负载较高。",
@@ -586,7 +586,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 				errStr := dialErr.Error()
 				if strings.Contains(errStr, "connection refused") {
 					if m.ctx != nil {
-						runtime.EventsEmit(m.ctx, "ssh-connection-failed", map[string]interface{}{
+						events.Emit("ssh-connection-failed", map[string]interface{}{
 							"sessionId": sessionId,
 							"connId":    conn.ID,
 							"host":      conn.Host,
@@ -642,7 +642,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 						}
 						isNew := len(pending.OldKeys) == 0
 						m.mu.RUnlock()
-						runtime.EventsEmit(m.ctx, "ssh-host-key-changed", map[string]interface{}{
+						events.Emit("ssh-host-key-changed", map[string]interface{}{
 							"sessionId":       sessionId,
 							"hostname":        hostname,
 							"host":            conn.Host,
@@ -659,7 +659,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 				if strings.Contains(errStr, "unable to authenticate") ||
 					strings.Contains(errStr, "no supported methods remain") {
 					if m.ctx != nil {
-						runtime.EventsEmit(m.ctx, "ssh-auth-failed", map[string]interface{}{
+						events.Emit("ssh-auth-failed", map[string]interface{}{
 							"sessionId": sessionId,
 							"connId":    conn.ID,
 							"host":      conn.Host,
@@ -919,7 +919,7 @@ func (m *SSHManager) initSFTPClient(sessionId string, connKey string, conn Conne
 	}
 
 	if err != nil && m.ctx != nil {
-		runtime.EventsEmit(m.ctx, "ssh-status", map[string]interface{}{
+		events.Emit("ssh-status", map[string]interface{}{
 			"sessionId": sessionId,
 			"status":    "sftp-unavailable",
 			"host":      conn.Host,
@@ -1079,7 +1079,7 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 		if parentSessionId == "" {
 			parentSessionId = terminalIds[0]
 		}
-		runtime.EventsEmit(m.ctx, "ssh-disconnected", map[string]interface{}{
+		events.Emit("ssh-disconnected", map[string]interface{}{
 			"sessionId":        terminalIds[0],
 			"parentSessionId":  parentSessionId,
 			"terminalIds":      terminalIds,
@@ -1137,7 +1137,7 @@ func (m *SSHManager) disconnectAndNotify(sessionId string, reason string) {
 		connectionClosed = !clientAlive || (terminalsBefore > 0 && terminalsAfter == 0)
 	}
 
-	runtime.EventsEmit(m.ctx, "ssh-disconnected", map[string]interface{}{
+	events.Emit("ssh-disconnected", map[string]interface{}{
 		"sessionId":        sessionId,
 		"parentSessionId":  parentSessionId,
 		"terminalIds":      []string{sessionId},
@@ -1172,7 +1172,7 @@ func (m *SSHManager) disconnectCurrentGen(sessionId string, gen uint64) {
 	if !m.Disconnect(sessionId) || m.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(m.ctx, "ssh-disconnected", map[string]interface{}{
+	events.Emit("ssh-disconnected", map[string]interface{}{
 		"sessionId":        sessionId,
 		"parentSessionId":  parentSessionId,
 		"terminalIds":      []string{sessionId},
@@ -1220,14 +1220,14 @@ func (m *SSHManager) pipeOutput(sessionId string, r io.Reader, historyStream *te
 					}
 					m.mu.Unlock()
 					if shouldEmitCwd && m.ctx != nil {
-						runtime.EventsEmit(m.ctx, "ssh-terminal-cwd-"+sessionId, cwd)
+						events.Emit("ssh-terminal-cwd-"+sessionId, cwd)
 					}
 				}
 				for _, command := range commands {
 					if command == "" || m.ctx == nil {
 						continue
 					}
-					runtime.EventsEmit(m.ctx, "ssh-command-executed", map[string]string{
+					events.Emit("ssh-command-executed", map[string]string{
 						"sessionId": eventSessionId,
 						"command":   command,
 						"time":      time.Now().Format(time.RFC3339),
@@ -1247,7 +1247,7 @@ func (m *SSHManager) pipeOutput(sessionId string, r io.Reader, historyStream *te
 			if m.app != nil {
 				m.app.WriteWsOutput(sessionId, data)
 			} else if m.ctx != nil {
-				runtime.EventsEmit(m.ctx, "terminal-data-"+sessionId, string(data))
+				events.Emit("terminal-data-"+sessionId, string(data))
 			}
 		}
 		if err != nil {
@@ -1314,7 +1314,7 @@ func (m *SSHManager) pipeLocalOutput(sessionId string, cptyHandle any, stdoutPip
 					}
 					m.mu.Unlock()
 					if shouldEmitCwd && m.ctx != nil {
-						runtime.EventsEmit(m.ctx, "ssh-terminal-cwd-"+sessionId, cwd)
+						events.Emit("ssh-terminal-cwd-"+sessionId, cwd)
 					}
 				}
 			} else {
@@ -1332,7 +1332,7 @@ func (m *SSHManager) pipeLocalOutput(sessionId string, cptyHandle any, stdoutPip
 			if m.app != nil {
 				m.app.WriteWsOutput(sessionId, data)
 			} else if m.ctx != nil {
-				runtime.EventsEmit(m.ctx, "terminal-data-"+sessionId, string(data))
+				events.Emit("terminal-data-"+sessionId, string(data))
 			}
 			if err != nil {
 				return
@@ -1903,7 +1903,7 @@ func (m *SSHManager) StartLocalCwdMonitor(sessionId string) {
 				}
 				m.mu.Unlock()
 				if changed && m.ctx != nil {
-					runtime.EventsEmit(m.ctx, "ssh-terminal-cwd-"+sessionId, cwd)
+					events.Emit("ssh-terminal-cwd-"+sessionId, cwd)
 				}
 			}
 		}
@@ -4358,7 +4358,7 @@ func (p *progressReader) emit(current int64) {
 		}
 	}
 	if p.ctx != nil {
-		runtime.EventsEmit(p.ctx, p.eventName, pct)
+		events.Emit(p.eventName, pct)
 	}
 }
 

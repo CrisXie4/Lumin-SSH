@@ -3,7 +3,37 @@ import { useState, useEffect } from 'react';
 const DEFAULT_LANG = 'zh-CN';
 
 const languageModuleLoaders = import.meta.glob('./i18n/*/basic.js');
-const languageLabelModules = import.meta.glob('./i18n/*/basic.js', { import: 'LANGUAGE_LABEL', eager: true });
+
+// 语言名称不需要加载完整语言包，使用元数据映射可保持语言包按需加载。
+const languageLabels = {
+  ar: 'العربية',
+  bn: 'বাংলা',
+  cs: 'Čeština',
+  de: 'Deutsch',
+  'en-US': 'English',
+  es: 'Español',
+  'fa-IR': 'فارسی',
+  fr: 'Français',
+  hi: 'हिन्दी',
+  id: 'Bahasa Indonesia',
+  it: 'Italiano',
+  'ja-JP': '日本語',
+  'ko-KR': '한국어',
+  nl: 'Nederlands',
+  pl: 'Polski',
+  'pt-BR': 'Português (Brasil)',
+  ro: 'Română',
+  ru: 'Русский',
+  th: 'ไทย',
+  tr: 'Türkçe',
+  uk: 'Українська',
+  vi: 'Tiếng Việt',
+  'zh-CN': '简体中文',
+  'zh-HK': '繁體中文（香港）',
+  'zh-Hant': '繁體中文',
+  'zh-MO': '繁體中文（澳門）',
+  'zh-TW': '繁體中文（台灣）',
+};
 
 function buildLanguageMap(modules) {
   return Object.fromEntries(
@@ -17,7 +47,6 @@ function buildLanguageMap(modules) {
 }
 
 const languageLoaders = buildLanguageMap(languageModuleLoaders);
-const languageLabels = buildLanguageMap(languageLabelModules);
 
 const loadedDict = Object.create(null);
 const loadingPromises = Object.create(null);

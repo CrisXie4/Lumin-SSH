@@ -9,8 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 var (
@@ -454,17 +453,17 @@ func getScreenSize() (int, int) {
 	return int(float64(cx) / scale), int(float64(cy) / scale)
 }
 
-// applyPlatformOptions 设置 Windows 特定的 Wails 选项，并根据屏幕大小自适应窗口尺寸
-func ApplyOptions(opts *options.App, webviewGpuDisabled bool) {
+// ApplyOptions 设置 Windows 特定的 Wails 选项，并根据屏幕大小自适应窗口尺寸
+func ApplyOptions(appOpts *application.Options, winOpts *application.WebviewWindowOptions, webviewGpuDisabled bool) {
 	// ponytail: 根据屏幕分辨率自适应窗口大小，上限 1440x900，留 10% 边距
 	sw, sh := getScreenSize()
 	targetW := int(float64(sw) * 0.9)
 	targetH := int(float64(sh) * 0.9)
-	if opts.Width > targetW {
-		opts.Width = targetW
+	if winOpts.Width > targetW {
+		winOpts.Width = targetW
 	}
-	if opts.Height > targetH {
-		opts.Height = targetH
+	if winOpts.Height > targetH {
+		winOpts.Height = targetH
 	}
 
 	// 固定 WebView2 用户数据根目录为 %AppData%\Lumin，避免便携包改名后按 exe 名多出
@@ -475,14 +474,15 @@ func ApplyOptions(opts *options.App, webviewGpuDisabled bool) {
 		_ = os.MkdirAll(webviewUserDataPath, 0700)
 	}
 
-	opts.Windows = &windows.Options{
-		WebviewIsTransparent:              true,
-		WindowIsTranslucent:               true,
-		DisableWindowIcon:                 false,
-		DisableFramelessWindowDecorations: false,
-		WebviewUserDataPath:               webviewUserDataPath,
-		ZoomFactor:                        1.0,
-		WebviewGpuIsDisabled:              webviewGpuDisabled,
-		Theme:                             windows.Dark,
+	appOpts.Windows = application.WindowsOptions{
+		WebviewUserDataPath: webviewUserDataPath,
+	}
+	if webviewGpuDisabled {
+		appOpts.Windows.AdditionalBrowserArgs = []string{"--disable-gpu"}
+	}
+
+	winOpts.BackgroundType = application.BackgroundTypeTranslucent
+	winOpts.Windows = application.WindowsWindow{
+		Theme: application.Dark,
 	}
 }

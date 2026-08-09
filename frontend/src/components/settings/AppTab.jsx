@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import * as AppGo from '../../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js';
+import { Browser } from '@wailsio/runtime';
 import { t as $t } from '../../i18n.js';
 import {
   APP_GITHUB_ANDROID_RELEASES_URL,
@@ -392,7 +393,7 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
           <button
             type="button"
-            onClick={() => window.runtime?.BrowserOpenURL(APP_GITHUB_ANDROID_REPO_URL)}
+            onClick={() => Browser.OpenURL(APP_GITHUB_ANDROID_REPO_URL)}
             style={{
               background: 'var(--surface-base)',
               color: 'var(--accent)',
@@ -408,7 +409,7 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
           </button>
           <button
             type="button"
-            onClick={() => window.runtime?.BrowserOpenURL(APP_GITHUB_ANDROID_RELEASES_URL)}
+            onClick={() => Browser.OpenURL(APP_GITHUB_ANDROID_RELEASES_URL)}
             style={{
               background: 'var(--surface-base)',
               color: 'var(--text-secondary)',
@@ -447,7 +448,7 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
             : contributors.map((item) => (
                 <div
                   key={item.login}
-                  onClick={() => window.runtime?.BrowserOpenURL(item.profileUrl)}
+                  onClick={() => Browser.OpenURL(item.profileUrl)}
                   className="about-list-item"
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', background: 'var(--surface-overlay)', border: '1px solid var(--border)', textAlign: 'left' }}
                 >

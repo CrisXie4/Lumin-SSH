@@ -2,7 +2,7 @@
 
 package platformruntime
 
-import "github.com/wailsapp/wails/v2/pkg/options"
+import "github.com/wailsapp/wails/v3/pkg/application"
 
 // ApplyOptions 在 Linux 上无需附加平台选项。
-func ApplyOptions(_ *options.App, _ bool) {}
+func ApplyOptions(_ *application.Options, _ *application.WebviewWindowOptions, _ bool) {}

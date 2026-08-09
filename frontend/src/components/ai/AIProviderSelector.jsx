@@ -7,6 +7,9 @@ import Tiptop from '../Tiptop.jsx'
 import { getAIProviderState, isBuiltinAIProvider, normalizeAIProviderState, saveAIProviderState } from './aiProviderBridge.js'
 import { getAIProviderDefinition } from './providers/index.js'
 import { isCallMyVipProviderHost } from './providerSpecialHosts.js'
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js'
+import * as AIBindings from '../../../bindings/luminssh-go/internal/wailsapp/aibindings.js'
+import * as AIProviderBindings from '../../../bindings/luminssh-go/internal/wailsapp/aiproviderbindings.js'
 
 const defaultProviders = []
 const summaryTooltipDelay = 300
@@ -512,7 +515,11 @@ function buildEmbeddedBrowserAuthRequest(context) {
 }
 
 function getAppBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.AIProviderBindings || window?.go?.wailsapp?.App
+  return {
+    ...AIBindings,
+    ...AIProviderBindings,
+    ...AppGo,
+  }
 }
 
 export default function AIProviderSelector({
@@ -1542,7 +1549,7 @@ export default function AIProviderSelector({
       if (targetWindow) {
         targetWindow.postMessage(requestPayload, targetOrigin || '*')
       }
-      const injectBridge = window?.go?.wailsapp?.App?.InjectAIBuiltinLoginBridge
+      const injectBridge = AppGo.InjectAIBuiltinLoginBridge
       if (typeof injectBridge === 'function') {
         Promise.resolve(injectBridge(JSON.stringify({
           frameSrc: tokenStoreFrameURL,

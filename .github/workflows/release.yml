@@ -13,7 +13,7 @@ on:
 
 env:
   NODE_VERSION: '24'
-  WAILS_VERSION: 'v2.13.0'
+  WAILS_VERSION: 'v3.0.0-beta.6'
   GO_VERSION: '1.26'
 
 permissions:
@@ -127,7 +127,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
 
       - name: Install frontend dependencies
         run: npm install
@@ -138,7 +138,7 @@ jobs:
           VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
           export PATH=$HOME/go/bin:$PATH
-          wails build -clean -tags webkit2_41 -ldflags "-s -w" -upx -o Lumin
+          wails3 build --tags webkit2_41
           cp build/bin/Lumin "build/Lumin-V${VERSION}-linux-amd64"
           shasum -a 256 "build/Lumin-V${VERSION}-linux-amd64" | sed 's|build/||' > "build/Lumin-V${VERSION}-linux-amd64.sha256"
           echo "binary=${{ github.workspace }}/build/Lumin-V${VERSION}-linux-amd64" >> $GITHUB_ENV
@@ -246,7 +246,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
 
       - name: Install frontend dependencies
         run: npm install
@@ -255,10 +255,47 @@ jobs:
       - name: Build Wails
         run: |
           export PATH=$HOME/go/bin:$PATH
-          wails build -clean -ldflags "-s -w" -o Lumin
+          wails3 build
           uname -m
-          file build/bin/Lumin.app/Contents/MacOS/Lumin
-          lipo -archs build/bin/Lumin.app/Contents/MacOS/Lumin
+          file build/bin/Lumin
+          # 创建 .app 包结构
+          mkdir -p build/bin/Lumin.app/Contents/MacOS
+          mkdir -p build/bin/Lumin.app/Contents/Resources
+          cp build/bin/Lumin build/bin/Lumin.app/Contents/MacOS/Lumin
+          cat > build/bin/Lumin.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>Lumin</string>
+            <key>CFBundleIconFile</key>
+            <string>iconfile.icns</string>
+            <key>CFBundleIdentifier</key>
+            <string>xyz.lumin.ssh</string>
+            <key>CFBundleName</key>
+            <string>Lumin</string>
+            <key>CFBundleDisplayName</key>
+            <string>Lumin SSH</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.2.6</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>10.13.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+            <key>NSAppTransportSecurity</key>
+            <dict>
+              <key>NSAllowsArbitraryLoads</key>
+              <true/>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          if [ -f build/darwin/icons.icns ]; then
+            cp build/darwin/icons.icns build/bin/Lumin.app/Contents/Resources/iconfile.icns
+          fi
 
       - name: Package .app to .dmg
         env:
@@ -301,7 +338,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
 
       - name: Install NSIS & UPX
         run: choco install nsis upx -y
@@ -313,7 +350,9 @@ jobs:
       - name: Build Wails (binary + NSIS installer)
         run: |
           $env:PATH = "$env:USERPROFILE\go\bin;C:\Program Files (x86)\NSIS;" + $env:PATH
-          wails build -clean -o Lumin.exe --nsis -ldflags "-s -w" -upx
+          wails3 build
+          upx --best --lzma build/bin/Lumin.exe
+          makensis -DARG_WAILS_AMD64_BINARY=../../bin/Lumin.exe build/windows/installer/project.nsi
 
       - name: Package portable & installer
         shell: bash

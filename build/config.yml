@@ -1,0 +1,10 @@
+version: '3'
+
+info:
+  companyName: "Lumin"
+  productName: "Lumin"
+  productIdentifier: "xyz.lumin.ssh"
+  description: "Lightweight SSH Client"
+  copyright: "Copyright 2026 Lumin"
+  comments: "Lightweight SSH Client"
+  version: "1.2.6"

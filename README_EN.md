@@ -220,21 +220,20 @@ AI provider/MCP/backup options live in the **AI panel settings**, not these tabs
 
 ## Build
 
-- Go **1.26+**, Node 18+, Wails v2 CLI
+- Go **1.26+**, Node 18+, Wails **v3.0.0-beta.6** CLI
 
 ```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 git clone https://github.com/wmwlwmwl/Lumin-SSH.git
-cd Lumin-SSH
-wails build
-# Windows installer (NSIS required):
-wails build -nsis
+cd Lumin-SSH/pc
+wails3 dev           # dev mode: frontend HMR + Go backend live reload
+wails3 build
 ```
 
-One-click Windows local build (auto-syncs version, UPX compression, outputs `Lumin-V{version}-portable.exe` and `Lumin-V{version}-amd64-installer.exe`):
+One-click Windows local build (auto-syncs version and outputs `Lumin-V{version}-portable.exe`):
 
 ```powershell
-.\build_release.ps1    # requires local Go, NSIS, UPX
+.\build_release.bat    # requires local Go, NSIS, UPX
 ```
 
 Tagged releases (changelog + multi-platform packages): [.github/RELEASE_EN.md](.github/RELEASE_EN.md).

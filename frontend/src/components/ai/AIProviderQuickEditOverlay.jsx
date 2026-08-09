@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, CircleHelp, Clipboard, Globe, Save, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { EventsOn } from '../../../wailsjs/runtime/runtime.js'
+import { Events, Clipboard as WailsClipboard } from "@wailsio/runtime"
 import { useTranslation, t as translate } from '../../i18n.js'
 import { getAIGlobalSettings } from './aiGlobalSettingsBridge.js'
 import { isBuiltinAIProvider, runAIProviderAPIKeyPasteHandler } from './aiProviderBridge.js'
@@ -11,6 +11,9 @@ import {
   getAIProviderDefinition,
 } from './providers/index.js'
 import { handleInputDragSelectAll } from './inputDragSelect.js'
+import * as AppGo from '../../../bindings/luminssh-go/internal/wailsapp/app.js'
+import * as AIBindings from '../../../bindings/luminssh-go/internal/wailsapp/aibindings.js'
+import * as AIProviderBindings from '../../../bindings/luminssh-go/internal/wailsapp/aiproviderbindings.js'
 
 const defaultCacheOptions = [
   { value: 'model', labelKey: '基于模型能力' },
@@ -49,11 +52,15 @@ function getProviderDisplayLabel(provider, t) {
 }
 
 function getAppBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.AIProviderBindings || window?.go?.wailsapp?.App
+  return {
+    ...AIBindings,
+    ...AIProviderBindings,
+    ...AppGo,
+  }
 }
 
 async function getBuiltinProviderRuntimeStatus(providerId) {
-  const getter = window?.go?.wailsapp?.App?.GetBuiltinProviderRuntimeStatus
+  const getter = AppGo.GetBuiltinProviderRuntimeStatus
   if (typeof getter !== 'function') {
     return { providerId: 'builtin-kimi', state: 'idle', ready: false }
   }
@@ -89,7 +96,7 @@ async function initializeBuiltinProvider(providerId, language) {
     return { blockedByRuntimeEnvironment: true }
   }
 
-  const initializer = window?.go?.wailsapp?.App?.InitializeBuiltinProvider
+  const initializer = AppGo.InitializeBuiltinProvider
   if (typeof initializer !== 'function') {
     return { blockedByRuntimeEnvironment: false }
   }
@@ -602,7 +609,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
       }
     }
 
-    const unbindLog = EventsOn('builtin-provider-init-log', (payload) => {
+    const unbindLog = Events.On('builtin-provider-init-log', (payload) => {
       const normalizedProviderId = typeof (draft.id || provider?.id) === 'string' && (draft.id || provider?.id).trim()
         ? (draft.id || provider?.id).trim()
         : 'builtin-kimi'
@@ -1145,7 +1152,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     : (builtinProviderRuntimeState === 'starting' ? '[启动中]' : '[初始化]')
 
   const handleTerminateBuiltinProviderInitialization = async () => {
-    const terminator = window?.go?.wailsapp?.App?.CancelBuiltinProviderInitialization
+    const terminator = AppGo.CancelBuiltinProviderInitialization
     if (typeof terminator !== 'function' || builtinProviderInitTerminating) {
       return
     }
@@ -1170,8 +1177,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
       return
     } catch {}
     try {
-      const { ClipboardSetText } = await import('../../../wailsjs/runtime/runtime.js')
-      await ClipboardSetText(builtinProviderInitLogs)
+      await WailsClipboard.SetText(builtinProviderInitLogs)
     } catch {}
   }
 

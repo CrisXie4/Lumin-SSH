@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js'
 
 export default function useWorkspaceSettings() {
   const [rememberWorkspace, setRememberWorkspace] = useState(false);
@@ -7,7 +8,7 @@ export default function useWorkspaceSettings() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve(window?.go?.wailsapp?.App?.GetRememberWorkspace?.())
+    Promise.resolve(AppGo.GetRememberWorkspace?.())
       .then((enabled) => {
         if (!cancelled) {
           setRememberWorkspace(!!enabled);
@@ -20,7 +21,7 @@ export default function useWorkspaceSettings() {
           setRememberWorkspaceLoaded(true);
         }
       });
-    Promise.resolve(window?.go?.wailsapp?.App?.GetWorkspacePersistenceLevel?.())
+    Promise.resolve(AppGo.GetWorkspacePersistenceLevel?.())
       .then((level) => {
         if (!cancelled) setWorkspacePersistenceLevel(level === 'session' ? 'session' : 'program');
       })

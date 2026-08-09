@@ -1,4 +1,5 @@
 import React from 'react';
+import { Browser } from '@wailsio/runtime';
 import { t as $t } from '../../i18n.js';
 
 export const SETTINGS_TAB_GAP = 14;
@@ -115,7 +116,7 @@ export function AboutLink({ icon, title, url, definition }) {
   return (
     <div
       data-settings-field-id={definition?.id}
-      onClick={() => window.runtime?.BrowserOpenURL(url)}
+      onClick={() => Browser.OpenURL(url)}
       className="about-list-item"
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '16px 12px', minHeight: 96, borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center' }}
     >

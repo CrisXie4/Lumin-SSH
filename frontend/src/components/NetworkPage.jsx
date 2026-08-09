@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 import { useTranslation } from '../i18n.js';
 import Tiptop from './Tiptop.jsx';
 import { formatRate, formatTransferTotal } from './probeFormatting.js';

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, Plus, X, Monitor, Key, FolderOpen, SquarePen, KeyRound, Globe } from 'lucide-react';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 import { useTranslation } from '../i18n.js';
 import { TERMINAL_ENCODING_GROUPS } from '../constants/terminalEncodings.js';
 import SearchableGroupedSelect from './SearchableGroupedSelect.jsx';

@@ -4,7 +4,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import { useTranslation } from '../../../i18n.js'
 import { openGlobalContextMenu } from '../../../utils/contextMenu.js'
-import * as runtime from '../../../../wailsjs/runtime/runtime.js'
+import * as runtime from "@wailsio/runtime"
 
 // 清理 GFM 自动链接中误吞的非 URL 字符
 // 1. 硬截断：HTML 定界符/引号/反斜杠不应出现在 URL 中
@@ -78,10 +78,9 @@ function openExternalLink(event, href) {
   if (!nextHref) {
     return
   }
-  const openUrl = window?.runtime?.BrowserOpenURL
-  if (typeof openUrl === 'function') {
+  if (runtime?.Browser?.OpenURL) {
     event.preventDefault()
-    openUrl(nextHref)
+    runtime.Browser.OpenURL(nextHref)
   }
 }
 
@@ -149,7 +148,7 @@ async function copyTextToClipboard(text) {
     return
   }
   try {
-    await runtime.ClipboardSetText(nextText)
+    await runtime.Clipboard.SetText(nextText)
     return
   } catch {}
   try {

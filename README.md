@@ -251,25 +251,25 @@ Lumin 是一款面向开发者和运维人员的桌面 SSH 客户端。基于 **
 ### 环境
 - Go **1.26+**（见 `go.mod`）
 - Node.js 18+
-- [Wails v2](https://wails.io/) CLI
+- Wails **v3.0.0-beta.6** CLI
 
 ### 命令
 
 ```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 git clone https://github.com/wmwlwmwl/Lumin-SSH.git
-cd Lumin-SSH
+cd Lumin-SSH/pc
 
-wails build          # 便携/平台默认产物
-wails build -nsis    # Windows 安装包（需 NSIS）
+wails3 dev           # 开发模式：前端热更新 + Go 后端实时重载
+wails3 build         # 生成平台默认产物
 ```
 
-常见产物：`build/bin/Lumin` / `Lumin.exe`；安装包与 deb/rpm/dmg 由 CI 或本地脚本按平台生成。
+常见产物：`build/bin/Lumin` / `Lumin.exe`；安装包与 deb/rpm/dmg 由 CI 按平台生成。
 
 Windows 本地一键构建（自动同步版本号、UPX 压缩、输出 `Lumin-V{版本}-portable.exe` 与 `Lumin-V{版本}-amd64-installer.exe`）：
 
 ```powershell
-.\build_release.ps1    # 需本地具备 Go、NSIS、UPX 环境
+.\build_release.bat    # 需本地具备 Go、NSIS、UPX 环境
 ```
 
 正式发版（打 tag、更新日志、多平台包）见 [.github/RELEASE.md](.github/RELEASE.md)。

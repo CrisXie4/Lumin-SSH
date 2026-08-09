@@ -3,6 +3,7 @@ import {
   TERMINAL_PANE_CELL_IDS, getTerminalDockTargetCellId, getTerminalPaneRect,
   isTerminalPaneRectangular, normalizeTwoTerminalPaneLayout, sortTerminalPaneCells, splitTerminalPaneCells,
 } from '../utils/terminalPaneLayout.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 
 export default function useTerminalDocking(deps) {
   const { activeSessionIdRef, activeTerminalIdRef, contentTabRef, disconnectSessionTerminals, getEffectiveTerminals, getSessionGroupedTerminalIds, getSessionPaneLayouts, getSessionPanes, getSessionRootPaneCells, getSessionRootTerminals, lastContentTabRef, lastTerminalRef, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, resolveSessionRootTerminalId, sessionsRef, setActiveTerminalId, setContentTab, setMountedSessions, setSessions, setTabContextMenu, setTerminalPaneLayouts, setTerminalTabContextMenu, switchToNextSession, terminalPaneIdRef, terminalPaneLayouts, terminalPaneLayoutsRef } = deps;
@@ -245,7 +246,7 @@ export default function useTerminalDocking(deps) {
         activeTerminalId: activeSessionIdRef.current === sessionId ? activeTerminalIdRef.current : lastTerminalRef.current[sessionId],
         contentTab: activeSessionIdRef.current === sessionId ? contentTabRef.current : (lastContentTabRef.current[sessionId] || 'terminal'),
       });
-      window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
+      AppGo.ClearWorkspaceState?.().catch(() => { });
       setSessions((prev) => prev.filter((item) => item.id !== sessionId));
       setMountedSessions((prev) => {
         if (!prev.has(sessionId)) return prev;

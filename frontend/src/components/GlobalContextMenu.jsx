@@ -4,7 +4,7 @@ import { useTranslation } from '../i18n.js';
 import { formatShortcut } from '../utils/platform.js';
 import { clampMenuPosition } from '../utils/menuPosition.js';
 import { GLOBAL_CONTEXT_MENU_OPEN_EVENT } from '../utils/contextMenu.js';
-import * as runtime from '../../wailsjs/runtime/runtime.js';
+import * as runtime from "@wailsio/runtime";
 
 function normalizeMenuItems(items) {
   if (!Array.isArray(items)) {
@@ -71,7 +71,7 @@ export default function GlobalContextMenu() {
       if (action === 'copy') {
         const text = targetInput.value.substring(targetInput.selectionStart, targetInput.selectionEnd);
         if (text) {
-          await runtime.ClipboardSetText(text);
+          await runtime.Clipboard.SetText(text);
         }
         return;
       }
@@ -80,7 +80,7 @@ export default function GlobalContextMenu() {
         if (!text) {
           return;
         }
-        await runtime.ClipboardSetText(text);
+        await runtime.Clipboard.SetText(text);
         const start = targetInput.selectionStart;
         const end = targetInput.selectionEnd;
         const proto = targetInput.tagName === 'TEXTAREA'
@@ -96,7 +96,7 @@ export default function GlobalContextMenu() {
       if (action === 'paste') {
         let text = '';
         try {
-          text = await runtime.ClipboardGetText();
+          text = await runtime.Clipboard.Text();
         } catch {}
         if (!text) {
           try {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"luminssh-go/internal/events"
 )
 
 const defaultSSHMaxSessions = 10
@@ -164,7 +164,7 @@ func (m *SSHManager) emitSSHChannelUsage(connKey string) {
 	}
 	usage := m.collectSSHChannelUsage(connKey)
 	sessionIds := m.sessionIdsForConnKey(connKey)
-	runtime.EventsEmit(m.ctx, "ssh-channel-usage", map[string]interface{}{
+	events.Emit("ssh-channel-usage", map[string]interface{}{
 		"connKey":     connKey,
 		"sessionIds":  sessionIds,
 		"terminals":   usage.Terminals,

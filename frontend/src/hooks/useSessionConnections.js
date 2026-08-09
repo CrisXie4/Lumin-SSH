@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
-import { EventsOn, WindowHide } from '../../wailsjs/runtime/runtime.js';
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import { Events, Window } from "@wailsio/runtime";
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 
 export default function useSessionConnections(deps) {
   const { activeSessionIdRef, activeTerminalIdRef, addToast, authPromptTokenRef, awaitDisconnectTerminals, buildTerminalCloneCwdCommand, cancelledConnectionsRef, clearSessionAuthPrompt, cloneSessionFileManagerWorkspaceState, connectingServersRef, contentTabRef, creatingTerminalRef, credentials, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition, getAllSessionFileManagerWorkspaces, getSessionFileManagerWorkspace, isRecoveryPasswordError, isUnsupportedMonitorSession, lastContentTabRef, lastTerminalRef, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, mountedRef, normalizeWorkspaceContentTab, persistServerWorkspaceSessionSnapshot, persistWorkspaceSnapshotRef, recordRecentConnection, registerServerDisconnect, remapSessionFileManagerWorkspaceMap, remapSessionFileManagerWorkspaces, remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal, rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId, replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef, serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId, setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials, setMonitoringEnabled, setMountedSessions, setRestoringWorkspaceSessionIds, setServers, setServersLoaded, setSessionAuthPrompts, setSessionFileManagerWorkspace, setSessions, setSettingsInitialTab, setShowSettings, setSshChannelUsage, setSyncFailed, setTabContextMenu, setTerminalPaneLayouts, setTerminalSubTabOverflow, setTerminalTabContextMenu, setWorkspaceRestoreReady, sortTerminalPaneCells, syncFailed, syncWithRecoveryPassword, t, terminalPaneLayoutsRef, terminalSubTabScrollBySessionRef, terminalSubTabScrollRef, terminalSubTabScrollTargetRef, updateSessionStatus, waitForServerDisconnect, workspacePersistenceLevel, workspaceRestoreNavigationOverrideRef, workspaceRestoreStartedRef } = deps;
@@ -186,7 +186,7 @@ export default function useSessionConnections(deps) {
       const serverObj = { id: session.serverId, name: session.serverName, host: 'localhost' };
       setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
       try {
-        await window.go.wailsapp.App.ConnectLocal(session.id, session.serverName, session.shellPath, '');
+        await AppGo.ConnectLocal(session.id, session.serverName, session.shellPath, '');
         // 本地/串口复用同一 sessionId 重连：自增 wsRebuildKey 让 Terminal 重建 WebSocket
         if (!deferState) {
           setSessions((prev) =>
@@ -212,7 +212,7 @@ export default function useSessionConnections(deps) {
       setConnectingServers((prev) => [...prev, { server: serverObj, sessionId: session.id, startTime: Date.now() }]);
       try {
         const config = session.serialConfig;
-        await window.go.wailsapp.App.ConnectSerial(
+        await AppGo.ConnectSerial(
           session.id,
           session.serverName,
           config.port,
@@ -322,7 +322,7 @@ export default function useSessionConnections(deps) {
       return;
     }
     (async () => {
-      const raw = await window?.go?.wailsapp?.App?.GetWorkspaceState?.();
+      const raw = await AppGo.GetWorkspaceState?.();
       if (typeof raw !== 'string' || !raw.trim()) {
         return;
       }
@@ -505,7 +505,7 @@ export default function useSessionConnections(deps) {
 
   // ── 监听 SSH 断开事件（整机意外断 vs 单终端结束）────────────────
   useEffect(() => {
-    const unbind = EventsOn('ssh-disconnected', (payload) => {
+    const unbind = Events.On('ssh-disconnected', (payload) => {
       // 兼容旧版纯 string sessionId
       const data = (payload && typeof payload === 'object')
         ? payload
@@ -598,7 +598,7 @@ export default function useSessionConnections(deps) {
   // 只写入该会话的待确认状态，由会话面板内的 SessionAuthCard 呈现，
   // 批量连接时 N 台主机就有 N 张卡片，各自独立。
   useEffect(() => {
-    const unbind = EventsOn('ssh-host-key-changed', (data) => {
+    const unbind = Events.On('ssh-host-key-changed', (data) => {
       const {
         sessionId, host, port, newFingerprint, oldFingerprints, isNew
       } = data;
@@ -683,7 +683,7 @@ export default function useSessionConnections(deps) {
   // ── 监听认证失败事件（密码错误等） ──────────────────────────
   // 只写入该会话的待确认状态，由会话面板内的 SessionAuthCard 呈现
   useEffect(() => {
-    const unbind = EventsOn('ssh-auth-failed', (data) => {
+    const unbind = Events.On('ssh-auth-failed', (data) => {
       const { sessionId, connId, host, port, username, error } = data;
       const usesCredential = serversRef.current.some(s => s.id === connId && s.credentialId);
 
@@ -740,7 +740,7 @@ export default function useSessionConnections(deps) {
     }
     const savedAction = localStorage.getItem('windowCloseAction');
     if (savedAction === 'quit') { AppGo.DoQuit(); return; }
-    if (savedAction === 'tray') { AppGo.AckClose(); WindowHide(); return; }
+    if (savedAction === 'tray') { AppGo.AckClose(); Window.Hide(); return; }
     const result = await window.luminDialog?.choice?.(
       t('请选择操作'),
       t('关闭窗口'),
@@ -761,7 +761,7 @@ export default function useSessionConnections(deps) {
       AppGo.DoQuit();
     } else if (value === 'tray') {
       AppGo.AckClose();
-      WindowHide();
+      Window.Hide();
     } else if (value === 'cancel') {
       AppGo.AckClose();
     }
@@ -769,7 +769,7 @@ export default function useSessionConnections(deps) {
 
   // ── 监听关闭窗口请求，弹出选择对话框 ──────────────────────────
   useEffect(() => {
-    const unbind = EventsOn('close-request', handleCloseWindow);
+    const unbind = Events.On('close-request', handleCloseWindow);
     return () => { if (unbind) unbind(); };
   }, [handleCloseWindow]);
 
@@ -795,7 +795,7 @@ export default function useSessionConnections(deps) {
   // ── 监听云端同步失败事件 ──────────────────────────────────
   useEffect(() => {
     let active = true;
-    const unbind = EventsOn('sync-failed', async (data) => {
+    const unbind = Events.On('sync-failed', async (data) => {
       if (!isRecoveryPasswordError(data)) {
         if (active) setSyncFailed(data);
         return;
@@ -826,7 +826,7 @@ export default function useSessionConnections(deps) {
 
   // ── 监听 SSH 通道占用事件 ─────────────────────────────────
   useEffect(() => {
-    const unbind = EventsOn('ssh-channel-usage', (payload) => {
+    const unbind = Events.On('ssh-channel-usage', (payload) => {
       const data = payload && typeof payload === 'object' ? payload : null;
       if (!data) return;
       const sessionIds = Array.isArray(data.sessionIds) ? data.sessionIds.filter(Boolean) : [];
@@ -849,7 +849,7 @@ export default function useSessionConnections(deps) {
 
   // ── 监听 SSH 连接状态事件 ─────────────────────────────────
   useEffect(() => {
-    const unbind = EventsOn('ssh-status', (data) => {
+    const unbind = Events.On('ssh-status', (data) => {
       const sessionId = typeof data?.sessionId === 'string' ? data.sessionId : '';
       if (!sessionId) return;
       const status = typeof data?.status === 'string' ? data.status : '';
@@ -865,7 +865,7 @@ export default function useSessionConnections(deps) {
 
   // ── 监听同步状态事件 ──────────────────────────────────────
   useEffect(() => {
-    const unbind = EventsOn('sync-status', (data) => {
+    const unbind = Events.On('sync-status', (data) => {
       if (data.action === 'merge' || data.action === 'download') {
         const msg = data.localChanged
           ? t('同步完成') + `：${t('云端')} ${data.remoteCount} → ${t('合并')} ${data.mergedCount}` + (data.uploaded ? `，${t('已上传')}` : '')
@@ -883,7 +883,7 @@ export default function useSessionConnections(deps) {
   }, [addToast, t, loadServers]);
 
   useEffect(() => {
-    const unbind = EventsOn('ai-chat-stream', (payload) => {
+    const unbind = Events.On('ai-chat-stream', (payload) => {
       if (!payload || typeof payload !== 'object') {
         return;
       }
@@ -1049,7 +1049,7 @@ export default function useSessionConnections(deps) {
     setContentTab('terminal');
     setConnectingServers((prev) => [...prev, { server: { id: newSession.serverId, name: name, host: 'localhost' }, sessionId, startTime: Date.now() }]);
 
-    window.go.wailsapp.App.ConnectLocal(sessionId, name, shellPath, '')
+    AppGo.ConnectLocal(sessionId, name, shellPath, '')
       .then(() => {
         setSessions((prev) =>
           prev.map((s) => (s.id === sessionId ? { ...s, status: 'connected' } : s))
@@ -1087,7 +1087,7 @@ export default function useSessionConnections(deps) {
     setContentTab('terminal');
     setConnectingServers((prev) => [...prev, { server: { id: newSession.serverId, name: displayName, host: config.port }, sessionId, startTime: Date.now() }]);
 
-    window.go.wailsapp.App.ConnectSerial(
+    AppGo.ConnectSerial(
       sessionId,
       displayName,
       config.port,
@@ -1128,7 +1128,7 @@ export default function useSessionConnections(deps) {
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== sessionId);
       if (next.length === 0) {
-        window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
+        AppGo.ClearWorkspaceState?.().catch(() => { });
       }
       return next;
     });
@@ -1189,7 +1189,7 @@ export default function useSessionConnections(deps) {
       .map((session) => session?.serverId)
       .filter(Boolean)
       .forEach((serverId) => registerServerDisconnect(serverId, disconnectPromise));
-    window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
+    AppGo.ClearWorkspaceState?.().catch(() => { });
     setSessions([]);
     setTerminalPaneLayouts({});
     terminalSubTabScrollBySessionRef.current = {};
@@ -1380,7 +1380,7 @@ export default function useSessionConnections(deps) {
         return { ...s, terminals: remaining };
       }).filter(Boolean);
       if (next.length === 0) {
-        window?.go?.wailsapp?.App?.ClearWorkspaceState?.().catch(() => { });
+        AppGo.ClearWorkspaceState?.().catch(() => { });
       }
       return next;
     });

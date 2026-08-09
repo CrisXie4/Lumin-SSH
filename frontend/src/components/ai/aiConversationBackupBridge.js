@@ -1,7 +1,8 @@
 import { normalizeAIConversationSnapshot, publishAIConversationUpsert } from './aiConversationBridge.js'
+import * as AIBindings from '../../../bindings/luminssh-go/internal/wailsapp/aibindings.js'
 
 function getAppBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
+  return AIBindings
 }
 
 export function normalizeAIConversationBackup(backup) {

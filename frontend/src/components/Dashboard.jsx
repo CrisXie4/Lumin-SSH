@@ -4,6 +4,7 @@ import { useTranslation } from '../i18n.js';
 import AddServerModal from './AddServerModal.jsx';
 import ServerList from './ServerList.jsx';
 import Tiptop from './Tiptop.jsx';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 
 export default function Dashboard({
   editorServer, editorShiningFields, saveFlowHighlights, isEditFlying = false, onSaveServer, onSaveAndConnectServer, onCancelEditor, allGroups,
@@ -48,7 +49,7 @@ export default function Dashboard({
   const localMenuRef = useRef(null);
 
   useEffect(() => {
-    window.go?.wailsapp?.App?.GetLocalShells?.()
+    AppGo.GetLocalShells()
       .then((list) => {
         setLocalShells(list || []);
       })

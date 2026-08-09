@@ -156,7 +156,7 @@ func (s *Service) emitDownloadTransferProgress(sessionId string, downloadID stri
 
 // downloadProgressWriter 只做磁盘写入与原子计数，绝不在 Write 内触发进度上报。
 // pkg/sftp 的 File.WriteTo 采用严格按 offset 串行的 Reduce 阶段，w.Write 是整条下载
-// 流水线的唯一出口；一旦在这里调用 runtime.EventsEmit（同步 IPC 到 WebView）或抢占
+// 流水线的唯一出口；一旦在这里同步发送事件到 WebView 或抢占
 // 带锁的 MCP 传输存储，所有并发读 worker 都会堵在投递上，调度协程随之停止派发，
 // 表现为进度长时间停在 0 之后极慢推进。上传路径之所以不受影响，是因为它的进度上报
 // 发生在多个并行 worker 内部，单个 worker 被阻塞不会冻结整条流水线。

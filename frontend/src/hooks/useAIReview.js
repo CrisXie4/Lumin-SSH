@@ -4,6 +4,7 @@ import {
   buildAIWorkspaceTerminalPanelKey,
   resolveAIWorkspaceTerminalBindingByTerminalId,
 } from '../utils/sessionWorkspace.js';
+import * as AIBindings from '../../bindings/luminssh-go/internal/wailsapp/aibindings.js';
 
 export default function useAIReview({ sessionsRef, addToast, t }) {
   const [changeReviewQueues, setChangeReviewQueues] = useState({});
@@ -187,7 +188,7 @@ export default function useAIReview({ sessionsRef, addToast, t }) {
   }, []);
 
   const previewConversationDiffArtifact = useCallback(async (artifactPath, targetTerminalId) => {
-    const bridge = window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App;
+    const bridge = AIBindings;
     if (!bridge?.PreviewAIChatToolDiff) {
       throw new Error(t('差异预览能力未就绪'));
     }
@@ -196,7 +197,7 @@ export default function useAIReview({ sessionsRef, addToast, t }) {
   }, []);
 
   const handleReapplyConversationDiffItem = useCallback(async (artifactPath, targetSessionId, targetTerminalId) => {
-    const bridge = window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App;
+    const bridge = AIBindings;
     const effectiveTerminalId = typeof targetTerminalId === 'string' && targetTerminalId.trim()
       ? targetTerminalId.trim()
       : typeof targetSessionId === 'string'

@@ -20,7 +20,7 @@ REM Strip V/v prefix for source file updates
 set "VER_NUM=%VERSION%"
 if /i "%VER_NUM:~0,1%"=="V" set "VER_NUM=%VER_NUM:~1%"
 
-echo [1/4] Updating version to %VER_NUM% in source files...
+echo [1/6] Updating version to %VER_NUM% in source files...
 node -e "const fs=require('fs');const v=process.argv[1];const w=JSON.parse(fs.readFileSync('wails.json','utf8'));w.info.productVersion=v;fs.writeFileSync('wails.json',JSON.stringify(w,null,2)+'\n');let c=fs.readFileSync('frontend/src/config.js','utf8');c=c.replace(/APP_VERSION\s*=\s*'[^']*'/,'APP_VERSION = '+String.fromCharCode(39)+v+String.fromCharCode(39));fs.writeFileSync('frontend/src/config.js',c);const p=JSON.parse(fs.readFileSync('frontend/package.json','utf8'));p.version=v;fs.writeFileSync('frontend/package.json',JSON.stringify(p,null,2)+'\n');const pl=JSON.parse(fs.readFileSync('frontend/package-lock.json','utf8'));pl.version=v;if(pl.packages&&pl.packages[''])pl.packages[''].version=v;fs.writeFileSync('frontend/package-lock.json',JSON.stringify(pl,null,2)+'\n');console.log('Updated wails.json, config.js, package.json, package-lock.json')" "%VER_NUM%"
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Failed to update version in source files.
@@ -28,37 +28,60 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [2/4] Configuring Go and NSIS environment...
+echo [2/6] Configuring Go and NSIS environment...
 for %%I in ("%~dp0..\..\..") do set "ROOT_DIR=%%~fI"
 set "GO_BIN=%ROOT_DIR%\Source_Codes\Lumin-Source\go\bin"
 set "NSIS_DIR=%ROOT_DIR%\Packaging_Tools\nsis\nsis-3.08"
 set "PATH=%GO_BIN%;%NSIS_DIR%;%USERPROFILE%\go\bin;%PATH%"
 
-echo [3/4] Building setup installer using Wails...
+echo [3/6] Building application with Wails v3...
 cd /d "%~dp0"
-call wails build -clean -upx -nsis -ldflags "-s -w"
-
-set "EXE_PATH="
-for %%f in (build\bin\*installer.exe) do (
-    set "EXE_PATH=%%f"
-    goto :found_exe
-)
-
-:found_exe
-if "%EXE_PATH%"=="" (
-    echo [ERROR] Build failed, setup installer not found.
+call wails3 build
+if errorlevel 1 (
+    echo [ERROR] Wails v3 build failed.
     if "%~1"=="" pause
     exit /b 1
 )
 
-echo [4/4] Renaming output files...
+echo [4/6] UPX compression...
+if not exist "build\bin\Lumin.exe" (
+    echo [ERROR] Build output Lumin.exe not found.
+    if "%~1"=="" pause
+    exit /b 1
+)
+upx --best --lzma "build\bin\Lumin.exe"
+if errorlevel 1 (
+    echo [ERROR] UPX compression failed.
+    if "%~1"=="" pause
+    exit /b 1
+)
+
+echo [5/6] NSIS installer...
+makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\Lumin.exe build\windows\installer\project.nsi
+if errorlevel 1 (
+    echo [ERROR] NSIS installer generation failed.
+    if "%~1"=="" pause
+    exit /b 1
+)
+
+echo [6/6] Renaming outputs...
 move /y "build\bin\Lumin.exe" "build\bin\Lumin-V%VER_NUM%-portable.exe" >nul
+if errorlevel 1 (
+    echo [ERROR] Portable output not found.
+    if "%~1"=="" pause
+    exit /b 1
+)
 move /y "build\bin\Lumin-amd64-installer.exe" "build\bin\Lumin-V%VER_NUM%-amd64-installer.exe" >nul
+if errorlevel 1 (
+    echo [ERROR] Installer output not found.
+    if "%~1"=="" pause
+    exit /b 1
+)
 
 echo.
 echo ==============================================
 echo   SUCCESS!
-echo   Installer: %CD%\build\bin\Lumin-V%VER_NUM%-amd64-installer.exe
 echo   Portable:  %CD%\build\bin\Lumin-V%VER_NUM%-portable.exe
+echo   Installer: %CD%\build\bin\Lumin-V%VER_NUM%-amd64-installer.exe
 echo ==============================================
 if "%~1"=="" pause

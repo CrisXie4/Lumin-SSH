@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, FolderOpen, Loader2, Pencil, Scissors, Search } from 'lucide-react'
-import { EventsOn } from '../../wailsjs/runtime/runtime.js'
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js'
+import { Events } from "@wailsio/runtime"
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js'
 import { useTranslation, t as translate, getLanguage } from '../i18n.js'
 import AIPanelHeader from './ai/AIPanelHeader.jsx'
 import AIConversationBackupSettings from './ai/AIConversationBackupSettings.jsx'
@@ -22,10 +22,6 @@ import { isCallMyVipProviderHost } from './ai/providerSpecialHosts.js'
 import { getAIProviderDefinition } from './ai/providers/index.js'
 import assistantThinkingActiveImg from '../assets/assistant-thinking-active.webm'
 import Tiptop from './Tiptop.jsx'
-
-function getAIBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App || null
-}
 
 function formatMessageTime() {
   return new Date().toLocaleTimeString(getLanguage() || 'zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -1940,7 +1936,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
 
 
   useEffect(() => {
-    const unbind = EventsOn('ai-chat-stream', (payload) => {
+    const unbind = Events.On('ai-chat-stream', (payload) => {
       const requestId = payload?.requestId
       if (!requestId) {
         return

@@ -1,4 +1,4 @@
-import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
+import * as AppGo from '../../bindings/luminssh-go/internal/wailsapp/app.js';
 import { Z } from '../constants/zIndex.js';
 
 export default function SyncFailureToast({ syncFailed, setSyncFailed, setSettingsInitialTab, setShowSettings, addToast, t }) {

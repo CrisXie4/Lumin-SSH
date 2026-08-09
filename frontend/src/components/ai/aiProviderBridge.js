@@ -1,12 +1,17 @@
 import { t } from '../../i18n.js'
 import { runAIProviderPasteHandlerById } from './aiProviderPasteHandlers.js'
+import * as AIBindings from '../../../bindings/luminssh-go/internal/wailsapp/aibindings.js'
+import * as AIProviderBindings from '../../../bindings/luminssh-go/internal/wailsapp/aiproviderbindings.js'
 
 const EMPTY_STATE = { currentProviderId: '', providers: [] }
 const VALID_PROTOCOLS = new Set(['Compatible', 'Responses', 'Messages'])
 const VALID_CACHE_STRATEGIES = new Set(['off', 'model', '5m', '1h', '30m', 'in_memory', '24h'])
 const VALID_REASONING_EFFORTS = new Set(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
 function getAppBridge() {
-  return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.AIProviderBindings || window?.go?.wailsapp?.App
+  return {
+    ...AIBindings,
+    ...AIProviderBindings,
+  }
 }
 
 function normalizeProtocol(value) {

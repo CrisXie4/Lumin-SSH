@@ -1,0 +1,84 @@
+version: '3'
+
+vars:
+  APP_NAME: Lumin
+  BIN_DIR: build/bin
+  VITE_PORT: 5173
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    run: once
+    cmds:
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Install frontend dependencies
+    run: once
+    dir: frontend
+    cmds:
+      - npm install
+
+  generate:bindings:
+    summary: Generates bindings for the frontend
+    run: once
+    cmds:
+      - wails3 generate bindings -f '-tags production' -clean=true
+
+  build:frontend:
+    summary: Build the frontend project
+    run: once
+    dir: frontend
+    deps:
+      - task: install:frontend:deps
+      - task: generate:bindings
+    cmds:
+      - npm run build
+
+  dev:frontend:
+    summary: Runs the frontend in development mode
+    deps:
+      - task: install:frontend:deps
+    cmds:
+      - task: frontend:dev:npm
+
+  frontend:dev:npm:
+    dir: frontend
+    cmds:
+      - npm run dev -- --port {{.VITE_PORT}} --strictPort
+
+  build:
+    summary: Build the application
+    deps:
+      - task: build:frontend
+      - task: generate:syso
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}"
+      - cmd: powershell -NoProfile -Command "Remove-Item -Force 'wails_windows_amd64.syso'"
+        platforms: [windows]
+      - cmd: rm -f wails_windows_amd64.syso
+        platforms: [linux, darwin]
+    vars:
+      BUILD_FLAGS: '-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -ldflags="-w -s{{if eq OS "windows"}} -H windowsgui{{end}}"'
+
+  generate:syso:
+    summary: Generate Windows application icon resources
+    platforms: [windows]
+    dir: build
+    cmds:
+      - wails3 generate syso -arch amd64 -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_amd64.syso
+
+  run:
+    summary: Run the application
+    deps:
+      - task: build
+    cmds:
+      - '"./{{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}}"'
+
+  generate:icons:
+    summary: Generates Windows .ico and Mac .icns from an image
+    run: once
+    dir: build
+    cmds:
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
