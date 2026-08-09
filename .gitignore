@@ -12,7 +12,8 @@
 /build/deb/usr/share/doc/lumin/*.gz
 /build/x86_64/
 /build/windows/installer/Output/
-/build/windows/installer/wails_tools.nsh
+# NSIS 安装包需要的 WebView2 引导程序（Wails v3 不再自动生成）
+!/build/windows/installer/tmp/MicrosoftEdgeWebview2Setup.exe
 
 # ── Wails 自动生成 ──
 /frontend/wailsjs/

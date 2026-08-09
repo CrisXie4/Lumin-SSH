@@ -149,9 +149,3 @@ func AcquireMainLivenessLock(path string) (func(), error) {
 
 // ForceShowWindow 在 Unix 平台依赖 Wails 自身恢复窗口。
 func ForceShowWindow() {}
-
-// RemoveTrayIconSync 是 Windows 专用托盘清理的 Unix 空实现。
-func RemoveTrayIconSync() {}
-
-// PrepareTrayMenu 是 Windows 专用前台解锁的 Unix 空实现。
-func PrepareTrayMenu() {}

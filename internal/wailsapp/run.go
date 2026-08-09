@@ -17,7 +17,6 @@ import (
 	"luminssh-go/internal/mcpbridge"
 	"luminssh-go/internal/platformruntime"
 
-	"github.com/energye/systray"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	wailevents "github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -42,50 +41,6 @@ func forceShowWindow(wailsApp *application.App) {
 	platformruntime.ForceShowWindow()
 }
 
-var systrayOnce sync.Once
-
-func setupSystray(app *App) {
-	systrayOnce.Do(func() {
-		systray.SetIcon(app.icon)
-		systray.SetTitle("Lumin")
-		systray.SetTooltip("Lumin SSH")
-
-		mShow := systray.AddMenuItem("显示主窗口", "Show Main Window")
-		mQuit := systray.AddMenuItem("完全退出", "Quit Lumin")
-
-		showMain := func() {
-			forceShowWindow(app.wailsApp)
-		}
-
-		if goruntime.GOOS == "darwin" {
-			// macOS: CreateMenu 将菜单永久挂到 statusItem，
-			// 左键点托盘图标自动弹菜单（macOS 惯例）。
-			// 不调 SetOnClick/SetOnRClick：enableOnClick 会覆盖菜单行为，
-			// 且库注释明确 ShowMenu() 在 macOS 只支持 OnRClick 回调内调用。
-			systray.CreateMenu()
-		} else {
-			// Windows/Linux: 左键直接显示窗口
-			systray.SetOnClick(func(menu systray.IMenu) {
-				showMain()
-			})
-			// 右键弹菜单；Windows 久置后 TrackPopupMenu 常因前台锁不弹出，
-			// 先解锁再 ShowMenu。
-			systray.SetOnRClick(func(menu systray.IMenu) {
-				platformruntime.PrepareTrayMenu()
-				menu.ShowMenu()
-			})
-		}
-
-		mShow.Click(func() {
-			showMain()
-		})
-
-		mQuit.Click(func() {
-			app.DoQuit()
-		})
-	})
-}
-
 // Run 启动 Wails 应用。embed 资源由 main 包注入（//go:embed 路径必须相对根目录的 main.go）。
 func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 	// 单实例检查（平台特定实现）
@@ -97,16 +52,14 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 	app := NewApp()
 	app.icon = icon
 
-	// ── 托盘准备 ──────────────────────────────────────────────────
-	systrayEnd := platformruntime.PrepareSystray(func() { setupSystray(app) })
-
-	// 退出时先同步删托盘图标，再 systray.Quit。
-	// Windows 上纯异步 Quit 常在 NIM_DELETE 前进程已死，留下幽灵图标。
+	// ── 托盘清理（Wails v3 内置 SystemTray，退出时 Destroy） ──────
+	var systemTray *application.SystemTray
 	var trayCleanupOnce sync.Once
 	cleanupTray := func() {
 		trayCleanupOnce.Do(func() {
-			platformruntime.RemoveTrayIconSync()
-			systrayEnd()
+			if systemTray != nil {
+				systemTray.Destroy()
+			}
 		})
 	}
 	app.onBeforeQuit = cleanupTray
@@ -204,8 +157,32 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 	// ── macOS: 窗口隐藏到托盘后，点 Dock 图标恢复窗口 ──────────────
 	platformruntime.SetupDockReopenHandler(func() { forceShowWindow(wailsApp) })
 
-	// ── 启动托盘 ──────────────────────────────────────────────────
-	platformruntime.StartSystray(func() { setupSystray(app) })
+	// ── 系统托盘（Wails v3 内置，替代 energye/systray 避免 MenuItem 符号冲突）──
+	systemTray = wailsApp.SystemTray.New()
+	systemTray.SetIcon(icon)
+	systemTray.SetTooltip("Lumin SSH")
+
+	trayMenu := wailsApp.NewMenu()
+	trayMenu.Add("显示主窗口").OnClick(func(ctx *application.Context) {
+		forceShowWindow(wailsApp)
+	})
+	trayMenu.AddSeparator()
+	trayMenu.Add("完全退出").OnClick(func(ctx *application.Context) {
+		app.DoQuit()
+	})
+	systemTray.SetMenu(trayMenu)
+
+	if goruntime.GOOS == "darwin" {
+		// macOS: 左键弹菜单（macOS 惯例）
+		systemTray.OnClick(func() {
+			systemTray.ShowMenu()
+		})
+	} else {
+		// Windows/Linux: 左键显示窗口
+		systemTray.OnClick(func() {
+			forceShowWindow(wailsApp)
+		})
+	}
 
 	// ── 单实例 socket（Linux/macOS）：二次启动发 show 指令唤起主窗口 ──
 	platformruntime.StartSingletonServer(func() {

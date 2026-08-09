@@ -112,7 +112,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev libwebkit2gtk-4.1-dev libglib2.0-dev \
+            libgtk-4-dev libwebkitgtk-6.0-dev libglib2.0-dev \
             libc6-dev libayatana-appindicator3-dev \
             rpm upx-ucl
 
@@ -138,7 +138,8 @@ jobs:
           VERSION: ${{ needs.create-draft.outputs.version }}
         run: |
           export PATH=$HOME/go/bin:$PATH
-          wails3 build --tags webkit2_41
+          wails3 build
+          upx --best --lzma build/bin/Lumin
           cp build/bin/Lumin "build/Lumin-V${VERSION}-linux-amd64"
           shasum -a 256 "build/Lumin-V${VERSION}-linux-amd64" | sed 's|build/||' > "build/Lumin-V${VERSION}-linux-amd64.sha256"
           echo "binary=${{ github.workspace }}/build/Lumin-V${VERSION}-linux-amd64" >> $GITHUB_ENV
@@ -159,7 +160,7 @@ jobs:
             echo "Section: net"
             echo "Priority: optional"
             echo "Architecture: amd64"
-            echo "Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libglib2.0-0, libc6, libayatana-appindicator3-1"
+            echo "Depends: libgtk-4-1, libwebkitgtk-6.0-4, libglib2.0-0, libc6, libayatana-appindicator3-1"
             echo "Maintainer: Lumin <admin@662662.xyz>"
             echo "Description: Lightweight SSH Client"
             echo " A modern, lightweight SSH client built with Wails."
@@ -352,7 +353,7 @@ jobs:
           $env:PATH = "$env:USERPROFILE\go\bin;C:\Program Files (x86)\NSIS;" + $env:PATH
           wails3 build
           upx --best --lzma build/bin/Lumin.exe
-          makensis -DARG_WAILS_AMD64_BINARY=../../bin/Lumin.exe build/windows/installer/project.nsi
+          & makensis.exe '/DARG_WAILS_AMD64_BINARY=..\..\bin\Lumin.exe' 'build\windows\installer\project.nsi'
 
       - name: Package portable & installer
         shell: bash
