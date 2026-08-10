@@ -1,19 +1,23 @@
+import { ArrowDown, ArrowUp } from 'lucide-react'
+import { useRef } from 'react'
 import { useTranslation } from '../../i18n.js'
 import { DiffEditorPair } from './AIDiffViewerPair.jsx'
 
 export default function AIChangeReviewWorkbench({ review, queueLength = 1, previewOnly = false, onClose = null }) {
   const { t } = useTranslation()
-
   if (!review) {
     return null
   }
-
   const blocks = Array.isArray(review.blocks) ? review.blocks : []
   const path = typeof review.path === 'string' ? review.path : ''
   const pathParams = review?.pathParams && typeof review.pathParams === 'object' ? review.pathParams : undefined
   const toolName = typeof review.toolName === 'string' ? review.toolName : ''
+  const reviewId = typeof review.reviewId === 'string' && review.reviewId.trim() ? review.reviewId.trim() : 'change-review'
   const showBlockBadge = blocks.length > 1
-
+  const diffNavigationRef = useRef(null)
+  const handlePrimaryDiffNavigateReady = (navigate) => {
+    diffNavigationRef.current = typeof navigate === 'function' ? navigate : null
+  }
   return (
     <div
       style={{
@@ -29,10 +33,11 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
       }}>
       <div
         style={{
-          position: 'relative',
           width: '100%',
           height: '100%',
-          borderRadius: 16,
+          display: 'grid',
+          gridTemplateRows: '44px minmax(0, 1fr)',
+          borderRadius: 12,
           border: '1px solid var(--border)',
           background: 'var(--surface-overlay)',
           boxShadow: 'var(--shadow-xl)',
@@ -40,75 +45,161 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
         }}>
         <div
           style={{
-            position: 'absolute',
-            top: 10,
-            left: 12,
-            right: 12,
-            zIndex: 2,
+            minWidth: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            flexWrap: 'wrap',
-            pointerEvents: 'none',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '0 12px',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--surface-raised)',
           }}>
-          {toolName ? (
-            <div style={{ padding: '3px 8px', borderRadius: 999, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700 }}>
-              {toolName}
+          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {toolName ? (
+              <div
+                style={{
+                  height: 22,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '0 8px',
+                  borderRadius: 6,
+                  background: 'var(--surface-base)',
+                  color: 'var(--text-secondary)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}>
+                {toolName}
+              </div>
+            ) : null}
+            <div
+              style={{
+                minWidth: 0,
+                color: 'var(--text-secondary)',
+                fontSize: 12,
+                fontFamily: 'var(--font-mono)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+              {path ? t(path, pathParams) : t('修改')}
             </div>
-          ) : null}
-          {path ? (
-            <div style={{ maxWidth: '100%', padding: '3px 8px', borderRadius: 999, background: 'var(--surface-base)', color: 'var(--text-tertiary)', fontSize: 11, fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t(path, pathParams)}
-            </div>
-          ) : null}
-          {!previewOnly && queueLength > 1 ? (
-            <div style={{ padding: '3px 8px', borderRadius: 999, background: 'rgba(var(--warning-rgb), 0.10)', color: 'var(--warning)', fontSize: 11, fontWeight: 700 }}>
-              {`${t('队列')} ${queueLength}`}
-            </div>
-          ) : null}
+            {!previewOnly && queueLength > 1 ? (
+              <div
+                style={{
+                  height: 22,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '0 8px',
+                  borderRadius: 6,
+                  background: 'rgba(var(--warning-rgb), 0.12)',
+                  color: 'var(--warning)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}>
+                {`${t('队列')} ${queueLength}`}
+              </div>
+            ) : null}
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => diffNavigationRef.current?.('previous')}
+              title={t('上一个')}
+              aria-label={t('上一个')}
+              style={{
+                width: 28,
+                height: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'var(--surface-base)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}>
+              <ArrowUp size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => diffNavigationRef.current?.('next')}
+              title={t('下一个')}
+              aria-label={t('下一个')}
+              style={{
+                width: 28,
+                height: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'var(--surface-base)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}>
+              <ArrowDown size={14} />
+            </button>
+            {previewOnly && typeof onClose === 'function' ? (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('关闭')}
+                style={{
+                  width: 28,
+                  height: 28,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-base)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}>
+                ×
+              </button>
+            ) : null}
+          </div>
         </div>
-        {previewOnly && typeof onClose === 'function' ? (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('关闭')}
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 12,
-              zIndex: 3,
-              width: 28,
-              height: 28,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 999,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-base)',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}>
-            ×
-          </button>
-        ) : null}
         <div
           style={{
-            height: '100%',
-            padding: '42px 8px 10px',
+            minHeight: 0,
+            padding: 8,
             overflow: 'auto',
             display: 'grid',
             gap: 8,
-            gridTemplateRows: blocks.length <= 1 ? '1fr' : `repeat(${blocks.length}, minmax(260px, 1fr))`,
+            gridTemplateRows: blocks.length <= 1 ? '1fr' : `repeat(${blocks.length}, minmax(320px, 1fr))`,
+            background: 'var(--surface-base)',
           }}>
-          {blocks.map((block, index) => (
+          {blocks.length > 0 ? blocks.map((block, index) => (
             <DiffEditorPair
-              key={`review-block-${review.reviewId}-${index}`}
+              onNavigateReady={index === 0 ? handlePrimaryDiffNavigateReady : null}
+              key={`review-block-${reviewId}-${index}`}
               block={block}
               index={index}
+              path={path}
+              reviewId={reviewId}
               showBlockBadge={showBlockBadge}
               t={t}
             />
-          ))}
+          )) : (
+            <div
+              style={{
+                minHeight: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                background: 'var(--surface-base)',
+                color: 'var(--text-secondary)',
+                fontSize: 12,
+              }}>
+              {t('暂无可预览差异')}
+            </div>
+          )}
         </div>
       </div>
     </div>
