@@ -8,4 +8,4 @@ Terminal=false
 Type=Application
 Categories=Network;RemoteAccess;
 StartupNotify=true
-StartupWMClass=Lumin
+StartupWMClass=lumin
