@@ -260,6 +260,7 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 git clone https://github.com/wmwlwmwl/Lumin-SSH.git
 cd Lumin-SSH
 
+wails dev            # 启动开发模式
 wails build          # 便携/平台默认产物
 wails build -nsis    # Windows 安装包（需 NSIS）
 ```

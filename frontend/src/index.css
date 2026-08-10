@@ -5208,7 +5208,7 @@ body.theme-light .dashboard-server-editor {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent 100%);
 }
 .term-quick-cmd-list::-webkit-scrollbar {
-  height: 4px;
+  height: 8px;
   background: transparent;
 }
 .term-quick-cmd-list::-webkit-scrollbar-track {
@@ -5216,7 +5216,10 @@ body.theme-light .dashboard-server-editor {
 }
 .term-quick-cmd-list::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 2px;
+  border-radius: var(--radius-full);
+}
+.term-quick-cmd-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 .term-quick-cmd-empty {
   font-size: 11px;
