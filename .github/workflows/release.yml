@@ -348,6 +348,17 @@ jobs:
         run: npm install
         working-directory: frontend
 
+      - name: Download WebView2 bootstrapper
+        shell: pwsh
+        run: |
+          $url = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703'
+          $target = 'build\windows\installer\tmp\MicrosoftEdgeWebview2Setup.exe'
+          New-Item -ItemType Directory -Force (Split-Path -Parent $target) | Out-Null
+          Invoke-WebRequest -Uri $url -OutFile $target
+          if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-Item -LiteralPath $target).Length -lt 1MB) {
+            throw 'WebView2 引导程序下载失败或文件不完整'
+          }
+
       - name: Build Wails (binary + NSIS installer)
         run: |
           $env:PATH = "$env:USERPROFILE\go\bin;C:\Program Files (x86)\NSIS;" + $env:PATH
