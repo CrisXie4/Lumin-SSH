@@ -17,6 +17,9 @@ export default defineConfig({
     __APP_BUILD_TIME__: JSON.stringify(buildTime),
   },
   plugins: [react()],
+  optimizeDeps: {
+    include: ['monaco-editor'],
+  },
   server: {
     port: 5173,
     host: '127.0.0.1',
