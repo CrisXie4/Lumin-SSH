@@ -2115,7 +2115,7 @@ cat /proc/loadavg 2>/dev/null
 echo ---MEM---
 grep -E '^MemTotal:|^MemFree:|^MemAvailable:|^Buffers:|^Cached:|^SReclaimable:|^SwapTotal:|^SwapFree:' /proc/meminfo
 echo ---DF---
-df -k | grep -vE '^tmpfs|^udev|^devtmpfs|Filesystem'
+LC_ALL=C df -k | grep -vE '^tmpfs|^udev|^devtmpfs|^Filesystem'
 echo ---CPU1---
 grep '^cpu' /proc/stat
 echo ---NET1---
@@ -2430,12 +2430,21 @@ func parseProbeOutput(out string, includeNetworkConnections bool) (map[string]in
 		if len(fields) < 6 {
 			continue
 		}
-		totalKB, _ := strconv.ParseUint(fields[1], 10, 64)
-		usedKB, _ := strconv.ParseUint(fields[2], 10, 64)
-		availKB, _ := strconv.ParseUint(fields[3], 10, 64)
+		totalKB, errTotal := strconv.ParseUint(fields[1], 10, 64)
+		usedKB, errUsed := strconv.ParseUint(fields[2], 10, 64)
+		availKB, errAvail := strconv.ParseUint(fields[3], 10, 64)
+		if !strings.HasSuffix(fields[4], "%") {
+			continue
+		}
 		pctStr := strings.TrimSuffix(fields[4], "%")
-		pct, _ := strconv.Atoi(pctStr)
-		mount := fields[5]
+		pct, errPct := strconv.Atoi(pctStr)
+		if errTotal != nil || errUsed != nil || errAvail != nil || errPct != nil || pct < 0 || pct > 100 {
+			continue
+		}
+		mount := strings.Join(fields[5:], " ")
+		if mount == "" {
+			continue
+		}
 		if mount == "/" {
 			diskDevice = filepath.Base(fields[0])
 			diskTotalKB = totalKB

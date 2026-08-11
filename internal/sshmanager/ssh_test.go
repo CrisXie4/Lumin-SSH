@@ -7,12 +7,50 @@ import (
 	"errors"
 	"net"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 )
+
+func TestParseProbeOutputSkipsLocalizedDFHeader(t *testing.T) {
+	out := strings.Join([]string{
+		"1 0 0",
+		"---LOAD---",
+		"0 0 0",
+		"---MEM---",
+		"MemTotal: 1024 kB",
+		"MemFree: 512 kB",
+		"---DF---",
+		"文件系统 1K-块 已用 可用 已用% 挂载点",
+		"伪设备 0 0 0 0 挂载点",
+		"/dev/sda1 1048576 524288 524288 50% /",
+		"---CPU1---",
+		"cpu 1 0 1 8 0",
+		"---NET1---",
+		"---NETCONN1---",
+		"---DISKIO1---",
+		"---CPU2---",
+		"cpu 2 0 1 9 0",
+		"---NET2---",
+		"---NETCONN2---",
+		"---DISKIO2---",
+		"---PROC---",
+		"---DONE---",
+	}, "\n")
+
+	result, err := parseProbeOutput(out, false)
+	if err != nil {
+		t.Fatalf("解析磁盘数据失败: %v", err)
+	}
+	disk := result["disk"].(map[string]interface{})
+	partitions := disk["partitions"].([]map[string]interface{})
+	if len(partitions) != 1 || partitions[0]["mount"] != "/" {
+		t.Fatalf("本地化 df 表头不应生成伪分区: %#v", partitions)
+	}
+}
 
 func TestHostKeyAlgorithmsForConnection(t *testing.T) {
 	defaultAlgorithms := hostKeyAlgorithmsForConnection(Connection{})
