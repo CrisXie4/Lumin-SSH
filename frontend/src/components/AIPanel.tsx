@@ -3249,6 +3249,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       if (payload.kind === 'error') {
         const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
         const finalErrorText = payload.error || translate('请求失败')
+        playAISound('progress')
 
         const nextMessages = matchedPanel.messages
           .filter((message) => !(message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning'))

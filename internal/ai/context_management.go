@@ -33,6 +33,7 @@ type AIConversationContextCondenseResult struct {
 const aiConversationContextKeepMessages = 3
 const aiConversationFileContentCompressedPlaceholder = "{因节省资源,请重新调用工具获取}"
 const aiConversationImageRemovedPlaceholder = "{图片因节省资源已被移除}"
+const aiConversationCondenseFollowupPrompt = "<system_message>\ncontext compression caused you to be unable to confirm the working directory or the scope of files or directories to operate on. Please use the ask_followup_question tool to ask or confirm with the user.\n</system_message>"
 
 var aiConversationToolResultPattern = regexp.MustCompile(`(?i)^\[[^\]]+\]\s*Result:`)
 var aiConversationEnvironmentDetailsPattern = regexp.MustCompile(`(?s)<environment_details>.*?</environment_details>`)
@@ -107,6 +108,21 @@ func buildAIConversationCondenseUIMessage(summary string, prevContextTokens int,
 	}
 }
 
+func buildAIConversationCondenseFollowupUIMessage() AIConversationMessage {
+	now := time.Now()
+	messageID := fmt.Sprintf("condense-followup-%d", now.UnixNano())
+	return AIConversationMessage{
+		ID:     messageID,
+		TurnID: messageID,
+		Kind:   "user",
+		Text:   extractAIConversationUserMessageBodyForRecovery(aiConversationCondenseFollowupPrompt),
+		Time:   now.Format("15:04"),
+		Extra: map[string]interface{}{
+			"contextCondenseFollowup": true,
+		},
+	}
+}
+
 type aiConversationCompressedTextResult struct {
 	Text                           string
 	RemovedEnvironmentDetailsCount int
@@ -121,6 +137,77 @@ func isAIConversationToolResultMessage(message AIConversationAPIMessage) bool {
 		return false
 	}
 	return aiConversationToolResultPattern.MatchString(strings.TrimSpace(message.Content))
+}
+
+func findAILastUserMessageIndex(messages []AIConversationAPIMessage) int {
+	for index := len(messages) - 1; index >= 0; index-- {
+		if strings.EqualFold(strings.TrimSpace(messages[index].Role), "user") {
+			return index
+		}
+	}
+	return -1
+}
+
+func findAILastRealUserPromptIndex(messages []AIConversationAPIMessage) int {
+	for index := len(messages) - 1; index >= 0; index-- {
+		if isAIExplicitUserPromptAPIMessage(messages[index]) {
+			return index
+		}
+	}
+	return findAILastUserMessageIndex(messages)
+}
+
+func buildAIPreservedTailMessageIndexSet(messages []AIConversationAPIMessage) map[int]struct{} {
+	preserved := make(map[int]struct{})
+	anchor := findAILastRealUserPromptIndex(messages)
+	if anchor < 0 {
+		return preserved
+	}
+	for index := anchor; index < len(messages); index++ {
+		if index > anchor && !strings.EqualFold(strings.TrimSpace(messages[index].Role), "user") {
+			break
+		}
+		preserved[index] = struct{}{}
+	}
+	lastToolResultEnd := -1
+	for index := len(messages) - 1; index >= anchor; index-- {
+		if isAIConversationToolResultMessage(messages[index]) {
+			lastToolResultEnd = index
+			break
+		}
+	}
+	if lastToolResultEnd >= 0 {
+		lastToolResultStart := lastToolResultEnd
+		for lastToolResultStart-1 >= anchor && isAIConversationToolResultMessage(messages[lastToolResultStart-1]) {
+			lastToolResultStart--
+		}
+		for index := lastToolResultStart; index <= lastToolResultEnd; index++ {
+			preserved[index] = struct{}{}
+		}
+	}
+	return preserved
+}
+
+func appendAIConversationCondenseFollowupAPIMessage(messages []AIConversationAPIMessage) []AIConversationAPIMessage {
+	trimmedPrompt := strings.TrimSpace(aiConversationCondenseFollowupPrompt)
+	if trimmedPrompt == "" {
+		return messages
+	}
+	if len(messages) > 0 {
+		lastMessage := messages[len(messages)-1]
+		if strings.EqualFold(strings.TrimSpace(lastMessage.Role), "user") && strings.TrimSpace(lastMessage.Content) == trimmedPrompt {
+			return messages
+		}
+	}
+	now := time.Now()
+	nextMessages := append([]AIConversationAPIMessage{}, messages...)
+	nextMessages = append(nextMessages, AIConversationAPIMessage{
+		Role:      "user",
+		Content:   trimmedPrompt,
+		MessageID: fmt.Sprintf("condense-followup-%d", now.UnixNano()),
+		Ts:        now.UnixMilli(),
+	})
+	return nextMessages
 }
 
 func isAIConversationSystemNoticeText(text string) bool {
@@ -371,20 +458,7 @@ func (a *App) CondenseAIConversationContext(conversationID string, sessionID str
 	if err != nil {
 		return AIConversationContextCondenseResult{}, err
 	}
-	toolResultIndices := make([]int, 0, len(apiMessages))
-	lastUserMessageIndex := -1
-	for index, message := range apiMessages {
-		if strings.EqualFold(strings.TrimSpace(message.Role), "user") {
-			lastUserMessageIndex = index
-		}
-		if isAIConversationToolResultMessage(message) {
-			toolResultIndices = append(toolResultIndices, index)
-		}
-	}
-	toolIndicesToCompress := make(map[int]struct{}, len(toolResultIndices))
-	for _, index := range toolResultIndices[:max(0, len(toolResultIndices)-1)] {
-		toolIndicesToCompress[index] = struct{}{}
-	}
+	preservedIndices := buildAIPreservedTailMessageIndexSet(apiMessages)
 	newMessages := make([]AIConversationAPIMessage, 0, len(apiMessages))
 	compressedCount := 0
 	removedAssistantCount := 0
@@ -395,9 +469,13 @@ func (a *App) CondenseAIConversationContext(conversationID string, sessionID str
 	compressedSystemNoticeCount := 0
 	for index, message := range apiMessages {
 		nextMessage := message
-		if _, shouldCompressToolResult := toolIndicesToCompress[index]; shouldCompressToolResult {
+		if _, shouldPreserve := preservedIndices[index]; shouldPreserve {
+			newMessages = append(newMessages, nextMessage)
+			continue
+		}
+		if isAIConversationToolResultMessage(nextMessage) {
 			compressedCount++
-			compressedText, compressedBody := compressAIConversationToolResultText(nextMessage.Content, index != lastUserMessageIndex, index != lastUserMessageIndex)
+			compressedText, compressedBody := compressAIConversationToolResultText(nextMessage.Content, true, true)
 			nextMessage.Content = compressedText
 			removedEnvironmentDetailsCount += compressedBody.RemovedEnvironmentDetailsCount
 			compressedFileContentCount += compressedBody.CompressedFileContentCount
@@ -410,25 +488,23 @@ func (a *App) CondenseAIConversationContext(conversationID string, sessionID str
 			newMessages = append(newMessages, nextMessage)
 			continue
 		}
-		if index != lastUserMessageIndex {
-			compressedText := compressAIConversationUserFacingText(nextMessage.Content, true, true)
-			nextMessage.Content = compressedText.Text
-			removedEnvironmentDetailsCount += compressedText.RemovedEnvironmentDetailsCount
-			compressedFileContentCount += compressedText.CompressedFileContentCount
-			compressedTerminalOutputCount += compressedText.CompressedTerminalOutputCount
-			compressedSystemNoticeCount += compressedText.CompressedSystemNoticeCount
-			if compressedText.ShouldRemove {
-				nextMessage.Content = ""
-			}
-			images := normalizeAIStringList(nextMessage.Images)
-			if len(images) > 0 {
-				compressedImageCount += len(images)
-				nextMessage.Images = nil
-				if strings.TrimSpace(nextMessage.Content) == "" {
-					nextMessage.Content = aiConversationImageRemovedPlaceholder
-				} else if !strings.Contains(nextMessage.Content, aiConversationImageRemovedPlaceholder) {
-					nextMessage.Content = strings.TrimSpace(nextMessage.Content + "\n" + aiConversationImageRemovedPlaceholder)
-				}
+		compressedText := compressAIConversationUserFacingText(nextMessage.Content, true, true)
+		nextMessage.Content = compressedText.Text
+		removedEnvironmentDetailsCount += compressedText.RemovedEnvironmentDetailsCount
+		compressedFileContentCount += compressedText.CompressedFileContentCount
+		compressedTerminalOutputCount += compressedText.CompressedTerminalOutputCount
+		compressedSystemNoticeCount += compressedText.CompressedSystemNoticeCount
+		if compressedText.ShouldRemove {
+			nextMessage.Content = ""
+		}
+		images := normalizeAIStringList(nextMessage.Images)
+		if len(images) > 0 {
+			compressedImageCount += len(images)
+			nextMessage.Images = nil
+			if strings.TrimSpace(nextMessage.Content) == "" {
+				nextMessage.Content = aiConversationImageRemovedPlaceholder
+			} else if !strings.Contains(nextMessage.Content, aiConversationImageRemovedPlaceholder) {
+				nextMessage.Content = strings.TrimSpace(nextMessage.Content + "\n" + aiConversationImageRemovedPlaceholder)
 			}
 		}
 		if strings.TrimSpace(nextMessage.Content) == "" && len(normalizeAIStringList(nextMessage.Images)) == 0 {
@@ -439,6 +515,7 @@ func (a *App) CondenseAIConversationContext(conversationID string, sessionID str
 		}
 		newMessages = append(newMessages, nextMessage)
 	}
+	newMessages = appendAIConversationCondenseFollowupAPIMessage(newMessages)
 	newContextTokens, err := calculateAIConversationContextTokensWithProfile(snapshot.ID, strings.TrimSpace(sessionID), newMessages, profile)
 	if err != nil {
 		return AIConversationContextCondenseResult{}, err
@@ -462,6 +539,7 @@ func (a *App) CondenseAIConversationContext(conversationID string, sessionID str
 	nextSnapshot.Messages = append(
 		append([]AIConversationMessage{}, snapshot.Messages...),
 		buildAIConversationCondenseUIMessage(compressionSummary, prevContextTokens, newContextTokens),
+		buildAIConversationCondenseFollowupUIMessage(),
 	)
 	savedSnapshot, err := a.configManager.SaveAIConversation(nextSnapshot)
 	if err != nil {

@@ -285,14 +285,14 @@ func (a *App) previewAIConversationContextCondenseFromSnapshot(snapshot AIConver
 	if a == nil || a.configManager == nil {
 		return AIConversationContextCondenseResult{}, fmt.Errorf("配置管理器不可用")
 	}
+	profile := AIProviderProfile{}
+	if resolvedProfile, profileErr := a.getAIProviderProfileForConversation(snapshot.ID); profileErr == nil {
+		profile = resolvedProfile
+	}
 	compressedSeed, err := a.buildAIConversationCompressedSeed(snapshot, sessionID)
 	if err != nil {
 		if !strings.Contains(strings.TrimSpace(err.Error()), "压缩后上下文未减少") {
 			return AIConversationContextCondenseResult{}, err
-		}
-		profile := AIProviderProfile{}
-		if resolvedProfile, profileErr := a.getAIProviderProfileForConversation(snapshot.ID); profileErr == nil {
-			profile = resolvedProfile
 		}
 		currentContextTokens, tokenErr := calculateAIConversationContextTokensWithProfile(snapshot.ID, strings.TrimSpace(sessionID), snapshot.APIMessages, profile)
 		if tokenErr != nil {
@@ -305,14 +305,27 @@ func (a *App) previewAIConversationContextCondenseFromSnapshot(snapshot AIConver
 			NewContextTokens:  currentContextTokens,
 		}, nil
 	}
+	previewMessages := appendAIConversationCondenseFollowupAPIMessage(compressedSeed.APIMessages)
+	newContextTokens, tokenErr := calculateAIConversationContextTokensWithProfile(snapshot.ID, strings.TrimSpace(sessionID), previewMessages, profile)
+	if tokenErr != nil {
+		return AIConversationContextCondenseResult{}, tokenErr
+	}
+	if newContextTokens >= compressedSeed.PrevContextTokens {
+		nextSnapshot := normalizeAIConversationSnapshot(snapshot, defaultAIConversationTaskSettings(a.configManager.GetAIGlobalSettings()))
+		return AIConversationContextCondenseResult{
+			Snapshot:          nextSnapshot,
+			PrevContextTokens: compressedSeed.PrevContextTokens,
+			NewContextTokens:  compressedSeed.PrevContextTokens,
+		}, nil
+	}
 	nextSnapshot := snapshot
-	nextSnapshot.APIMessages = append([]AIConversationAPIMessage{}, compressedSeed.APIMessages...)
+	nextSnapshot.APIMessages = append([]AIConversationAPIMessage{}, previewMessages...)
 	nextSnapshot.Status = "idle"
 	nextSnapshot = normalizeAIConversationSnapshot(nextSnapshot, defaultAIConversationTaskSettings(a.configManager.GetAIGlobalSettings()))
 	return AIConversationContextCondenseResult{
 		Snapshot:          nextSnapshot,
 		PrevContextTokens: compressedSeed.PrevContextTokens,
-		NewContextTokens:  compressedSeed.NewContextTokens,
+		NewContextTokens:  newContextTokens,
 	}, nil
 }
 
