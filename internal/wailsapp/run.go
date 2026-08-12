@@ -29,14 +29,20 @@ var embeddedModuleFS embed.FS
 
 // forceShowWindow 唤醒隐藏到托盘/久置最小化的窗口。
 // 不先 Hide 再 Show：久置后 Show 失败会把窗口永久卡在隐藏态。
-// 先走 Wails 恢复，再用平台原生激活抢前台（Windows 久置后 SetForeground 常被拒）。
+// 先走平台原生激活抢前台（Windows 久置后 SetForeground 常被拒），再异步走 Wails 恢复。
 // 原生激活放前后各一次：覆盖「仅最小化」和「托盘隐藏」两种状态。
+// ponytail: Wails 运行时调用异步化，避免阻塞 systray 消息线程。
+// 久置后 WebView 恢复可能慢/卡，同步调用会冻结托盘消息泵，
+// 导致单击/双击/右键全部无响应。平台原生激活仍同步（纯系统调用，不阻塞）。
 func forceShowWindow(ctx context.Context) {
 	defer func() { recover() }()
 	platformruntime.ForceShowWindow()
 	if ctx != nil {
-		wailsruntime.WindowUnminimise(ctx)
-		wailsruntime.WindowShow(ctx)
+		go func() {
+			defer func() { recover() }()
+			wailsruntime.WindowUnminimise(ctx)
+			wailsruntime.WindowShow(ctx)
+		}()
 	}
 	platformruntime.ForceShowWindow()
 }
