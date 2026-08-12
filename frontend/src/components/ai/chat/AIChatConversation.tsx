@@ -243,6 +243,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const scrollAnimationFrameRef = useRef(0)
   const lastContainerHeightRef = useRef(0)
   const lastTouchClientYRef = useRef<number | null>(null)
+  const isScrollbarDraggingRef = useRef(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedEntryKey, setHighlightedEntryKey] = useState('')
   const [hoveredNavIndex, setHoveredNavIndex] = useState(-1)
@@ -332,10 +333,8 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       followIntentRef.current = true
       lastContainerHeightRef.current = 0
       setShowScrollToBottom(false)
-      return
     }
-    scheduleScrollToBottom('auto')
-  }, [groupedMessages, scheduleScrollToBottom])
+  }, [groupedMessages.length])
 
   useEffect(() => {
     if (groupedMessages.length === 0) {
@@ -465,7 +464,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
   const handleScrollToBottom = useCallback(() => {
     followIntentRef.current = true
     setShowScrollToBottom(false)
-    scrollToBottom('smooth')
+    scrollToBottom('auto')
   }, [scrollToBottom])
 
   const handleUserWheelCapture = useCallback((event: React.WheelEvent) => {
@@ -511,10 +510,41 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     }
     const rect = scroller.getBoundingClientRect()
     const scrollbarWidth = Math.max(scroller.offsetWidth - scroller.clientWidth, 12)
-    if (Number(event?.clientX) >= rect.right - scrollbarWidth) {
+    const isLeftScrollbar = getComputedStyle(scroller).direction === 'rtl'
+    const clientX = Number(event?.clientX)
+    const isScrollbar = isLeftScrollbar
+      ? clientX <= rect.left + scrollbarWidth
+      : clientX >= rect.right - scrollbarWidth
+    if (isScrollbar) {
+      isScrollbarDraggingRef.current = true
       suspendFollow()
     }
   }, [suspendFollow])
+
+  const handlePointerEndCapture = useCallback(() => {
+    if (!isScrollbarDraggingRef.current) {
+      return
+    }
+    isScrollbarDraggingRef.current = false
+    const scroller = scrollerElementRef.current
+    if (!(scroller instanceof HTMLElement)) {
+      return
+    }
+    const isAtBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= 2
+    followIntentRef.current = isAtBottom
+    setShowScrollToBottom(!isAtBottom)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('pointerup', handlePointerEndCapture)
+    window.addEventListener('pointercancel', handlePointerEndCapture)
+    window.addEventListener('blur', handlePointerEndCapture)
+    return () => {
+      window.removeEventListener('pointerup', handlePointerEndCapture)
+      window.removeEventListener('pointercancel', handlePointerEndCapture)
+      window.removeEventListener('blur', handlePointerEndCapture)
+    }
+  }, [handlePointerEndCapture])
 
   const handleKeyDownCapture = useCallback((event: React.KeyboardEvent) => {
     if (!['ArrowUp', 'PageUp', 'Home'].includes(event?.key)) {
@@ -612,10 +642,10 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         alignToBottom={false}
         increaseViewportBy={{ top: 1200, bottom: 800 }}
         initialTopMostItemIndex={{ index: Math.max(groupedMessages.length - 1, 0), align: 'end' }}
-        atBottomThreshold={70}
-        followOutput={(isAtBottom) => (isAtBottom || followIntentRef.current ? 'auto' : false)}
+        atBottomThreshold={2}
+        followOutput={() => (followIntentRef.current ? 'auto' : false)}
         atBottomStateChange={(isAtBottom) => {
-          if (isAtBottom) {
+          if (isAtBottom && !isScrollbarDraggingRef.current) {
             followIntentRef.current = true
             setShowScrollToBottom(false)
             return
