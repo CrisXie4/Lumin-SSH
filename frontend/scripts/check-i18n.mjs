@@ -6,20 +6,25 @@ import { parse } from '@babel/parser';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const localeRoot = path.join(root, 'src', 'i18n');
 const files = fs.readdirSync(localeRoot)
-  .map((name) => path.join(localeRoot, name, 'basic.js'))
+  .map((name) => path.join(localeRoot, name, 'basic.ts'))
   .filter((file) => fs.existsSync(file))
   .sort();
 
 function readTable(file) {
   const source = fs.readFileSync(file, 'utf8');
-  const ast = parse(source, { sourceType: 'module', plugins: ['jsx'] });
+  const ast = parse(source, { sourceType: 'module', plugins: ['jsx', 'typescript'] });
   const declaration = ast.program.body.find((node) => node.type === 'ExportDefaultDeclaration');
-  if (!declaration || declaration.declaration.type !== 'ObjectExpression') {
+  // 语言表以 `export default {...} satisfies I18nDict` 标注，需展开 satisfies/as 包装
+  let exportValue = declaration?.declaration;
+  while (exportValue && (exportValue.type === 'TSSatisfiesExpression' || exportValue.type === 'TSAsExpression')) {
+    exportValue = exportValue.expression;
+  }
+  if (!exportValue || exportValue.type !== 'ObjectExpression') {
     throw new Error(`${file}: default export must be an object`);
   }
   const entries = new Map();
   const duplicates = [];
-  for (const property of declaration.declaration.properties) {
+  for (const property of exportValue.properties) {
     if (property.type !== 'ObjectProperty' || property.computed) continue;
     const key = property.key.type === 'Identifier'
       ? property.key.name
