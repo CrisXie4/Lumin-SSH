@@ -10,7 +10,7 @@
 2. 版本号四处一致（支持 `x.y.z` 或 `x.y.z.w`）：
    - `frontend/package.json` → `version`
    - `frontend/package-lock.json` → 根与 `packages[""].version`（改完 `package.json` 后在 `frontend` 执行 `npm install --package-lock-only`）
-   - `frontend/src/config.js` → `APP_VERSION`
+   - `frontend/src/config.ts` → `APP_VERSION`
    - `wails.json` → `info.productVersion`
    
    > CI 打包版本以 `wails.json` / `APP_VERSION` 为准；lock 根版本不进安装包，但应与 `package.json` 对齐，避免脏 diff / 以后 `npm ci` 别扭。  

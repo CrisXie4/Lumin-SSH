@@ -225,7 +225,7 @@ Lumin 是一款面向开发者和运维人员的桌面 SSH 客户端。基于 **
 2. 按平台匹配安装包 / 便携包  
 3. HTTPS 下载（可镜像）→ **`.sha256` 校验** → 平台安装或热替换  
 
-版本号以 `wails.json`、`frontend/src/config.js`、`frontend/package.json`、`frontend/package-lock.json` 为准，当前为 **1.2.6**。
+版本号以 `wails.json`、`frontend/src/config.ts`、`frontend/package.json`、`frontend/package-lock.json` 为准，当前为 **1.2.6**。
 
 ---
 

@@ -225,7 +225,7 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 2. Match an installer or portable package for the platform
 3. Download over HTTPS (optionally through a mirror) → **`.sha256` verification** → platform installation or hot replacement
 
-Version numbers are based on `wails.json`, `frontend/src/config.js`, `frontend/package.json`, and `frontend/package-lock.json`; the current version is **1.2.6**.
+Version numbers are based on `wails.json`, `frontend/src/config.ts`, `frontend/package.json`, and `frontend/package-lock.json`; the current version is **1.2.6**.
 
 ---
 

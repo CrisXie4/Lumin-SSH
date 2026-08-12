@@ -10,7 +10,7 @@ Push a `v*` tag and Actions ([release.yml](workflows/release.yml)) will: generat
 2. Version matches in four places (`x.y.z` or `x.y.z.w`):
    - `frontend/package.json` → `version`
    - `frontend/package-lock.json` → root and `packages[""].version` (after editing `package.json`, run `npm install --package-lock-only` in `frontend`)
-   - `frontend/src/config.js` → `APP_VERSION`
+   - `frontend/src/config.ts` → `APP_VERSION`
    - `wails.json` → `info.productVersion`
    
    > CI package version comes from `wails.json` / `APP_VERSION`. The lock root version is not baked into installers, but keep it aligned with `package.json` to avoid dirty diffs / awkward `npm ci` later.  
