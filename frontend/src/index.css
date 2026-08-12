@@ -1444,7 +1444,7 @@ input::-ms-clear {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  z-index: 10001; /* above topbar chrome when portaled */
+  z-index: 30001; /* above topbar (Z.TOPBAR=30000) when portaled */
 }
 
 .tiptop-bubble-bottom {
