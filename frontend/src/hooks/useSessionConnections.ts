@@ -234,34 +234,34 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
 
   // ── 连接成功后通用设置：查询 OS 信息、启用监控、持久化 OS ──
   const postConnectSetup = useCallback(async (sessionId: string, serverId: string) => {
+    let staticInfo: Record<string, unknown> | null = null;
     try {
       // 获取静态信息（OS/主机名/时区）
-      const staticInfo = await AppGo.GetServerStaticInfo(sessionId) as Record<string, unknown> | null;
+      staticInfo = await AppGo.GetServerStaticInfo(sessionId) as Record<string, unknown> | null;
       if (staticInfo) {
         setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, osInfo: staticInfo } : s));
-      }
-      if (serverId) {
-        recordRecentConnection(serverId);
-        setServers(prevServers => {
-          const currentServer = prevServers.find(s => s.id === serverId);
-          if (currentServer) {
-            const detectedOs = staticInfo?.os || '';
-            // 总是调用：OS 变了会更新 OS，OS 没变也会触发同步（确保 noSync 保存的密码等数据被同步）
-            // OS 检测失败时用已有 OS，避免清空
-            AppGo.SetConnectionOS(serverId, String(detectedOs || currentServer.os || '')).catch(console.error);
-            if (detectedOs && currentServer.os !== detectedOs) {
-              setServers(prev => prev.map(s => s.id === serverId ? { ...s, os: String(detectedOs) } : s));
-            }
-          }
-          return prevServers;
-        });
       }
       // 启用监控（PowerShell/CMD 无 probe 后端，跳过以避免无效轮询与误导标记）
       const sess = sessionsRef.current.find((s) => s.id === sessionId);
       if (!isUnsupportedMonitorSession(sess)) {
         setMonitoringEnabled((prev) => ({ ...prev, [sessionId]: true }));
       }
-    } catch (_) { }
+    } catch (_) {
+    } finally {
+      if (!serverId) return;
+      recordRecentConnection(serverId);
+      setServers(prevServers => {
+        const currentServer = prevServers.find(s => s.id === serverId);
+        if (!currentServer) return prevServers;
+        const detectedOs = staticInfo?.os || '';
+        // 连接成功后统一同步；OS 检测失败时保留已有值，避免清空。
+        AppGo.SetConnectionOS(serverId, String(detectedOs || currentServer.os || '')).catch(console.error);
+        if (detectedOs && currentServer.os !== detectedOs) {
+          return prevServers.map(s => s.id === serverId ? { ...s, os: String(detectedOs) } : s);
+        }
+        return prevServers;
+      });
+    }
   }, [recordRecentConnection]);
 
   // ── Load servers ───────────────────────────────────────────
@@ -898,6 +898,22 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       return;
     }
 
+    updateSessionStatus(sessionId, 'connecting');
+    setConnectingServers((prev) => {
+      if (prev.some((item) => item.sessionId === sessionId)) return prev;
+      const matchedServer = serversRef.current.find((server) => String(server.id) === connId);
+      const matchedSession = sessionsRef.current.find((session) => session.id === sessionId);
+      return [...prev, {
+        server: matchedServer || {
+          id: connId,
+          name: matchedSession?.serverName || matchedSession?.host || connId,
+          host: matchedSession?.host || '',
+        },
+        sessionId,
+        startTime: Date.now(),
+      }];
+    });
+
     try {
       await AppGo.ReconnectWithPassword(sessionId, connId, newPassword, persist);
       setSessions((prev) =>
@@ -908,11 +924,9 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
 
       await postConnectSetup(sessionId, connId);
     } catch (retryErr) {
-      updateSessionStatus(sessionId, 'error');
-      setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
-      addToast(`${t('重新连接失败')}: ${String(retryErr)}`, 'error', 5000);
+      handleConnectError(sessionId, retryErr);
     }
-  }, [addToast, clearSessionAuthPrompt, postConnectSetup, t, updateSessionStatus]);
+  }, [addToast, clearSessionAuthPrompt, handleConnectError, postConnectSetup, t, updateSessionStatus]);
 
   // ── 监听认证失败事件（密码错误等） ──────────────────────────
   // 只写入该会话的待确认状态，由会话面板内的 SessionAuthCard 呈现

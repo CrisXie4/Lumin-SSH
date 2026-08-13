@@ -791,25 +791,11 @@ func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword
 		return fmt.Errorf("connection not found")
 	}
 
-	// 持久化：凭据连接更新凭据，内联连接更新服务器
-	if persist && conn.CredentialID != "" {
-		cred, credOk := a.configManager.GetCredentialByID(conn.CredentialID)
-		if credOk {
-			cred.Password = newPassword
-			a.configManager.SaveCredential(cred)
-		}
-	}
-
 	resolved, err := a.configManager.ResolveConnectionRuntime(conn)
 	if err != nil {
 		return err
 	}
 	resolved.Password = newPassword
-
-	if persist && conn.CredentialID == "" {
-		conn.Password = newPassword
-		a.configManager.SaveConnection(conn, true)
-	}
 
 	// 清理旧会话。Disconnect 会清掉「只接受本次」的临时密钥授权，
 	// 但换密码重连仍是同一会话，须跨重连保留，否则主机密钥确认会二次弹出。
@@ -826,7 +812,22 @@ func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword
 	if hadTempKey && err != nil && !errors.Is(err, sshmanager.ErrAuthFailed) {
 		a.sshManager.ClearTempAcceptedKey(sessionId)
 	}
-	return err
+	if err != nil || !persist {
+		return err
+	}
+
+	// 仅在认证成功后持久化密码，避免将错误密码写入配置；连接成功收尾会统一触发同步。
+	if conn.CredentialID != "" {
+		cred, credOk := a.configManager.GetCredentialByID(conn.CredentialID)
+		if credOk {
+			cred.Password = newPassword
+			a.configManager.SaveCredentialNoSync(cred)
+		}
+	} else {
+		conn.Password = newPassword
+		a.configManager.SaveConnection(conn, true)
+	}
+	return nil
 }
 
 // DisconnectSSH closes an SSH connection

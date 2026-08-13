@@ -108,20 +108,20 @@ type ChmodDialogSettings struct {
 }
 
 type TransferTuningSettings struct {
-	MaxPacketKiB          int  `json:"maxPacketKiB,omitempty"`
-	MaxRequestsPerFile    int  `json:"maxRequestsPerFile,omitempty"`
-	ConcurrentWrites      bool `json:"concurrentWrites,omitempty"`
-	ApplyToSharedClient   bool `json:"applyToSharedClient,omitempty"`
-	Configured            bool `json:"configured,omitempty"`
+	MaxPacketKiB        int  `json:"maxPacketKiB,omitempty"`
+	MaxRequestsPerFile  int  `json:"maxRequestsPerFile,omitempty"`
+	ConcurrentWrites    bool `json:"concurrentWrites,omitempty"`
+	ApplyToSharedClient bool `json:"applyToSharedClient,omitempty"`
+	Configured          bool `json:"configured,omitempty"`
 }
 
 type FileManagerSettings struct {
 	ChmodDialog                     ChmodDialogSettings    `json:"chmodDialog,omitempty"`
-	DoubleClickUncompressArchive   bool                   `json:"doubleClickUncompressArchive,omitempty"`
-	SmartUncompressConflictStrategy string                `json:"smartUncompressConflictStrategy,omitempty"`
-	AutoRefreshDisabled            bool                   `json:"autoRefreshDisabled,omitempty"`
-	MaxEditSizeMB                  int                    `json:"maxEditSizeMB,omitempty"`
-	TransferTuning                 TransferTuningSettings `json:"transferTuning,omitempty"`
+	DoubleClickUncompressArchive    bool                   `json:"doubleClickUncompressArchive,omitempty"`
+	SmartUncompressConflictStrategy string                 `json:"smartUncompressConflictStrategy,omitempty"`
+	AutoRefreshDisabled             bool                   `json:"autoRefreshDisabled,omitempty"`
+	MaxEditSizeMB                   int                    `json:"maxEditSizeMB,omitempty"`
+	TransferTuning                  TransferTuningSettings `json:"transferTuning,omitempty"`
 }
 
 // 文件编辑大小上限相关常量（单位 MB）。
@@ -751,8 +751,8 @@ type SyncTombstone struct {
 }
 
 type syncTombstoneStore struct {
-	Connections  []SyncTombstone `json:"connections,omitempty"`
-	Credentials  []SyncTombstone `json:"credentials,omitempty"`
+	Connections []SyncTombstone `json:"connections,omitempty"`
+	Credentials []SyncTombstone `json:"credentials,omitempty"`
 	// PrunedBefore：清理删除记录时推进。合并远端墓碑时丢弃 deleted_at < PrunedBefore 的项，
 	// 防止「本机已清理」又被另一端旧墓碑并回来。
 	PrunedBefore int64 `json:"pruned_before,omitempty"`
@@ -1094,23 +1094,22 @@ func (c *ConfigManager) RenameConnectionGroup(oldName, newName string) error {
 	return nil
 }
 
-// SetConnectionOS 仅更新服务器的操作系统字段；值未变化时不触发同步。
+// SetConnectionOS 更新服务器的操作系统字段；即使值未变化，也会触发一次同步。
 func (c *ConfigManager) SetConnectionOS(id string, osValue string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conns := c.getConnectionsLocked()
 	for i, conn := range conns {
 		if conn.ID == id {
-			if conn.Os == osValue {
-				return nil
+			if conn.Os != osValue {
+				conns[i].Os = osValue
+				conns[i].LastModified = time.Now().UnixMilli()
+				if err := c.saveConnectionsFile(conns); err != nil {
+					return err
+				}
+				c.bumpSnapshotTime()
+				c.connCacheDirty = true
 			}
-			conns[i].Os = osValue
-			conns[i].LastModified = time.Now().UnixMilli()
-			if err := c.saveConnectionsFile(conns); err != nil {
-				return err
-			}
-			c.bumpSnapshotTime()
-			c.connCacheDirty = true
 			go c.AutoSync()
 			return nil
 		}
@@ -1331,6 +1330,14 @@ func (c *ConfigManager) GetCredentialsMasked() []Credential {
 }
 
 func (c *ConfigManager) SaveCredential(cred Credential) Credential {
+	return c.saveCredential(cred, false)
+}
+
+func (c *ConfigManager) SaveCredentialNoSync(cred Credential) Credential {
+	return c.saveCredential(cred, true)
+}
+
+func (c *ConfigManager) saveCredential(cred Credential, noSync bool) Credential {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	creds := c.getCredentialsLocked()
@@ -1380,7 +1387,9 @@ func (c *ConfigManager) SaveCredential(cred Credential) Credential {
 	c.clearCredentialTombstonesLocked([]string{cred.ID})
 	c.credCacheDirty = true
 	c.bumpSnapshotTime()
-	go c.AutoSync()
+	if !noSync {
+		go c.AutoSync()
+	}
 	return cred
 }
 
@@ -2067,14 +2076,14 @@ func (c *ConfigManager) GetFileManagerSettings() map[string]interface{} {
 	defer c.mu.RUnlock()
 	settings := c.getFileManagerSettingsLocked()
 	return map[string]interface{}{
-		"doubleClickUncompressArchive":   settings.DoubleClickUncompressArchive,
+		"doubleClickUncompressArchive":    settings.DoubleClickUncompressArchive,
 		"smartUncompressConflictStrategy": settings.SmartUncompressConflictStrategy,
-		"autoRefreshDisabled":            settings.AutoRefreshDisabled,
-		"maxEditSizeMB":                  settings.MaxEditSizeMB,
-		"transferMaxPacketKiB":           settings.TransferTuning.MaxPacketKiB,
-		"transferMaxRequestsPerFile":     settings.TransferTuning.MaxRequestsPerFile,
-		"transferConcurrentWrites":       settings.TransferTuning.ConcurrentWrites,
-		"transferApplyToSharedClient":    settings.TransferTuning.ApplyToSharedClient,
+		"autoRefreshDisabled":             settings.AutoRefreshDisabled,
+		"maxEditSizeMB":                   settings.MaxEditSizeMB,
+		"transferMaxPacketKiB":            settings.TransferTuning.MaxPacketKiB,
+		"transferMaxRequestsPerFile":      settings.TransferTuning.MaxRequestsPerFile,
+		"transferConcurrentWrites":        settings.TransferTuning.ConcurrentWrites,
+		"transferApplyToSharedClient":     settings.TransferTuning.ApplyToSharedClient,
 	}
 }
 
