@@ -204,25 +204,16 @@ func (a *App) buildAIConversationCompressedSeed(snapshot AIConversationSnapshot,
 	if err != nil {
 		return aiConversationCompressedSeed{}, err
 	}
-	toolResultIndices := make([]int, 0, len(apiMessages))
-	lastUserMessageIndex := -1
-	for index, message := range apiMessages {
-		if strings.EqualFold(strings.TrimSpace(message.Role), "user") {
-			lastUserMessageIndex = index
-		}
-		if isAIConversationToolResultMessage(message) {
-			toolResultIndices = append(toolResultIndices, index)
-		}
-	}
-	toolIndicesToCompress := make(map[int]struct{}, len(toolResultIndices))
-	for _, index := range toolResultIndices[:max(0, len(toolResultIndices)-1)] {
-		toolIndicesToCompress[index] = struct{}{}
-	}
+	preservedIndices := buildAIPreservedTailMessageIndexSet(apiMessages)
 	newMessages := make([]AIConversationAPIMessage, 0, len(apiMessages))
 	for index, message := range apiMessages {
 		nextMessage := message
-		if _, shouldCompressToolResult := toolIndicesToCompress[index]; shouldCompressToolResult {
-			compressedText, compressedBody := compressAIConversationToolResultText(nextMessage.Content, index != lastUserMessageIndex, index != lastUserMessageIndex)
+		if _, shouldPreserve := preservedIndices[index]; shouldPreserve {
+			newMessages = append(newMessages, nextMessage)
+			continue
+		}
+		if isAIConversationToolResultMessage(nextMessage) {
+			compressedText, compressedBody := compressAIConversationToolResultText(nextMessage.Content, true, true)
 			nextMessage.Content = compressedText
 			if len(normalizeAIStringList(nextMessage.Images)) > 0 {
 				nextMessage.Images = nil
@@ -233,20 +224,18 @@ func (a *App) buildAIConversationCompressedSeed(snapshot AIConversationSnapshot,
 			newMessages = append(newMessages, nextMessage)
 			continue
 		}
-		if index != lastUserMessageIndex {
-			compressedText := compressAIConversationUserFacingText(nextMessage.Content, true, true)
-			nextMessage.Content = compressedText.Text
-			if compressedText.ShouldRemove {
-				nextMessage.Content = ""
-			}
-			images := normalizeAIStringList(nextMessage.Images)
-			if len(images) > 0 {
-				nextMessage.Images = nil
-				if strings.TrimSpace(nextMessage.Content) == "" {
-					nextMessage.Content = aiConversationImageRemovedPlaceholder
-				} else if !strings.Contains(nextMessage.Content, aiConversationImageRemovedPlaceholder) {
-					nextMessage.Content = strings.TrimSpace(nextMessage.Content + "\n" + aiConversationImageRemovedPlaceholder)
-				}
+		compressedText := compressAIConversationUserFacingText(nextMessage.Content, true, true)
+		nextMessage.Content = compressedText.Text
+		if compressedText.ShouldRemove {
+			nextMessage.Content = ""
+		}
+		images := normalizeAIStringList(nextMessage.Images)
+		if len(images) > 0 {
+			nextMessage.Images = nil
+			if strings.TrimSpace(nextMessage.Content) == "" {
+				nextMessage.Content = aiConversationImageRemovedPlaceholder
+			} else if !strings.Contains(nextMessage.Content, aiConversationImageRemovedPlaceholder) {
+				nextMessage.Content = strings.TrimSpace(nextMessage.Content + "\n" + aiConversationImageRemovedPlaceholder)
 			}
 		}
 		if strings.TrimSpace(nextMessage.Content) == "" && len(normalizeAIStringList(nextMessage.Images)) == 0 {
