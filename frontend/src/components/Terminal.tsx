@@ -509,6 +509,7 @@ export default function Terminal({
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const termSearchInputRef = useRef<HTMLInputElement | null>(null);
   const wsRef          = useRef<WebSocket | null>(null);
+  const connectWebSocketRef = useRef<(() => void) | null>(null);
   const statusRef      = useRef(status);
   useEffect(() => { statusRef.current = status; }, [status]);
   const serverIdRef    = useRef(serverId);
@@ -1637,6 +1638,7 @@ export default function Terminal({
 
     // ── WebSocket 连接 & Predictive Local Echo ─────────────────────
     let ws: WebSocket | null = null;
+    let wsConnecting = false;
     let cancelled = false;
     const pendingEchoes: string[] = [];
     let predictiveDecoder = new TextDecoder();
@@ -1647,15 +1649,22 @@ export default function Terminal({
     // 不清掉会让新连接开局误判为「前景色已激活」而哑火高亮
     hlStateRef.current = createHighlightState();
 
-    // 并行获取端口与鉴权 token，后端要求连接时通过 ?token=xxx 携带，防止本机恶意进程注入命令
-    Promise.all([AppGo.GetWsPort(), AppGo.GetWsToken()]).then(([port, token]) => {
-      if (cancelled || !port || !termRef.current) return;
-      const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
-      ws = new WebSocket(`ws://127.0.0.1:${port}/ws/${sessionId}${tokenQuery}`);
-      ws.binaryType = 'arraybuffer';
-      wsRef.current = ws;
+    const connectWebSocket = () => {
+      if (cancelled || wsConnecting || statusRef.current !== 'connected' || wsRef.current) return;
+      wsConnecting = true;
+      // 并行获取端口与鉴权 token，后端要求连接时通过 ?token=xxx 携带，防止本机恶意进程注入命令
+      Promise.all([AppGo.GetWsPort(), AppGo.GetWsToken()]).then(([port, token]) => {
+        if (cancelled || statusRef.current !== 'connected' || wsRef.current || !port || !termRef.current) return;
+        const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+        const currentWs = new WebSocket(`ws://127.0.0.1:${port}/ws/${sessionId}${tokenQuery}`);
+        ws = currentWs;
+        currentWs.binaryType = 'arraybuffer';
+        wsRef.current = currentWs;
+        currentWs.onclose = () => {
+          if (wsRef.current === currentWs) wsRef.current = null;
+        };
 
-      ws.onopen = () => {
+      currentWs.onopen = () => {
         // 补发一次初始尺寸：终端首次 fit 发生在 onResize 订阅之前，那次
         // 尺寸变化事件被错过，本地 PTY 可能长期停留在出生尺寸；这里主动
         // 同步一次，同时给 SIGWINCH 会重绘提示符的 shell（bash/zsh）兜底自愈机会。
@@ -1664,7 +1673,7 @@ export default function Terminal({
         }
       };
 
-      ws.onmessage = (ev) => {
+      currentWs.onmessage = (ev) => {
         if (!termRef.current) return;
         // 在原始数据上检测清屏序列（不依赖后续文本处理路径）
         const rawBytes = typeof ev.data === 'string' ? null : new Uint8Array(ev.data);
@@ -1786,8 +1795,13 @@ export default function Terminal({
         smartWrite(newText);
       };
 
-      ws.onerror = (e) => console.error('[Terminal] WebSocket error', e);
-    });
+      currentWs.onerror = (e) => console.error('[Terminal] WebSocket error', e);
+      }).finally(() => {
+        wsConnecting = false;
+      });
+    };
+    connectWebSocketRef.current = connectWebSocket;
+    connectWebSocket();
 
     // ── 历史指令记录 + 输入直觉 + Local Echo ────────────────────────
     let localInputLength = 0; // 用于保护提示符，防止退格越界
@@ -1913,6 +1927,7 @@ export default function Terminal({
 
     return () => {
       cancelled = true;
+      if (connectWebSocketRef.current === connectWebSocket) connectWebSocketRef.current = null;
       scrollDisposable.dispose();
       lineFeedDisposable.dispose();
       writeParsedDisposable.dispose();
@@ -1970,6 +1985,22 @@ export default function Terminal({
     window.addEventListener('terminal-font-size-changed', handleFontSizeChange);
     return () => window.removeEventListener('terminal-font-size-changed', handleFontSizeChange);
   }, []);
+
+  // SSH/本地/串口断开时终端组件会保活以保留输出；单独关闭 WS，释放
+  // 浏览器连接和 Go ReadMessage goroutine。重连后只重建 WS，不重建 xterm。
+  useEffect(() => {
+    if (status === 'closed' || status === 'error') {
+      const ws = wsRef.current;
+      wsRef.current = null;
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+      }
+      return;
+    }
+    if (status === 'connected') {
+      connectWebSocketRef.current?.();
+    }
+  }, [status]);
 
   // ── 状态变化提示 ─────────────────────────────────────────────────
   useEffect(() => {

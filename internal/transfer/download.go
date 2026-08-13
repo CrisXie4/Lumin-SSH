@@ -69,8 +69,8 @@ func (task *downloadTransferTask) snapshot() (string, string, string) {
 	return task.localTempDir, task.localTargetPath, task.remoteArchive
 }
 
-func (task *downloadTransferTask) cleanup(service *Service) {
-	localTempDir, localTargetPath, remoteArchive := task.snapshot()
+func (task *downloadTransferTask) cleanupLocal() {
+	localTempDir, localTargetPath, _ := task.snapshot()
 	if localTempDir != "" {
 		_ = os.RemoveAll(localTempDir)
 		task.clearLocalTempDir()
@@ -79,12 +79,36 @@ func (task *downloadTransferTask) cleanup(service *Service) {
 		_ = os.RemoveAll(localTargetPath)
 		task.clearLocalTargetPath()
 	}
+}
+
+func (task *downloadTransferTask) cleanup(service *Service) {
+	task.cleanupLocal()
+	_, _, remoteArchive := task.snapshot()
 	if remoteArchive != "" {
 		_ = service.backend.DeleteRemote(context.Background(), task.sessionId, remoteArchive, false)
 		task.clearRemoteArchive()
 	}
 }
 
+func (task *downloadTransferTask) detachOnDisconnect() (string, string) {
+	task.mu.Lock()
+	defer task.mu.Unlock()
+	localTempDir := task.localTempDir
+	localTargetPath := task.localTargetPath
+	task.localTempDir = ""
+	task.localTargetPath = ""
+	task.remoteArchive = ""
+	return localTempDir, localTargetPath
+}
+
+func cleanupDownloadLocalPaths(localTempDir, localTargetPath string) {
+	if localTempDir != "" {
+		_ = os.RemoveAll(localTempDir)
+	}
+	if localTargetPath != "" {
+		_ = os.RemoveAll(localTargetPath)
+	}
+}
 func (s *Service) registerDownloadTransferTask(downloadID string, task *downloadTransferTask) error {
 	if downloadID == "" {
 		return fmt.Errorf("missing download id")

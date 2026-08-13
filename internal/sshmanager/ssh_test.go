@@ -268,6 +268,20 @@ func TestSessionWaitDisconnectsSession(t *testing.T) {
 	}
 }
 
+func TestStaleSessionWaitKeepsReplacement(t *testing.T) {
+	manager := NewSSHManager()
+	oldSession := &ssh.Session{}
+	newData := &SessionData{ConnKey: "server", Session: &ssh.Session{}}
+	manager.sessions["terminal"] = newData
+	manager.connTerminals["server"] = []string{"terminal"}
+
+	manager.disconnectAndNotify("terminal", oldSession, "session_end")
+
+	if manager.sessions["terminal"] != newData {
+		t.Fatal("旧 session.Wait 的迟到清理不应删除快速重连后的新 session")
+	}
+}
+
 func TestStaleClientCleanupKeepsReplacement(t *testing.T) {
 	manager := NewSSHManager()
 	oldClient := &ssh.Client{}
@@ -279,6 +293,25 @@ func TestStaleClientCleanupKeepsReplacement(t *testing.T) {
 	manager.cleanupClientTransport("server", oldClient, "transport")
 	if manager.clients["server"].Client != newClient || manager.sessions["terminal"] == nil {
 		t.Fatal("旧连接的迟到清理不应删除快速重连后的新连接")
+	}
+}
+
+func TestDisconnectConnectionClosesAllTerminals(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer serverConn.Close()
+	manager := NewSSHManager()
+	manager.clients["server"] = &sshClientEntry{NetConn: clientConn}
+	manager.sessions["root"] = &SessionData{ConnKey: "server"}
+	manager.sessions["child"] = &SessionData{ConnKey: "server", GroupSessionId: "root"}
+	manager.connTerminals["server"] = []string{"root", "child"}
+
+	manager.DisconnectConnection("root")
+
+	if len(manager.sessions) != 0 || len(manager.clients) != 0 || len(manager.connTerminals) != 0 {
+		t.Fatalf("关闭连接后仍有资源: sessions=%d clients=%d connTerminals=%d", len(manager.sessions), len(manager.clients), len(manager.connTerminals))
+	}
+	if _, err := serverConn.Read(make([]byte, 1)); err == nil {
+		t.Fatal("关闭连接后底层 SSH transport 仍可读取")
 	}
 }
 

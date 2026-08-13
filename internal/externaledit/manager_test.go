@@ -84,6 +84,33 @@ func TestReadOnlyOpenAndStop(t *testing.T) {
 	}
 }
 
+func TestStopSessionSilentlyCleansWithoutEvent(t *testing.T) {
+	remote := &fakeRemoteFiles{size: 4, data: []byte("test")}
+	events := &fakeEventSink{}
+	manager := NewManager(remote, events, &fakeOpener{})
+	payload, err := manager.Open("session", "/tmp/file.txt", "", "", true, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localPath, _ := payload["localPath"].(string)
+
+	manager.StopSessionSilently("session")
+
+	if _, err := os.Stat(localPath); !os.IsNotExist(err) {
+		t.Fatalf("静默停止后临时文件仍存在: %v", err)
+	}
+	if got := manager.List(); len(got) != 0 {
+		t.Fatalf("静默停止后仍有会话: %+v", got)
+	}
+	events.mu.Lock()
+	defer events.mu.Unlock()
+	for _, event := range events.events {
+		if event == externalEditEventStopped {
+			t.Fatal("静默停止不应发送 stopped 事件")
+		}
+	}
+}
+
 func TestOpenRejectsOversizedRemoteFile(t *testing.T) {
 	manager := NewManager(&fakeRemoteFiles{size: 2048}, &fakeEventSink{}, &fakeOpener{})
 	if _, err := manager.Open("session", "/tmp/file.txt", "", "", false, 1024); err == nil {

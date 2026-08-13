@@ -3,6 +3,7 @@ package transfer
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestNormalizeTuningDefaultsAndBounds(t *testing.T) {
@@ -100,6 +101,36 @@ func TestServiceCloseCancelsOnlyOwnTasks(t *testing.T) {
 	second.CancelSession("session")
 	if !secondCancelled {
 		t.Fatal("second service did not cancel its task")
+	}
+}
+
+func TestDisconnectSessionClosesChunkPoolWithoutAcquire(t *testing.T) {
+	service := NewService(nil, nil)
+	pool := newSFTPUploadPool(nil, 1, DefaultTuning())
+	pool.mu.Lock()
+	pool.created = 1 // 模拟唯一 client 正被 worker 占用，Acquire 会等待。
+	pool.mu.Unlock()
+	service.chunkTasks["task"] = &chunkedUploadTask{
+		sessionId: "session",
+		pool:      pool,
+		files:     make(map[string]*chunkedUploadFile),
+	}
+
+	done := make(chan struct{})
+	go func() {
+		service.DisconnectSession("session")
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("DisconnectSession 等待了 SFTP Acquire")
+	}
+	pool.mu.Lock()
+	closed := pool.closed
+	pool.mu.Unlock()
+	if !closed || len(service.chunkTasks) != 0 {
+		t.Fatalf("断线清理未关闭 pool: closed=%v tasks=%d", closed, len(service.chunkTasks))
 	}
 }
 

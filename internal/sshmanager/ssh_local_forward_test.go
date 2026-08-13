@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"luminssh-go/internal/tcpforward"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type fakeManagerForwarder struct {
@@ -76,3 +78,84 @@ func TestTCPForwardPackageIsUsableByManagerBoundary(t *testing.T) {
 type managerDialer struct{ conn net.Conn }
 
 func (d *managerDialer) Dial(string, string) (net.Conn, error) { return d.conn, nil }
+
+func TestStartPortForwardDoesNotHoldManagerLock(t *testing.T) {
+	client := &ssh.Client{}
+	mgr := &SSHManager{
+		clients:      map[string]*sshClientEntry{"conn": {Client: client}},
+		portForwards: make(map[string]*managedPortForward),
+	}
+	started := make(chan struct{})
+	continueStart := make(chan struct{})
+	result := make(chan string, 1)
+	go func() {
+		id, err := mgr.startPortForward("conn", "local", "127.0.0.1:0", "example.com:22", func(got *ssh.Client) (sshPortForward, error) {
+			if got != client {
+				t.Errorf("captured client = %p, want %p", got, client)
+			}
+			close(started)
+			<-continueStart
+			return &fakeManagerForwarder{}, nil
+		})
+		if err != nil {
+			t.Errorf("startPortForward error: %v", err)
+		}
+		result <- id
+	}()
+
+	<-started
+	lockReleased := make(chan struct{})
+	go func() {
+		mgr.mu.Lock()
+		mgr.mu.Unlock()
+		close(lockReleased)
+	}()
+	select {
+	case <-lockReleased:
+	case <-time.After(time.Second):
+		t.Fatal("startPortForward held manager lock while creating forward")
+	}
+	close(continueStart)
+	if id := <-result; id == "" {
+		t.Fatal("startPortForward returned empty id")
+	}
+	if len(mgr.portForwards) != 1 {
+		t.Fatalf("port forward count = %d, want 1", len(mgr.portForwards))
+	}
+}
+
+func TestStartPortForwardDropsForwardAfterDisconnect(t *testing.T) {
+	client := &ssh.Client{}
+	forwarder := &fakeManagerForwarder{}
+	mgr := &SSHManager{
+		clients:      map[string]*sshClientEntry{"conn": {Client: client}},
+		portForwards: make(map[string]*managedPortForward),
+	}
+	started := make(chan struct{})
+	continueStart := make(chan struct{})
+	result := make(chan error, 1)
+	go func() {
+		_, err := mgr.startPortForward("conn", "remote", "127.0.0.1:8080", "127.0.0.1:80", func(*ssh.Client) (sshPortForward, error) {
+			close(started)
+			<-continueStart
+			return forwarder, nil
+		})
+		result <- err
+	}()
+
+	<-started
+	mgr.mu.Lock()
+	delete(mgr.clients, "conn")
+	mgr.mu.Unlock()
+	close(continueStart)
+
+	if err := <-result; err == nil {
+		t.Fatal("stale forward creation unexpectedly succeeded")
+	}
+	if !forwarder.closed {
+		t.Fatal("stale forwarder was not closed")
+	}
+	if len(mgr.portForwards) != 0 {
+		t.Fatal("stale forward was registered")
+	}
+}

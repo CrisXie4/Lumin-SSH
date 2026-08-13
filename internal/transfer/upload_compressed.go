@@ -191,15 +191,35 @@ func (task *compressedUploadTask) snapshot() (string, string) {
 	return task.tempDir, task.remoteArchive
 }
 
-func (task *compressedUploadTask) cleanup(service *Service) {
-	tempDir, remoteArchive := task.snapshot()
+func (task *compressedUploadTask) cleanupLocal() {
+	tempDir, _ := task.snapshot()
 	if tempDir != "" {
 		_ = os.RemoveAll(tempDir)
 		task.clearTempDir()
 	}
+}
+
+func (task *compressedUploadTask) cleanup(service *Service) {
+	task.cleanupLocal()
+	_, remoteArchive := task.snapshot()
 	if remoteArchive != "" {
 		_ = service.backend.DeleteRemote(context.Background(), task.sessionId, remoteArchive, false)
 		task.clearRemoteArchive()
+	}
+}
+
+func (task *compressedUploadTask) detachOnDisconnect() string {
+	task.mu.Lock()
+	defer task.mu.Unlock()
+	tempDir := task.tempDir
+	task.tempDir = ""
+	task.remoteArchive = ""
+	return tempDir
+}
+
+func cleanupCompressedLocalPath(tempDir string) {
+	if tempDir != "" {
+		_ = os.RemoveAll(tempDir)
 	}
 }
 

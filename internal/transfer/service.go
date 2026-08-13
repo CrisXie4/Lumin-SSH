@@ -52,6 +52,49 @@ func (s *Service) Tuning() Tuning {
 	return settings
 }
 
+// DisconnectSession 仅做本地确定性回收，不等待已失联服务器删除临时文件。
+func (s *Service) DisconnectSession(sessionID string) {
+	if s == nil {
+		return
+	}
+	s.registry.cancelSession(sessionID)
+	s.chunkMu.Lock()
+	taskIDs := make([]string, 0)
+	for taskID, task := range s.chunkTasks {
+		if task != nil && task.sessionId == sessionID {
+			taskIDs = append(taskIDs, taskID)
+		}
+	}
+	s.chunkMu.Unlock()
+	for _, taskID := range taskIDs {
+		s.abortChunkedUploadTaskOnDisconnect(taskID)
+	}
+	s.downloadTasks.Range(func(key, value any) bool {
+		downloadID, _ := key.(string)
+		task, _ := value.(*downloadTransferTask)
+		if task != nil && task.sessionId == sessionID {
+			task.cancel()
+			s.downloadTasks.Delete(downloadID)
+			localTempDir, localTargetPath := task.detachOnDisconnect()
+			go cleanupDownloadLocalPaths(localTempDir, localTargetPath)
+		}
+		return true
+	})
+	s.compressedTasks.Range(func(key, value any) bool {
+		uploadID, _ := key.(string)
+		task, _ := value.(*compressedUploadTask)
+		if task != nil && task.sessionId == sessionID {
+			task.cancel()
+			s.compressedTasks.Delete(uploadID)
+			tempDir := task.detachOnDisconnect()
+			go cleanupCompressedLocalPath(tempDir)
+		}
+		return true
+	})
+	s.compressedSlots.Delete(sessionID)
+	s.mcpStore.cancelSession(sessionID)
+}
+
 func (s *Service) CancelSession(sessionID string) {
 	if s == nil {
 		return

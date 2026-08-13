@@ -64,7 +64,7 @@ func NewManager(remoteFiles RemoteFiles, events EventSink, opener Opener) *Manag
 		events:      events,
 		opener:      opener,
 	}
-	go manager.pruneOrphanTemp(0)
+	manager.pruneOrphanTemp(0)
 	return manager
 }
 
@@ -195,7 +195,7 @@ func (m *Manager) Open(sessionID, remotePath, content, editorPath string, readOn
 	key := externalEditKey(sessionID, remotePath)
 	m.mu.Lock()
 	if existing, ok := m.sessions[key]; ok {
-		m.stopSessionLocked(existing, false)
+		m.stopSessionLocked(existing, false, true)
 	}
 
 	// readOnly（媒体类：只下载用系统程序查看，不监听修改、不回写远程）：
@@ -385,7 +385,7 @@ func (m *Manager) trySync(sess *externalEditSession) {
 	})
 }
 
-func (m *Manager) stopSessionLocked(sess *externalEditSession, removeFiles bool) {
+func (m *Manager) stopSessionLocked(sess *externalEditSession, removeFiles bool, emit bool) {
 	if sess == nil {
 		return
 	}
@@ -402,11 +402,13 @@ func (m *Manager) stopSessionLocked(sess *externalEditSession, removeFiles bool)
 		_ = os.Remove(sess.localPath)
 		_ = os.Remove(filepath.Dir(sess.localPath))
 	}
-	m.emit(externalEditEventStopped, map[string]interface{}{
-		"sessionId":  sess.sessionID,
-		"remotePath": sess.remotePath,
-		"localPath":  sess.localPath,
-	})
+	if emit {
+		m.emit(externalEditEventStopped, map[string]interface{}{
+			"sessionId":  sess.sessionID,
+			"remotePath": sess.remotePath,
+			"localPath":  sess.localPath,
+		})
+	}
 }
 
 func (m *Manager) Stop(sessionID, remotePath string) error {
@@ -417,7 +419,7 @@ func (m *Manager) Stop(sessionID, remotePath string) error {
 	if !ok {
 		return nil
 	}
-	m.stopSessionLocked(sess, true)
+	m.stopSessionLocked(sess, true, true)
 	return nil
 }
 
@@ -430,8 +432,22 @@ func (m *Manager) StopSession(sessionID string) {
 	defer m.mu.Unlock()
 	for key, sess := range m.sessions {
 		if sess.sessionID == sessionID {
-			m.stopSessionLocked(sess, true)
+			m.stopSessionLocked(sess, true, true)
 			_ = key
+		}
+	}
+}
+
+func (m *Manager) StopSessionSilently(sessionID string) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, sess := range m.sessions {
+		if sess.sessionID == sessionID {
+			m.stopSessionLocked(sess, true, false)
 		}
 	}
 }
@@ -439,7 +455,7 @@ func (m *Manager) StopSession(sessionID string) {
 func (m *Manager) StopAll() {
 	m.mu.Lock()
 	for _, sess := range m.sessions {
-		m.stopSessionLocked(sess, true)
+		m.stopSessionLocked(sess, true, true)
 	}
 	m.mu.Unlock()
 	m.pruneOrphanTemp(0)

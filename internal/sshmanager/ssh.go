@@ -228,13 +228,13 @@ func (s transferSink) Emit(event string, payload any) {
 // SSHAppBackend 抽象 SSHManager 对 App 的依赖（WebSocket 输出 + 缓冲清理）。
 type SSHAppBackend interface {
 	WriteWsOutput(sessionId string, data []byte)
-	CleanupWsPending(sessionId string)
+	CleanupSession(sessionId string)
 }
 
 type SSHManager struct {
 	ctx              context.Context
 	app              SSHAppBackend                 // reference to App for WebSocket output delivery
-	configManager    *config.ConfigManager        // 端口转发持久化等配置管理
+	configManager    *config.ConfigManager         // 端口转发持久化等配置管理
 	sessions         map[string]*SessionData       // terminalId -> terminal session
 	clients          map[string]*sshClientEntry    // connKey -> shared client+SFTP
 	connTerminals    map[string][]string           // connKey -> terminal sessionIds
@@ -871,10 +871,10 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 
 	go m.pipeOutput(sessionId, stdout, historyStream)
 	go m.pipeOutput(sessionId, stderr, nil)
-	go func() {
-		_ = session.Wait()
-		m.disconnectAndNotify(sessionId, "session_end")
-	}()
+	go func(expected *ssh.Session) {
+		_ = expected.Wait()
+		m.disconnectAndNotify(sessionId, expected, "session_end")
+	}(session)
 
 	return nil
 }
@@ -1039,6 +1039,19 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 		return
 	}
 	terminalIds := append([]string(nil), m.connTerminals[connKey]...)
+	terminalSessions := make(map[string]*SessionData, len(terminalIds))
+	parentSessionId := ""
+	for _, terminalId := range terminalIds {
+		if session := m.sessions[terminalId]; session != nil {
+			terminalSessions[terminalId] = session
+			if parentSessionId == "" {
+				parentSessionId = terminalId
+				if session.GroupSessionId != "" {
+					parentSessionId = session.GroupSessionId
+				}
+			}
+		}
+	}
 	netConn := entry.NetConn
 	sftpClient := entry.SFTP
 	if entry.SFTPReady != nil {
@@ -1051,24 +1064,20 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	delete(m.probeRunFailed, connKey)
 	m.mu.Unlock()
 	globalSSHChannelUsage.forget(connKey)
-	// 连接级断开: 该连接下的端口转发全部转为已停止态, 关闭监听器释放本地端口。
-	// 此路径已从 m.clients 删除 connKey, 下面循环里的 Disconnect 不会再进连接级删除分支,
-	// 故端口转发清理必须在此独立触发, 不能只依赖 Disconnect。
+	if netConn != nil {
+		_ = netConn.Close()
+	}
+	// transport 已关闭后再回收端口转发，避免远程 listener.Close 等待
+	// cancel-tcpip-forward 回复而阻塞整个断线流程。
 	m.stopPortForwardsForConnKey(connKey)
 
 	if reason == "" {
 		reason = "transport"
 	}
-	if netConn != nil {
-		_ = netConn.Close()
-	}
-	// 静默拆各终端 session，再发一次「整机连接断开」事件，避免 N 次误报
-	parentSessionId := ""
+	// 静默拆各终端 session，再发一次「整机连接断开」事件，避免 N 次误报。
+	// expected 指针确保旧 transport 的迟到清理不会误删同 ID 的新 session。
 	for _, terminalId := range terminalIds {
-		if parentSessionId == "" {
-			parentSessionId = m.sessionParentID(terminalId)
-		}
-		_ = m.Disconnect(terminalId)
+		_ = m.disconnect(terminalId, terminalSessions[terminalId])
 	}
 	if sftpClient != nil {
 		closeWithTimeout(sftpClient, 3*time.Second)
@@ -1104,23 +1113,25 @@ func (m *SSHManager) sessionParentID(sessionId string) string {
 
 // disconnectAndNotify 结束单个 terminal 并通知前端。
 // reason=session_end：shell 正常/异常退出；connectionClosed 表示是否同时拆掉了共享 TCP。
-func (m *SSHManager) disconnectAndNotify(sessionId string, reason string) {
+func (m *SSHManager) disconnectAndNotify(sessionId string, expectedSession *ssh.Session, reason string) {
 	if reason == "" {
 		reason = "session_end"
 	}
-	parentSessionId := m.sessionParentID(sessionId)
-
 	m.mu.RLock()
-	s, ok := m.sessions[sessionId]
-	connKey := ""
-	terminalsBefore := 0
-	if ok {
-		connKey = s.ConnKey
-		terminalsBefore = len(m.connTerminals[connKey])
+	expected := m.sessions[sessionId]
+	if expected == nil || (expectedSession != nil && expected.Session != expectedSession) {
+		m.mu.RUnlock()
+		return
 	}
+	parentSessionId := sessionId
+	if expected.GroupSessionId != "" {
+		parentSessionId = expected.GroupSessionId
+	}
+	connKey := expected.ConnKey
+	terminalsBefore := len(m.connTerminals[connKey])
 	m.mu.RUnlock()
 
-	if !m.Disconnect(sessionId) {
+	if !m.disconnect(sessionId, expected) {
 		return
 	}
 	if m.ctx == nil {
@@ -1128,7 +1139,7 @@ func (m *SSHManager) disconnectAndNotify(sessionId string, reason string) {
 	}
 
 	connectionClosed := false
-	if ok && connKey != "" {
+	if connKey != "" {
 		m.mu.RLock()
 		_, clientAlive := m.clients[connKey]
 		terminalsAfter := len(m.connTerminals[connKey])
@@ -1399,12 +1410,33 @@ func (m *SSHManager) GetSFTPClient(sessionId string) (*sftp.Client, error) {
 	return entry.SFTP, nil
 }
 
-func (m *SSHManager) abortUploadsForSession(sessionId string) {
-	_ = m.AbortCompressedUpload(sessionId)
-	m.transferService.CancelSession(sessionId)
+// DisconnectConnection 关闭 sessionId 所属共享连接的全部终端。
+func (m *SSHManager) DisconnectConnection(sessionId string) {
+	m.mu.RLock()
+	session := m.sessions[sessionId]
+	if session == nil || session.ConnKey == "" {
+		m.mu.RUnlock()
+		m.Disconnect(sessionId)
+		return
+	}
+	ids := append([]string{sessionId}, m.connTerminals[session.ConnKey]...)
+	targets := make(map[string]*SessionData, len(ids))
+	for _, id := range ids {
+		if current := m.sessions[id]; current != nil {
+			targets[id] = current
+		}
+	}
+	m.mu.RUnlock()
+	for id, expected := range targets {
+		m.disconnect(id, expected)
+	}
 }
 
 func (m *SSHManager) Disconnect(sessionId string) bool {
+	return m.disconnect(sessionId, nil)
+}
+
+func (m *SSHManager) disconnect(sessionId string, expected *SessionData) bool {
 	disconnected := false
 	defer func() {
 		if r := recover(); r != nil {
@@ -1412,25 +1444,26 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 		}
 	}()
 
-	// 先取消正在进行的连接（Connect 还没完成的情况）
-	m.pendingMu.Lock()
-	if cancel, ok := m.pendingCancels[sessionId]; ok {
-		cancel()
-		delete(m.pendingCancels, sessionId)
+	// 先取消正在进行的连接（Connect 还没完成的情况）。迟到的旧 Session.Wait
+	// 带 expected 身份，不得取消同 ID 的新连接。
+	if expected == nil {
+		m.pendingMu.Lock()
+		if cancel, ok := m.pendingCancels[sessionId]; ok {
+			cancel()
+			delete(m.pendingCancels, sessionId)
+		}
+		m.pendingMu.Unlock()
 	}
-	m.pendingMu.Unlock()
-
-	_ = m.AbortDownloadTransfer(sessionId)
-	m.abortUploadsForSession(sessionId)
 
 	// 1. 在锁内完成 map 清理，收集需要关闭的资源
 	m.mu.Lock()
-	// 临时密钥与待确认条目的生命周期不依赖 m.sessions：握手失败（认证错误、
-	// 用户取消主机密钥确认）的会话从未进入 m.sessions，若放在下面的提前返回
-	// 之后清理就会永久残留。故先于 ok 判断清掉。
+	s, ok := m.sessions[sessionId]
+	if expected != nil && (!ok || s != expected) {
+		m.mu.Unlock()
+		return false
+	}
 	delete(m.tempAcceptedKeys, sessionId)
 	delete(m.pendingHostKeys, sessionId)
-	s, ok := m.sessions[sessionId]
 	if !ok {
 		m.mu.Unlock()
 		return false
@@ -1438,7 +1471,6 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	disconnected = true
 	connKey := s.ConnKey
 	delete(m.sessions, sessionId)
-
 	isLocal := s.IsLocal
 	isSerial := s.IsSerial
 
@@ -1470,24 +1502,29 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 				entry.SFTPReadyOnce.Do(func() { close(entry.SFTPReady) })
 			}
 			delete(m.clients, connKey)
-			delete(m.connTerminals, connKey)
-			delete(m.probeDeployed, connKey)
-			delete(m.probeFailed, connKey)
-			delete(m.probeRunFailed, connKey)
-			// 本次是该连接最后一个终端的连接级断开: 标记锁外回收端口转发。
-			// cleanupClientTransport 路径下 client 已被删, 到这里 ok=false 不会置此标记,
-			// 由 cleanupClientTransport 自身的 stopPortForwardsForConnKey 兜底, 二者互斥不重复。
-			stopForwardsConnKey = connKey
 		}
+		delete(m.connTerminals, connKey)
+		delete(m.probeDeployed, connKey)
+		delete(m.probeFailed, connKey)
+		delete(m.probeRunFailed, connKey)
+		// 即使 transport 清理已先删掉 client，也要回收连接索引和转发。
+		// stopPortForwardsForConnKey 幂等，和 cleanupClientTransport 重复调用无害。
+		stopForwardsConnKey = connKey
 	}
 	m.mu.Unlock() // 尽早释放锁，避免 Close 阻塞影响其他操作
+	// 只有成功摘除目标 session 后才取消其传输；旧 Wait 不能误取消重连后的任务。
+	m.transferService.DisconnectSession(sessionId)
+	// 最后一个终端先关闭底层 transport，解除半死连接上的 SFTP、远程转发
+	// cancel 请求等阻塞；共享连接还有其它终端时 netConnToClose 为 nil。
+	if netConnToClose != nil {
+		_ = netConnToClose.Close()
+	}
 	if stopForwardsConnKey != "" {
 		m.stopPortForwardsForConnKey(stopForwardsConnKey)
 	}
-	// 会话彻底销毁：清理其 WS 注册前缓冲，避免 wsPending map 残留泄漏
-	// （PTY 在 WS 断开后可能缓冲过数据；此时 session 已删，再无 flush 机会）。
+	// 会话彻底销毁：同步清理 WebSocket、外部编辑等旁路资源。
 	if m.app != nil {
-		m.app.CleanupWsPending(sessionId)
+		m.app.CleanupSession(sessionId)
 	}
 
 	// 2. 在锁外关闭资源（服务器挂了时这些操作可能阻塞，但不会锁住其他 goroutine）
@@ -1528,9 +1565,6 @@ func (m *SSHManager) Disconnect(sessionId string) bool {
 	}
 	if sshSess != nil {
 		sshSess.Close()
-	}
-	if netConnToClose != nil {
-		_ = netConnToClose.Close()
 	}
 	if sftpToClose != nil {
 		closeWithTimeout(sftpToClose, 3*time.Second)

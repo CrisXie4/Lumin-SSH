@@ -296,6 +296,10 @@ export default function App() {
     const ids = markConnectionCancelled(terminalIds);
     return awaitDisconnectTerminals(ids);
   }, [awaitDisconnectTerminals, markConnectionCancelled]);
+  const disconnectSessionConnection = useCallback((sessionId: string, terminalIds: string[] = []) => {
+    const ids = markConnectionCancelled([sessionId, ...terminalIds]);
+    return AppGo.DisconnectSSHConnection(sessionId).then(() => ids);
+  }, [markConnectionCancelled]);
   const registerServerDisconnect = useCallback((serverId: string, disconnectPromise: Promise<unknown>) => {
     const normalizedServerId = typeof serverId === 'string' ? serverId.trim() : '';
     if (!normalizedServerId || !disconnectPromise) {
@@ -1021,6 +1025,7 @@ export default function App() {
     contentTabRef,
     creatingTerminalRef,
     credentials,
+    disconnectSessionConnection,
     disconnectSessionTerminals,
     // useAIReview 返回严格 AIChangeReview，注入侧为宽松 Record
     enqueueChangeReview: enqueueChangeReview as (review: Record<string, unknown>) => void,

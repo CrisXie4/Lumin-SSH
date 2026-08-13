@@ -381,11 +381,14 @@ func (a *App) WriteWsOutput(sessionId string, data []byte) {
 	a.wsManager.WriteOutput(sessionId, data)
 }
 
-// CleanupWsPending 在会话彻底销毁时清理其注册前缓冲，避免 pending map 残留。
-// 注意：不能在单条 WS 重连时调用——重连期间 PTY 可能仍在向 pending 缓冲首帧，
-// 那些数据需要留给新连接 flush。仅在 session 彻底断开时调用。
-func (a *App) CleanupWsPending(sessionId string) {
-	a.wsManager.CleanupPending(sessionId)
+// CleanupSession 在会话彻底销毁时清理所有旁路资源。
+func (a *App) CleanupSession(sessionId string) {
+	if a.externalEdit != nil {
+		a.externalEdit.StopSessionSilently(sessionId)
+	}
+	if a.wsManager != nil {
+		a.wsManager.CloseSession(sessionId)
+	}
 }
 
 // IsPortableVersion checks if the current executable is the portable version
@@ -827,10 +830,11 @@ func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword
 }
 
 // DisconnectSSH closes an SSH connection
+func (a *App) DisconnectSSHConnection(sessionId string) {
+	a.sshManager.DisconnectConnection(sessionId)
+}
+
 func (a *App) DisconnectSSH(sessionId string) {
-	if a.externalEdit != nil {
-		a.externalEdit.StopSession(sessionId)
-	}
 	a.sshManager.Disconnect(sessionId)
 }
 

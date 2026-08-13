@@ -50,6 +50,7 @@ export interface UseSessionConnectionsDeps {
   contentTabRef: React.MutableRefObject<string>;
   creatingTerminalRef: React.MutableRefObject<string | null>;
   credentials: config.Credential[];
+  disconnectSessionConnection: (sessionId: string, terminalIds?: string[]) => Promise<unknown>;
   disconnectSessionTerminals: (ids: string[]) => Promise<unknown>;
   enqueueChangeReview: (review: Record<string, unknown>) => void;
   fileManagerPosition: string;
@@ -193,7 +194,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     activeSessionIdRef, activeTerminalIdRef, addToast, authPromptTokenRef, awaitDisconnectTerminals,
     buildTerminalCloneCwdCommand, cancelledConnectionsRef, clearSessionAuthPrompt,
     cloneSessionFileManagerWorkspaceState, connectingServersRef, contentTabRef, creatingTerminalRef,
-    credentials, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition,
+    credentials, disconnectSessionConnection, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition,
     getAllSessionFileManagerWorkspaces, getSessionFileManagerWorkspace, isRecoveryPasswordError,
     isUnsupportedMonitorSession, lastContentTabRef, lastTerminalRef, loadServerWorkspaceSessionSnapshot,
     markWorkspaceRestoreNavigationOverride, mountedRef, normalizeWorkspaceContentTab,
@@ -284,8 +285,11 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
   const handleCancelConnection = useCallback((sessionId: string) => {
     if (!sessionId) return;
     const session = sessionsRef.current.find((item) => item.id === sessionId);
-    const termIds = session?.terminals?.length ? session.terminals.map((term) => term.id as string) : [sessionId];
-    const disconnectPromise = disconnectSessionTerminals(termIds);
+    const termIds = Array.from(new Set([
+      sessionId,
+      ...(session?.terminals || []).map((terminal) => terminal.id as string),
+    ].filter(Boolean)));
+    const disconnectPromise = disconnectSessionConnection(sessionId, termIds);
     if (session?.serverId) {
       registerServerDisconnect(String(session.serverId), disconnectPromise);
     }
@@ -294,7 +298,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     setActiveTerminalId(null);
     setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
     clearSessionAuthPrompt(sessionId);
-  }, [clearSessionAuthPrompt, disconnectSessionTerminals, registerServerDisconnect]);
+  }, [clearSessionAuthPrompt, disconnectSessionConnection, registerServerDisconnect]);
 
   // ── 切换到下一个可用 session ──────────────────────────────
   const resolveSessionContentTab = useCallback((sessionId: string) => {
@@ -1353,8 +1357,11 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         contentTab: normalizeWorkspaceContentTab(activeSessionIdRef.current === sessionId ? contentTabRef.current : (lastContentTabRef.current[sessionId] || 'terminal')),
       });
     }
-    const termIds = session?.terminals ? session.terminals.map(t => t.id as string) : [sessionId];
-    const disconnectPromise = disconnectSessionTerminals(termIds);
+    const termIds = Array.from(new Set([
+      sessionId,
+      ...(session?.terminals || []).map((terminal) => terminal.id as string),
+    ].filter(Boolean)));
+    const disconnectPromise = disconnectSessionConnection(sessionId, termIds);
     if (session?.serverId) {
       registerServerDisconnect(String(session.serverId), disconnectPromise);
     }
@@ -1382,7 +1389,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
     }
     clearSessionAuthPrompt(sessionId);
-  }, [clearSessionAuthPrompt, disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, switchToNextSession]);
+  }, [clearSessionAuthPrompt, disconnectSessionConnection, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, switchToNextSession]);
 
   const closeSession = useCallback(async (sessionId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -1418,8 +1425,10 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         contentTab: normalizeWorkspaceContentTab(activeSessionIdRef.current === session.id ? contentTabRef.current : (lastContentTabRef.current[session.id!] || 'terminal')),
       });
     });
-    const allTermIds = all.flatMap(s => (Array.isArray(s.terminals) && s.terminals.length > 0 ? s.terminals.map(t => t.id as string) : [s.id!]));
-    const disconnectPromise = disconnectSessionTerminals(allTermIds);
+    const disconnectPromise = Promise.allSettled(all.map((session) => disconnectSessionConnection(
+      session.id!,
+      (session.terminals || []).map((terminal) => terminal.id as string),
+    )));
     all
       .map((session) => session?.serverId)
       .filter(Boolean)
@@ -1432,7 +1441,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     setActiveTerminalId(null);
     setConnectingServers([]);
     setSessionAuthPrompts({});
-  }, [disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, t]);
+  }, [disconnectSessionConnection, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, t]);
 
   // ── 在当前服务器上新建终端标签 ──────────────────────────────
   const openNewTerminal = useCallback(async (sessionId: string, options: {

@@ -107,16 +107,26 @@ func (p *sftpUploadPool) Acquire() (*sftp.Client, error) {
 		p.notifyChannelDelta(1)
 		client, err := NewSFTPClient(p.sshClient, p.tuning)
 		if err == nil {
+			p.mu.Lock()
+			closed := p.closed
+			p.mu.Unlock()
+			if closed {
+				_ = client.Close()
+				return nil, fmt.Errorf("upload pool closed")
+			}
 			return client, nil
 		}
 		p.mu.Lock()
-		if p.created > 0 {
+		released := p.created > 0
+		if released {
 			p.created--
 		}
-		p.notifyChannelDelta(-1)
 		closed := p.closed
 		p.cond.Broadcast()
 		p.mu.Unlock()
+		if released {
+			p.notifyChannelDelta(-1)
+		}
 		if closed {
 			return nil, fmt.Errorf("upload pool closed")
 		}
@@ -149,13 +159,16 @@ func (p *sftpUploadPool) releaseClient(client *sftp.Client, broken bool) {
 	}
 	p.mu.Lock()
 	if p.closed || broken {
-		if p.created > 0 {
+		released := p.created > 0
+		if released {
 			p.created--
 		}
 		p.cond.Broadcast()
 		p.mu.Unlock()
 		_ = client.Close()
-		p.notifyChannelDelta(-1)
+		if released {
+			p.notifyChannelDelta(-1)
+		}
 		return
 	}
 	p.idleClients = append(p.idleClients, client)
@@ -501,6 +514,27 @@ func (s *Service) FinishChunkedUploadTask(taskID string) error {
 	}
 	task.pool.Close()
 	return nil
+}
+
+func (s *Service) abortChunkedUploadTaskOnDisconnect(taskID string) {
+	s.chunkMu.Lock()
+	task := s.chunkTasks[taskID]
+	delete(s.chunkTasks, taskID)
+	s.chunkMu.Unlock()
+	if task == nil {
+		return
+	}
+	task.mu.Lock()
+	for _, fileState := range task.files {
+		fileState.mu.Lock()
+		fileState.aborted = true
+		fileState.mu.Unlock()
+	}
+	task.files = make(map[string]*chunkedUploadFile)
+	task.mu.Unlock()
+	// 断线时不能等待 Acquire 后再删远端临时文件；先关 pool 唤醒等待者，
+	// 活跃 client 会由随后关闭的 SSH transport 中断。
+	task.pool.Close()
 }
 
 func (s *Service) AbortChunkedUploadTask(taskID string) error {

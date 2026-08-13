@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"luminssh-go/internal/tcpforward"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type sshPortForward = tcpforward.Forwarder
@@ -177,58 +179,62 @@ func (m *SSHManager) persistPortForwardsForServer(serverId string) {
 	}
 }
 
-func (m *SSHManager) StartLocalPortForward(connKey, localAddr, remoteAddr string) (string, error) {
-	m.ensurePersistedPortForwardsLoadedForConnKey(connKey)
-	m.mu.Lock()
+func (m *SSHManager) startPortForward(connKey, kind, localAddr, remoteAddr string, start func(*ssh.Client) (sshPortForward, error)) (string, error) {
+	m.mu.RLock()
 	entry, ok := m.clients[connKey]
 	if !ok || entry == nil || entry.Client == nil {
-		m.mu.Unlock()
-		return "", errors.New("ssh client not found")
+		m.mu.RUnlock()
+		return "", errors.New("SSH 连接不存在或已关闭")
 	}
-	forwarder, err := tcpforward.StartLocal(context.Background(), entry.Client, localAddr, remoteAddr)
+	client := entry.Client
+	m.mu.RUnlock()
+
+	// 创建远程转发时会等待服务器响应，必须在全局锁外执行，避免半断开的
+	// 服务器拖住其它会话和断线清理。
+	forwarder, err := start(client)
 	if err != nil {
-		m.mu.Unlock()
 		return "", err
 	}
-	id := fmt.Sprintf("lf-%d", time.Now().UnixNano())
+
+	idPrefix := "lf"
+	if kind == "remote" {
+		idPrefix = "rf"
+	}
+	id := fmt.Sprintf("%s-%d", idPrefix, time.Now().UnixNano())
 	serverId := m.serverIdForConnKey(connKey)
 	localHost, localPort := splitHostPortLoose(localAddr)
 	remoteHost, remotePort := splitHostPortLoose(remoteAddr)
+
+	m.mu.Lock()
+	current, alive := m.clients[connKey]
+	if !alive || current == nil || current.Client != client {
+		m.mu.Unlock()
+		_ = forwarder.Close()
+		return "", errors.New("SSH 连接已关闭")
+	}
 	m.portForwards[id] = &managedPortForward{
-		id: id, kind: "local", connKey: connKey, serverId: serverId,
+		id: id, kind: kind, connKey: connKey, serverId: serverId,
 		localHost: localHost, localPort: localPort, remoteHost: remoteHost, remotePort: remotePort,
 		enabled: true, forwarder: forwarder,
 	}
 	m.mu.Unlock()
+
 	m.persistPortForwardsForServer(serverId)
 	return id, nil
 }
 
+func (m *SSHManager) StartLocalPortForward(connKey, localAddr, remoteAddr string) (string, error) {
+	m.ensurePersistedPortForwardsLoadedForConnKey(connKey)
+	return m.startPortForward(connKey, "local", localAddr, remoteAddr, func(client *ssh.Client) (sshPortForward, error) {
+		return tcpforward.StartLocal(context.Background(), client, localAddr, remoteAddr)
+	})
+}
+
 func (m *SSHManager) StartRemotePortForward(connKey, remoteAddr, localAddr string) (string, error) {
 	m.ensurePersistedPortForwardsLoadedForConnKey(connKey)
-	m.mu.Lock()
-	entry, ok := m.clients[connKey]
-	if !ok || entry == nil || entry.Client == nil {
-		m.mu.Unlock()
-		return "", errors.New("ssh client not found")
-	}
-	forwarder, err := tcpforward.StartRemote(context.Background(), entry.Client, remoteAddr, localAddr)
-	if err != nil {
-		m.mu.Unlock()
-		return "", err
-	}
-	id := fmt.Sprintf("rf-%d", time.Now().UnixNano())
-	serverId := m.serverIdForConnKey(connKey)
-	localHost, localPort := splitHostPortLoose(localAddr)
-	remoteHost, remotePort := splitHostPortLoose(remoteAddr)
-	m.portForwards[id] = &managedPortForward{
-		id: id, kind: "remote", connKey: connKey, serverId: serverId,
-		localHost: localHost, localPort: localPort, remoteHost: remoteHost, remotePort: remotePort,
-		enabled: true, forwarder: forwarder,
-	}
-	m.mu.Unlock()
-	m.persistPortForwardsForServer(serverId)
-	return id, nil
+	return m.startPortForward(connKey, "remote", localAddr, remoteAddr, func(client *ssh.Client) (sshPortForward, error) {
+		return tcpforward.StartRemote(context.Background(), client, remoteAddr, localAddr)
+	})
 }
 
 // StopPortForward 停止转发但保留记录(标记为已停止), 关闭真实监听, 不从 map 移除。

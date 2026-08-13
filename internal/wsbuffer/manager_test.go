@@ -110,6 +110,32 @@ func TestBufferPendingCap(t *testing.T) {
 	}
 }
 
+func TestCloseSessionClosesConnectionAndPending(t *testing.T) {
+	m := NewManager()
+	entry, client, cleanup := newWsPair(t)
+	defer cleanup()
+	m.conns["s1"] = entry
+	m.WriteOutput("pending", []byte("data"))
+	m.mu.Lock()
+	m.pending["s1"] = m.pending["pending"]
+	delete(m.pending, "pending")
+	m.mu.Unlock()
+
+	m.CloseSession("s1")
+
+	m.mu.Lock()
+	_, hasConn := m.conns["s1"]
+	_, hasPending := m.pending["s1"]
+	m.mu.Unlock()
+	if hasConn || hasPending {
+		t.Fatalf("CloseSession 后仍有资源: conn=%v pending=%v", hasConn, hasPending)
+	}
+	_ = client.SetReadDeadline(time.Now().Add(time.Second))
+	if _, _, err := client.ReadMessage(); err == nil {
+		t.Fatal("CloseSession 未关闭 WebSocket")
+	}
+}
+
 // 会话彻底销毁时必须清理其 pending 缓冲，避免 map 残留泄漏。
 func TestCleanupPendingRemovesEntry(t *testing.T) {
 	m := NewManager()

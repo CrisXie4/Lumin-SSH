@@ -111,6 +111,19 @@ func (m *Manager) WriteOutput(sessionId string, data []byte) {
 	}
 }
 
+// CloseSession 摘除并关闭一个会话的 WebSocket，同时清理注册前缓冲。
+// 先移出 map 再在锁外 Close，避免连接关闭握手阻塞其它 session。
+func (m *Manager) CloseSession(sessionId string) {
+	m.mu.Lock()
+	entry := m.conns[sessionId]
+	delete(m.conns, sessionId)
+	delete(m.pending, sessionId)
+	m.mu.Unlock()
+	if entry != nil {
+		_ = entry.conn.Close()
+	}
+}
+
 // CleanupPending 在会话彻底销毁时清理其注册前缓冲，避免 pending map 残留。
 // 注意：不能在单条 WS 重连时调用——重连期间 PTY 可能仍在向 pending 缓冲首帧，
 // 那些数据需要留给新连接 flush。仅在 session 彻底断开时调用。
