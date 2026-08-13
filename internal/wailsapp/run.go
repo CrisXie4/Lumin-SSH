@@ -142,6 +142,7 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 			app.startup(ctx)
 		},
 		OnShutdown: func(ctx context.Context) {
+			app.shutdown()
 			platformruntime.StopSingletonServer()
 			mcpbridge.StopServer(newMCPHost(app))
 			cleanupTray()
@@ -158,9 +159,8 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 			go func() {
 				time.Sleep(5 * time.Second)
 				if !app.quitting.Load() && !app.closeAck.Load() {
-					app.quitting.Store(true)
-					cleanupTray()
-					wailsruntime.Quit(ctx)
+					// 前端无响应时也必须复用统一退出清理，先断开 SSH 再退出。
+					app.DoQuit()
 				}
 			}()
 			return true // 取消关闭，由前端弹窗决定后续操作

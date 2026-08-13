@@ -109,9 +109,9 @@ type App struct {
 	configManager             *config.ConfigManager
 	wsPort                    int
 	wsToken                   string
-	wsManager                 *wsbuffer.Manager        // WebSocket 连接与缓冲管理器
-	wsServer                  *http.Server             // WebSocket HTTP 服务器，用于优雅关闭
-	wsListener                net.Listener             // WebSocket 监听器，用于关闭时释放端口
+	wsManager                 *wsbuffer.Manager // WebSocket 连接与缓冲管理器
+	wsServer                  *http.Server      // WebSocket HTTP 服务器，用于优雅关闭
+	wsListener                net.Listener      // WebSocket 监听器，用于关闭时释放端口
 	mainLivenessLockPath      string
 	mainLivenessLockRelease   func()
 	builtinProcessMu          sync.Mutex
@@ -123,6 +123,8 @@ type App struct {
 	builtinInitCancelRequests map[string]bool
 	quitting                  atomic.Bool // 标记用户确认退出，OnBeforeClose 放行（跨 goroutine 访问需原子操作）
 	closeAck                  atomic.Bool // 前端已响应关闭弹窗（tray/cancel），取消 5s 兜底强制退出
+	shutdownOnce              sync.Once   // 保护应用资源只清理一次
+	quitOnce                  sync.Once   // 保护 Wails 退出只触发一次
 	onBeforeQuit              func()      // 退出前回调，由 main 设置用于清理托盘等
 	aiChatReqMu               sync.Mutex
 	aiChatReqCancel           map[string]context.CancelFunc
@@ -312,34 +314,44 @@ func (a *App) AckClose() {
 	a.closeAck.Store(true)
 }
 
-// DoQuit 用户确认退出，设标记让 OnBeforeClose 放行
-// 同时清理资源：断开所有 SSH 会话、关闭 WebSocket 监听器
+// shutdown 清理应用持有的资源，可由主动退出和 Wails OnShutdown 重复调用。
+func (a *App) shutdown() {
+	a.shutdownOnce.Do(func() {
+		// 在 runtime.Quit 之前清理托盘，确保 Windows 消息循环仍在运行。
+		if a.onBeforeQuit != nil {
+			a.onBeforeQuit()
+		}
+		if a.externalEdit != nil {
+			a.externalEdit.StopAll()
+		}
+		// 断开所有 SSH 会话，避免服务器侧遗留僵尸会话。
+		if a.sshManager != nil {
+			a.sshManager.DisconnectAll()
+		}
+		// 关闭 WebSocket 监听器，释放端口并停止 goroutine。
+		if a.wsServer != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = a.wsServer.Shutdown(ctx)
+			a.wsServer = nil
+		}
+		if a.wsListener != nil {
+			_ = a.wsListener.Close()
+			a.wsListener = nil
+		}
+		a.releaseMainLivenessLock()
+	})
+}
+
+// DoQuit 用户确认退出，设标记让 OnBeforeClose 放行并清理应用资源。
 func (a *App) DoQuit() {
 	a.quitting.Store(true)
-	// 在 runtime.Quit 之前清理托盘，确保 Windows 消息循环仍在运行
-	if a.onBeforeQuit != nil {
-		a.onBeforeQuit()
-	}
-	if a.externalEdit != nil {
-		a.externalEdit.StopAll()
-	}
-	// 断开所有 SSH 会话，避免服务器侧遗留僵尸会话
-	if a.sshManager != nil {
-		a.sshManager.DisconnectAll()
-	}
-	// 关闭 WebSocket 监听器，释放端口并停止 goroutine
-	if a.wsServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = a.wsServer.Shutdown(ctx)
-		a.wsServer = nil
-	}
-	if a.wsListener != nil {
-		_ = a.wsListener.Close()
-		a.wsListener = nil
-	}
-	a.releaseMainLivenessLock()
-	runtime.Quit(a.ctx)
+	a.shutdown()
+	a.quitOnce.Do(func() {
+		if a.ctx != nil {
+			runtime.Quit(a.ctx)
+		}
+	})
 }
 
 // GetWsPort 返回本地 WebSocket 服务器端口，前端用于连接终端
