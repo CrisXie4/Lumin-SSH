@@ -282,17 +282,14 @@ func findMainWindowCandidates(matchPID uint32) []syscall.Handle {
 				return 1
 			}
 		}
-		title := windowText(hwnd)
+		// 当前进程已按 Wails 窗口类识别，无需读取标题；GetWindowTextW
+		// 可能向卡死的目标窗口线程同步取值，反而阻塞托盘消息线程。
 		hit := false
-		if matchPID != 0 && class == wailsFormClass {
-			hit = true
-		}
-		if title == mainWindowTitle {
-			hit = true
-		}
-		// 跨进程二次启动：只认标题，避免误激活其他 Wails 应用
-		if matchPID == 0 {
-			hit = title == mainWindowTitle
+		if matchPID != 0 {
+			hit = class == wailsFormClass
+		} else {
+			// 跨进程二次启动：只认标题，避免误激活其他 Wails 应用。
+			hit = windowText(hwnd) == mainWindowTitle
 		}
 		if !hit {
 			return 1
