@@ -33,7 +33,10 @@ var embeddedModuleFS embed.FS
 // 原生激活放前后各一次：覆盖「仅最小化」和「托盘隐藏」两种状态。
 // ponytail: Wails 运行时调用异步化，避免阻塞 systray 消息线程。
 // 久置后 WebView 恢复可能慢/卡，同步调用会冻结托盘消息泵，
-// 导致单击/双击/右键全部无响应。平台原生激活仍同步（纯系统调用，不阻塞）。
+// 导致单击/双击/右键全部无响应。
+// 平台原生激活（activateHWND）内置主线程存活检查：主线程卡死时
+// 只投递 ShowWindowAsync（非阻塞），跳过 SetActiveWindow/SetFocus/
+// RedrawWindow/UpdateWindow 等同步消息发送，避免拖死托盘消息泵。
 func forceShowWindow(ctx context.Context) {
 	defer func() { recover() }()
 	platformruntime.ForceShowWindow()

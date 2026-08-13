@@ -38,6 +38,7 @@ var (
 	procLockSetForegroundWindow  = user32.NewProc("LockSetForegroundWindow")
 	procRedrawWindow             = user32.NewProc("RedrawWindow")
 	procUpdateWindow             = user32.NewProc("UpdateWindow")
+	procSendMessageTimeoutW      = user32.NewProc("SendMessageTimeoutW")
 	procGetCurrentThreadId       = kernel32.NewProc("GetCurrentThreadId")
 	procGetCurrentProcessId      = kernel32.NewProc("GetCurrentProcessId")
 	procShellNotifyIconW         = shell32.NewProc("Shell_NotifyIconW")
@@ -75,6 +76,10 @@ const (
 	mainWindowTitle = "Lumin"
 	wailsFormClass  = "winc_Form"
 	systrayClass    = "SystrayClass"
+	// SendMessageTimeoutW
+	wmGetTextLength = 14
+	smtoBlock       = 0x0001
+	smtoAbortifHung = 0x0002
 )
 
 // trayNotifyIconData 对齐官方 NOTIFYICONDATA（uTimeout/uVersion 为 union，占 4 字节）。
@@ -162,6 +167,13 @@ func isTopLevelWindow(hwnd syscall.Handle) bool {
 // activateHWND 久置后强拉主窗到前台。
 // Windows 最小化/托盘隐藏久了，纯 SetForegroundWindow 常被拒；
 // 再叠加透明 WebView，可能出现「任务栏有项但点了空白/无响应」。
+//
+// 本函数由托盘消息线程（systray goroutine）调用。SetWindowPos /
+// BringWindowToTop / SetActiveWindow / SetFocus / RedrawWindow(RDW_UPDATENOW) /
+// UpdateWindow 均同步发送消息到主窗口线程——若主线程卡死（SSH 断开等），
+// 这些同步发送会阻塞托盘消息泵，导致托盘单击/双击/右键全部无响应。
+// 用 SendMessageTimeoutW(WM_GETTEXTLENGTH, SMTO_ABORTIFHUNG) 探测主线程存活：
+// 存活则返回非零（"Lumin" 标题长度），hung/超时返回 0。
 func activateHWND(hwnd syscall.Handle) {
 	if hwnd == 0 {
 		return
@@ -171,22 +183,44 @@ func activateHWND(hwnd syscall.Handle) {
 	_, _, _ = procLockSetForegroundWindow.Call(uintptr(lsfwUnlock))
 	_, _, _ = procAllowSetForegroundWindow.Call(uintptr(asfwAny))
 
+	// 主窗口线程存活检查：SMTO_ABORTIFHUNG 在主线程 hung 时立即返回 0；
+	// SMTO_BLOCK 阻止调用方消息泵重入。最多等 500ms。
+	aliveRet, _, _ := procSendMessageTimeoutW.Call(
+		uintptr(hwnd), uintptr(wmGetTextLength), 0, 0,
+		uintptr(smtoAbortifHung|smtoBlock), 500, 0, // lpdwResult=NULL
+	)
+	mainThreadAlive := aliveRet != 0
+
 	iconic, _, _ := procIsIconic.Call(uintptr(hwnd))
 	visible, _, _ := procIsWindowVisible.Call(uintptr(hwnd))
 	if iconic != 0 {
 		// 任务栏最小化：先异步再同步 restore，覆盖部分 WebView 卡住场景
 		procShowWindowAsync.Call(uintptr(hwnd), uintptr(swRestore))
-		procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
+		if mainThreadAlive {
+			procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
+		}
 	} else if visible == 0 {
 		// 托盘 SW_HIDE：restore + show
 		procShowWindowAsync.Call(uintptr(hwnd), uintptr(swRestore))
-		procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
-		procShowWindow.Call(uintptr(hwnd), uintptr(swShow))
-		procShowWindow.Call(uintptr(hwnd), uintptr(swShowNormal))
+		if mainThreadAlive {
+			procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
+			procShowWindow.Call(uintptr(hwnd), uintptr(swShow))
+			procShowWindow.Call(uintptr(hwnd), uintptr(swShowNormal))
+		}
 	} else {
 		// 已显示但无前台/内容空白：仍走 restore/show 刷新
-		procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
-		procShowWindow.Call(uintptr(hwnd), uintptr(swShow))
+		procShowWindowAsync.Call(uintptr(hwnd), uintptr(swRestore))
+		if mainThreadAlive {
+			procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
+			procShowWindow.Call(uintptr(hwnd), uintptr(swShow))
+		}
+	}
+
+	if !mainThreadAlive {
+		// 主线程卡死：ShowWindowAsync 已投递恢复指令到主线程消息队列。
+		// 跳过所有同步消息发送，避免阻塞托盘消息泵。
+		// 主线程恢复后窗口会自行处理队列中的指令。
+		return
 	}
 
 	flags := uintptr(swpNomove | swpNosize | swpShowWindow | swpFramechanged)
@@ -359,6 +393,7 @@ func ForceShowWindow() {
 	best := pickBestMainWindow(cands)
 	activateHWND(best)
 	// 多次点击可能留下多个最小化条目：一并 restore，减少「点了没反应/点到空白副本」
+	// 只用 ShowWindowAsync（非阻塞），避免主线程卡死时 ShowWindow 同步发送阻塞托盘
 	for _, hwnd := range cands {
 		if hwnd == 0 || hwnd == best {
 			continue
@@ -367,7 +402,6 @@ func ForceShowWindow() {
 		visible, _, _ := procIsWindowVisible.Call(uintptr(hwnd))
 		if iconic != 0 || visible == 0 {
 			procShowWindowAsync.Call(uintptr(hwnd), uintptr(swRestore))
-			procShowWindow.Call(uintptr(hwnd), uintptr(swRestore))
 		}
 	}
 }
