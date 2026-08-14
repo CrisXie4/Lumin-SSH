@@ -1829,4 +1829,8 @@ export default {
   "管理应用运行所需的二进制工具与运行时依赖": "管理应用运行所需的二进制工具与运行时依赖",
   "默认明文同步，选择加密后需设置恢复密码": "默认明文同步，选择加密后需设置恢复密码",
   "同步服务": "同步服务",
+  "检测到 OpenWrt 设备，文件管理器需要 SFTP 子系统，请执行以下命令安装": "Dispositivo OpenWrt rilevato. Il gestore file necessita del sottosistema SFTP. Esegui questo comando per installarlo",
+  "复制安装命令": "Copia comando di installazione",
+  "安装命令已复制": "Comando di installazione copiato",
+  "安装完成后请重新连接会话": "Riconnetti la sessione dopo l'installazione",
 } satisfies I18nDict;

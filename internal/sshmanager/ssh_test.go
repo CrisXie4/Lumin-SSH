@@ -36,12 +36,15 @@ func TestParseProbeOutputSkipsLocalizedDFHeader(t *testing.T) {
 		"---NET1---",
 		"---NETCONN1---",
 		"---DISKIO1---",
+		"---PROC1---",
+		"1000",
 		"---CPU2---",
 		"cpu 2 0 1 9 0",
 		"---NET2---",
 		"---NETCONN2---",
 		"---DISKIO2---",
-		"---PROC---",
+		"---PROC2---",
+		"1001",
 		"---DONE---",
 	}, "\n")
 
