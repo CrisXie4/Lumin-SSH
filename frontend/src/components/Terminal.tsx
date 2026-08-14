@@ -1881,6 +1881,7 @@ export default function Terminal({
 
     // ── 历史指令记录 + 输入直觉 + Local Echo ────────────────────────
     let localInputLength = 0; // 用于保护提示符，防止退格越界
+    let pendingCmdReliable = true;
 
     term.onData((data) => {
       if ((statusRef.current === 'closed' || statusRef.current === 'error') && (data.includes('\r') || data.includes('\n'))) {
@@ -1902,9 +1903,7 @@ export default function Terminal({
       // 真正被 shell 执行的命令），可正确捕捉 Tab 补全 / 方向键调历史 /
       // Ctrl+R 等 shell 编辑结果；pendingCmdRef 仅在缓冲读取失败时作兜底。
       if (out.includes('\r') || out.includes('\n')) {
-        // 备用屏（vim/htop/less 等 TUI）下不记录历史：此时缓冲里是文件内容，
-        // 按 Enter 会被误当成命令。顺带清空 pendingCmdRef，退出 TUI 后从头计。
-        if (alternateBufferActiveRef.current) {
+        if (term.buffer.active.type === 'alternate') {
           pendingCmdRef.current = '';
           return;
         }
@@ -1923,10 +1922,6 @@ export default function Terminal({
         }
         let cmd = '';
         const buf = term.buffer.active;
-        // promptFilteredThisTurn：本次回车明确处于"交互脚本回答态"，手敲值不是 shell 命令。
-        // 两种触发方式：① buffer 提取阶段命中 interactive prompt / 控制字符（强信号，关键词/前缀匹配到）
-        //              ② fallback 时发现 buffer 提取 cmd 与 hand-typed pending 互不为前缀（通用兜底，
-        //                 正常 shell 命令行绝不会出现"屏幕上显示的内容 ≠ 我手敲的内容"，这就是脚本提问态）
         let promptFilteredThisTurn = false;
         if (buf) {
           const bufLine = buf.getLine(buf.baseY + buf.cursorY);
@@ -1943,25 +1938,12 @@ export default function Terminal({
           }
         }
         const pending = pendingCmdRef.current.trim();
-        // 智能 fallback：buffer 提取是"屏幕上真正执行的命令"，优先采用。
-        // —— 关键修复 ——：如果明确看到交互提示被过滤了，说明是回答脚本提问，
-        //    手敲 pending 只是回答值，禁止 fallback，避免把 "root / v1.0" 这类答案当命令。
         if (!promptFilteredThisTurn) {
           if (!cmd) {
             cmd = pending;
-          } else if (pending) {
+          } else if (pendingCmdReliable && pending) {
             const c = cmd.toLowerCase(), p = pending.toLowerCase();
-            if (!c.startsWith(p) && !p.startsWith(c)) {
-              // —— 通用兜底（不依赖任何关键词）——
-              // buffer 提取 cmd 与手敲 pending 互不为前缀 = 屏幕上显示的整行内容
-              // 和我手敲的内容根本对不上号。正常 shell 命令行下永远不会发生这种事：
-              // 手敲 ls -la，屏幕上就是 user@host:~$ ls -la，prompt 剥离后 cmd 必然以
-              // ls -la 开头。只有交互脚本回答态（如"无名输入：abc123"、"Continue? y"）
-              // 才会出现"屏幕上是提示文+回答，手敲值只是回答"的割裂情况。
-              // → 此时绝不应该把手敲值当命令入库，整体丢弃。
-              promptFilteredThisTurn = true;
-              cmd = '';
-            }
+            if (!c.startsWith(p) && !p.startsWith(c)) cmd = '';
           }
         }
         if (!awaitingPasswordRef.current) {
@@ -1978,14 +1960,18 @@ export default function Terminal({
         awaitingCommandFinishRef.current = !awaitingPasswordRef.current && cmd.length > 0;
         awaitingPasswordRef.current = false;
         pendingCmdRef.current = '';
+        pendingCmdReliable = true;
       } else if (out === '\x7F' || out === '\b') {
         pendingCmdRef.current = pendingCmdRef.current.slice(0, -1);
       } else if (!/[\x00-\x1F\x7F]/.test(out)) {
         pendingCmdRef.current += out;
       } else if (out === '\x03' || out === '\x04') {
         pendingCmdRef.current = '';
+        pendingCmdReliable = true;
         if (!screenScrollbackRef.current.active) screenScrollbackRef.current.pending = false;
         awaitingPasswordRef.current = false; // Ctrl+C/D 取消当前输入，重置密码等待状态，避免下一条普通命令被误跳过
+      } else {
+        pendingCmdReliable = false;
       }
 
       // Local Echo 逻辑 (恢复默认开启)
