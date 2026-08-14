@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { EventsOn } from '../wailsjs/runtime/runtime.js'
-import { useTranslation } from '../i18n.js'
+import { EventsOn } from '../../wailsjs/runtime/runtime.js'
+import { useTranslation, type I18nKey } from '../i18n.js'
 
 export interface MCPActivityEvent {
   requestId: string
@@ -77,9 +77,45 @@ function resolveApproval(requestId: string, approved: boolean) {
   }
 }
 
-interface MCPActivityPanelProps {
+export interface MCPActivityPanelProps {
   height?: string
   onClose?: () => void
+}
+
+export interface MCPActivityFloatingToggleProps {
+  visible: boolean
+  onClick: () => void
+}
+
+export function MCPActivityFloatingToggle({ visible, onClick }: MCPActivityFloatingToggleProps) {
+  const { t } = useTranslation()
+  if (!visible) return null
+  return (
+    <button
+      onClick={onClick}
+      title={t('MCP 活动')}
+      style={{
+        position: 'fixed',
+        bottom: '16px',
+        right: '16px',
+        width: '40px',
+        height: '40px',
+        borderRadius: '50%',
+        border: '1px solid rgba(255,255,255,0.12)',
+        background: 'var(--lumin-bg-tertiary, #1a2335)',
+        color: 'var(--lumin-text-secondary, #8892b0)',
+        cursor: 'pointer',
+        zIndex: 9998,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '18px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+      }}
+    >
+      🤖
+    </button>
+  )
 }
 
 export default function MCPActivityPanel({ height = '100%', onClose }: MCPActivityPanelProps) {
@@ -154,7 +190,7 @@ export default function MCPActivityPanel({ height = '100%', onClose }: MCPActivi
         flexShrink: 0,
       }}>
         <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--lumin-text-primary, #e0e6f0)' }}>
-          MCP 活动
+          {t('MCP 活动')}
         </span>
         <span style={{
           fontSize: '11px',
@@ -202,7 +238,7 @@ export default function MCPActivityPanel({ height = '100%', onClose }: MCPActivi
             color: 'var(--lumin-text-tertiary, #5a6580)',
             fontSize: '13px',
           }}>
-            外部 MCP（如 Claude Code）的操作会显示在这里
+            {t('外部 MCP（如 Claude Code）的操作会显示在这里')}
           </div>
         ) : (
           cards.map((card) => {
@@ -289,7 +325,7 @@ export default function MCPActivityPanel({ height = '100%', onClose }: MCPActivi
                     animation: (latest.status === 'running' || latest.status === 'queued') ? 'pulse 1.5s ease-in-out infinite' : 'none',
                   }} />
                   <span style={{ fontSize: '11px', color, fontWeight: 500 }}>
-                    {statusLabels[latest.status] || latest.status}
+                    {t((statusLabels[latest.status] || latest.status) as I18nKey)}
                     {latest.exitCode != null ? ` (exit ${latest.exitCode})` : ''}
                   </span>
                 </div>
@@ -302,7 +338,7 @@ export default function MCPActivityPanel({ height = '100%', onClose }: MCPActivi
                       color: 'var(--lumin-text-tertiary, #6a7590)',
                       cursor: 'pointer',
                     }}>
-                      输出预览
+                      {t('输出预览')}
                     </summary>
                     <pre style={{
                       fontSize: '10px',

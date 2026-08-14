@@ -1829,4 +1829,16 @@ export default {
   "管理应用运行所需的二进制工具与运行时依赖": "管理应用运行所需的二进制工具与运行时依赖",
   "默认明文同步，选择加密后需设置恢复密码": "默认明文同步，选择加密后需设置恢复密码",
   "同步服务": "同步服务",
+
+  "外部 MCP 操作可见": "Mostrar atividade MCP externa",
+  "在 MCP 活动面板中显示外部客户端（如 Claude Code）的操作痕迹：服务器、命令、状态、输出": "Mostrar no painel de atividade MCP o histórico de operações de clientes externos (como o Claude Code): servidor, comando, status e saída",
+  "外部 MCP 写操作需审批": "Operações de gravação MCP externas exigem aprovação",
+  "开启后，外部客户端的写操作（is_mutating）需在应用内手动批准才执行。关闭则自动执行。": "Quando ativado, as operações de gravação (is_mutating) de clientes externos só serão executadas após aprovação manual no aplicativo. Quando desativado, serão executadas automaticamente.",
+  "MCP 活动": "Atividade MCP",
+  "外部 MCP（如 Claude Code）的操作会显示在这里": "As operações de clientes MCP externos (como o Claude Code) aparecerão aqui",
+  "输出预览": "Prévia da saída",
+  "开始": "Iniciado",
+  "等待审批": "Aguardando aprovação",
+  "已批准": "Aprovado",
+  "审批超时": "Tempo de aprovação esgotado",
 } satisfies I18nDict;

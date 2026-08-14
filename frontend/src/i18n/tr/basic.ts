@@ -1829,4 +1829,16 @@ export default {
   "管理应用运行所需的二进制工具与运行时依赖": "管理应用运行所需的二进制工具与运行时依赖",
   "默认明文同步，选择加密后需设置恢复密码": "默认明文同步，选择加密后需设置恢复密码",
   "同步服务": "同步服务",
+
+  "外部 MCP 操作可见": "Harici MCP etkinliğini göster",
+  "在 MCP 活动面板中显示外部客户端（如 Claude Code）的操作痕迹：服务器、命令、状态、输出": "MCP Etkinliği panelinde harici istemcilerin (Claude Code gibi) işlem kaydını göster: sunucu, komut, durum ve çıktı",
+  "外部 MCP 写操作需审批": "Harici MCP yazma işlemleri onay gerektirir",
+  "开启后，外部客户端的写操作（is_mutating）需在应用内手动批准才执行。关闭则自动执行。": "Etkinleştirildiğinde harici istemcilerin yazma işlemleri (is_mutating), yalnızca uygulama içinde elle onaylandıktan sonra yürütülür. Devre dışı bırakıldığında işlemler otomatik olarak yürütülür.",
+  "MCP 活动": "MCP Etkinliği",
+  "外部 MCP（如 Claude Code）的操作会显示在这里": "Harici MCP istemcilerinin (Claude Code gibi) işlemleri burada gösterilir",
+  "输出预览": "Çıktı önizlemesi",
+  "开始": "Başlatıldı",
+  "等待审批": "Onay bekliyor",
+  "已批准": "Onaylandı",
+  "审批超时": "Onay süresi doldu",
 } satisfies I18nDict;

@@ -5,7 +5,7 @@ import type { config } from '../wailsjs/go/models.ts';
 import ProbePanel, { type ProbeSnapshot } from './components/ProbePanel.tsx';
 import FileManager from './components/FileManager.tsx';
 import AIPanel from './components/AIPanel.tsx';
-import MCPActivityPanel from './components/MCPActivityPanel.tsx';
+import MCPActivityPanel, { MCPActivityFloatingToggle } from './components/MCPActivityPanel.tsx';
 import { isRecoveryPasswordError, syncWithRecoveryPassword } from './utils/recoveryPasswordSync.ts';
 import {
   getAllSessionFileManagerWorkspaces,
@@ -1949,35 +1949,5 @@ export default function App() {
         </div>
       )}
     </div>
-  );
-}
-
-function MCPActivityFloatingToggle({ visible, onClick }: { visible: boolean; onClick: () => void }) {
-  if (!visible) return null;
-  return (
-    <button
-      onClick={onClick}
-      title="MCP 活动"
-      style={{
-        position: 'fixed',
-        bottom: '16px',
-        right: '16px',
-        width: '40px',
-        height: '40px',
-        borderRadius: '50%',
-        border: '1px solid rgba(255,255,255,0.12)',
-        background: 'var(--lumin-bg-tertiary, #1a2335)',
-        color: 'var(--lumin-text-secondary, #8892b0)',
-        cursor: 'pointer',
-        zIndex: 9998,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '18px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-      }}
-    >
-      🤖
-    </button>
   );
 }
