@@ -298,7 +298,9 @@ export default function App() {
   }, [awaitDisconnectTerminals, markConnectionCancelled]);
   const disconnectSessionConnection = useCallback((sessionId: string, terminalIds: string[] = []) => {
     const ids = markConnectionCancelled([sessionId, ...terminalIds]);
-    return AppGo.DisconnectSSHConnection(sessionId).then(() => ids);
+    // 传入全部终端 id：根终端可能已提前关闭（单独关标签/根 shell 退出），
+    // 后端凭根 id 无法定位共享连接，逐个断开可避免子终端孤儿泄漏。
+    return AppGo.DisconnectSSHConnection(sessionId, terminalIds).then(() => ids);
   }, [markConnectionCancelled]);
   const registerServerDisconnect = useCallback((serverId: string, disconnectPromise: Promise<unknown>) => {
     const normalizedServerId = typeof serverId === 'string' ? serverId.trim() : '';
