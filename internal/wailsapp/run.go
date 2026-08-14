@@ -8,7 +8,10 @@ package wailsapp
 import (
 	"context"
 	"embed"
+	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -31,15 +34,19 @@ var embeddedModuleFS embed.FS
 // 不先 Hide 再 Show：久置后 Show 失败会把窗口永久卡在隐藏态。
 // 先走平台原生激活抢前台（Windows 久置后 SetForeground 常被拒），再异步走 Wails 恢复。
 // 原生激活放前后各一次：覆盖「仅最小化」和「托盘隐藏」两种状态。
-// ponytail: Wails 运行时调用异步化，避免阻塞 systray 消息线程。
-// 久置后 WebView 恢复可能慢/卡，同步调用会冻结托盘消息泵，
-// 导致单击/双击/右键全部无响应。
-// 平台原生激活（activateHWND）内置主线程存活检查：主线程卡死时
-// 只投递 ShowWindowAsync（非阻塞），跳过 SetActiveWindow/SetFocus/
-// RedrawWindow/UpdateWindow 等同步消息发送，避免拖死托盘消息泵。
+// ponytail: 托盘消息线程只做调度，绝不在这里同步执行窗口调用。
+// energye/systray 的 wndProc 在托盘线程上同步回调 onClick；若同步执行
+// platformruntime.ForceShowWindow（内部含 EnumWindows/ShowWindow/
+// SetWindowPos/SetForegroundWindow/RedrawWindow 等向主窗口线程的
+// 消息发送，无超时），主线程一旦卡死（SSH 断线等）托盘线程会无限期阻塞，
+// 单击/双击/右键全部无响应，只能重启软件恢复。全部异步化后即使窗口操作
+// 阻塞，托盘消息泵也能立即返回继续响应。
 func forceShowWindow(ctx context.Context) {
 	defer func() { recover() }()
-	platformruntime.ForceShowWindow()
+	go func() {
+		defer func() { recover() }()
+		platformruntime.ForceShowWindow()
+	}()
 	if ctx != nil {
 		go func() {
 			defer func() { recover() }()
@@ -47,7 +54,10 @@ func forceShowWindow(ctx context.Context) {
 			wailsruntime.WindowShow(ctx)
 		}()
 	}
-	platformruntime.ForceShowWindow()
+	go func() {
+		defer func() { recover() }()
+		platformruntime.ForceShowWindow()
+	}()
 }
 
 var systrayOnce sync.Once
@@ -94,8 +104,62 @@ func setupSystray(app *App) {
 	})
 }
 
+// maxLogFileSize 日志单文件上限：超过则启动时轮转（lumin.log → lumin.log.1），
+// 防止长期运行无限增长；保留一份历史便于回溯。
+const maxLogFileSize = 5 << 20 // 5MB
+
+// openLogFile 打开追加日志文件；超过上限先轮转再打开。
+func openLogFile(path string) (*os.File, error) {
+	if info, err := os.Stat(path); err == nil && info.Size() > maxLogFileSize {
+		_ = os.Rename(path, path+".1")
+	}
+	return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+}
+
+// initLogFile 把标准 log 输出重定向到文件（双写）：
+//  1. %AppData%\Lumin\config\lumin.log —— 主日志，始终写入
+//  2. exe 同级目录 lumin.log —— 便携版场景：对方解压运行后日志就在运行目录，
+//     无需进入隐藏的 %AppData%，直接取回即可；安装版（Program Files）写失败自动忽略
+// Windows 窗口应用没有控制台，log.Printf 默认写 stderr 会被丢弃，
+// 诊断信息需要落盘才能远程排查。追加模式，0600，单文件 5MB 轮转。
+// 返回清理函数（关闭文件句柄），应用生命周期内不要调用。
+func initLogFile() func() {
+	var writers []io.Writer
+	var closers []io.Closer
+
+	dir, err := os.UserConfigDir()
+	if err == nil {
+		dir = filepath.Join(dir, "Lumin", "config")
+		if err := os.MkdirAll(dir, 0700); err == nil {
+			if f, err := openLogFile(filepath.Join(dir, "lumin.log")); err == nil {
+				writers = append(writers, f)
+				closers = append(closers, f)
+			}
+		}
+	}
+	if exePath, err := os.Executable(); err == nil {
+		if f, err := openLogFile(filepath.Join(filepath.Dir(exePath), "lumin.log")); err == nil {
+			writers = append(writers, f)
+			closers = append(closers, f)
+		}
+	}
+	if len(writers) == 0 {
+		return func() {}
+	}
+	log.SetOutput(io.MultiWriter(writers...))
+	log.Printf("[Lumin] Logger initialized. Log files: %d", len(writers))
+	return func() {
+		for _, c := range closers {
+			_ = c.Close()
+		}
+	}
+}
+
 // Run 启动 Wails 应用。embed 资源由 main 包注入（//go:embed 路径必须相对根目录的 main.go）。
 func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
+	// 日志落盘：先于一切业务日志，保证 [channel-diag] 等诊断可追溯
+	initLogFile()
+
 	// 单实例检查（平台特定实现）
 	platformruntime.EnsureSingleInstance()
 

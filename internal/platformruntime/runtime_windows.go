@@ -18,8 +18,6 @@ var (
 	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
 	shell32                      = syscall.NewLazyDLL("shell32.dll")
 	procEnumWindows              = user32.NewProc("EnumWindows")
-	procGetWindowTextW           = user32.NewProc("GetWindowTextW")
-	procGetWindowTextLengthW     = user32.NewProc("GetWindowTextLengthW")
 	procGetClassNameW            = user32.NewProc("GetClassNameW")
 	procGetWindowThreadProcessId = user32.NewProc("GetWindowThreadProcessId")
 	procGetWindow                = user32.NewProc("GetWindow")
@@ -77,9 +75,13 @@ const (
 	wailsFormClass  = "winc_Form"
 	systrayClass    = "SystrayClass"
 	// SendMessageTimeoutW
+	wmGetText       = 13
 	wmGetTextLength = 14
 	smtoBlock       = 0x0001
 	smtoAbortifHung = 0x0002
+	// GetWindowTextW 无超时，可能无限期阻塞在卡死的目标窗口线程上；
+	// 限时读取窗口标题用 SendMessageTimeoutW(WM_GETTEXT)，最长等 windowTextTimeout。
+	windowTextTimeout = 200
 )
 
 // trayNotifyIconData 对齐官方 NOTIFYICONDATA（uTimeout/uVersion 为 union，占 4 字节）。
@@ -140,13 +142,17 @@ func RemoveTrayIconSync() {
 	_, _, _ = procShellNotifyIconW.Call(uintptr(nimDelete), uintptr(unsafe.Pointer(&nid)))
 }
 
+// windowText 限时读取窗口标题（跨进程路径：二次启动唤醒已有实例时使用）。
+// GetWindowTextW 会向目标窗口线程同步发送 WM_GETTEXT 并等待回复，
+// 目标线程卡死时无限期阻塞（这正是此前托盘被拖死的直接原因）；
+// SendMessageTimeoutW + SMTO_ABORTIFHUNG 在目标线程 hung 时立即/限时返回。
 func windowText(hwnd syscall.Handle) string {
-	textLen, _, _ := procGetWindowTextLengthW.Call(uintptr(hwnd))
-	if textLen == 0 {
-		return ""
-	}
-	buf := make([]uint16, textLen+1)
-	procGetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&buf[0])), uintptr(textLen+1))
+	buf := make([]uint16, 256)
+	_, _, _ = procSendMessageTimeoutW.Call(
+		uintptr(hwnd), uintptr(wmGetText), uintptr(len(buf)),
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(smtoAbortifHung|smtoBlock), windowTextTimeout, 0,
+	)
 	return syscall.UTF16ToString(buf)
 }
 
