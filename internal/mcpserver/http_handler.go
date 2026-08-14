@@ -261,7 +261,7 @@ func formatToolCallResult(value any) (ToolCallResult, error) {
 			return ToolCallResult{}, err
 		}
 		return ToolCallResult{
-			Content: []TextContent{{Type: "text", Text: typed.NumberedContent}},
+			Content: []TextContent{{Type: "text", Text: typed.Content}},
 			StructuredContent: structuredContent,
 		}, nil
 	case ReadFileBatchResult:
@@ -303,10 +303,10 @@ func formatToolCallResult(value any) (ToolCallResult, error) {
 }
 
 func formatReadFileBlockText(result ReadFileResult) string {
-	if result.NumberedContent == "" {
+	if result.Content == "" {
 		return result.Path
 	}
-	return result.Path + "\n" + result.NumberedContent
+	return result.Path + "\n" + result.Content
 }
 
 func toStructuredContentMap(value any) (map[string]any, error) {
