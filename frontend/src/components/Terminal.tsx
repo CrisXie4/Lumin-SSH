@@ -267,8 +267,31 @@ function findTerminalHttpLinksOnLine(term: XTerm, bufferLineNumber: number) {
 function isInteractivePromptText(value: unknown) {
   const text = String(value || '').trim()
   if (!text) return false
+  // 1) 英文前缀：choose / select / enter / input / please enter / press enter ...
   if (/^(choose|select|enter|input|please enter|press enter|would you like|do you have|port to use)\b/i.test(text)) return true
-  if (/\b(default|leave empty|skip|y\/n|yes\/no|option|selection)\b/i.test(text) && /[:?]\s*(?:\d+)?\s*$/.test(text)) return true
+  // 2) 中文前缀：含"请"的 + 常见安装脚本裸动词（设置/配置/指定/填写/输入/选择/确认/继续）
+  //    注意这些动词作为 shell 命令几乎不存在（命令名都是英文），误伤风险极低。
+  if (/^(请设置|请输入|请选择|请确认|请指定|请填写|请提供|是否|是否需要|是否继续|是否确认|按回车|回车确认|请按|设置|配置|指定|填写|输入|选择|确认|继续)/.test(text)) return true
+  // 3) 提问结构探测：行内含【中英文冒号/问号】 OR 含【(默认 /（默认】 的默认值括号结构
+  //    OR 含【[y/n] / [0] / [Y/N]】 这种方括号选择格式。
+  //    这层判断把"用户回答导致行尾不是冒号"的情况也兜住了——只要整行里出现过提问痕迹，就算。
+  const hasPromptStructure = /[:?：？]/.test(text)
+    || /[（(]默认/.test(text)
+    || /\[[yn][^[\]]*\/[^[\]]*[yn]\]/i.test(text)
+    || /\[[0-9\-][0-9,\- ]*\]/.test(text)
+    || /按[^，。：:]*回车|回车[^，。：:]*继续|继续[^，。：:]*执行/.test(text)
+  if (hasPromptStructure) {
+    // 3.1) 英文关键词：default / leave empty / skip / y/n / yes/no / option / selection / password / username / port ...
+    if (/\b(default|leave empty|skip|y\/n|yes\/no|option|selection|password|passwd|username|user|port|host|ip|path|dir|directory)\b/i.test(text)) return true
+    // 3.2) 中文关键词：默认 / 留空 / 跳过 / 可选 / 选项 / 是 / 否 / 回车 / 确认 / 取消
+    //        + 安装脚本高频词：用户名 / 密码 / 口令 / 账号 / SSH / 端口 / 安全入口 / 面板
+    //        + 路径类：路径 / 目录 / 数据目录 / 安装路径 / 监听地址 / 主机
+    if (/(默认|留空|跳过|可选|选项|是\/否|回车|确认|取消|可直接回车|按回车继续|回车确认|用户名|密码|口令|账号|端口|SSH|安全入口|面板|入口|监听|路径|目录|数据目录|安装路径|主机|地址|版本号|是否|继续执行|是否确认)/.test(text)) return true
+  }
+  // 4) 兜底：行尾就是【冒号/问号 (+ 可选数字)】，典型的"等待输入光标前最后一个字符"形式
+  //    即便没命中关键词，这种格式也极大概率是交互提示，保留旧行为。
+  if (/[:?：？]\s*(?:\d+)?\s*$/.test(text)) return true
+  // 5) 兜底方括号选择格式行尾：[y/n] / [0] / [1-23] ...
   return /\[[yn0-9/\-]+\]:?\s*(?:\d+)?\s*$/i.test(text)
 }
 
@@ -1900,29 +1923,74 @@ export default function Terminal({
         }
         let cmd = '';
         const buf = term.buffer.active;
+        let rawBufText = '';
+        // promptFilteredThisTurn：本次回车明确处于"交互脚本回答态"，手敲值不是 shell 命令。
+        // 两种触发方式：① buffer 提取阶段命中 interactive prompt / 控制字符（强信号，关键词/前缀匹配到）
+        //              ② fallback 时发现 buffer 提取 cmd 与 hand-typed pending 互不为前缀（通用兜底，
+        //                 正常 shell 命令行绝不会出现"屏幕上显示的内容 ≠ 我手敲的内容"，这就是脚本提问态）
+        let promptFilteredThisTurn = false;
+        let promptFilteredReason = '';
         if (buf) {
           const bufLine = buf.getLine(buf.baseY + buf.cursorY);
           const text = bufLine ? bufLine.translateToString(true) : '';
+          rawBufText = text;
           cmd = extractCommandFromBufferLine(text);
+          console.debug('[cmd-history] buffer raw line:', JSON.stringify(text));
+          console.debug('[cmd-history] after extract prompt:', JSON.stringify(cmd), 'isInteractivePromptText:', isInteractivePromptText(cmd));
           // 含控制字符（C0 0x00-0x1F / DEL / C1 0x80-0x9F，多为 ANSI 序列残留）
           // 或交互脚本提示：视为无效，回退到逐字符累加。注意保留合法 Unicode
           // （如提示符 ❯、中文路径、emoji 参数），不再按"非 ASCII"一刀切丢弃。
-          if (/[\x00-\x1F\x7F-\x9F]/.test(cmd) || isInteractivePromptText(cmd)) cmd = '';
+          const hasControl = /[\x00-\x1F\x7F-\x9F]/.test(cmd);
+          const isPrompt = isInteractivePromptText(cmd);
+          if (hasControl || isPrompt) {
+            promptFilteredThisTurn = true;
+            promptFilteredReason = hasControl ? 'buffer-control-char' : 'buffer-interactive-prompt-hit';
+            cmd = '';
+          }
         }
-        // 智能 fallback：buffer 提取是"屏幕上真正执行的命令"，优先采用；但
-        // 当手敲值 pendingCmdRef 与之明显不一致（无前缀关系）时，说明当前不是
-        // 普通 shell 命令行（如交互脚本 "Continue? [y/n]? y"），应信任手敲值，
-        // 避免把整行提示文本当成命令记入历史。
         const pending = pendingCmdRef.current.trim();
-        if (!cmd) {
-          cmd = pending;
-        } else if (pending) {
-          const c = cmd.toLowerCase(), p = pending.toLowerCase();
-          if (!c.startsWith(p) && !p.startsWith(c)) cmd = pending;
+        console.debug('[cmd-history] pending (hand-typed):', JSON.stringify(pending), 'before-fallback cmd:', JSON.stringify(cmd), 'promptFilteredThisTurn:', promptFilteredThisTurn);
+        // 智能 fallback：buffer 提取是"屏幕上真正执行的命令"，优先采用。
+        // —— 关键修复 ——：如果明确看到交互提示被过滤了，说明是回答脚本提问，
+        //    手敲 pending 只是回答值，禁止 fallback，避免把 "root / v1.0" 这类答案当命令。
+        if (!promptFilteredThisTurn) {
+          if (!cmd) {
+            cmd = pending;
+            console.debug('[cmd-history] fallback: cmd empty, use pending =', JSON.stringify(cmd));
+          } else if (pending) {
+            const c = cmd.toLowerCase(), p = pending.toLowerCase();
+            if (!c.startsWith(p) && !p.startsWith(c)) {
+              // —— 通用兜底（不依赖任何关键词）——
+              // buffer 提取 cmd 与手敲 pending 互不为前缀 = 屏幕上显示的整行内容
+              // 和我手敲的内容根本对不上号。正常 shell 命令行下永远不会发生这种事：
+              // 手敲 ls -la，屏幕上就是 user@host:~$ ls -la，prompt 剥离后 cmd 必然以
+              // ls -la 开头。只有交互脚本回答态（如"无名输入：abc123"、"Continue? y"）
+              // 才会出现"屏幕上是提示文+回答，手敲值只是回答"的割裂情况。
+              // → 此时绝不应该把手敲值当命令入库，整体丢弃。
+              promptFilteredThisTurn = true;
+              promptFilteredReason = 'no-prefix-relation: generic interactive-answer-mode';
+              cmd = '';
+              console.debug('[cmd-history] fallback: no prefix relation detected =>',
+                'INTERACTIVE ANSWER MODE (generic, keyword-independent), hand-typed',
+                JSON.stringify(pending), 'IS NOT A SHELL COMMAND. Drop it.');
+            }
+          }
+        } else {
+          console.debug('[cmd-history] fallback SKIPPED: promptFilteredThisTurn=true (' + promptFilteredReason + '), hand-typed answer is NOT a shell command');
         }
         if (!awaitingPasswordRef.current) {
           prepareScreenScrollbackRef.current(cmd);
         }
+        const skipReason = awaitingPasswordRef.current
+          ? 'awaitingPassword'
+          : promptFilteredThisTurn
+            ? `interactive-answer-mode (${promptFilteredReason || 'unknown'}) — hand-typed answer is NOT a shell command`
+            : cmd.length <= 1
+              ? 'cmd-length<=1'
+              : /^\d+$/.test(cmd)
+                ? 'cmd-is-pure-digits'
+                : '';
+        console.debug('[cmd-history] final cmd:', JSON.stringify(cmd), 'skipReason:', skipReason || 'ACCEPT -> dispatch ssh-command-history');
         if (!awaitingPasswordRef.current && cmd.length > 1 && !/^\d+$/.test(cmd)) {
           window.dispatchEvent(new CustomEvent('ssh-command-history', {
             detail: { sessionId: serverIdRef.current, command: cmd, time: new Date().toISOString(), source: 'input' }
@@ -3050,6 +3118,18 @@ export default function Terminal({
       console.error('WriteTerminal failed:', err);
     });
     termRef.current?.scrollToBottom();
+    const inputSkipReason = isBlankSubmit
+      ? 'blank-submit'
+      : text.length <= 1
+        ? 'text-length<=1'
+        : /^\d+$/.test(text)
+          ? 'text-is-pure-digits'
+          : isInteractivePromptText(text)
+            ? 'isInteractivePromptText'
+            : awaitingPasswordRef.current
+              ? 'awaitingPassword'
+              : '';
+    console.debug('[cmd-history] executeCommand (input-box) text:', JSON.stringify(text), 'skipReason:', inputSkipReason || 'ACCEPT -> dispatch ssh-command-history');
     if (!isBlankSubmit && text.length > 1 && !/^\d+$/.test(text) && !isInteractivePromptText(text) && !awaitingPasswordRef.current) {
       window.dispatchEvent(new CustomEvent('ssh-command-history', {
         detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
@@ -3097,6 +3177,14 @@ export default function Terminal({
       console.error('WriteTerminal failed:', err);
     });
     termRef.current?.scrollToBottom();
+    const qcSkipReason = text.length <= 1
+      ? 'text-length<=1'
+      : /^\d+$/.test(text)
+        ? 'text-is-pure-digits'
+        : isInteractivePromptText(text)
+          ? 'isInteractivePromptText'
+          : '';
+    console.debug('[cmd-history] sendQuickCmd text:', JSON.stringify(text), 'skipReason:', qcSkipReason || 'ACCEPT -> dispatch ssh-command-history');
     if (text.length > 1 && !/^\d+$/.test(text) && !isInteractivePromptText(text)) {
       window.dispatchEvent(new CustomEvent('ssh-command-history', {
         detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
