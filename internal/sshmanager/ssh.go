@@ -864,9 +864,45 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	if groupSessionId != "" {
 		sd.GroupSessionId = groupSessionId
 	}
+	// ponytail: 登记幂等化。工作区恢复与用户手动进入并发时，同一 sessionId
+	// 可能被两次 setupSession 登记：旧条目必须释放（其 Wait goroutine 因
+	// expected 不匹配不会再清理），且 connTerminals 中残留的旧 id 要去重，
+	// 否则通道占用虚高且关闭后残留。
+	var staleStdin io.WriteCloser
+	var staleSession *ssh.Session
+	if stale, ok := m.sessions[sessionId]; ok {
+		staleStdin = stale.Stdin
+		staleSession = stale.Session
+		// 防御性：旧条目挂在另一个 connKey 上（同 id 跨连接重登记，正常 id
+		// 含时间戳不会发生）时，把旧 key 里的 id 也摘掉，避免旧连接计数残留 +1。
+		if stale.ConnKey != "" && stale.ConnKey != connKey {
+			if old := m.connTerminals[stale.ConnKey]; len(old) > 0 {
+				next := old[:0]
+				for _, tid := range old {
+					if tid != sessionId {
+						next = append(next, tid)
+					}
+				}
+				m.connTerminals[stale.ConnKey] = next
+			}
+		}
+		next := m.connTerminals[connKey][:0]
+		for _, tid := range m.connTerminals[connKey] {
+			if tid != sessionId {
+				next = append(next, tid)
+			}
+		}
+		m.connTerminals[connKey] = next
+	}
 	m.sessions[sessionId] = sd
 	m.connTerminals[connKey] = append(m.connTerminals[connKey], sessionId)
 	m.mu.Unlock()
+	if staleSession != nil {
+		if staleStdin != nil {
+			_ = staleStdin.Close()
+		}
+		_ = staleSession.Close()
+	}
 	m.emitSSHChannelUsage(connKey)
 
 	go m.pipeOutput(sessionId, stdout, historyStream)
@@ -1411,15 +1447,34 @@ func (m *SSHManager) GetSFTPClient(sessionId string) (*sftp.Client, error) {
 }
 
 // DisconnectConnection 关闭 sessionId 所属共享连接的全部终端。
-func (m *SSHManager) DisconnectConnection(sessionId string) {
+// terminalIds 由前端提供（会话已知的全部终端 id），用于兜底：
+// 根终端已关闭（如根标签被单独关闭、根 shell 自然退出）而子终端仍存活时，
+// m.sessions[sessionId] 已不存在，仅凭根 id 无法定位连接，会整体 no-op，
+// 导致子终端与共享 client 永久泄漏。逐个断开传入 id 使会话级关闭不依赖根终端存活。
+func (m *SSHManager) DisconnectConnection(sessionId string, terminalIds []string) {
 	m.mu.RLock()
 	session := m.sessions[sessionId]
 	if session == nil || session.ConnKey == "" {
 		m.mu.RUnlock()
+		// 会话尚未登记：Connect 正在进行 dial/握手/认证（如等待密码输入），
+		// 此时仅凭 m.sessions 收集 targets 会整体 no-op，在途 Connect 完成后
+		// 该 session 与共享 client 永久泄漏（通道占用虚高）。Disconnect 的
+		// expected=nil 会取消 pendingCancels[sessionId]，使 Connect 在检查点
+		// 提前退出、不再登记。terminalIds 里的子终端仍逐个兜底清理。
 		m.Disconnect(sessionId)
+		for _, id := range terminalIds {
+			if id != "" && id != sessionId {
+				m.Disconnect(id)
+			}
+		}
 		return
 	}
 	ids := append([]string{sessionId}, m.connTerminals[session.ConnKey]...)
+	for _, id := range terminalIds {
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
 	targets := make(map[string]*SessionData, len(ids))
 	for _, id := range ids {
 		if current := m.sessions[id]; current != nil {
@@ -1478,14 +1533,15 @@ func (m *SSHManager) disconnect(sessionId string, expected *SessionData) bool {
 	stdin := s.Stdin
 	sshSess := s.Session
 
-	// 从 connTerminals 中移除
+	// 从 connTerminals 中移除（去掉全部同 id 条目：并发重入可能残留重复登记）
 	terminals := m.connTerminals[connKey]
-	for i, t := range terminals {
-		if t == sessionId {
-			m.connTerminals[connKey] = append(terminals[:i], terminals[i+1:]...)
-			break
+	next := terminals[:0]
+	for _, t := range terminals {
+		if t != sessionId {
+			next = append(next, t)
 		}
 	}
+	m.connTerminals[connKey] = next
 	defer m.emitSSHChannelUsage(connKey)
 
 	var netConnToClose net.Conn
@@ -1635,7 +1691,6 @@ func (m *SSHManager) OpenTerminal(sessionId string) (string, error) {
 		return "", fmt.Errorf("生成 session ID 失败: %w", err)
 	}
 	newId := fmt.Sprintf("term_%x", randomId)
-
 	launchCmd, remoteHistoryActive := buildShellLaunchCommand(existing.ShellPath, existing.TerminalInitPath)
 
 	err := m.setupSession(context.Background(), entry.Client, connKey, newId, sessionId, launchCmd, remoteHistoryActive, existing.ShellPath, existing.TerminalInitPath, terminalEncoding)

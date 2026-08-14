@@ -5,7 +5,10 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -13,6 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func TestParseProbeOutputSkipsLocalizedDFHeader(t *testing.T) {
@@ -305,13 +309,67 @@ func TestDisconnectConnectionClosesAllTerminals(t *testing.T) {
 	manager.sessions["child"] = &SessionData{ConnKey: "server", GroupSessionId: "root"}
 	manager.connTerminals["server"] = []string{"root", "child"}
 
-	manager.DisconnectConnection("root")
+	manager.DisconnectConnection("root", []string{"root", "child"})
 
 	if len(manager.sessions) != 0 || len(manager.clients) != 0 || len(manager.connTerminals) != 0 {
 		t.Fatalf("关闭连接后仍有资源: sessions=%d clients=%d connTerminals=%d", len(manager.sessions), len(manager.clients), len(manager.connTerminals))
 	}
 	if _, err := serverConn.Read(make([]byte, 1)); err == nil {
 		t.Fatal("关闭连接后底层 SSH transport 仍可读取")
+	}
+}
+
+// TestDisconnectConnectionCleansOrphanedTerminals 复现「根终端已关闭、子终端成为孤儿」的泄漏：
+// 用户在根终端标签上点 X（或根 shell 自然退出）时后端只删了根 session，
+// connTerminals 里残留子终端；随后会话级关闭只携带根 id，后端因根 session 已不在
+// map 中而整体 no-op，子终端与共享 client 永久泄漏，导致每次重新进入同一服务器
+// 通道占用恒多 1 个。
+func TestDisconnectConnectionCleansOrphanedTerminals(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer serverConn.Close()
+	manager := NewSSHManager()
+	manager.clients["server"] = &sshClientEntry{NetConn: clientConn}
+	// 根终端已被关闭（m.sessions 无 root），但子终端与共享连接仍存活
+	manager.sessions["child"] = &SessionData{ConnKey: "server", GroupSessionId: "root"}
+	manager.connTerminals["server"] = []string{"child"}
+
+	// 前端仍持有该会话，关闭时传入全部终端 id（含已不存在的根 id）
+	manager.DisconnectConnection("root", []string{"root", "child"})
+
+	if len(manager.sessions) != 0 || len(manager.clients) != 0 || len(manager.connTerminals) != 0 {
+		t.Fatalf("关闭会话后仍有资源: sessions=%d clients=%d connTerminals=%d", len(manager.sessions), len(manager.clients), len(manager.connTerminals))
+	}
+	if _, err := serverConn.Read(make([]byte, 1)); err == nil {
+		t.Fatal("关闭会话后底层 SSH transport 仍可读取")
+	}
+}
+
+// TestDisconnectConnectionCancelsInFlightConnect 复现「连接中取消」泄漏：
+// session 尚未登记进 m.sessions（Connect 正处在 dial/握手/认证，如密码弹窗），
+// 前端点取消走 DisconnectConnection —— targets 为空会整体 no-op，在途 Connect
+// 完成后永久登记。兜底必须取消 pendingCancels 里的 cancel，并清理孤儿终端。
+func TestDisconnectConnectionCancelsInFlightConnect(t *testing.T) {
+	manager := NewSSHManager()
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	manager.pendingMu.Lock()
+	manager.pendingCancels["connecting"] = cancel
+	manager.pendingMu.Unlock()
+	// 子终端已登记而根终端未登记（孤儿场景）也应被 terminalIds 兜底清理
+	clientConn, serverConn := net.Pipe()
+	defer serverConn.Close()
+	manager.clients["server"] = &sshClientEntry{NetConn: clientConn}
+	manager.sessions["orphan-child"] = &SessionData{ConnKey: "server", GroupSessionId: "connecting"}
+	manager.connTerminals["server"] = []string{"orphan-child"}
+
+	manager.DisconnectConnection("connecting", []string{"connecting", "orphan-child"})
+
+	select {
+	case <-cancelCtx.Done():
+	default:
+		t.Fatal("取消连接中会话应触发 pendingCancels 取消")
+	}
+	if len(manager.sessions) != 0 || len(manager.clients) != 0 || len(manager.connTerminals) != 0 {
+		t.Fatalf("取消后仍有资源: sessions=%d clients=%d connTerminals=%d", len(manager.sessions), len(manager.clients), len(manager.connTerminals))
 	}
 }
 
@@ -437,5 +495,239 @@ func TestAuthFailedIsIdentifiableSentinel(t *testing.T) {
 	}
 	if errors.Is(ErrHostKeyChanged, ErrAuthFailed) {
 		t.Fatal("主机密钥变更不应被判定为认证失败")
+	}
+}
+
+// ─── 端到端连接生命周期测试 ─────────────────────────────────────
+
+// newCycleTestServer 起一个接受多次连接的测试 SSH 服务器（NoClientAuth）。
+// 每次连接的 session 通道：exec 请求回复 true 后关闭通道（命令立即结束）；
+// shell 请求回复 true 并保持通道打开（模拟 shell 常驻）；sftp 子系统直接拒绝，
+// 让 initSFTPClient 快速失败（测试只关心终端通道计数）。
+func newCycleTestServer(t *testing.T) (host string, port int, hostKeyLine string, cleanup func()) {
+	t.Helper()
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := ssh.NewSignerFromKey(privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConfig := &ssh.ServerConfig{NoClientAuth: true}
+	serverConfig.AddHostKey(signer)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := listener.Addr().(*net.TCPAddr)
+	host, port = addr.IP.String(), addr.Port
+	hostKeyLine = knownhosts.Line([]string{dialAddr(host, port)}, signer.PublicKey())
+
+	go func() {
+		// 不限连接数：Connect 对瞬态错误会重试重拨，预算耗尽会误报被测代码泄漏
+		for {
+			conn, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				return
+			}
+			go func() {
+				server, channels, requests, serverErr := ssh.NewServerConn(conn, serverConfig)
+				if serverErr != nil {
+					conn.Close()
+					return
+				}
+				defer server.Close()
+				go func() {
+					for newChannel := range channels {
+						if newChannel.ChannelType() != "session" {
+							newChannel.Reject(ssh.UnknownChannelType, "测试服务不支持通道")
+							continue
+						}
+						channel, channelRequests, acceptErr := newChannel.Accept()
+						if acceptErr != nil {
+							continue
+						}
+						go func() {
+							defer channel.Close()
+							for request := range channelRequests {
+								switch request.Type {
+								case "exec":
+									// 命令立即结束：回复 true 后关闭通道
+									_ = request.Reply(true, nil)
+									return
+								case "shell":
+									// shell 常驻：回复 true，保持通道打开
+									_ = request.Reply(true, nil)
+								default:
+									_ = request.Reply(true, nil)
+								}
+							}
+						}()
+					}
+				}()
+				for range requests {
+				}
+			}()
+		}
+	}()
+	cleanup = func() {
+		listener.Close()
+	}
+	return host, port, hostKeyLine, cleanup
+}
+
+// setupCycleTestManager 准备可驱动完整 Connect 的 SSHManager：
+// known_hosts 预置测试服务器公钥（Connect 走 initKnownHostsCallback）。
+func setupCycleTestManager(t *testing.T, host string, port int, hostKeyLine string) *SSHManager {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Setenv("USERPROFILE", tmp) // Windows
+	t.Setenv("HOME", tmp)        // Unix
+	if err := os.MkdirAll(filepath.Join(tmp, ".ssh"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, ".ssh", "known_hosts"), []byte(hostKeyLine+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return NewSSHManager()
+}
+
+// TestConnectDisconnectCycleTerminalCount 模拟用户反复「进入 → 退出」同一服务器：
+// 每次进入 Connect 应恰好登记 1 个终端，每次退出（会话级关闭）应清零，
+// 通道占用不能出现 1↔2 循环。
+func TestConnectDisconnectCycleTerminalCount(t *testing.T) {
+	host, port, hostKeyLine, cleanup := newCycleTestServer(t)
+	defer cleanup()
+	manager := setupCycleTestManager(t, host, port, hostKeyLine)
+	conn := Connection{ID: "server-1", Username: "test", Host: host, Port: port, AuthMethod: ""}
+
+	sid := "session_1"
+	for i := 0; i < 4; i++ {
+		if err := manager.Connect(sid, conn); err != nil {
+			t.Fatalf("第 %d 次进入失败: %v", i+1, err)
+		}
+		if got := len(manager.connTerminals[conn.ID]); got != 1 {
+			t.Fatalf("第 %d 次进入后终端数 = %d，期望 1", i+1, got)
+		}
+		// 退出：与前端 forceCloseSession 一致，会话级关闭
+		manager.DisconnectConnection(sid, []string{sid})
+		if got := len(manager.connTerminals[conn.ID]); got != 0 {
+			t.Fatalf("第 %d 次退出后终端数 = %d，期望 0", i+1, got)
+		}
+		if len(manager.clients) != 0 || len(manager.sessions) != 0 {
+			t.Fatalf("第 %d 次退出后仍有资源: clients=%d sessions=%d", i+1, len(manager.clients), len(manager.sessions))
+		}
+	}
+}
+
+// TestConnectDisconnectCycleViaTerminalClose 模拟用户通过「终端标签 X」关闭：
+// 单终端会话走 DisconnectSSH（与 forceCloseSession 不同路径），同样必须清零。
+func TestConnectDisconnectCycleViaTerminalClose(t *testing.T) {
+	host, port, hostKeyLine, cleanup := newCycleTestServer(t)
+	defer cleanup()
+	manager := setupCycleTestManager(t, host, port, hostKeyLine)
+	conn := Connection{ID: "server-2", Username: "test", Host: host, Port: port, AuthMethod: ""}
+
+	sid := "session_2"
+	for i := 0; i < 4; i++ {
+		if err := manager.Connect(sid, conn); err != nil {
+			t.Fatalf("第 %d 次进入失败: %v", i+1, err)
+		}
+		if got := len(manager.connTerminals[conn.ID]); got != 1 {
+			t.Fatalf("第 %d 次进入后终端数 = %d，期望 1", i+1, got)
+		}
+		// 退出：前端 closeTerminal 对单终端会话调用 DisconnectSSH
+		manager.Disconnect(sid)
+		if got := len(manager.connTerminals[conn.ID]); got != 0 {
+			t.Fatalf("第 %d 次退出后终端数 = %d，期望 0", i+1, got)
+		}
+	}
+}
+
+// TestConnectDisconnectCycleConcurrent 模拟用户快速「开关」：Connect 与
+// DisconnectConnection 并发交错执行。真实应用里 Wails 绑定在主 goroutine 串行，
+// 并发仅作压力测试——竞争下 Connect 可能瞬时失败（另一个会话关闭正在关闭共享
+// transport），这是可接受的瞬时错误；但结束后不得残留终端/客户端（泄漏）。
+func TestConnectDisconnectCycleConcurrent(t *testing.T) {
+	host, port, hostKeyLine, cleanup := newCycleTestServer(t)
+	defer cleanup()
+	manager := setupCycleTestManager(t, host, port, hostKeyLine)
+	conn := Connection{ID: "server-3", Username: "test", Host: host, Port: port, AuthMethod: ""}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		sid := fmt.Sprintf("session_%d", i)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := manager.Connect(sid, conn); err != nil {
+				return // 竞争下的瞬时错误可接受，不视为失败
+			}
+			manager.DisconnectConnection(sid, []string{sid})
+		}()
+	}
+	wg.Wait()
+
+	// 兜底清理可能残留的会话（失败的 Connect 不应留任何状态）
+	manager.DisconnectAll()
+
+	manager.mu.RLock()
+	clients, sessions, terminals := len(manager.clients), len(manager.sessions), len(manager.connTerminals[conn.ID])
+	manager.mu.RUnlock()
+	if clients != 0 || sessions != 0 || terminals != 0 {
+		t.Fatalf("并发开关后仍有资源: clients=%d sessions=%d terminals=%d", clients, sessions, terminals)
+	}
+}
+
+// TestSetupSessionIdempotentRegistration 工作区恢复与手动进入并发时，同一
+// sessionId 可能被 setupSession 重复登记：幂等化后 connTerminals 不得出现
+// 重复 id，旧通道被释放。
+func TestSetupSessionIdempotentRegistration(t *testing.T) {
+	host, port, hostKeyLine, cleanup := newCycleTestServer(t)
+	defer cleanup()
+	manager := setupCycleTestManager(t, host, port, hostKeyLine)
+	conn := Connection{ID: "server-4", Username: "test", Host: host, Port: port, AuthMethod: ""}
+
+	// 第一次进入
+	if err := manager.Connect("term", conn); err != nil {
+		t.Fatal(err)
+	}
+	// 模拟恢复与手动进入竞态：同 id 不先断开再次 Connect
+	if err := manager.Connect("term", conn); err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.RLock()
+	terminals := manager.connTerminals[conn.ID]
+	manager.mu.RUnlock()
+	if len(terminals) != 1 || terminals[0] != "term" {
+		t.Fatalf("同 id 重复登记后 connTerminals 应为 [term]，实际 %v", terminals)
+	}
+	// 断开后必须清零
+	manager.DisconnectConnection("term", []string{"term"})
+	manager.mu.RLock()
+	clients, sessions, terms := len(manager.clients), len(manager.sessions), len(manager.connTerminals[conn.ID])
+	manager.mu.RUnlock()
+	if clients != 0 || sessions != 0 || terms != 0 {
+		t.Fatalf("断开后仍有资源: clients=%d sessions=%d terminals=%d", clients, sessions, terms)
+	}
+}
+
+// TestDisconnectRemovesAllDuplicateIds 历史竞态遗留的重复 id（[X, X]）在
+// 断开时必须全部移除，不能残留半个。
+func TestDisconnectRemovesAllDuplicateIds(t *testing.T) {
+	manager := NewSSHManager()
+	manager.clients["server"] = &sshClientEntry{}
+	manager.sessions["term"] = &SessionData{ConnKey: "server"}
+	manager.connTerminals["server"] = []string{"term", "term"}
+
+	if !manager.Disconnect("term") {
+		t.Fatal("断开已登记终端应成功")
+	}
+	manager.mu.RLock()
+	terms := len(manager.connTerminals["server"])
+	manager.mu.RUnlock()
+	if terms != 0 {
+		t.Fatalf("断开后 connTerminals 应为空，实际 %d 个残留", terms)
 	}
 }

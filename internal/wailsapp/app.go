@@ -831,8 +831,8 @@ func (a *App) ReconnectWithPassword(sessionId string, connId string, newPassword
 }
 
 // DisconnectSSH closes an SSH connection
-func (a *App) DisconnectSSHConnection(sessionId string) {
-	a.sshManager.DisconnectConnection(sessionId)
+func (a *App) DisconnectSSHConnection(sessionId string, terminalIds []string) {
+	a.sshManager.DisconnectConnection(sessionId, terminalIds)
 }
 
 func (a *App) DisconnectSSH(sessionId string) {

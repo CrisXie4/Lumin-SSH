@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { EventsOn, WindowHide } from '../../wailsjs/runtime/runtime.js';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import type { config } from '../../wailsjs/go/models.ts';
@@ -92,6 +92,7 @@ export interface UseSessionConnectionsDeps {
     label?: string,
   ) => string | null;
   restoringWorkspaceRef: React.MutableRefObject<boolean>;
+  restoringWorkspaceSessionIds: Set<string>;
   serversLoaded: boolean;
   serversRef: React.MutableRefObject<config.Connection[]>;
   sessionsRef: React.MutableRefObject<SessionLike[]>;
@@ -203,6 +204,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal,
     rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId,
     replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef,
+    restoringWorkspaceSessionIds,
     serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId,
     setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials,
     setMonitoringEnabled, setMountedSessions, setRestoringWorkspaceSessionIds, setServers,
@@ -214,6 +216,13 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     terminalSubTabScrollTargetRef, updateSessionStatus, waitForServerDisconnect,
     workspacePersistenceLevel, workspaceRestoreNavigationOverrideRef, workspaceRestoreStartedRef,
   } = deps;
+
+  // ponytail: 防双击/重复点击同一服务器：连接进行中时忽略后续 connectServer 触发。
+  // 双击卡片会连续触发两次 onConnect，而 connectServer 开头有 await，两次调用
+  // 都能穿过 existing/closedSession 检查，各自 ConnectSSH → 服务器上开出两个
+  // /bin/bash（两个终端通道），通道占用虚高。
+  const connectingServerIdsRef = useRef<Set<string>>(new Set());
+
   const handleConnectError = useCallback((sessionId: string, err: unknown) => {
     // 如果用户已取消该连接，不再弹错误提示
     if (cancelledConnectionsRef.current.has(sessionId)) {
@@ -903,12 +912,14 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       if (prev.some((item) => item.sessionId === sessionId)) return prev;
       const matchedServer = serversRef.current.find((server) => String(server.id) === connId);
       const matchedSession = sessionsRef.current.find((session) => session.id === sessionId);
+      // server 字段显式声明为 Connection 兼容形状，避免 || 链推导出 {} 类型导致 TS 报错
+      const fallbackServer: Pick<config.Connection, 'id' | 'name' | 'host'> = {
+        id: connId,
+        name: String(matchedSession?.serverName || matchedSession?.host || connId),
+        host: String(matchedSession?.host || ''),
+      };
       return [...prev, {
-        server: matchedServer || {
-          id: connId,
-          name: matchedSession?.serverName || matchedSession?.host || connId,
-          host: matchedSession?.host || '',
-        },
+        server: matchedServer || fallbackServer,
         sessionId,
         startTime: Date.now(),
       }];
@@ -1178,7 +1189,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
   }, [reconnectSession]);
 
   // ── Connect to server ──────────────────────────────────────
-  const connectServer = useCallback(async (server: config.Connection) => {
+  const connectServerInner = useCallback(async (server: config.Connection) => {
     markWorkspaceRestoreNavigationOverride();
     // 用户主动点连即记入最近，已连接仅切换焦点时也置顶
     recordRecentConnection(server?.id);
@@ -1193,10 +1204,30 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
 
     const closedSession = sessionsRef.current.find((s) => s.serverId === server.id && (s.status === 'closed' || s.status === 'error'));
     if (closedSession) {
+      // ponytail: 应用启动的工作区恢复正在重连该会话（恢复循环先 put 了
+      // sessions 再逐个 reconnectSession，期间状态为 closed）。此时再走
+      // reconnectSession 会与恢复循环并发对同一 sessionId 执行 ConnectSSH，
+      // 后端 setupSession 把同一 id 重复登记进 connTerminals（[X, X]），
+      // 多出的通道无法被前端感知，关闭后残留 → 通道占用持续 +1。
+      // 恢复进行中直接切焦点，等待恢复完成即可。只对正在恢复的会话生效——
+      // 恢复窗口内点其它 closed/error 会话（如已恢复失败的）不应被吞掉，仍走重连。
+      if (restoringWorkspaceRef.current && restoringWorkspaceSessionIds.has(closedSession.id!)) {
+        setActiveSessionId(closedSession.id!);
+        setActiveTerminalId(resolveSessionRootTerminalId(closedSession, lastTerminalRef.current[closedSession.id!]));
+        setContentTab(resolveSessionContentTab(closedSession.id!));
+        return;
+      }
       setActiveSessionId(closedSession.id!);
       setActiveTerminalId(resolveSessionRootTerminalId(closedSession, lastTerminalRef.current[closedSession.id!]));
       setContentTab(resolveSessionContentTab(closedSession.id!));
-      await reconnectSession(closedSession);
+      // ponytail: 手动进入只开根终端。残留会话的 terminals 可能含历史子终端
+      // （含虚拟根重建产生的 [根, 子]），reconnectSession 会逐个 OpenTerminal
+      // 把子终端全部重开 —— 服务器上多出 N 个 /bin/bash，通道占用虚高。
+      // 用户需要多终端时可手动点「+」明确创建。
+      await reconnectSession({
+        ...closedSession,
+        terminals: [{ id: closedSession.id!, label: `${t('终端')}1` }],
+      });
       return;
     }
 
@@ -1210,9 +1241,12 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       serverName: server.name || server.host,
       host: server.host,
       status: 'connecting',
-      terminals: Array.isArray(sessionSnapshot?.terminals) && sessionSnapshot.terminals.length > 0
-        ? sessionSnapshot.terminals
-        : [{ id: sessionId, label: `${t('终端')}1` }],
+      // ponytail: 手动进入只开根终端。快照里的子终端是历史布局（可能来自
+      // 上次会话残留或虚拟根重建），reconnectSession 会逐个 OpenTerminal
+      // 重开 —— 服务器上多出 N 个 /bin/bash 且关闭后快照仍保存 N 条，循环
+      // 虚高。用户需要多终端时可手动点「+」明确创建（openNewTerminal）。
+      // app 启动的工作区恢复（restoreWorkspace）仍保留多终端布局。
+      terminals: [{ id: sessionId, label: `${t('终端')}1` }],
     };
 
     const nextSessions = [...sessionsRef.current, newSession];
@@ -1277,7 +1311,28 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     } catch (err) {
       handleConnectError(sessionId, err);
     }
-  }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, t, waitForServerDisconnect, workspacePersistenceLevel]);
+  }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, restoringWorkspaceSessionIds, t, waitForServerDisconnect, workspacePersistenceLevel]);
+
+  // ponytail: 防双击/重复点击。双击服务器卡片会连续触发两次 connectServer，
+  // 而 connectServerInner 开头有 await（waitForServerDisconnect），两次调用
+  // 都能穿过 existing/closedSession 检查，各自 ConnectSSH → 服务器上开出
+  // 两个 /bin/bash（两个终端通道），通道占用虚高且标签页重复。
+  // 同一服务器连接进行中时直接忽略后续触发。
+  const connectServer = useCallback(async (server: config.Connection) => {
+    const serverId = String(server?.id || '');
+    if (!serverId) {
+      return;
+    }
+    if (connectingServerIdsRef.current.has(serverId)) {
+      return;
+    }
+    connectingServerIdsRef.current.add(serverId);
+    try {
+      await connectServerInner(server);
+    } finally {
+      connectingServerIdsRef.current.delete(serverId);
+    }
+  }, [connectServerInner]);
 
   const connectLocal = useCallback((name: string, shellPath: string) => {
     markWorkspaceRestoreNavigationOverride();
