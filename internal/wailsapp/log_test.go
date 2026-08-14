@@ -1,6 +1,7 @@
 package wailsapp
 
 import (
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -59,4 +60,34 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+// failingSink 模拟写必失败的 sink（近似 GUI 进程无控制台时 os.Stderr 写失败）。
+type failingSink struct{}
+
+func (failingSink) Write(p []byte) (int, error) { return 0, io.ErrClosedPipe }
+
+// teeLogWriter 必须容忍单个 sink 失败：排在失败 sink 之后的文件 sink 仍要写入。
+// 这正是改用 teeLogWriter 取代 io.MultiWriter 的原因——io.MultiWriter 任一 sink
+// 返回 error 即放弃后续 sink，会导致 GUI 无控制台时 os.Stderr 失败 → 文件完全不落盘。
+func TestTeeLogWriterToleratesFailingSink(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lumin.log")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatalf("打开临时日志失败: %v", err)
+	}
+	// 失败 sink 排在文件 sink 之前，复现 stderr 在 MultiWriter 首位的场景
+	tee := teeLogWriter{writers: []io.Writer{failingSink{}, f}}
+	if _, err := tee.Write([]byte("AFTER-FAIL-MARKER\n")); err != nil {
+		t.Fatalf("teeLogWriter.Write 不应向上抛 sink 错误: %v", err)
+	}
+	f.Close()
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("读取日志失败: %v", err)
+	}
+	if !contains(string(raw), "AFTER-FAIL-MARKER") {
+		t.Fatalf("失败 sink 短路了文件 sink，日志未落盘: %q", string(raw))
+	}
 }

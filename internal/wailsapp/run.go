@@ -172,6 +172,23 @@ func (w *rotatingFileWriter) Close() error {
 	return err
 }
 
+// teeLogWriter 把日志扇出到多个 sink，每个 sink 独立写入并忽略其错误。
+// 不用 io.MultiWriter：MultiWriter 任一 sink 返回 error 会短路后续 sink
+// （标准库 io.MultiWriter 源码如此），而 GUI 进程无控制台时 os.Stderr.Write
+// 会失败（句柄无效 ERROR_INVALID_HANDLE），会导致排在 stderr 之后的文件 sink
+// 全部不执行 → 日志落不了盘，恰好与「落盘便于远程排查」的目的相悖。
+// 日志场景允许个别 sink 丢条，绝不能因一个 sink 失败而连累其它 sink。
+type teeLogWriter struct {
+	writers []io.Writer
+}
+
+func (t teeLogWriter) Write(p []byte) (int, error) {
+	for _, w := range t.writers {
+		_, _ = w.Write(p)
+	}
+	return len(p), nil
+}
+
 // logExeDirSeam 仅测试注入：覆盖 exe 同级日志目录，避免测试在构建缓存目录留下 lumin.log。
 var logExeDirSeam = ""
 
@@ -211,7 +228,7 @@ func initLogFile() func() {
 	if len(closers) == 0 {
 		return func() {}
 	}
-	log.SetOutput(io.MultiWriter(writers...))
+	log.SetOutput(teeLogWriter{writers})
 	log.Printf("[Lumin] Logger initialized. Log files: %d", len(closers))
 	return func() {
 		for _, c := range closers {
