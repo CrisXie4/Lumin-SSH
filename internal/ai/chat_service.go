@@ -604,12 +604,50 @@ func formatAIPlainToolResultContent(result any) string {
 	}
 }
 
+func formatAIReadFileToolResultContent(result mcpserver.ReadFileResult) string {
+	return strings.TrimSpace(result.Content)
+}
+
+func formatAIReadFileBatchToolResultContent(result mcpserver.ReadFileBatchResult) string {
+	sections := make([]string, 0, len(result.Files))
+	for _, file := range result.Files {
+		content := strings.TrimSpace(file.Content)
+		path := strings.TrimSpace(file.Path)
+		if content == "" {
+			if path != "" {
+				sections = append(sections, "Path: "+path)
+			}
+			continue
+		}
+		if path == "" {
+			sections = append(sections, content)
+			continue
+		}
+		sections = append(sections, "Path: "+path+"\n"+content)
+	}
+	return strings.TrimSpace(strings.Join(sections, "\n\n"))
+}
+
 func formatAIRawToolResultContent(result any) string {
 	switch value := result.(type) {
 	case string:
 		return value
 	case []byte:
 		return string(value)
+	case mcpserver.ReadFileResult:
+		return formatAIReadFileToolResultContent(value)
+	case *mcpserver.ReadFileResult:
+		if value == nil {
+			return ""
+		}
+		return formatAIReadFileToolResultContent(*value)
+	case mcpserver.ReadFileBatchResult:
+		return formatAIReadFileBatchToolResultContent(value)
+	case *mcpserver.ReadFileBatchResult:
+		if value == nil {
+			return ""
+		}
+		return formatAIReadFileBatchToolResultContent(*value)
 	default:
 		data, err := json.Marshal(result)
 		if err == nil {
