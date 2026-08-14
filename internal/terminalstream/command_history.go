@@ -3,7 +3,6 @@ package terminalstream
 import (
 	"bytes"
 	"encoding/base64"
-	"log"
 	"strings"
 )
 
@@ -145,14 +144,9 @@ func (p *CommandHistoryParser) decodeCommand(payload []byte) string {
 		return ""
 	}
 	command := strings.TrimSpace(p.decoder(decoded))
-	if command != "" {
-		log.Printf("[cmd-history] raw remote command (len=%d): %q", len(command), command)
-	}
 	if isInteractivePrompt(command) {
-		log.Printf("[cmd-history]   -> filtered by isInteractivePrompt, SKIP")
 		return ""
 	}
-	log.Printf("[cmd-history]   -> accepted as command")
 	return command
 }
 

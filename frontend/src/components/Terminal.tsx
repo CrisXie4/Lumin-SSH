@@ -1923,20 +1923,15 @@ export default function Terminal({
         }
         let cmd = '';
         const buf = term.buffer.active;
-        let rawBufText = '';
         // promptFilteredThisTurn：本次回车明确处于"交互脚本回答态"，手敲值不是 shell 命令。
         // 两种触发方式：① buffer 提取阶段命中 interactive prompt / 控制字符（强信号，关键词/前缀匹配到）
         //              ② fallback 时发现 buffer 提取 cmd 与 hand-typed pending 互不为前缀（通用兜底，
         //                 正常 shell 命令行绝不会出现"屏幕上显示的内容 ≠ 我手敲的内容"，这就是脚本提问态）
         let promptFilteredThisTurn = false;
-        let promptFilteredReason = '';
         if (buf) {
           const bufLine = buf.getLine(buf.baseY + buf.cursorY);
           const text = bufLine ? bufLine.translateToString(true) : '';
-          rawBufText = text;
           cmd = extractCommandFromBufferLine(text);
-          console.debug('[cmd-history] buffer raw line:', JSON.stringify(text));
-          console.debug('[cmd-history] after extract prompt:', JSON.stringify(cmd), 'isInteractivePromptText:', isInteractivePromptText(cmd));
           // 含控制字符（C0 0x00-0x1F / DEL / C1 0x80-0x9F，多为 ANSI 序列残留）
           // 或交互脚本提示：视为无效，回退到逐字符累加。注意保留合法 Unicode
           // （如提示符 ❯、中文路径、emoji 参数），不再按"非 ASCII"一刀切丢弃。
@@ -1944,19 +1939,16 @@ export default function Terminal({
           const isPrompt = isInteractivePromptText(cmd);
           if (hasControl || isPrompt) {
             promptFilteredThisTurn = true;
-            promptFilteredReason = hasControl ? 'buffer-control-char' : 'buffer-interactive-prompt-hit';
             cmd = '';
           }
         }
         const pending = pendingCmdRef.current.trim();
-        console.debug('[cmd-history] pending (hand-typed):', JSON.stringify(pending), 'before-fallback cmd:', JSON.stringify(cmd), 'promptFilteredThisTurn:', promptFilteredThisTurn);
         // 智能 fallback：buffer 提取是"屏幕上真正执行的命令"，优先采用。
         // —— 关键修复 ——：如果明确看到交互提示被过滤了，说明是回答脚本提问，
         //    手敲 pending 只是回答值，禁止 fallback，避免把 "root / v1.0" 这类答案当命令。
         if (!promptFilteredThisTurn) {
           if (!cmd) {
             cmd = pending;
-            console.debug('[cmd-history] fallback: cmd empty, use pending =', JSON.stringify(cmd));
           } else if (pending) {
             const c = cmd.toLowerCase(), p = pending.toLowerCase();
             if (!c.startsWith(p) && !p.startsWith(c)) {
@@ -1968,29 +1960,13 @@ export default function Terminal({
               // 才会出现"屏幕上是提示文+回答，手敲值只是回答"的割裂情况。
               // → 此时绝不应该把手敲值当命令入库，整体丢弃。
               promptFilteredThisTurn = true;
-              promptFilteredReason = 'no-prefix-relation: generic interactive-answer-mode';
               cmd = '';
-              console.debug('[cmd-history] fallback: no prefix relation detected =>',
-                'INTERACTIVE ANSWER MODE (generic, keyword-independent), hand-typed',
-                JSON.stringify(pending), 'IS NOT A SHELL COMMAND. Drop it.');
             }
           }
-        } else {
-          console.debug('[cmd-history] fallback SKIPPED: promptFilteredThisTurn=true (' + promptFilteredReason + '), hand-typed answer is NOT a shell command');
         }
         if (!awaitingPasswordRef.current) {
           prepareScreenScrollbackRef.current(cmd);
         }
-        const skipReason = awaitingPasswordRef.current
-          ? 'awaitingPassword'
-          : promptFilteredThisTurn
-            ? `interactive-answer-mode (${promptFilteredReason || 'unknown'}) — hand-typed answer is NOT a shell command`
-            : cmd.length <= 1
-              ? 'cmd-length<=1'
-              : /^\d+$/.test(cmd)
-                ? 'cmd-is-pure-digits'
-                : '';
-        console.debug('[cmd-history] final cmd:', JSON.stringify(cmd), 'skipReason:', skipReason || 'ACCEPT -> dispatch ssh-command-history');
         if (!awaitingPasswordRef.current && cmd.length > 1 && !/^\d+$/.test(cmd)) {
           window.dispatchEvent(new CustomEvent('ssh-command-history', {
             detail: { sessionId: serverIdRef.current, command: cmd, time: new Date().toISOString(), source: 'input' }
@@ -3118,18 +3094,6 @@ export default function Terminal({
       console.error('WriteTerminal failed:', err);
     });
     termRef.current?.scrollToBottom();
-    const inputSkipReason = isBlankSubmit
-      ? 'blank-submit'
-      : text.length <= 1
-        ? 'text-length<=1'
-        : /^\d+$/.test(text)
-          ? 'text-is-pure-digits'
-          : isInteractivePromptText(text)
-            ? 'isInteractivePromptText'
-            : awaitingPasswordRef.current
-              ? 'awaitingPassword'
-              : '';
-    console.debug('[cmd-history] executeCommand (input-box) text:', JSON.stringify(text), 'skipReason:', inputSkipReason || 'ACCEPT -> dispatch ssh-command-history');
     if (!isBlankSubmit && text.length > 1 && !/^\d+$/.test(text) && !isInteractivePromptText(text) && !awaitingPasswordRef.current) {
       window.dispatchEvent(new CustomEvent('ssh-command-history', {
         detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
@@ -3177,14 +3141,6 @@ export default function Terminal({
       console.error('WriteTerminal failed:', err);
     });
     termRef.current?.scrollToBottom();
-    const qcSkipReason = text.length <= 1
-      ? 'text-length<=1'
-      : /^\d+$/.test(text)
-        ? 'text-is-pure-digits'
-        : isInteractivePromptText(text)
-          ? 'isInteractivePromptText'
-          : '';
-    console.debug('[cmd-history] sendQuickCmd text:', JSON.stringify(text), 'skipReason:', qcSkipReason || 'ACCEPT -> dispatch ssh-command-history');
     if (text.length > 1 && !/^\d+$/.test(text) && !isInteractivePromptText(text)) {
       window.dispatchEvent(new CustomEvent('ssh-command-history', {
         detail: { sessionId: serverId, command: text, time: new Date().toISOString(), source: 'input' }
