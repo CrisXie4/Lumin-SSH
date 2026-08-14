@@ -104,50 +104,115 @@ func setupSystray(app *App) {
 	})
 }
 
-// maxLogFileSize 日志单文件上限：超过则启动时轮转（lumin.log → lumin.log.1），
+// maxLogFileSize 日志单文件上限：超过则轮转（lumin.log → lumin.log.1），
 // 防止长期运行无限增长；保留一份历史便于回溯。
 const maxLogFileSize = 5 << 20 // 5MB
 
-// openLogFile 打开追加日志文件；超过上限先轮转再打开。
-func openLogFile(path string) (*os.File, error) {
-	if info, err := os.Stat(path); err == nil && info.Size() > maxLogFileSize {
-		_ = os.Rename(path, path+".1")
-	}
-	return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+// rotatingFileWriter 带大小轮转的文件 writer。按本进程写入量累计，
+// 超过上限时把当前文件改名为 .1 并重开新文件，保证单次运行内也会轮转
+// （仅启动时检查的话，长跑几天单文件会无限膨胀）。
+type rotatingFileWriter struct {
+	mu      sync.Mutex
+	path    string
+	f       *os.File
+	written int64
 }
 
-// initLogFile 把标准 log 输出重定向到文件（双写）：
-//  1. %AppData%\Lumin\config\lumin.log —— 主日志，始终写入
-//  2. exe 同级目录 lumin.log —— 便携版场景：对方解压运行后日志就在运行目录，
+func newRotatingFileWriter(path string) (*rotatingFileWriter, error) {
+	w := &rotatingFileWriter{path: path}
+	if err := w.reopen(); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// reopen 以追加模式打开文件，并把当前大小作为已写基线（跨进程追加的历史计入）。
+func (w *rotatingFileWriter) reopen() error {
+	f, err := os.OpenFile(w.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	if info, err := f.Stat(); err == nil {
+		w.written = info.Size()
+	}
+	w.f = f
+	return nil
+}
+
+func (w *rotatingFileWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.f == nil {
+		// 上次轮转后重开失败（罕见），下次写入再试
+		if err := w.reopen(); err != nil {
+			return len(p), nil
+		}
+	}
+	if w.written+int64(len(p)) > maxLogFileSize {
+		// 先改名再重开：改名失败（如被其它进程占用）继续写旧文件，最多超限一次
+		if os.Rename(w.path, w.path+".1") == nil {
+			if err := w.reopen(); err != nil {
+				w.f = nil
+			}
+		}
+	}
+	n, err := w.f.Write(p)
+	w.written += int64(n)
+	return n, err
+}
+
+func (w *rotatingFileWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.f == nil {
+		return nil
+	}
+	err := w.f.Close()
+	w.f = nil
+	return err
+}
+
+// logExeDirSeam 仅测试注入：覆盖 exe 同级日志目录，避免测试在构建缓存目录留下 lumin.log。
+var logExeDirSeam = ""
+
+// initLogFile 把标准 log 输出重定向（控制台 + 文件双写）：
+//  1. os.Stderr —— 从终端/调试器启动时日志仍可见；窗口应用没有控制台时静默丢弃
+//  2. %AppData%\Lumin\config\lumin.log —— 主日志，始终写入
+//  3. exe 同级目录 lumin.log —— 便携版场景：对方解压运行后日志就在运行目录，
 //     无需进入隐藏的 %AppData%，直接取回即可；安装版（Program Files）写失败自动忽略
-// Windows 窗口应用没有控制台，log.Printf 默认写 stderr 会被丢弃，
-// 诊断信息需要落盘才能远程排查。追加模式，0600，单文件 5MB 轮转。
-// 返回清理函数（关闭文件句柄），应用生命周期内不要调用。
+// 追加模式，0600，单文件 5MB 运行期轮转。
+// 返回清理函数（关闭文件句柄），应在 wails.Run 返回后调用。
 func initLogFile() func() {
 	var writers []io.Writer
 	var closers []io.Closer
+
+	writers = append(writers, os.Stderr)
 
 	dir, err := os.UserConfigDir()
 	if err == nil {
 		dir = filepath.Join(dir, "Lumin", "config")
 		if err := os.MkdirAll(dir, 0700); err == nil {
-			if f, err := openLogFile(filepath.Join(dir, "lumin.log")); err == nil {
-				writers = append(writers, f)
-				closers = append(closers, f)
+			if w, err := newRotatingFileWriter(filepath.Join(dir, "lumin.log")); err == nil {
+				writers = append(writers, w)
+				closers = append(closers, w)
 			}
 		}
 	}
 	if exePath, err := os.Executable(); err == nil {
-		if f, err := openLogFile(filepath.Join(filepath.Dir(exePath), "lumin.log")); err == nil {
-			writers = append(writers, f)
-			closers = append(closers, f)
+		dir := filepath.Dir(exePath)
+		if logExeDirSeam != "" {
+			dir = logExeDirSeam
+		}
+		if w, err := newRotatingFileWriter(filepath.Join(dir, "lumin.log")); err == nil {
+			writers = append(writers, w)
+			closers = append(closers, w)
 		}
 	}
-	if len(writers) == 0 {
+	if len(closers) == 0 {
 		return func() {}
 	}
 	log.SetOutput(io.MultiWriter(writers...))
-	log.Printf("[Lumin] Logger initialized. Log files: %d", len(writers))
+	log.Printf("[Lumin] Logger initialized. Log files: %d", len(closers))
 	return func() {
 		for _, c := range closers {
 			_ = c.Close()
@@ -158,7 +223,7 @@ func initLogFile() func() {
 // Run 启动 Wails 应用。embed 资源由 main 包注入（//go:embed 路径必须相对根目录的 main.go）。
 func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 	// 日志落盘：先于一切业务日志，保证 [channel-diag] 等诊断可追溯
-	initLogFile()
+	closeLogs := initLogFile()
 
 	// 单实例检查（平台特定实现）
 	platformruntime.EnsureSingleInstance()
@@ -248,6 +313,8 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 	platformruntime.ApplyOptions(opts, gpuDisabled)
 
 	err := wails.Run(opts)
+	// 退出后关闭日志文件句柄，避免残留
+	closeLogs()
 
 	if err != nil {
 		println("Error:", err.Error())
