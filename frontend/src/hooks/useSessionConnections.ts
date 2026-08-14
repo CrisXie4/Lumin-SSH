@@ -92,6 +92,7 @@ export interface UseSessionConnectionsDeps {
     label?: string,
   ) => string | null;
   restoringWorkspaceRef: React.MutableRefObject<boolean>;
+  restoringWorkspaceSessionIds: Set<string>;
   serversLoaded: boolean;
   serversRef: React.MutableRefObject<config.Connection[]>;
   sessionsRef: React.MutableRefObject<SessionLike[]>;
@@ -203,6 +204,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal,
     rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId,
     replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef,
+    restoringWorkspaceSessionIds,
     serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId,
     setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials,
     setMonitoringEnabled, setMountedSessions, setRestoringWorkspaceSessionIds, setServers,
@@ -1207,8 +1209,9 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       // reconnectSession 会与恢复循环并发对同一 sessionId 执行 ConnectSSH，
       // 后端 setupSession 把同一 id 重复登记进 connTerminals（[X, X]），
       // 多出的通道无法被前端感知，关闭后残留 → 通道占用持续 +1。
-      // 恢复进行中直接切焦点，等待恢复完成即可。
-      if (restoringWorkspaceRef.current) {
+      // 恢复进行中直接切焦点，等待恢复完成即可。只对正在恢复的会话生效——
+      // 恢复窗口内点其它 closed/error 会话（如已恢复失败的）不应被吞掉，仍走重连。
+      if (restoringWorkspaceRef.current && restoringWorkspaceSessionIds.has(closedSession.id!)) {
         setActiveSessionId(closedSession.id!);
         setActiveTerminalId(resolveSessionRootTerminalId(closedSession, lastTerminalRef.current[closedSession.id!]));
         setContentTab(resolveSessionContentTab(closedSession.id!));
@@ -1308,7 +1311,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     } catch (err) {
       handleConnectError(sessionId, err);
     }
-  }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, t, waitForServerDisconnect, workspacePersistenceLevel]);
+  }, [fileManagerPosition, handleConnectError, loadServerWorkspaceSessionSnapshot, markWorkspaceRestoreNavigationOverride, postConnectSetup, reconnectSession, recordRecentConnection, rememberWorkspace, resolveSessionContentTab, resolveSessionRootTerminalId, restoringWorkspaceSessionIds, t, waitForServerDisconnect, workspacePersistenceLevel]);
 
   // ponytail: 防双击/重复点击。双击服务器卡片会连续触发两次 connectServer，
   // 而 connectServerInner 开头有 await（waitForServerDisconnect），两次调用

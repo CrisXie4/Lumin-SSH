@@ -873,6 +873,19 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	if stale, ok := m.sessions[sessionId]; ok {
 		staleStdin = stale.Stdin
 		staleSession = stale.Session
+		// 防御性：旧条目挂在另一个 connKey 上（同 id 跨连接重登记，正常 id
+		// 含时间戳不会发生）时，把旧 key 里的 id 也摘掉，避免旧连接计数残留 +1。
+		if stale.ConnKey != "" && stale.ConnKey != connKey {
+			if old := m.connTerminals[stale.ConnKey]; len(old) > 0 {
+				next := old[:0]
+				for _, tid := range old {
+					if tid != sessionId {
+						next = append(next, tid)
+					}
+				}
+				m.connTerminals[stale.ConnKey] = next
+			}
+		}
 		next := m.connTerminals[connKey][:0]
 		for _, tid := range m.connTerminals[connKey] {
 			if tid != sessionId {
@@ -1440,10 +1453,23 @@ func (m *SSHManager) GetSFTPClient(sessionId string) (*sftp.Client, error) {
 // 导致子终端与共享 client 永久泄漏。逐个断开传入 id 使会话级关闭不依赖根终端存活。
 func (m *SSHManager) DisconnectConnection(sessionId string, terminalIds []string) {
 	m.mu.RLock()
-	ids := []string{sessionId}
-	if session := m.sessions[sessionId]; session != nil && session.ConnKey != "" {
-		ids = append(ids, m.connTerminals[session.ConnKey]...)
+	session := m.sessions[sessionId]
+	if session == nil || session.ConnKey == "" {
+		m.mu.RUnlock()
+		// 会话尚未登记：Connect 正在进行 dial/握手/认证（如等待密码输入），
+		// 此时仅凭 m.sessions 收集 targets 会整体 no-op，在途 Connect 完成后
+		// 该 session 与共享 client 永久泄漏（通道占用虚高）。Disconnect 的
+		// expected=nil 会取消 pendingCancels[sessionId]，使 Connect 在检查点
+		// 提前退出、不再登记。terminalIds 里的子终端仍逐个兜底清理。
+		m.Disconnect(sessionId)
+		for _, id := range terminalIds {
+			if id != "" && id != sessionId {
+				m.Disconnect(id)
+			}
+		}
+		return
 	}
+	ids := append([]string{sessionId}, m.connTerminals[session.ConnKey]...)
 	for _, id := range terminalIds {
 		if id != "" {
 			ids = append(ids, id)

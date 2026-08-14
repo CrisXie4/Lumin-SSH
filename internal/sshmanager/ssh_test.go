@@ -344,6 +344,35 @@ func TestDisconnectConnectionCleansOrphanedTerminals(t *testing.T) {
 	}
 }
 
+// TestDisconnectConnectionCancelsInFlightConnect 复现「连接中取消」泄漏：
+// session 尚未登记进 m.sessions（Connect 正处在 dial/握手/认证，如密码弹窗），
+// 前端点取消走 DisconnectConnection —— targets 为空会整体 no-op，在途 Connect
+// 完成后永久登记。兜底必须取消 pendingCancels 里的 cancel，并清理孤儿终端。
+func TestDisconnectConnectionCancelsInFlightConnect(t *testing.T) {
+	manager := NewSSHManager()
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	manager.pendingMu.Lock()
+	manager.pendingCancels["connecting"] = cancel
+	manager.pendingMu.Unlock()
+	// 子终端已登记而根终端未登记（孤儿场景）也应被 terminalIds 兜底清理
+	clientConn, serverConn := net.Pipe()
+	defer serverConn.Close()
+	manager.clients["server"] = &sshClientEntry{NetConn: clientConn}
+	manager.sessions["orphan-child"] = &SessionData{ConnKey: "server", GroupSessionId: "connecting"}
+	manager.connTerminals["server"] = []string{"orphan-child"}
+
+	manager.DisconnectConnection("connecting", []string{"connecting", "orphan-child"})
+
+	select {
+	case <-cancelCtx.Done():
+	default:
+		t.Fatal("取消连接中会话应触发 pendingCancels 取消")
+	}
+	if len(manager.sessions) != 0 || len(manager.clients) != 0 || len(manager.connTerminals) != 0 {
+		t.Fatalf("取消后仍有资源: sessions=%d clients=%d connTerminals=%d", len(manager.sessions), len(manager.clients), len(manager.connTerminals))
+	}
+}
+
 func TestDisconnectPreservesSharedClient(t *testing.T) {
 	manager := NewSSHManager()
 	client := &ssh.Client{}

@@ -1057,6 +1057,7 @@ export default function App() {
     replaceAllSessionFileManagerWorkspaces,
     resolveSessionRootTerminalId,
     restoringWorkspaceRef,
+    restoringWorkspaceSessionIds,
     serversLoaded,
     serversRef,
     sessionsRef,
