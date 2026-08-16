@@ -58,7 +58,7 @@ claude mcp add lumin --transport http http://127.0.0.1:5779/mcp
 
 | 工具 | 说明 |
 |------|------|
-| `list_connected_sessions` | 列出所有已连接的 SSH 会话 |
+| `list_connected_sessions` | 列出所有已连接的 SSH 会话（含 `address` 字段 `user@host:port`，可区分同名服务器） |
 | `get_work_path` | 获取会话当前工作目录 |
 | `list_files` | 列出远程目录 |
 | `read_file` | 读取远程文件 |
