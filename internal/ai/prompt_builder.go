@@ -169,6 +169,18 @@ func buildAIChatToolPromptSection(sessionID string, profile AIProviderProfile) s
 	return "# Tools\n\n" + strings.Join(sections, "\n\n")
 }
 
+func writeAIChatToolUsage(builder *strings.Builder, definition mcpserver.ToolDefinition, paramNames []string, properties map[string]map[string]any, sessionID string) {
+	builder.WriteString("Usage:\n")
+	builder.WriteString(fmt.Sprintf("<%s>\n", definition.Name))
+	for _, name := range paramNames {
+		if shouldOmitAIChatToolSessionIDInUsage(name, sessionID) {
+			continue
+		}
+		builder.WriteString(fmt.Sprintf("<%s>%s</%s>\n", name, buildAIChatToolParameterPlaceholder(name, properties[name], sessionID), name))
+	}
+	builder.WriteString(fmt.Sprintf("</%s>", definition.Name))
+}
+
 func formatAIChatToolDefinition(definition mcpserver.ToolDefinition, sessionID string) string {
 	properties := extractAIChatToolProperties(definition.InputSchema)
 	required := extractAIChatToolRequiredSet(definition.InputSchema)
@@ -186,6 +198,18 @@ func formatAIChatToolDefinition(definition mcpserver.ToolDefinition, sessionID s
 	})
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("## %s\n", definition.Name))
+	if strings.TrimSpace(definition.Name) == "ask_followup_question" {
+		writeAIChatToolUsage(&builder, definition, paramNames, properties, sessionID)
+		builder.WriteString("\n")
+		builder.WriteString(fmt.Sprintf("Description: %s\n", strings.TrimSpace(definition.Description)))
+		builder.WriteString("Structure rules:\n")
+		builder.WriteString("- Put one or more <question> blocks directly under <ask_followup_question>.\n")
+		builder.WriteString("- Every <question> must include label and type attributes.\n")
+		builder.WriteString("- Allowed type values: single, multiple, free_text.\n")
+		builder.WriteString("- For single or multiple, add one or more <option>...</option> children.\n")
+		builder.WriteString("- For free_text, do not add option children.\n")
+		return builder.String()
+	}
 	builder.WriteString(fmt.Sprintf("Description: %s\n", strings.TrimSpace(definition.Description)))
 	if len(paramNames) == 0 {
 		builder.WriteString("Parameters: None\n")
@@ -195,15 +219,7 @@ func formatAIChatToolDefinition(definition mcpserver.ToolDefinition, sessionID s
 			builder.WriteString(fmt.Sprintf("- %s\n", formatAIChatToolParameter(name, properties[name], required[name])))
 		}
 	}
-	builder.WriteString("Usage:\n")
-	builder.WriteString(fmt.Sprintf("<%s>\n", definition.Name))
-	for _, name := range paramNames {
-		if shouldOmitAIChatToolSessionIDInUsage(name, sessionID) {
-			continue
-		}
-		builder.WriteString(fmt.Sprintf("<%s>%s</%s>\n", name, buildAIChatToolParameterPlaceholder(name, properties[name], sessionID), name))
-	}
-	builder.WriteString(fmt.Sprintf("</%s>", definition.Name))
+	writeAIChatToolUsage(&builder, definition, paramNames, properties, sessionID)
 	return builder.String()
 }
 
@@ -355,6 +371,8 @@ func buildAIChatToolParameterPlaceholder(name string, schema map[string]any, ses
 		return "20"
 	case "operations":
 		return "[{\"search\":\"old1\",\"replace\":\"new1\"},{\"search\":\"old2\",\"replace\":\"new2\"}]"
+	case "follow_up":
+		return "\n<question type=\"single\">\n<label>Choose a direction</label>\n<option>Casual chat</option>\n<option>Work or study</option>\n</question>\n"
 	case "query":
 		return "search query here"
 	}

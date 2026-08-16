@@ -1413,6 +1413,17 @@ func parseAINextToolUseFromXML(xmlContent string, startIndex int) (aiParsedToolU
 		}
 		toolStartIndex := cursor
 		cursor += len(candidate.OpeningTag)
+		if candidate.Name == "ask_followup_question" {
+			closingIndex := strings.Index(xmlContent[cursor:], candidate.ClosingTag)
+			if closingIndex == -1 {
+				return aiParsedToolUse{}, 0, false
+			}
+			tool.Params["follow_up"] = strings.TrimSpace(stripOuterToolParamNewlines(xmlContent[cursor : cursor+closingIndex]))
+			tool.RawXML = xmlContent[toolStartIndex : cursor+closingIndex+len(candidate.ClosingTag)]
+			tool.StartIndex = toolStartIndex
+			tool.EndIndex = cursor + closingIndex + len(candidate.ClosingTag)
+			return tool, tool.EndIndex, true
+		}
 		currentParamName := ""
 		currentParamValueStart := 0
 		currentParamClosingTag := ""
