@@ -2228,6 +2228,25 @@ const dynamicProbeScript = `#!/bin/sh
 # LuminSSH Dynamic Probe - auto generated
 # Collects dynamic metrics via /proc
 
+# sample_procs 逐进程读取 /proc/[pid]/stat，只输出 top 计算所需的 6 个字段
+# (pid, comm, utime, stime, starttime, rss)，用 \x1f 分隔。
+# 相比全量传输 /proc stat 行，数据量减少约 85%。
+# 用 read 内建读取(不逐 PID fork)，参数扩展提取字段(与 Go 端 parseProcStatLine
+# 的 LastIndex(")") 逻辑一致)，set -- 按空格分割 ) 之后的内容。
+sample_procs() {
+  for f in /proc/[0-9]*/stat; do
+    [ -r "$f" ] || continue
+    IFS= read -r s < "$f" || continue
+    pid=${s%% *}
+    comm=${s#*\(}; comm=${comm%)*)}
+    rest=${s##*)}
+    set -- $rest
+    # $1=state $12=utime $13=stime $20=starttime $22=rss (1-based in rest)
+    # ${12} 而非 $12: POSIX sh 中 $12 等价于 ${1}2,必须用 ${} 引用两位数参数
+    printf '%s\037%s\037%s\037%s\037%s\037%s\n' "$pid" "$comm" "${12}" "${13}" "${20}" "${22}"
+  done
+}
+
 cat /proc/uptime
 echo ---LOAD---
 cat /proc/loadavg 2>/dev/null
@@ -2243,9 +2262,11 @@ echo ---NETCONN1---
 if [ "$1" = "network" ]; then if command -v ss >/dev/null 2>&1; then out=$(ss -H -tnapni 2>/dev/null); if [ -n "$out" ]; then printf '%s\n' "$out"; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; fi
 echo ---DISKIO1---
 cat /proc/diskstats
+if [ "$2" = "procs" ]; then
 echo ---PROC1---
 cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s
-cat /proc/[0-9]*/stat 2>/dev/null
+sample_procs
+fi
 sleep 1
 echo ---CPU2---
 grep '^cpu' /proc/stat
@@ -2255,9 +2276,11 @@ echo ---NETCONN2---
 if [ "$1" = "network" ]; then if command -v ss >/dev/null 2>&1; then out=$(ss -H -tnapni 2>/dev/null); if [ -n "$out" ]; then printf '%s\n' "$out"; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; fi
 echo ---DISKIO2---
 cat /proc/diskstats
+if [ "$2" = "procs" ]; then
 echo ---PROC2---
 cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s
-cat /proc/[0-9]*/stat 2>/dev/null
+sample_procs
+fi
 echo ---DONE---
 `
 
@@ -2448,6 +2471,9 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 	probeArg := ""
 	if includeNetworkConnections {
 		probeArg = " network"
+	} else {
+		// GetSystemInfo 需要 top 进程；GetNetworkInfo(NetworkPage) 不需要进程列表
+		probeArg = " procs"
 	}
 	out, err := m.executeCmdWithClient(client, buildProbeScriptRunCommand(probeArg))
 	if err != nil || len(strings.TrimSpace(out)) == 0 {

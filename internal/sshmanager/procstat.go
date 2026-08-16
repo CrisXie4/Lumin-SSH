@@ -70,7 +70,30 @@ type procSection struct {
 	samples []procStatSample
 }
 
+// parseProcStatSample 解析 sample_procs 输出的精简格式:
+// pid\x1fcomm\x1futime\x1fstime\x1fstarttime\x1frss
+// 相比 parseProcStatLine(解析完整 /proc/pid/stat 行)，数据量减少约 85%。
+func parseProcStatSample(line string) (procStatSample, bool) {
+	parts := strings.Split(line, "\x1f")
+	if len(parts) != 6 {
+		return procStatSample{}, false
+	}
+	s := procStatSample{
+		Pid:  strings.TrimSpace(parts[0]),
+		Comm: strings.TrimSpace(parts[1]),
+	}
+	if s.Pid == "" || s.Comm == "" {
+		return procStatSample{}, false
+	}
+	s.Utime, _ = strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 64)
+	s.Stime, _ = strconv.ParseUint(strings.TrimSpace(parts[3]), 10, 64)
+	s.Start, _ = strconv.ParseUint(strings.TrimSpace(parts[4]), 10, 64)
+	s.Rss, _ = strconv.ParseUint(strings.TrimSpace(parts[5]), 10, 64)
+	return s, true
+}
+
 // parseProcSection 解析一个 PROC section(lines 首行为时间戳)。
+// 兼容两种格式：sample_procs 精简格式(\x1f 分隔)和原始 /proc/pid/stat 行。
 func parseProcSection(lines []string) (procSection, bool) {
 	if len(lines) < 1 {
 		return procSection{}, false
@@ -85,7 +108,10 @@ func parseProcSection(lines []string) (procSection, bool) {
 		if l == "" {
 			continue
 		}
-		if sample, ok := parseProcStatLine(l); ok {
+		// 先尝试精简格式(sample_procs 输出)，回退原始 /proc/pid/stat 行
+		if sample, ok := parseProcStatSample(l); ok {
+			sec.samples = append(sec.samples, sample)
+		} else if sample, ok := parseProcStatLine(l); ok {
 			sec.samples = append(sec.samples, sample)
 		}
 	}

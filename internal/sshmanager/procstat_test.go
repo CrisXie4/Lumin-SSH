@@ -123,6 +123,109 @@ func TestParseProcSectionInvalid(t *testing.T) {
 	}
 }
 
+// sampleLine 构造 sample_procs 输出的精简格式行:
+// pid\x1fcomm\x1futime\x1fstime\x1fstarttime\x1frss
+func sampleLine(pid int, comm string, utime, stime, starttime, rss uint64) string {
+	return strings.Join([]string{
+		strconv.Itoa(pid), comm,
+		strconv.FormatUint(utime, 10),
+		strconv.FormatUint(stime, 10),
+		strconv.FormatUint(starttime, 10),
+		strconv.FormatUint(rss, 10),
+	}, "\x1f")
+}
+
+func TestParseProcStatSampleBasic(t *testing.T) {
+	line := sampleLine(123, "sshd", 100, 50, 1800, 256)
+	s, ok := parseProcStatSample(line)
+	if !ok {
+		t.Fatal("应解析成功")
+	}
+	if s.Pid != "123" || s.Comm != "sshd" {
+		t.Fatalf("pid/comm 错误: %+v", s)
+	}
+	if s.Utime != 100 || s.Stime != 50 || s.Start != 1800 || s.Rss != 256 {
+		t.Fatalf("数值字段错误: %+v", s)
+	}
+}
+
+func TestParseProcStatSampleCommWithSpaces(t *testing.T) {
+	// comm 含空格在精简格式中不受影响（\x1f 分隔，不依赖括号锚点）
+	line := sampleLine(456, "foo bar baz", 10, 5, 100, 32)
+	s, ok := parseProcStatSample(line)
+	if !ok {
+		t.Fatal("应解析成功")
+	}
+	if s.Comm != "foo bar baz" {
+		t.Fatalf("comm 含空格解析错误: %+v", s)
+	}
+}
+
+func TestParseProcStatSampleMalformed(t *testing.T) {
+	if _, ok := parseProcStatSample("123\x1fsshd\x1f100"); ok {
+		t.Fatal("字段不足应失败")
+	}
+	if _, ok := parseProcStatSample("123\x1f\x1f100\x1f50\x1f1800\x1f256"); ok {
+		t.Fatal("comm 为空应失败")
+	}
+	// 原始 stat 行不是 \x1f 分隔，应失败（回退由 parseProcStatLine 处理）
+	if _, ok := parseProcStatSample(statLine(123, "sshd", 100, 50, 1800, 256)); ok {
+		t.Fatal("原始 stat 行不应被 parseProcStatSample 解析")
+	}
+}
+
+func TestParseProcSectionAcceptsSampleFormat(t *testing.T) {
+	// parseProcSection 应同时接受精简格式和原始格式
+	proc1 := []string{
+		"1000",
+		sampleLine(1, "procA", 100, 50, 10, 256),
+		statLine(2, "procB", 10, 0, 10, 128),
+	}
+	sec, ok := parseProcSection(proc1)
+	if !ok {
+		t.Fatal("应解析成功")
+	}
+	if len(sec.samples) != 2 {
+		t.Fatalf("应有 2 个样本, 得到 %d", len(sec.samples))
+	}
+	if sec.samples[0].Pid != "1" || sec.samples[0].Comm != "procA" {
+		t.Fatalf("精简格式样本错误: %+v", sec.samples[0])
+	}
+	if sec.samples[0].Utime != 100 || sec.samples[0].Rss != 256 {
+		t.Fatalf("精简格式数值错误: %+v", sec.samples[0])
+	}
+	if sec.samples[1].Pid != "2" || sec.samples[1].Comm != "procB" {
+		t.Fatalf("原始格式样本错误: %+v", sec.samples[1])
+	}
+}
+
+func TestParseProbeProcSectionsWithSampleFormat(t *testing.T) {
+	// 端到端：使用精简格式(sample_procs 输出)验证 CPU 计算正确
+	proc1 := []string{
+		"1000",
+		sampleLine(1, "procA", 100, 50, 10, 256),
+		sampleLine(2, "procB", 10, 0, 10, 128),
+	}
+	proc2 := []string{
+		"1001",
+		sampleLine(1, "procA", 160, 70, 10, 256),
+		sampleLine(2, "procB", 15, 0, 10, 128),
+	}
+	procs, err := parseProbeProcSections(proc1, proc2)
+	if err != nil {
+		t.Fatalf("解析失败: %v", err)
+	}
+	if len(procs) != 2 {
+		t.Fatalf("应有 2 个进程, 得到 %d", len(procs))
+	}
+	if procs[0]["pid"] != "1" || procs[0]["cpu"].(float64) != 80.0 {
+		t.Fatalf("procA cpu=80 排首位: %#v", procs[0])
+	}
+	if procs[1]["pid"] != "2" || procs[1]["cpu"].(float64) != 5.0 {
+		t.Fatalf("procB cpu=5 排第二: %#v", procs[1])
+	}
+}
+
 func TestFormatProcEtime(t *testing.T) {
 	cases := []struct {
 		sec  float64
@@ -355,19 +458,27 @@ func TestRemoteFeatureProbeCmdDetectsBusyboxPs(t *testing.T) {
 	}
 }
 
-// 探针 PROC 段必须「单条批量 cat + /proc/uptime 浮点时间戳」:
-// 逐 PID fork cat 在低配路由器上一次采样要 fork 数百次;date +%s 整秒截断
-// 会让被 fork 拖长的采样窗口把 CPU% 放大近一倍。非 Linux(无 /proc/uptime)
-// 回退 date +%s 保持旧行为。
+// 探针 PROC 段必须用 sample_procs 函数(纯 read 内建,不逐 PID fork) +
+// /proc/uptime 浮点时间戳。逐 PID fork cat 在低配路由器上一次采样要 fork
+// 数百次;date +%s 整秒截断会让被拖长的采样窗口把 CPU% 放大近一倍。
+// sample_procs 只输出 6 个字段(pid/comm/utime/stime/starttime/rss),
+// 相比 cat /proc/[0-9]*/stat 全量传输减少约 85% 数据量。
 func TestDynamicProbeScriptProcSamplingForkLean(t *testing.T) {
 	for _, marker := range []string{"---PROC1---", "---PROC2---"} {
-		want := marker + "\ncut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s\ncat /proc/[0-9]*/stat 2>/dev/null\n"
+		want := marker + "\ncut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s\nsample_procs\n"
 		if !strings.Contains(dynamicProbeScript, want) {
-			t.Fatalf("%s 段应为 uptime 时间戳 + 单条批量 cat, 实际:\n%s", marker, dynamicProbeScript)
+			t.Fatalf("%s 段应为 uptime 时间戳 + sample_procs, 实际:\n%s", marker, dynamicProbeScript)
 		}
 	}
-	if strings.Contains(dynamicProbeScript, "for f in /proc/[0-9]*/stat") {
-		t.Fatal("PROC 段不得逐 PID fork cat")
+	// sample_procs 必须用 read 内建读取,不得逐 PID fork cat/awk
+	if !strings.Contains(dynamicProbeScript, "sample_procs()") {
+		t.Fatal("探针脚本必须定义 sample_procs 函数")
+	}
+	if !strings.Contains(dynamicProbeScript, "IFS= read -r s") {
+		t.Fatal("sample_procs 必须用 read 内建读取 stat")
+	}
+	if strings.Contains(dynamicProbeScript, "cat /proc/[0-9]*/stat") {
+		t.Fatal("PROC 段不得用 cat /proc/[0-9]*/stat 全量传输")
 	}
 }
 
