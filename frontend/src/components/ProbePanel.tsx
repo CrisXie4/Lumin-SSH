@@ -10,7 +10,7 @@ import {
 import { BarChart3, Cpu, HardDrive, Globe, ClipboardList, Clipboard, Search, Check, Monitor, EyeOff, Eye, RefreshCw, MemoryStick, ArrowLeftRight, Gauge, GripVertical, Power, Play, Trash2, Plus, ArrowRight } from 'lucide-react';
 import Tiptop from './Tiptop.tsx';
 import { Z } from '../constants/zIndex.ts';
-import { useTranslation, type I18nKey } from '../i18n.ts';
+import { useTranslation, t, type I18nKey } from '../i18n.ts';
 
 const HISTORY_SIZE = 30;
 // ponytail: 前端 fetch 超时兜底。后端 deployProbeScript(15s)+executeCmd(30s) 最坏约 45s,
@@ -747,6 +747,31 @@ function PortForwardSection({ t, sessionId, active, onOpenPortForward, dragHandl
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// 探针错误码翻译：后端返回 PROBE_ 前缀的稳定错误码（含 | 分隔的参数），
+// 前端根据当前语言翻译为用户可读消息。非 PROBE_ 前缀的错误原样返回。
+function translateProbeError(error: string): string {
+  if (!error || !error.startsWith('PROBE_')) return error;
+  const sep = error.indexOf('|');
+  const code = sep === -1 ? error : error.substring(0, sep);
+  const detail = sep === -1 ? '' : error.substring(sep + 1);
+  switch (code) {
+    case 'PROBE_CLIENT_UNAVAILABLE':
+      return t('SSH 客户端不可用');
+    case 'PROBE_DEPLOY_GIVEUP':
+      return t('探针部署失败 {count} 次，已放弃', { count: detail });
+    case 'PROBE_DEPLOY_TIMEOUT':
+      return t('探针脚本部署超时（{duration}）', { duration: detail });
+    case 'PROBE_DEPLOY_IO':
+      return detail ? t('探针脚本部署失败：{detail}', { detail }) : t('探针脚本部署失败');
+    case 'PROBE_EXEC_FAILED':
+      return detail ? t('探针脚本执行失败：{detail}', { detail }) : t('探针脚本执行失败');
+    case 'PROBE_FETCH_TIMEOUT':
+      return t('探针数据获取超时');
+    default:
+      return error;
+  }
+}
+
 export default function ProbePanel({ sessionId, host, addToast, enabled, active, onEnable, onShowAllProcesses, onShowNetworkDetails, onOpenPortForward, snapshot, onSnapshot }: ProbePanelProps) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<ProbeInfo | null>(() => snapshot?.info || null);
@@ -946,7 +971,7 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
       const data = await Promise.race([
         AppGo.SystemInfo(sessionId),
         new Promise<never>((_, reject) => setTimeout(
-          () => reject(new Error('probe fetch timeout')),
+          () => reject(new Error('PROBE_FETCH_TIMEOUT')),
           PROBE_FETCH_TIMEOUT_MS,
         )),
       ]);
@@ -1004,7 +1029,8 @@ export default function ProbePanel({ sessionId, host, addToast, enabled, active,
       setProbeError(false);
       setProbeErrorDetail('');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err || '');
+      const rawMessage = err instanceof Error ? err.message : String(err || '');
+      const errorMessage = translateProbeError(rawMessage);
       probeErrorCountRef.current += 1;
       if (probeErrorCountRef.current >= 3) {
         setProbeError(true);

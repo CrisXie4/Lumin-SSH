@@ -2292,7 +2292,7 @@ echo ---DONE---
 // 超时后 goroutine 仍在后台等待 IO,随 keepalive 关连时退出(可接受临时泄漏)。
 func (m *SSHManager) deployProbeScript(client *ssh.Client, connKey string) error {
 	if client == nil {
-		return fmt.Errorf("client not available")
+		return fmt.Errorf("PROBE_CLIENT_UNAVAILABLE")
 	}
 	m.mu.RLock()
 	already := m.probeDeployed[connKey]
@@ -2302,7 +2302,7 @@ func (m *SSHManager) deployProbeScript(client *ssh.Client, connKey string) error
 		return nil
 	}
 	if failCount >= 3 {
-		return fmt.Errorf("probe deploy failed %d times, giving up", failCount)
+		return fmt.Errorf("PROBE_DEPLOY_GIVEUP|%d", failCount)
 	}
 
 	done := make(chan error, 1)
@@ -2327,7 +2327,7 @@ func (m *SSHManager) deployProbeScript(client *ssh.Client, connKey string) error
 	case <-timer.C:
 		// ponytail: 超时多因服务器慢而非部署逻辑错误,不在此自增 probeFailed:
 		// 自增会快速触达 ≥3 永久放弃,反而失去恢复机会。下次重试仍走部署。
-		return fmt.Errorf("probe script deploy timed out after %v", probeDeployTimeout)
+		return fmt.Errorf("PROBE_DEPLOY_TIMEOUT|%v", probeDeployTimeout)
 	}
 }
 
@@ -2349,7 +2349,10 @@ chmod 755 ~/.lumin/probe.sh /tmp/.lumin/probe.sh 2>/dev/null
 // shell,强制走 POSIX sh 保证部署命令语义一致(与运行端 buildProbeScriptRunCommand 同理)。
 func (m *SSHManager) deployProbeScriptIO(client *ssh.Client) error {
 	_, err := m.executeCmdWithClient(client, wrapShCmd(probeDeployCmd()))
-	return err
+	if err != nil {
+		return fmt.Errorf("PROBE_DEPLOY_IO|%v", err)
+	}
+	return nil
 }
 
 // wrapShCmd 把命令包进 POSIX sh 执行。命令中的单引号用 '\'' 转义:该序列在
@@ -2465,7 +2468,7 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 	m.mu.RUnlock()
 
 	if err := m.deployProbeScript(client, connKey); err != nil {
-		return nil, fmt.Errorf("probe script deploy failed: %w", err)
+		return nil, err
 	}
 
 	probeArg := ""
@@ -2497,9 +2500,9 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 			detailParts = append(detailParts, "diagnostics: "+diagnostic)
 		}
 		if len(detailParts) == 0 {
-			return nil, fmt.Errorf("probe script execution failed")
+			return nil, fmt.Errorf("PROBE_EXEC_FAILED")
 		}
-		return nil, fmt.Errorf("probe script execution failed: %s", strings.Join(detailParts, " | "))
+		return nil, fmt.Errorf("PROBE_EXEC_FAILED|%s", strings.Join(detailParts, " | "))
 	}
 
 	// 成功:重置执行失败计数
