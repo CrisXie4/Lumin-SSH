@@ -56,6 +56,8 @@ type AIGlobalSettings struct {
 	SoundVolume                         float64          `json:"soundVolume,omitempty"`
 	MCPEnabled                          bool             `json:"mcpEnabled"`
 	MCPAllowBrowserCalls                bool             `json:"mcpAllowBrowserCalls"`
+	MCPRequireApproval                  bool             `json:"mcpRequireApproval"`
+	MCPActivityVisible                  bool             `json:"mcpActivityVisible"`
 	TerminalIsolation                   bool             `json:"terminalIsolation"`
 	ConfirmDelete                       bool             `json:"confirmDelete"`
 	ContinueAfterToolRejection          bool             `json:"continueAfterToolRejection"`
@@ -72,10 +74,12 @@ type AIGlobalSettings struct {
 
 func defaultAIGlobalSettings() AIGlobalSettings {
 	return AIGlobalSettings{
-		SoundEnabled:                  true,
-		SoundVolume:                   0.06,
-		MCPEnabled:                    true,
-		MCPAllowBrowserCalls:          false,
+		SoundEnabled:              true,
+		SoundVolume:               0.06,
+		MCPEnabled:                true,
+		MCPAllowBrowserCalls:      false,
+		MCPRequireApproval:        false,
+		MCPActivityVisible:        false,
 		TerminalIsolation:             true,
 		ConfirmDelete:                 true,
 		ContinueAfterToolRejection:    true,
@@ -342,6 +346,10 @@ func normalizeAIGlobalSettings(settings AIGlobalSettings) AIGlobalSettings {
 	settings.AIRequestProxyID = normalizeAIRequestProxyID(settings.AIRequestProxyID, settings.ProxyNodes)
 	if settings.ToolResultTokenThreshold <= 0 {
 		settings.ToolResultTokenThreshold = defaultAIGlobalSettings().ToolResultTokenThreshold
+	}
+	// 审批依赖活动弹窗（审批按钮位于弹窗内），开启审批时强制开启弹窗，避免审批静默超时
+	if settings.MCPRequireApproval && !settings.MCPActivityVisible {
+		settings.MCPActivityVisible = true
 	}
 	return settings
 }

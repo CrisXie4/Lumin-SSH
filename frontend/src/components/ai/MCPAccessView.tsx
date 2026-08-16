@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useTranslation, type I18nKey } from '../../i18n.ts';
 
 interface ToggleSwitchProps {
@@ -61,8 +62,12 @@ interface MCPAccessViewProps {
   showTools?: boolean;
   mcpEnabled?: boolean;
   mcpAllowBrowserCalls?: boolean;
+  mcpRequireApproval?: boolean;
+  mcpActivityVisible?: boolean;
   onToggleMcpEnabled: () => void;
   onToggleMcpAllowBrowserCalls: () => void;
+  onToggleMcpRequireApproval: () => void;
+  onToggleMcpActivityVisible: () => void;
 }
 
 export default function MCPAccessView({
@@ -75,10 +80,37 @@ export default function MCPAccessView({
   showTools = false,
   mcpEnabled = true,
   mcpAllowBrowserCalls = false,
+  mcpRequireApproval = false,
+  mcpActivityVisible = false,
   onToggleMcpEnabled,
   onToggleMcpAllowBrowserCalls,
+  onToggleMcpRequireApproval,
+  onToggleMcpActivityVisible,
 }: MCPAccessViewProps) {
   const { t } = useTranslation();
+
+  // 发给外部 AI Agent 的一键配置话术：URL 跟随实际 MCP 地址
+  // type 用客户端配置格式（streamable-http → http），与上方 configText 保持一致
+  const agentPromptText = useMemo(() => {
+    const url = mcpInfo.url || 'http://127.0.0.1:5779/mcp';
+    const configType = mcpInfo.transport === 'streamable-http' ? 'http' : (mcpInfo.transport || 'http');
+    return `请帮我配置这个MCP "lumin-ssh": {
+  "type": "${configType}",
+  "url": "${url}",
+  "oauth": false,
+  "alwaysAllow": [],
+  "disabled": false,
+  "timeout": 0,
+  "disabledForPrompts": false
+}`;
+  }, [mcpInfo.url, mcpInfo.transport]);
+  const [agentPromptCopied, setAgentPromptCopied] = useState(false);
+  const copyAgentPrompt = () => {
+    navigator.clipboard?.writeText(agentPromptText).then(() => {
+      setAgentPromptCopied(true);
+      window.setTimeout(() => setAgentPromptCopied(false), 1500);
+    }).catch(() => {});
+  };
 
   const getToolDescription = (tool: MCPToolInfo) => {
     // 动态 key：mcp.tool.* 为按工具名拼装的键，命中则翻，否则回退工具描述
@@ -108,6 +140,20 @@ export default function MCPAccessView({
             <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('允许带 Origin 的浏览器请求访问本地 MCP 服务。关闭后仅允许无 Origin 的本机客户端调用')}</div>
           </div>
           <ToggleSwitch checked={mcpAllowBrowserCalls} onChange={onToggleMcpAllowBrowserCalls} disabled={!mcpEnabled} />
+        </div>
+        <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, opacity: mcpEnabled ? 1 : 0.65 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('外部 MCP 操作弹窗')}</div>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('默认关闭。开启后弹出 MCP 活动弹窗，实时显示外部客户端（如 Claude Code）的操作痕迹：服务器、命令、状态、输出')}</div>
+          </div>
+          <ToggleSwitch checked={mcpActivityVisible} onChange={onToggleMcpActivityVisible} disabled={!mcpEnabled} />
+        </div>
+        <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, opacity: mcpEnabled ? 1 : 0.65 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('外部 MCP 写操作需审批')}</div>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('开启后，外部客户端的写操作（is_mutating）需在活动弹窗中手动批准才执行（会同时开启活动弹窗）。关闭则自动执行。')}</div>
+          </div>
+          <ToggleSwitch checked={mcpRequireApproval} onChange={onToggleMcpRequireApproval} disabled={!mcpEnabled} />
         </div>
       </div>
       <div style={{ display: 'grid', gap: 10, padding: 14, background: 'var(--surface-base)', border: '1px solid var(--border)', borderRadius: 12 }}>
@@ -149,6 +195,43 @@ export default function MCPAccessView({
             display: 'block',
           }}
         />
+      </div>
+      <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', flex: 1, minWidth: 0 }}>{t('您可以将这一句话发送给您的 AI Agent')}</div>
+          <button
+            type="button"
+            onClick={copyAgentPrompt}
+            style={{
+              fontSize: 11,
+              padding: '3px 10px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: agentPromptCopied ? 'var(--surface-raised)' : 'var(--surface-overlay)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {agentPromptCopied ? t('已复制') : t('复制')}
+          </button>
+        </div>
+        <div style={{
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          background: 'var(--surface-raised)',
+          padding: '8px 12px',
+          fontSize: 12,
+          lineHeight: '19px',
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--text-primary)',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all',
+          maxHeight: 160,
+          overflowY: 'auto',
+        }}>
+          {agentPromptText}
+        </div>
       </div>
       {showTools && (
         <div style={{ padding: 12, borderRadius: 10, background: 'var(--surface-overlay)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>

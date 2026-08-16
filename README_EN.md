@@ -118,6 +118,7 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 - **Collaboration-related capabilities** — including conversation collaboration takeover (see the AI panel)
 - **Terminal isolation** — maintain a relatively independent AI runtime context for each terminal
 - **Built-in MCP service (Streamable HTTP)** — enabled by default and listening on `127.0.0.1:5779` (can be disabled in AI settings); **no HTTP token**; relies mainly on loopback + Origin friction (**not** a security boundary against malicious processes running as the same user)
+- **External CLI Integration** — External CLIs such as Claude Code and Codex can drive already-connected SSH sessions through the built-in MCP server. All operations leave an audit trail in the **MCP Activity panel** (showing client name, server, invoked tool, command and status). Write-operation approval gating is optional (disabled by default; see [Setup Guide (Chinese only)](./docs/MCP-CLI-GUIDE.md)).
 - **MCP client** — add external MCP servers (stdio / SSE / Streamable HTTP), with start/stop, reload, timeout, and other controls
 - **Terminal output controls** — limit the number of lines and characters of terminal output exposed to MCP/AI
 

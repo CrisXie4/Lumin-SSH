@@ -28,6 +28,7 @@ type Host struct {
 	configMgr   *config.ConfigManager
 	workspaceFn func() string
 	regKey      any
+	reporter    mcpserver.ActivityReporter
 }
 
 func NewHost(sshMgr *sshmanager.SSHManager, configMgr *config.ConfigManager, workspaceFn func() string, regKey any) Host {
@@ -36,7 +37,24 @@ func NewHost(sshMgr *sshmanager.SSHManager, configMgr *config.ConfigManager, wor
 		configMgr:   configMgr,
 		workspaceFn: workspaceFn,
 		regKey:      regKey,
+		reporter:    mcpserver.NoopReporter(),
 	}
+}
+
+// WithReporter returns a copy of Host with the given activity reporter.
+func (h Host) WithReporter(reporter mcpserver.ActivityReporter) Host {
+	if reporter != nil {
+		h.reporter = reporter
+	}
+	return h
+}
+
+// MCPActivityReporter satisfies mcp.ActivityReporterCarrier.
+func (h Host) MCPActivityReporter() mcpserver.ActivityReporter {
+	if h.reporter == nil {
+		return mcpserver.NoopReporter()
+	}
+	return h.reporter
 }
 
 func (h Host) RegistryKey() any {
@@ -83,6 +101,10 @@ func (h Host) ListSessionDescriptors() ([]mcpserver.SessionDescriptor, error) {
 		if connection, ok := connectionMap[sessionData.ConnKey]; ok {
 			descriptor.ConnectionID = connection.ID
 			descriptor.Tags = buildSessionTags(connection)
+			descriptor.Address = buildConnectionAddress(connection)
+		} else if strings.Contains(sessionData.ConnKey, "@") {
+			// 无配置 ID 时 ConnKey 本身就是 user@host:port
+			descriptor.Address = sessionData.ConnKey
 		}
 		result = append(result, descriptor)
 	}
@@ -94,6 +116,17 @@ func (h Host) ExecuteCommandInTerminalControlled(sessionID string, command strin
 		return mcpserver.CommandExecutionResult{}, fmt.Errorf("ssh manager unavailable")
 	}
 	result, _, err := h.sshMgr.ExecuteCommandInTerminalControlled(sessionID, command, purpose, isMutating, cwd, shellType, timeout, nil, nil, nil, nil, nil)
+	return result, err
+}
+
+// ExecuteCommandInTerminalControlledCallbacks satisfies mcp.CommandCallbackExecutor.
+// It forwards the lifecycle callbacks to the SSH manager so the external MCP
+// path gains the same queued/started/output visibility as the built-in AI.
+func (h Host) ExecuteCommandInTerminalControlledCallbacks(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration, onQueued func(), onStarted func(), onOutput func(string)) (mcpserver.CommandExecutionResult, error) {
+	if h.sshMgr == nil {
+		return mcpserver.CommandExecutionResult{}, fmt.Errorf("ssh manager unavailable")
+	}
+	result, _, err := h.sshMgr.ExecuteCommandInTerminalControlled(sessionID, command, purpose, isMutating, cwd, shellType, timeout, nil, nil, onQueued, onStarted, onOutput)
 	return result, err
 }
 
@@ -235,6 +268,19 @@ func buildSessionTags(connection config.Connection) []string {
 		tags = append(tags, osName)
 	}
 	return tags
+}
+
+// buildConnectionAddress 返回 user@host:port 形式的服务器地址，供外部 AI 区分同名服务器。
+func buildConnectionAddress(connection config.Connection) string {
+	host := strings.TrimSpace(connection.Host)
+	if host == "" {
+		return ""
+	}
+	address := sshmanager.DialAddr(connection.Host, connection.Port)
+	if username := strings.TrimSpace(connection.Username); username != "" {
+		return username + "@" + address
+	}
+	return address
 }
 
 func containsSessionTag(tags []string, value string) bool {
