@@ -154,7 +154,7 @@ func isAIChatHiddenToolName(name string) bool {
 }
 
 func buildAIChatToolPromptSection(sessionID string, profile AIProviderProfile) string {
-	toolDefinitions := mcpserver.NewCatalog(nil, nil, nil, nil).List()
+	toolDefinitions := append(mcpserver.NewCatalog(nil, nil, nil, nil).List(), aiAskFollowupQuestionToolDefinition())
 	if shouldExposeAILiveSearchTool(profile) {
 		toolDefinitions = append([]mcpserver.ToolDefinition{liveSearchAIChatToolDefinition()}, toolDefinitions...)
 	}
