@@ -10,6 +10,7 @@ function normalizeAIMessageStatus(value: unknown) {
 
 interface ReadFileTokenEstimate {
 	path: string
+	displayPath: string
 	tokenCount: number
 	tokenDisplay: string
 }
@@ -27,12 +28,15 @@ function normalizeReadFileTokenEstimates(value: unknown): ReadFileTokenEstimate[
 		if (!path) {
 			return []
 		}
+		const displayPath = typeof rawItem.displayPath === 'string' && rawItem.displayPath.trim()
+			? rawItem.displayPath.trim()
+			: path
 		const parsedTokenCount = Number(rawItem.tokenCount)
 		const tokenCount = Number.isFinite(parsedTokenCount) ? Math.max(0, Math.trunc(parsedTokenCount)) : 0
 		const tokenDisplay = typeof rawItem.tokenDisplay === 'string' && rawItem.tokenDisplay.trim()
 			? rawItem.tokenDisplay.trim()
 			: `${(tokenCount / 1000000).toFixed(6)}M`
-		return [{ path, tokenCount, tokenDisplay }]
+		return [{ path, displayPath, tokenCount, tokenDisplay }]
 	})
 }
 
@@ -81,11 +85,11 @@ function ReadFileTokenList({ items, t }: { items: ReadFileTokenEstimate[]; t: (k
 							lineHeight: 1.35,
 						}}>
 						<div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-							<Tiptop text={item.path} style={{ display: 'flex', minWidth: 0, flex: 1 }}>
+							<Tiptop text={item.displayPath} style={{ display: 'flex', minWidth: 0, flex: 1 }}>
 								<div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
 									<div style={{ display: 'flex', width: 'max-content', minWidth: '100%', alignItems: 'center', animation: 'ai-chat-read-file-path-marquee 4s linear infinite', willChange: 'transform' }}>
-										<span style={{ flex: '0 0 auto', whiteSpace: 'nowrap', paddingRight: 32 }}>{item.path}</span>
-										<span aria-hidden="true" style={{ flex: '0 0 auto', whiteSpace: 'nowrap', paddingRight: 32 }}>{item.path}</span>
+										<span style={{ flex: '0 0 auto', whiteSpace: 'nowrap', paddingRight: 32 }}>{item.displayPath}</span>
+										<span aria-hidden="true" style={{ flex: '0 0 auto', whiteSpace: 'nowrap', paddingRight: 32 }}>{item.displayPath}</span>
 									</div>
 								</div>
 							</Tiptop>

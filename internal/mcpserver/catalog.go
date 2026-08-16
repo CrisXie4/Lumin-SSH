@@ -45,7 +45,6 @@ func (c *Catalog) List() []ToolDefinition {
 		transferBatchToolDefinition(),
 		transferListToolDefinition(),
 		executeCommandToolDefinition(),
-		askFollowupQuestionToolDefinition(),
 		attemptCompletionToolDefinition(),
 		searchReplaceToolDefinition(),
 		editFileToolDefinition(),
@@ -81,8 +80,6 @@ func (c *Catalog) CallWithContext(ctx context.Context, name string, arguments ma
 		return clone.callTransferList(arguments)
 	case "execute_command":
 		return clone.callExecuteCommand(arguments)
-	case "ask_followup_question":
-		return clone.callAskFollowupQuestion(arguments)
 	case "attempt_completion":
 		return clone.callAttemptCompletion(arguments)
 	case "search_replace":

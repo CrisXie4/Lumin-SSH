@@ -100,9 +100,9 @@ MARKDOWN RULES
 <ask_followup_question>
 <question>Need more info</question>
 <follow_up>
-<question id="scope" type="single">
+<question type="single">
 <label>Choose scope</label>
-<option id="a">A</option>
+<option>A</option>
 </question>
 </follow_up>
 </ask_followup_question>

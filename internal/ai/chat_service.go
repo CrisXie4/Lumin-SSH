@@ -604,23 +604,65 @@ func formatAIPlainToolResultContent(result any) string {
 	}
 }
 
+func formatAIReadFileLineRange(startLine int, endLine int) string {
+	if startLine <= 0 && endLine <= 0 {
+		return ""
+	}
+	if startLine <= 0 {
+		startLine = endLine
+	}
+	if endLine <= 0 {
+		endLine = startLine
+	}
+	if endLine < startLine {
+		startLine, endLine = endLine, startLine
+	}
+	if startLine == endLine {
+		return fmt.Sprintf("(%d)", startLine)
+	}
+	return fmt.Sprintf("(%d-%d)", startLine, endLine)
+}
+
+func formatAIReadFilePathLabel(path string, startLine int, endLine int) string {
+	trimmedPath := strings.TrimSpace(path)
+	lineRange := formatAIReadFileLineRange(startLine, endLine)
+	if trimmedPath == "" {
+		return lineRange
+	}
+	if lineRange == "" {
+		return trimmedPath
+	}
+	return trimmedPath + " " + lineRange
+}
+
 func formatAIReadFileToolResultContent(result mcpserver.ReadFileResult) string {
-	return strings.TrimSpace(result.Content)
+	content := strings.TrimSpace(result.Content)
+	pathLabel := formatAIReadFilePathLabel(result.Path, result.StartLine, result.EndLine)
+	if content == "" {
+		if pathLabel != "" {
+			return "Path: " + pathLabel
+		}
+		return ""
+	}
+	if pathLabel == "" {
+		return content
+	}
+	return "Path: " + pathLabel + "\n" + content
 }
 
 func formatAIReadFileBatchEntryContent(result mcpserver.ReadFileResult) string {
 	content := strings.TrimSpace(result.Content)
-	path := strings.TrimSpace(result.Path)
+	pathLabel := formatAIReadFilePathLabel(result.Path, result.StartLine, result.EndLine)
 	if content == "" {
-		if path != "" {
-			return "Path: " + path
+		if pathLabel != "" {
+			return "Path: " + pathLabel
 		}
 		return ""
 	}
-	if path == "" {
+	if pathLabel == "" {
 		return content
 	}
-	return "Path: " + path + "\n" + content
+	return "Path: " + pathLabel + "\n" + content
 }
 
 func formatAIReadFileBatchToolResultContent(result mcpserver.ReadFileBatchResult) string {
@@ -672,6 +714,9 @@ func buildAIReadFileTokenEstimateMeta(result any, profile AIProviderProfile) []m
 		}
 		estimates = append(estimates, map[string]interface{}{
 			"path":         strings.TrimSpace(file.Path),
+			"displayPath":  formatAIReadFilePathLabel(file.Path, file.StartLine, file.EndLine),
+			"startLine":    file.StartLine,
+			"endLine":      file.EndLine,
 			"tokenCount":   tokenCount,
 			"tokenDisplay": tokenDisplay,
 		})
@@ -2349,6 +2394,13 @@ func summarizeParsedToolUse(tool aiParsedToolUse) string {
 			return action
 		}
 	}
+	if strings.TrimSpace(tool.Name) == "read_file" {
+		startLine, _ := strconv.Atoi(strings.TrimSpace(tool.Params["start_line"]))
+		endLine, _ := strconv.Atoi(strings.TrimSpace(tool.Params["end_line"]))
+		if value := formatAIReadFilePathLabel(tool.Params["path"], startLine, endLine); strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
 	for _, key := range []string{"path", "file_path", "command", "query", "purpose", "result"} {
 		if value := strings.TrimSpace(tool.Params[key]); value != "" {
 			return value
@@ -2515,7 +2567,13 @@ func (a *App) executeParsedToolUses(requestID string, assistantMessageID string,
 
 	for index, tool := range tools {
 		arguments := convertToolArguments(tool, payload.SessionID)
-		callResult, callErr := catalog.Call(tool.Name, arguments)
+		var callResult any
+		var callErr error
+		if tool.Name == "ask_followup_question" {
+			callResult, callErr = callAIAskFollowupQuestion(arguments)
+		} else {
+			callResult, callErr = catalog.Call(tool.Name, arguments)
+		}
 
 		uiResultText := formatToolResultContent(callResult)
 		rawResultText := formatAIRawToolResultContent(callResult)

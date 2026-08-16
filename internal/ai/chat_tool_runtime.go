@@ -80,7 +80,6 @@ type aiFollowupXMLThemePreferences struct {
 }
 
 type aiFollowupXMLQuestion struct {
-	ID       string                `xml:"id,attr"`
 	Type     string                `xml:"type,attr"`
 	TypeNode string                `xml:"type"`
 	Label    string                `xml:"label"`
@@ -89,7 +88,6 @@ type aiFollowupXMLQuestion struct {
 }
 
 type aiFollowupXMLOption struct {
-	ID          string `xml:"id,attr"`
 	Mode        string `xml:"mode,attr"`
 	Disabled    string `xml:"disabled,attr"`
 	Recommended string `xml:"recommended,attr"`
@@ -109,6 +107,59 @@ func normalizeAIFollowupQuestionType(value string) string {
 	default:
 		return "single"
 	}
+}
+
+func aiAskFollowupQuestionToolDefinition() mcpserver.ToolDefinition {
+	return mcpserver.ToolDefinition{
+		Name:        "ask_followup_question",
+		Description: "Present a multi-question questionnaire to the user and wait for their structured answer before continuing the task. Required arguments: question, follow_up. The follow_up field must contain one or more <question> blocks with <option> entries. Do not include id attributes on question or option nodes; the system generates stable sequential IDs automatically. Options may use mode, disabled, and recommended attributes. Legacy 2 to 12 <suggest>...</suggest> payloads are also supported.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"question": map[string]any{
+					"type":        "string",
+					"description": "An optional survey title or the legacy single follow-up question.",
+				},
+				"follow_up": map[string]any{
+					"type":        "string",
+					"description": "XML questionnaire payload containing question blocks and options. Do not include id attributes; the system generates stable sequential IDs automatically. Legacy suggest list payloads are also supported.",
+				},
+			},
+			"required":             []string{"question", "follow_up"},
+			"additionalProperties": false,
+		},
+	}
+}
+
+func callAIAskFollowupQuestion(arguments map[string]any) (any, error) {
+	for key := range arguments {
+		if key != "question" && key != "follow_up" {
+			return nil, fmt.Errorf("unknown argument: %s", key)
+		}
+	}
+	question, ok := arguments["question"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing required argument: question")
+	}
+	followUp, ok := arguments["follow_up"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing required argument: follow_up")
+	}
+	questions, suggestions, err := parseAIFollowupPayload(followUp, question)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]any{
+		"status":   "pending",
+		"question": question,
+	}
+	if len(questions) > 0 {
+		result["questions"] = questions
+	}
+	if len(suggestions) > 0 {
+		result["suggestions"] = suggestions
+	}
+	return result, nil
 }
 
 func parseAIFollowupDisabled(value string) bool {
@@ -150,10 +201,7 @@ func parseAIFollowupPayload(raw string, fallbackQuestion string) ([]AIConversati
 	if len(questionItems) > 0 {
 		questions := make([]AIConversationFollowUpQuestion, 0, len(questionItems))
 		for questionIndex, item := range questionItems {
-			questionID := strings.TrimSpace(item.ID)
-			if questionID == "" {
-				questionID = fmt.Sprintf("question-%d", questionIndex+1)
-			}
+			questionID := fmt.Sprintf("question-%d", questionIndex+1)
 			rawQuestionType := strings.TrimSpace(item.Type)
 			if rawQuestionType == "" {
 				rawQuestionType = strings.TrimSpace(item.TypeNode)
@@ -184,10 +232,7 @@ func parseAIFollowupPayload(raw string, fallbackQuestion string) ([]AIConversati
 				if answer == "" {
 					continue
 				}
-				optionID := strings.TrimSpace(option.ID)
-				if optionID == "" {
-					optionID = fmt.Sprintf("%s-option-%d", questionID, optionIndex+1)
-				}
+				optionID := fmt.Sprintf("%s-option-%d", questionID, optionIndex+1)
 				options = append(options, AIConversationFollowUpOption{
 					ID:          optionID,
 					Answer:      answer,
