@@ -608,24 +608,75 @@ func formatAIReadFileToolResultContent(result mcpserver.ReadFileResult) string {
 	return strings.TrimSpace(result.Content)
 }
 
+func formatAIReadFileBatchEntryContent(result mcpserver.ReadFileResult) string {
+	content := strings.TrimSpace(result.Content)
+	path := strings.TrimSpace(result.Path)
+	if content == "" {
+		if path != "" {
+			return "Path: " + path
+		}
+		return ""
+	}
+	if path == "" {
+		return content
+	}
+	return "Path: " + path + "\n" + content
+}
+
 func formatAIReadFileBatchToolResultContent(result mcpserver.ReadFileBatchResult) string {
 	sections := make([]string, 0, len(result.Files))
 	for _, file := range result.Files {
-		content := strings.TrimSpace(file.Content)
-		path := strings.TrimSpace(file.Path)
-		if content == "" {
-			if path != "" {
-				sections = append(sections, "Path: "+path)
-			}
-			continue
-		}
-		if path == "" {
+		if content := formatAIReadFileBatchEntryContent(file); content != "" {
 			sections = append(sections, content)
-			continue
 		}
-		sections = append(sections, "Path: "+path+"\n"+content)
 	}
 	return strings.TrimSpace(strings.Join(sections, "\n\n"))
+}
+
+func resolveAIReadFileResults(result any) ([]mcpserver.ReadFileResult, bool) {
+	switch value := result.(type) {
+	case mcpserver.ReadFileResult:
+		return []mcpserver.ReadFileResult{value}, false
+	case *mcpserver.ReadFileResult:
+		if value == nil {
+			return nil, false
+		}
+		return []mcpserver.ReadFileResult{*value}, false
+	case mcpserver.ReadFileBatchResult:
+		return value.Files, true
+	case *mcpserver.ReadFileBatchResult:
+		if value == nil {
+			return nil, true
+		}
+		return value.Files, true
+	default:
+		return nil, false
+	}
+}
+
+func buildAIReadFileTokenEstimateMeta(result any, profile AIProviderProfile) []map[string]interface{} {
+	files, isBatch := resolveAIReadFileResults(result)
+	if len(files) == 0 {
+		return nil
+	}
+	estimates := make([]map[string]interface{}, 0, len(files))
+	for _, file := range files {
+		content := formatAIReadFileToolResultContent(file)
+		if isBatch {
+			content = formatAIReadFileBatchEntryContent(file)
+		}
+		tokenCount, tokenDisplay, ok := estimateAIResultTokens(content, profile)
+		if !ok {
+			tokenCount = 0
+			tokenDisplay = "0.000000M"
+		}
+		estimates = append(estimates, map[string]interface{}{
+			"path":         strings.TrimSpace(file.Path),
+			"tokenCount":   tokenCount,
+			"tokenDisplay": tokenDisplay,
+		})
+	}
+	return estimates
 }
 
 func formatAIRawToolResultContent(result any) string {
@@ -2454,7 +2505,7 @@ func buildToolPreviewMessages(turnID string, tools []aiParsedToolUse) []map[stri
 	return messages
 }
 
-func (a *App) executeParsedToolUses(requestID string, assistantMessageID string, payload AIChatRequestPayload, tools []aiParsedToolUse) []AIChatRequestMessage {
+func (a *App) executeParsedToolUses(requestID string, assistantMessageID string, payload AIChatRequestPayload, profile AIProviderProfile, tools []aiParsedToolUse) []AIChatRequestMessage {
 	if a == nil {
 		return nil
 	}
@@ -2522,20 +2573,24 @@ func (a *App) executeParsedToolUses(requestID string, assistantMessageID string,
 			if callErr != nil {
 				statusText = "错误"
 			}
+			message := map[string]interface{}{
+				"id":                 buildToolMessageID(assistantMessageID, index),
+				"turnId":             assistantMessageID,
+				"kind":               "tool",
+				"actionLabel":        tool.Name,
+				"title":              titleForParsedToolUse(tool),
+				"summary":            summarizeParsedToolUse(tool),
+				"code":               tool.RawXML,
+				"status":             statusText,
+				"remainingFileEdits": getAIToolRemainingFileEdits(tool),
+			}
+			if tool.Name == "read_file" {
+				attachAIReadFileTokenEstimateMeta(message, callResult, profile)
+			}
 			a.emitAIChatEvent(map[string]interface{}{
 				"kind":      "upsert_message",
 				"requestId": requestID,
-				"message": map[string]interface{}{
-					"id":                 buildToolMessageID(assistantMessageID, index),
-					"turnId":             assistantMessageID,
-					"kind":               "tool",
-					"actionLabel":        tool.Name,
-					"title":              titleForParsedToolUse(tool),
-					"summary":            summarizeParsedToolUse(tool),
-					"code":               tool.RawXML,
-					"status":             statusText,
-					"remainingFileEdits": getAIToolRemainingFileEdits(tool),
-				},
+				"message":   message,
 			})
 		}
 
@@ -2558,6 +2613,7 @@ func (a *App) executeParsedToolUses(requestID string, assistantMessageID string,
 		}
 	}
 
+	a.emitAIChatToolExecutionPersistRequested(requestID)
 	return results
 }
 
@@ -2577,7 +2633,7 @@ func (a *App) requestAIProviderChatRound(ctx context.Context, requestID string, 
 
 func (a *App) continueCompatibleAIChatAfterTools(ctx context.Context, requestID string, batch *aiPendingToolBatch) {
 	requestMessages := append([]AIChatRequestMessage{}, batch.RequestMessages...)
-	requestMessages = append(requestMessages, a.executeParsedToolUses(requestID, batch.AssistantMessageID, batch.Payload, batch.ParsedTools)...)
+	requestMessages = append(requestMessages, a.executeParsedToolUses(requestID, batch.AssistantMessageID, batch.Payload, batch.Profile, batch.ParsedTools)...)
 
 	nextAssistantMessageID := fmt.Sprintf("%s-cont-%d", requestID, time.Now().UnixNano())
 	a.emitAIChatEvent(map[string]interface{}{

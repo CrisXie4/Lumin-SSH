@@ -24,7 +24,7 @@ func getPromptBuilderTaskScopedToolXMLTagSet() taskScopedToolXMLTagSet {
 }
 
 func shouldExposeAILiveSearchTool(profile AIProviderProfile) bool {
-	return profile.WebSearchEnabled || profile.DedicatedWebSearchEnabled
+	return profile.WebSearchEnabled
 }
 
 var promptBuilderTemplateVariablePattern = regexp.MustCompile(`\$\{([a-zA-Z0-9_]+)\}`)
@@ -129,7 +129,7 @@ func BuildAIAssistantFirstReply(languageCode string) string {
 func liveSearchAIChatToolDefinition() mcpserver.ToolDefinition {
 	return mcpserver.ToolDefinition{
 		Name: "live_search",
-		Description: "Search the web using the current AI provider web search configuration or the configured dedicated web search provider. Use this when the user needs recent, online, or real-time information. Required argument: query.",
+		Description: "Search the web using the configured live_search provider. Use this when the user needs recent, online, or real-time information. Required argument: query.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
