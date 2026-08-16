@@ -149,7 +149,7 @@ export default function MCPAccessView({
         <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, opacity: mcpEnabled ? 1 : 0.65 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('外部 MCP 写操作需审批')}</div>
-            <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('开启后，外部客户端的写操作（is_mutating）需在活动弹窗中手动批准才执行（会同时开启活动弹窗）。关闭则自动执行。')}</div>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('开启后，外部客户端的写操作（is_mutating）需手动批准才执行，审批请求会临时弹出活动弹窗。关闭则自动执行。')}</div>
           </div>
           <ToggleSwitch checked={mcpRequireApproval} onChange={onToggleMcpRequireApproval} disabled={!mcpEnabled} />
         </div>

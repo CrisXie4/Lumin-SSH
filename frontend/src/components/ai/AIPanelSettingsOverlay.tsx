@@ -580,9 +580,7 @@ export default function AIPanelSettingsOverlay({
                 mcpActivityVisible={mcpActivityVisible}
                 onToggleMcpEnabled={() => onSaveGlobalAISettings?.({ mcpEnabled: !mcpEnabled })}
                 onToggleMcpAllowBrowserCalls={() => onSaveGlobalAISettings?.({ mcpAllowBrowserCalls: !mcpAllowBrowserCalls })}
-                onToggleMcpRequireApproval={() => onSaveGlobalAISettings?.(mcpRequireApproval
-                  ? { mcpRequireApproval: false }
-                  : { mcpRequireApproval: true, mcpActivityVisible: true })}
+                onToggleMcpRequireApproval={() => onSaveGlobalAISettings?.({ mcpRequireApproval: !mcpRequireApproval })}
                 onToggleMcpActivityVisible={() => onSaveGlobalAISettings?.({ mcpActivityVisible: !mcpActivityVisible })}
               />
             )}

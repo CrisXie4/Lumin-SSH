@@ -526,9 +526,12 @@ export default function App() {
     updateProbePanelWidth,
   });
   const [mcpActivityEnabled, setMcpActivityEnabled] = useState(false);
+  const [pendingMCPApprovals, setPendingMCPApprovals] = useState<Set<string>>(() => new Set());
+  const pendingMCPApprovalsRef = useRef<Set<string>>(new Set());
+  // 功能开关未开启时不显示任何入口；仅当存在待审批请求时临时挂载弹窗
+  const mcpActivityMounted = mcpActivityEnabled || pendingMCPApprovals.size > 0;
   const [showMCPActivity, setShowMCPActivity] = useState(false);
   const [mcpActivityOffset, setMcpActivityOffset] = useState({ x: 0, y: 0 });
-  const mcpActivityEnabledRef = useRef(false);
   const mcpActivityOffsetRef = useRef({ x: 0, y: 0 });
   useEffect(() => { mcpActivityOffsetRef.current = mcpActivityOffset; }, [mcpActivityOffset]);
   useEffect(() => {
@@ -544,12 +547,26 @@ export default function App() {
       setMcpActivityOffset({ x: 0, y: 0 });
       setMcpToggleOffset({ x: 0, y: 0 });
     });
-    return () => { unbind(); };
+    // 审批请求不依赖弹窗开关：即使功能关闭，approval_required 到达时也临时弹出弹窗
+    const unbindApprovals = EventsOn('mcp-activity', (payload: { requestId?: string; status?: string } | null) => {
+      if (!payload?.requestId) return;
+      const status = payload.status;
+      if (status !== 'approval_required' && status !== 'approved' && status !== 'rejected' && status !== 'timed_out') return;
+      const next = new Set(pendingMCPApprovalsRef.current);
+      if (status === 'approval_required') {
+        next.add(payload.requestId);
+        setShowMCPActivity(true);
+      } else {
+        next.delete(payload.requestId);
+      }
+      pendingMCPApprovalsRef.current = next;
+      setPendingMCPApprovals(next);
+    });
+    return () => { unbind(); unbindApprovals(); };
   }, []);
   const openMCPActivity = useCallback(() => {
-    if (mcpActivityEnabledRef.current) setShowMCPActivity(true);
+    setShowMCPActivity(true);
   }, []);
-  useEffect(() => { mcpActivityEnabledRef.current = mcpActivityEnabled; }, [mcpActivityEnabled]);
   // 按住活动弹窗标题栏拖动（transform 偏移，双击复位）
   const handleMCPActivityDragStart = useCallback((e: { button?: number; clientX: number; clientY: number }) => {
     if (e.button != null && e.button !== 0) return;
@@ -1998,8 +2015,8 @@ export default function App() {
         shared={{ addToast: looseAddToast, t: looseT }}
       />
 
-      {/* ── MCP Activity popup（设置中手动开启；面板常驻挂载以保留事件与审批） ── */}
-      {mcpActivityEnabled && (
+      {/* ── MCP Activity popup（设置中手动开启；待审批请求会临时挂载并自动弹出） ── */}
+      {mcpActivityMounted && (
         <>
           <MCPActivityFloatingToggle
             visible={!showMCPActivity}
