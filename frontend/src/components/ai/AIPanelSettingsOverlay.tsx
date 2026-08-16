@@ -765,6 +765,8 @@ export default function AIPanelSettingsOverlay({
                       <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('AI 对话数据保存在此目录。更改目录会自动迁移现有数据。')}</div>
                     </div>
                     <input
+                      id="ai-tasks-dir"
+                      name="tasksDir"
                       className="input"
                       type="text"
                       value={tasksDir || ''}
