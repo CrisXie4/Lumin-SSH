@@ -1849,6 +1849,7 @@ export default {
   '默认关闭。开启后弹出 MCP 活动弹窗，实时显示外部客户端（如 Claude Code）的操作痕迹：服务器、命令、状态、输出': 'Mặc định tắt. Khi bật, cửa sổ hoạt động MCP sẽ hiện thị hoạt động của client ngoài (vd. Claude Code) theo thời gian thực: máy chủ, lệnh, trạng thái, đầu ra',
   '开启后，外部客户端的写操作（is_mutating）需在活动弹窗中手动批准才执行（会同时开启活动弹窗）。关闭则自动执行。': 'Khi bật, thao tác ghi (is_mutating) từ client ngoài cần được phê duyệt thủ công trong cửa sổ hoạt động (cửa sổ cũng được bật theo). Khi tắt sẽ tự động chạy.',
   '您可以将这一句话发送给您的 AI Agent': 'Bạn có thể gửi câu này cho AI Agent của mình',
+  "请帮我配置这个MCP": "Vui lòng giúp tôi cấu hình máy chủ MCP này",
   '拖动标题栏移动，双击复位': 'Kéo thanh tiêu đề để di chuyển; nhấp đúp để đặt lại',
   '拖动按钮移动，双击复位': 'Kéo nút để di chuyển; nhấp đúp để đặt lại',
   "检测到 OpenWrt 设备，文件管理器需要 SFTP 子系统，请执行以下命令安装": "Đã phát hiện thiết bị OpenWrt. Trình quản lý tệp cần hệ thống con SFTP. Chạy lệnh này để cài đặt",

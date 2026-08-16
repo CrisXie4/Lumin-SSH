@@ -1849,6 +1849,7 @@ export default {
   '默认关闭。开启后弹出 MCP 活动弹窗，实时显示外部客户端（如 Claude Code）的操作痕迹：服务器、命令、状态、输出': 'Désactivé par défaut. Une fois activé, un popup d\'activité MCP s\'ouvre et affiche en temps réel les opérations des clients externes (ex. Claude Code) : serveur, commande, statut, sortie',
   '开启后，外部客户端的写操作（is_mutating）需在活动弹窗中手动批准才执行（会同时开启活动弹窗）。关闭则自动执行。': 'Une fois activé, les opérations d\'écriture (is_mutating) des clients externes doivent être approuvées manuellement dans le popup d\'activité (celui-ci s\'active aussi). Désactivé, elles s\'exécutent automatiquement.',
   '您可以将这一句话发送给您的 AI Agent': 'Vous pouvez envoyer cette phrase à votre agent IA',
+  "请帮我配置这个MCP": "Veuillez m'aider à configurer ce serveur MCP",
   '拖动标题栏移动，双击复位': 'Glissez la barre de titre pour déplacer ; double-cliquez pour réinitialiser',
   '拖动按钮移动，双击复位': 'Glissez le bouton pour déplacer ; double-cliquez pour réinitialiser',
   "检测到 OpenWrt 设备，文件管理器需要 SFTP 子系统，请执行以下命令安装": "Appareil OpenWrt détecté. Le gestionnaire de fichiers nécessite le sous-système SFTP. Exécutez cette commande pour l'installer",
