@@ -1,6 +1,7 @@
 // 桥接模块（自 .js 收编后类型化）：AI 供应商状态与浏览器嵌入凭据解析
 import { t } from '../../i18n.ts'
 import { runAIProviderPasteHandlerById } from './aiProviderPasteHandlers.ts'
+import { canUseDedicatedWebSearchCandidate } from './providers/index.ts'
 
 /** 规范化后的 AI 供应商（normalizeProvider 输出，严格形状；type 而非 interface 以兼容 AIProviderLike 的索引签名） */
 export type AIProvider = {
@@ -264,25 +265,27 @@ export function normalizeAIProviderState(state: unknown): AIProviderState {
   const idSet = new Set(providers.map((provider) => provider.id))
 
   const normalizedProviders = providers.map((provider) => {
-    let webSearchEnabled = provider.webSearchEnabled
+    const webSearchEnabled = provider.webSearchEnabled
     let dedicatedWebSearchEnabled = provider.dedicatedWebSearchEnabled
     let dedicatedWebSearchProviderId = provider.dedicatedWebSearchProviderId
-
-    if (webSearchEnabled) {
-      dedicatedWebSearchEnabled = false
-    }
+    const dedicatedCandidateIds = new Set(
+      providers
+        .filter((item) => item.id !== provider.id)
+        .filter((item) => canUseDedicatedWebSearchCandidate(item.provider))
+        .map((item) => item.id),
+    )
 
     if (dedicatedWebSearchProviderId === provider.id) {
       dedicatedWebSearchProviderId = ''
     }
 
     if (dedicatedWebSearchEnabled) {
-      if (!dedicatedWebSearchProviderId || !idSet.has(dedicatedWebSearchProviderId)) {
-        const fallbackProvider = providers.find((item) => item.id !== provider.id)
+      if (!dedicatedWebSearchProviderId || !dedicatedCandidateIds.has(dedicatedWebSearchProviderId)) {
+        const fallbackProvider = providers.find((item) => item.id !== provider.id && canUseDedicatedWebSearchCandidate(item.provider))
         dedicatedWebSearchProviderId = fallbackProvider?.id || ''
         dedicatedWebSearchEnabled = Boolean(dedicatedWebSearchProviderId)
       }
-    } else if (dedicatedWebSearchProviderId && !idSet.has(dedicatedWebSearchProviderId)) {
+    } else if (dedicatedWebSearchProviderId && !dedicatedCandidateIds.has(dedicatedWebSearchProviderId)) {
       dedicatedWebSearchProviderId = ''
     }
 

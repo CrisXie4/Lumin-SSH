@@ -1076,6 +1076,20 @@ func attachAIResultTokenEstimateMeta(message map[string]interface{}, rawResultCo
 	return message
 }
 
+func attachAIReadFileTokenEstimateMeta(message map[string]interface{}, result any, profile AIProviderProfile) map[string]interface{} {
+	estimates := buildAIReadFileTokenEstimateMeta(result, profile)
+	if message == nil || len(estimates) == 0 {
+		return message
+	}
+	existingExtra, _ := message["extra"].(map[string]interface{})
+	if existingExtra == nil {
+		existingExtra = map[string]interface{}{}
+	}
+	existingExtra["readFileTokenEstimates"] = estimates
+	message["extra"] = existingExtra
+	return message
+}
+
 func buildAIChatToolResultMessage(toolName string, resultText string) AIChatRequestMessage {
 	return AIChatRequestMessage{
 		Role:    "user",
@@ -1665,7 +1679,11 @@ func (a *App) runAIChatGenericToolExecution(execution *aiToolExecutionState) {
 	attachAIRestoreArtifactRef(message, execution.RestoreArtifactPath)
 	attachAICopyContent(message, execution.CopyContent)
 	attachAIConversationDiffMeta(message, execution.ConversationDiffPrimaryPath, execution.ConversationDiffFileCount, execution.ConversationDiffToolName, execution.ConversationDiffHasPreview)
-	attachAIResultTokenEstimateMeta(message, buildAIChatToolResultContent(execution.Tool.Name, formatAIRawToolResultContent(callResult)), resolveAIExecutionProfile(execution))
+	profile := resolveAIExecutionProfile(execution)
+	if execution.Tool.Name == "read_file" {
+		attachAIReadFileTokenEstimateMeta(message, callResult, profile)
+	}
+	attachAIResultTokenEstimateMeta(message, buildAIChatToolResultContent(execution.Tool.Name, formatAIRawToolResultContent(callResult)), profile)
 	a.emitAIChatEvent(map[string]interface{}{
 		"kind":      "upsert_message",
 		"requestId": execution.RequestID,

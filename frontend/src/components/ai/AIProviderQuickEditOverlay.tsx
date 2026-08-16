@@ -37,6 +37,7 @@ const providerHighlightLabelKeys: Record<string, I18nKey> = {
   Compatible: '高兼容',
   Responses: '高缓存',
 }
+const selfWebSearchProviderValue = '__self__'
 
 function getProviderDisplayLabel(provider: { value?: string; label?: string } | null | undefined, t: (key: I18nKey) => string) {
   if (!provider || typeof provider !== 'object') {
@@ -255,7 +256,9 @@ function buildDraft(provider?: AIProviderLike | null): ProviderDraft {
     model: resolvedModel,
     webSearchEnabled: provider?.webSearchEnabled !== false,
     dedicatedWebSearchEnabled: Boolean(provider?.dedicatedWebSearchEnabled),
-    dedicatedWebSearchProviderId: typeof provider?.dedicatedWebSearchProviderId === 'string' ? provider.dedicatedWebSearchProviderId.trim() : '',
+    dedicatedWebSearchProviderId: provider?.dedicatedWebSearchEnabled === true && typeof provider?.dedicatedWebSearchProviderId === 'string' && provider.dedicatedWebSearchProviderId.trim()
+      ? provider.dedicatedWebSearchProviderId.trim()
+      : selfWebSearchProviderValue,
     dedicatedProxyEnabled: Boolean(provider?.dedicatedProxyEnabled),
     dedicatedProxyId: typeof provider?.dedicatedProxyId === 'string' ? provider.dedicatedProxyId.trim() : '',
     reasoningEffort: typeof provider?.reasoningEffort === 'string' && provider.reasoningEffort.trim()
@@ -496,14 +499,17 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
   }, [draft.cacheStrategy, promptCacheOptions])
   const supportsWebSearch = providerDefinition.supportsWebSearch === true
   const dedicatedProviderOptions = useMemo(
-    () => providers
-      .filter((item) => item.id !== draft.id)
-      .filter((item) => canUseDedicatedWebSearchCandidate(item.provider))
-      .map((item) => ({
-        value: item.id || '',
-        label: item.model ? `${item.name || ''} · ${item.model}` : (item.name || ''),
-      })),
-    [providers, draft.id],
+    () => ([
+      { value: selfWebSearchProviderValue, label: t('自身') },
+      ...providers
+        .filter((item) => item.id !== draft.id)
+        .filter((item) => canUseDedicatedWebSearchCandidate(item.provider))
+        .map((item) => ({
+          value: item.id || '',
+          label: item.model ? `${item.name || ''} · ${item.model}` : (item.name || ''),
+        })),
+    ]),
+    [providers, draft.id, t],
   )
 
   const filteredDedicatedProviderOptions = useMemo(() => {
@@ -515,7 +521,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
   }, [dedicatedProviderOptions, dedicatedProviderSearch])
 
   const currentDedicatedProviderOption = useMemo(
-    () => dedicatedProviderOptions.find((item) => item.value === draft.dedicatedWebSearchProviderId) || null,
+    () => dedicatedProviderOptions.find((item) => item.value === draft.dedicatedWebSearchProviderId) || dedicatedProviderOptions[0] || null,
     [dedicatedProviderOptions, draft.dedicatedWebSearchProviderId],
   )
 
@@ -535,10 +541,13 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     [dedicatedProxyOptions, draft.dedicatedProxyId],
   )
 
-  const canEnableDedicatedMode = dedicatedProviderOptions.length > 0
-  const canValidateWebSearch = draft.dedicatedWebSearchEnabled
-    ? Boolean(draft.dedicatedWebSearchProviderId)
-    : Boolean(draft.baseUrl && draft.apiKey && draft.model)
+  const selectedWebSearchProviderValue = currentDedicatedProviderOption?.value || selfWebSearchProviderValue
+  const usingDedicatedWebSearchProvider = selectedWebSearchProviderValue !== selfWebSearchProviderValue
+  const canValidateWebSearch = draft.webSearchEnabled && (
+    usingDedicatedWebSearchProvider
+      ? Boolean(selectedWebSearchProviderValue)
+      : Boolean(draft.baseUrl && draft.apiKey && draft.model)
+  )
 
   const title = draft.name || (mode === 'create' ? t('新增供应商') : t('编辑供应商'))
   const subtitle = mode === 'create' ? t('创建供应商配置...') : t('编辑...')
@@ -823,30 +832,23 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     setProviderMenuOpen(false)
   }
 
-  const handleDedicatedToggle = () => {
-    if (!canEnableDedicatedMode) {
-      return
-    }
-    setDraft((prev) => {
-      const nextEnabled = !prev.dedicatedWebSearchEnabled
-      let nextProviderId = prev.dedicatedWebSearchProviderId
-      if (nextEnabled && (!nextProviderId || !dedicatedProviderOptions.some((item) => item.value === nextProviderId))) {
-        nextProviderId = dedicatedProviderOptions[0]?.value || ''
-      }
-      return {
-        ...prev,
-        dedicatedWebSearchEnabled: nextEnabled,
-        dedicatedWebSearchProviderId: nextProviderId,
-        webSearchEnabled: nextEnabled ? false : prev.webSearchEnabled,
-      }
-    })
+  const handleWebSearchProviderSelect = (nextProviderId: string) => {
+    const normalizedProviderId = dedicatedProviderOptions.some((item) => item.value === nextProviderId)
+      ? nextProviderId
+      : selfWebSearchProviderValue
+    setDraft((prev) => ({
+      ...prev,
+      dedicatedWebSearchEnabled: normalizedProviderId !== selfWebSearchProviderValue,
+      dedicatedWebSearchProviderId: normalizedProviderId,
+    }))
+    setDedicatedProviderMenuOpen(false)
+    setDedicatedProviderSearch('')
   }
 
   const handleWebSearchToggle = () => {
     setDraft((prev) => ({
       ...prev,
       webSearchEnabled: !prev.webSearchEnabled,
-      dedicatedWebSearchEnabled: !prev.webSearchEnabled ? false : prev.dedicatedWebSearchEnabled,
     }))
   }
 
@@ -883,10 +885,17 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     setWebSearchValidationMessage('')
 
     try {
+      const resolvedWebSearchProviderValue = dedicatedProviderOptions.some((item) => item.value === draft.dedicatedWebSearchProviderId)
+        ? draft.dedicatedWebSearchProviderId
+        : selfWebSearchProviderValue
+      const useDedicatedWebSearchProvider = resolvedWebSearchProviderValue !== selfWebSearchProviderValue
       const result = await bridge.ValidateAIProviderWebSearch(JSON.stringify({
         ...draft,
         provider: providerDefinition.value,
         model: draft.model?.trim() || '',
+        webSearchEnabled: draft.webSearchEnabled,
+        dedicatedWebSearchEnabled: useDedicatedWebSearchProvider,
+        dedicatedWebSearchProviderId: useDedicatedWebSearchProvider ? resolvedWebSearchProviderValue : '',
         reasoningEffort: draft.reasoningEffort || 'disable',
         enableReasoningEffort: Boolean(draft.enableReasoningEffort),
         modelMaxTokens: normalizePositiveInteger(draft.modelMaxTokens),
@@ -943,15 +952,20 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
         break
     }
 
+    const resolvedWebSearchProviderValue = dedicatedProviderOptions.some((item) => item.value === draft.dedicatedWebSearchProviderId)
+      ? draft.dedicatedWebSearchProviderId
+      : selfWebSearchProviderValue
+    const useDedicatedWebSearchProvider = resolvedWebSearchProviderValue !== selfWebSearchProviderValue
+
     onSave?.({
       ...draft,
       provider: providerDefinition.value,
       cacheStrategy: selectedPromptCacheStrategy,
-      dedicatedWebSearchEnabled: draft.dedicatedWebSearchEnabled,
-      dedicatedWebSearchProviderId: draft.dedicatedWebSearchEnabled ? draft.dedicatedWebSearchProviderId : '',
+      webSearchEnabled: draft.webSearchEnabled,
+      dedicatedWebSearchEnabled: useDedicatedWebSearchProvider,
+      dedicatedWebSearchProviderId: useDedicatedWebSearchProvider ? resolvedWebSearchProviderValue : '',
       dedicatedProxyEnabled: draft.dedicatedProxyEnabled,
       dedicatedProxyId: draft.dedicatedProxyEnabled ? draft.dedicatedProxyId : '',
-      webSearchEnabled: draft.dedicatedWebSearchEnabled ? false : draft.webSearchEnabled,
       reasoningEffort,
       enableReasoningEffort,
       openAiLegacyReasoningFormatEnabled: draft.openAiLegacyReasoningFormatEnabled === true,
@@ -1556,19 +1570,23 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
           </div>
 
           {supportsWebSearch ? (
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'stretch', gap: 8 }}>
+            <div
+              style={{
+                display: 'grid',
+                gap: 0,
+                padding: '10px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                background: 'var(--surface-overlay)',
+              }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'start', gap: 8 }}>
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: 10,
-                    minHeight: 52,
-                    padding: '0 12px',
-                    border: '1px solid var(--border)',
-                    borderRadius: 12,
-                    background: 'var(--surface-overlay)',
+                    minHeight: 32,
                   }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     <div
@@ -1587,7 +1605,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                     </div>
                     <div style={{ minWidth: 0, display: 'grid', gap: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{t('联网搜索')}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.2 }}>{t('启用当前供应商的联网搜索能力')}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.2 }}>{t('启用后通过所选供应商执行联网搜索')}</div>
                     </div>
                   </div>
 
@@ -1626,8 +1644,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                   onClick={handleValidateWebSearch}
                   disabled={!canValidateWebSearch || validatingWebSearch}
                   style={{
-                    minWidth: 90,
-                    padding: '0 12px',
+                    minWidth: 74,
+                    minHeight: 40,
+                    padding: '0 10px',
                     borderRadius: 12,
                     border: validationButtonVariant === 'success'
                       ? '1px solid rgba(var(--success-rgb), 0.35)'
@@ -1638,7 +1657,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                       ? 'rgba(var(--success-rgb), 0.10)'
                       : validationButtonVariant === 'error'
                         ? 'rgba(var(--danger-rgb), 0.08)'
-                        : 'var(--surface-overlay)',
+                        : 'var(--surface-base)',
                     color: !canValidateWebSearch
                       ? 'var(--text-tertiary)'
                       : validationButtonVariant === 'success'
@@ -1668,157 +1687,120 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: draft.dedicatedWebSearchEnabled ? '1fr auto auto' : '1fr auto',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '10px 12px',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  background: 'var(--surface-overlay)',
+                  gap: 6,
+                  paddingTop: 8,
+                  borderTop: '1px solid var(--border-subtle)',
                 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{t('联网搜索专用供应商')}</span>
-
-                {draft.dedicatedWebSearchEnabled ? (
-                  <div ref={dedicatedProviderFieldRef} style={{ position: 'relative', minWidth: 0, maxWidth: 260 }}>
-                    <button
-                      type="button"
-                      onClick={() => setDedicatedProviderMenuOpen((prev) => !prev)}
-                      style={{
-                        height: 30,
-                        minWidth: 220,
-                        maxWidth: 260,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        padding: '0 10px',
-                        borderRadius: 999,
-                        border: `1px solid ${dedicatedProviderMenuOpen ? 'var(--accent-border)' : 'var(--border)'}`,
-                        background: dedicatedProviderMenuOpen ? 'rgba(var(--accent-rgb), 0.10)' : 'var(--surface-base)',
-                        color: 'var(--text-secondary)',
-                        fontSize: 12,
-                        boxSizing: 'border-box',
-                        transition: 'var(--transition)',
-                      }}>
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {currentDedicatedProviderOption?.label || t('选择供应商')}
-                      </span>
-                      <span style={{ color: 'var(--text-tertiary)', fontSize: 10, transform: dedicatedProviderMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'var(--transition)' }}>▾</span>
-                    </button>
-                    {dedicatedProviderMenuOpen ? (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: 'calc(100% + 8px)',
-                          width: 320,
-                          maxWidth: 320,
-                          maxHeight: 320,
-                          borderRadius: 0,
-                          border: '1px solid var(--accent-border)',
-                          background: 'var(--surface-overlay)',
-                          boxShadow: 'var(--shadow-xl)',
-                          overflow: 'hidden',
-                          zIndex: 40,
-                        }}>
-                        <div style={{ position: 'relative', borderBottom: '1px solid var(--border-subtle)' }}>
-                          <Search size={14} style={{ position: 'absolute', left: 10, top: 9, color: 'var(--text-tertiary)' }} />
-                          <input
-                            name="ai-provider-global-search"
-                            autoComplete="off"
-                            aria-label={t('搜索全局配置')}
-                            value={dedicatedProviderSearch}
-                            onChange={(event) => setDedicatedProviderSearch(event.target.value)}
-                            onMouseLeave={handleInputDragSelectAll}
-                            placeholder={t('搜索全局配置')}
-                            style={{
-                              width: '100%',
-                              height: 34,
-                              border: 'none',
-                              outline: 'none',
-                              background: 'var(--surface-base)',
-                              color: 'var(--text-primary)',
-                              padding: '0 10px 0 32px',
-                              boxSizing: 'border-box',
-                              fontSize: 13,
-                            }}
-                          />
-                        </div>
-                        <div style={{ maxHeight: 285, overflowY: 'auto' }}>
-                          {filteredDedicatedProviderOptions.length > 0 ? (
-                            filteredDedicatedProviderOptions.map((option) => {
-                              const active = option.value === draft.dedicatedWebSearchProviderId
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => {
-                                    setDraft((prev) => ({
-                                      ...prev,
-                                      dedicatedWebSearchProviderId: option.value,
-                                      dedicatedWebSearchEnabled: true,
-                                      webSearchEnabled: false,
-                                    }))
-                                    setDedicatedProviderMenuOpen(false)
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    minHeight: 34,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: 12,
-                                    padding: '0 10px',
-                                    border: 'none',
-                                    borderBottom: '1px solid var(--border-subtle)',
-                                    background: active ? 'rgba(var(--accent-rgb), 0.16)' : 'transparent',
-                                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                    fontSize: 12,
-                                    textAlign: 'left',
-                                  }}>
-                                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{option.label}</span>
-                                  {active ? <Check size={12} color="var(--text-primary)" /> : null}
-                                </button>
-                              )
-                            })
-                          ) : (
-                            <div style={{ padding: '14px 10px', textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
-                              {t('没有匹配的供应商')}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={handleDedicatedToggle}
-                  disabled={!canEnableDedicatedMode}
-                  style={{
-                    width: 34,
-                    height: 20,
-                    borderRadius: 999,
-                    border: '1px solid var(--border)',
-                    background: draft.dedicatedWebSearchEnabled ? 'rgba(var(--accent-rgb), 0.52)' : 'var(--surface-hover)',
-                    padding: 2,
-                    position: 'relative',
-                    transition: 'var(--transition)',
-                    opacity: canEnableDedicatedMode ? 1 : 0.5,
-                  }}>
-                  <span
-                    style={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: 999,
-                      background: 'var(--surface-raised)',
-                      display: 'block',
-                      transform: draft.dedicatedWebSearchEnabled ? 'translateX(14px)' : 'translateX(0)',
-                      transition: 'var(--transition)',
+                <div ref={dedicatedProviderFieldRef} style={{ position: 'relative', minWidth: 0 }}>
+                  <button
+                    type="button"
+                    disabled={!draft.webSearchEnabled}
+                    onClick={() => {
+                      if (!draft.webSearchEnabled) {
+                        return
+                      }
+                      setDedicatedProviderMenuOpen((prev) => !prev)
                     }}
-                  />
-                </button>
+                    style={{
+                      height: 30,
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      padding: '0 10px',
+                      borderRadius: 999,
+                      border: `1px solid ${dedicatedProviderMenuOpen ? 'var(--accent-border)' : 'var(--border)'}`,
+                      background: dedicatedProviderMenuOpen ? 'rgba(var(--accent-rgb), 0.10)' : 'var(--surface-base)',
+                      color: 'var(--text-secondary)',
+                      fontSize: 12,
+                      boxSizing: 'border-box',
+                      transition: 'var(--transition)',
+                      opacity: draft.webSearchEnabled ? 1 : 0.6,
+                      cursor: draft.webSearchEnabled ? 'pointer' : 'not-allowed',
+                    }}>
+                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentDedicatedProviderOption?.label || t('自身')}
+                    </span>
+                    <span style={{ color: 'var(--text-tertiary)', fontSize: 10, transform: dedicatedProviderMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'var(--transition)' }}>▾</span>
+                  </button>
+                  {dedicatedProviderMenuOpen && draft.webSearchEnabled ? (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 'calc(100% + 8px)',
+                        width: 320,
+                        maxWidth: 'min(100%, 320px)',
+                        maxHeight: 320,
+                        borderRadius: 0,
+                        border: '1px solid var(--accent-border)',
+                        background: 'var(--surface-overlay)',
+                        boxShadow: 'var(--shadow-xl)',
+                        overflow: 'hidden',
+                        zIndex: 40,
+                      }}>
+                      <div style={{ position: 'relative', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <Search size={14} style={{ position: 'absolute', left: 10, top: 9, color: 'var(--text-tertiary)' }} />
+                        <input
+                          name="ai-provider-global-search"
+                          autoComplete="off"
+                          aria-label={t('搜索全局配置')}
+                          value={dedicatedProviderSearch}
+                          onChange={(event) => setDedicatedProviderSearch(event.target.value)}
+                          onMouseLeave={handleInputDragSelectAll}
+                          placeholder={t('搜索全局配置')}
+                          style={{
+                            width: '100%',
+                            height: 34,
+                            border: 'none',
+                            outline: 'none',
+                            background: 'var(--surface-base)',
+                            color: 'var(--text-primary)',
+                            padding: '0 10px 0 32px',
+                            boxSizing: 'border-box',
+                            fontSize: 13,
+                          }}
+                        />
+                      </div>
+                      <div style={{ maxHeight: 285, overflowY: 'auto' }}>
+                        {filteredDedicatedProviderOptions.length > 0 ? (
+                          filteredDedicatedProviderOptions.map((option) => {
+                            const active = option.value === selectedWebSearchProviderValue
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => handleWebSearchProviderSelect(option.value)}
+                                style={{
+                                  width: '100%',
+                                  minHeight: 34,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 12,
+                                  padding: '0 10px',
+                                  border: 'none',
+                                  borderBottom: '1px solid var(--border-subtle)',
+                                  background: active ? 'rgba(var(--accent-rgb), 0.16)' : 'transparent',
+                                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                  fontSize: 12,
+                                  textAlign: 'left',
+                                }}>
+                                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{option.label}</span>
+                                {active ? <Check size={12} color="var(--text-primary)" /> : null}
+                              </button>
+                            )
+                          })
+                        ) : (
+                          <div style={{ padding: '14px 10px', textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+                            {t('没有匹配的供应商')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : null}

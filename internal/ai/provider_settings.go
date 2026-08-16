@@ -262,10 +262,6 @@ func normalizeAIProviderProfilesWithBuiltin(profiles []AIProviderProfile, existi
 	for index := range normalized {
 		profile := &normalized[index]
 
-		if profile.WebSearchEnabled {
-			profile.DedicatedWebSearchEnabled = false
-		}
-
 		if profile.DedicatedWebSearchProviderID == profile.ID {
 			profile.DedicatedWebSearchProviderID = ""
 		}
