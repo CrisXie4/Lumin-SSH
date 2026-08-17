@@ -100,7 +100,7 @@ func (a *App) searchAIProviderWeb(ctx context.Context, profile AIProviderProfile
 	request.Header.Set("Accept", "text/event-stream")
 	request.Header.Set("Authorization", "Bearer "+resolvedProfile.APIKey)
 
-	client, err := a.newAIHTTPClientForProfile(&resolvedProfile, 0)
+	client, err := a.newAINeverTimeoutHTTPClientForProfile(&resolvedProfile)
 	if err != nil {
 		return "", err
 	}
