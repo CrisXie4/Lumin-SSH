@@ -193,7 +193,7 @@ func (a *App) requestMessagesAIChatRound(ctx context.Context, requestID string, 
 		req.Header.Set("anthropic-beta", anthropicPromptCachingBetaHeader)
 	}
 
-	client, err := a.newAIHTTPClientForProfile(&profile, 0)
+	client, err := a.newAINeverTimeoutHTTPClientForProfile(&profile)
 	if err != nil {
 		return result, err
 	}

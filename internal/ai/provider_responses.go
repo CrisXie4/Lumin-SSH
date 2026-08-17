@@ -220,7 +220,7 @@ func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string,
 		req.Header.Set("isdemon", "true")
 	}
 
-	client, err := a.newAIHTTPClientForProfile(&profile, 0)
+	client, err := a.newAINeverTimeoutHTTPClientForProfile(&profile)
 	if err != nil {
 		return result, err
 	}

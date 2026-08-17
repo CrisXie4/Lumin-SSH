@@ -14,10 +14,26 @@ import (
 )
 
 func cloneDefaultAIHTTPTransport() *http.Transport {
+	transport := &http.Transport{}
 	if baseTransport, ok := http.DefaultTransport.(*http.Transport); ok && baseTransport != nil {
-		return baseTransport.Clone()
+		transport = baseTransport.Clone()
 	}
-	return &http.Transport{}
+	return configureAINeverTimeoutHTTPTransport(transport)
+}
+
+func configureAINeverTimeoutHTTPTransport(transport *http.Transport) *http.Transport {
+	if transport == nil {
+		transport = &http.Transport{}
+	}
+	transport.DialContext = (&net.Dialer{
+		Timeout:   0,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+	transport.ResponseHeaderTimeout = 0
+	transport.TLSHandshakeTimeout = 0
+	transport.ExpectContinueTimeout = 0
+	transport.IdleConnTimeout = 0
+	return transport
 }
 
 func resolveAIRequestProxyNode(settings AIGlobalSettings, profile *AIProviderProfile) (*AIProxyNode, error) {
@@ -85,7 +101,7 @@ func buildAISOCKS5DialContext(node AIProxyNode) (func(context.Context, string, s
 		}
 	}
 	forward := &net.Dialer{
-		Timeout:   30 * time.Second,
+		Timeout:   0,
 		KeepAlive: 30 * time.Second,
 	}
 	dialer, err := xproxy.SOCKS5("tcp", address, auth, forward)
@@ -161,13 +177,14 @@ func (a *App) newAIHTTPClientForProfile(profile *AIProviderProfile, timeout time
 	if err != nil {
 		return nil, err
 	}
-	client := &http.Client{
+	return &http.Client{
 		Transport: transport,
-	}
-	if timeout > 0 {
-		client.Timeout = timeout
-	}
-	return client, nil
+		Timeout:   timeout,
+	}, nil
+}
+
+func (a *App) newAINeverTimeoutHTTPClientForProfile(profile *AIProviderProfile) (*http.Client, error) {
+	return a.newAIHTTPClientForProfile(profile, 0)
 }
 
 func (a *App) newAIHTTPClient(timeout time.Duration) (*http.Client, error) {
