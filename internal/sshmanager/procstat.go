@@ -266,6 +266,7 @@ sample() {
   for f in /proc/[0-9]*/stat; do
     [ -r "$f" ] || continue
     pid=${f#/proc/}; pid=${pid%/stat}
+    [ "$pid" = "$$" ] && continue
     IFS= read -r s < "$f" || continue
     threads=; uid=
     while read -r k v rest; do

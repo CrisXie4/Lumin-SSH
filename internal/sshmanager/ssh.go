@@ -2236,10 +2236,13 @@ const dynamicProbeScript = `#!/bin/sh
 # 分 PROC1(pass1)/PROC2(pass2)两段输出——Go 端 parseProbeProcSections 照旧
 # 算 delta 并校验 starttime(PID 复用);远端只负责「选哪 6 个」,不越权算 cpu%。
 sample_procs() {
+  IFS= read -r selfstat < /proc/self/stat
+  selfpid=${selfstat%% *}
   for f in /proc/[0-9]*/stat; do
     [ -r "$f" ] || continue
     IFS= read -r s < "$f" || continue
     pid=${s%% *}
+    [ "$pid" = "$selfpid" ] || [ "$pid" = "$$" ] && continue
     comm=${s#*\(}; comm=${comm%)*}
     rest=${s##*)}
     set -- $rest
@@ -2424,7 +2427,7 @@ func (m *SSHManager) deployProbeScriptIO(client *ssh.Client) error {
 	return nil
 }
 
-// wrapShCmd 把命令包进 POSIX sh 执行。命令中的单引号用 '\'' 转义:该序列在
+// wrapShCmd 把命令包进 POSIX sh 执行。命令中的单引号用 '\” 转义:该序列在
 // bash/sh/fish/csh 下都会被原样透传给内层 sh(外层 shell 只把单引号当字面
 // 量处理),内层 sh 再把它还原为引号语法,因此命令内容可含任意单引号。
 func wrapShCmd(cmd string) string {

@@ -304,6 +304,12 @@ func TestParseFullProcListOutput(t *testing.T) {
 	}
 }
 
+func TestFullProcListScriptExcludesSamplerShell(t *testing.T) {
+	if !strings.Contains(fullProcListScript, ` [ "$pid" = "$$" ] && continue`) {
+		t.Fatal("完整进程采样必须排除采样脚本自身")
+	}
+}
+
 func TestParseFullProcListOutputMalformedLines(t *testing.T) {
 	out := strings.Join([]string{
 		"10000",
@@ -312,8 +318,8 @@ func TestParseFullProcListOutputMalformedLines(t *testing.T) {
 		"root:0",
 		"---PROCS1---",
 		"1000",
-		"1\x1fnot-a-stat-line\x1f1\x1f0\x1f/cmd",   // stat 行非法 → 跳过
-		"2\x1fwrong-field-count",                    // 字段数不足 → 跳过
+		"1\x1fnot-a-stat-line\x1f1\x1f0\x1f/cmd", // stat 行非法 → 跳过
+		"2\x1fwrong-field-count",                 // 字段数不足 → 跳过
 		"---PROCS2---",
 		"1001",
 		"1\x1fnot-a-stat-line\x1f1\x1f0\x1f/cmd",
@@ -494,6 +500,9 @@ sample_procs > "$proctmp"`) {
 	// sample_procs 必须用 read 内建读取,不得逐 PID fork cat/awk
 	if !strings.Contains(dynamicProbeScript, "IFS= read -r s") {
 		t.Fatal("sample_procs 必须用 read 内建读取 stat")
+	}
+	if !strings.Contains(dynamicProbeScript, `IFS= read -r selfstat < /proc/self/stat`) || !strings.Contains(dynamicProbeScript, `[ "$pid" = "$selfpid" ] || [ "$pid" = "$$" ] && continue`) {
+		t.Fatal("sample_procs 必须排除探针及管道采样子 shell")
 	}
 	// select 必须用 awk 配对(不得依赖 join:OpenWrt BusyBox 无该 applet)+ 按 delta 降序取前 6
 	if !strings.Contains(dynamicProbeScript, "awk -F") {
@@ -779,6 +788,7 @@ func TestDynamicProbeScriptNoJoinDependency(t *testing.T) {
 //  1. comm 提取模式写错(${comm%)*)} 永不匹配)导致内核线程(cmdline 空,
 //     回退 comm)显示整行 stat 垃圾,如 "kworker/u:2) S 1 0 0 0..."。
 //  2. 段落/时间戳/双采样配对在真实 sh 管线下的正确性(Go 端单测覆盖不到)。
+//
 // 生产环境目标为 BusyBox ash,同为 POSIX 子集;awk/sort/head/cut/tr 为
 // OpenWrt BusyBox 默认编入的 applet。
 func TestDynamicProbeScriptEndToEndCleanProcessNames(t *testing.T) {
@@ -853,9 +863,9 @@ func TestDynamicProbeScriptEndToEndCleanProcessNames(t *testing.T) {
 	}
 	procs, _ := result["processes"].([]map[string]interface{})
 	want := map[string]string{
-		"100": "nginx",              // 用户进程:cmdline argv[0] basename
-		"200": "kworker/u:2",        // 内核线程:cmdline 空回退 comm,必须干净无 stat 尾巴
-		"300": "openclaw-gateway",   // comm 截断 15 字符,cmdline basename 还原全名
+		"100": "nginx",            // 用户进程:cmdline argv[0] basename
+		"200": "kworker/u:2",      // 内核线程:cmdline 空回退 comm,必须干净无 stat 尾巴
+		"300": "openclaw-gateway", // comm 截断 15 字符,cmdline basename 还原全名
 	}
 	if len(procs) != len(want) {
 		t.Fatalf("应有 %d 个进程, 得到 %d, stderr:\n%s\n输出:\n%s", len(want), len(procs), stderr.String(), stdout.String())
