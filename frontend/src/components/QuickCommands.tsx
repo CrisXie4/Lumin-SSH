@@ -6,7 +6,7 @@ import { useTranslation } from '../i18n.ts';
 import Tiptop from './Tiptop.tsx';
 import { Z } from '../constants/zIndex.ts';
 import { getThemeComponentTheme, type ThemeComponentStyle } from '../utils/theme.ts';
-import { extractQuickCommandParams, fillQuickCommandParams } from '../utils/quickCommandParams.ts';
+import { extractQuickCommandParams, fillQuickCommandParams, normalizeQuickCommandParamHistory, QUICK_COMMAND_PARAM_HISTORY_LIMIT, type QuickCommandParamHistory } from '../utils/quickCommandParams.ts';
 import { clampMenuPosition } from '../utils/menuPosition.ts';
 
 // ── 命令树节点 ───────────────────────────────────────────
@@ -317,7 +317,7 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
   const [groupPickerPos, setGroupPickerPos] = useState({ x: 0, y: 0 });
 
   // 参数历史（按命令缓存，存到文件）
-  const [paramHistory, setParamHistory] = useState<Record<string, Record<string, string[]>>>({});
+  const [paramHistory, setParamHistory] = useState<QuickCommandParamHistory>({});
   // 当前选中命令的参数值（底部内联填写）
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   // 历史下拉：{ cmdKey, paramNum } — 控制哪个参数的下拉展开
@@ -437,8 +437,7 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
       (async () => {
         try {
           const raw = await AppGo.GetParamHistory();
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, Record<string, string[]>>;
+          return normalizeQuickCommandParamHistory(JSON.parse(raw));
         } catch (_) {}
         return {};
       })(),
@@ -446,6 +445,7 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
       if (cancelled) return;
       if (data.length > 0) setCommands(data);
       setParamHistory(hist);
+      AppGo.SaveParamHistory(JSON.stringify(hist)).catch(() => {});
     });
     return () => { cancelled = true; };
   }, []);
@@ -909,7 +909,7 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
         const filtered = arr.filter(v => v !== val);
         filtered.unshift(val);
         // 最多保留 20 条
-        pHist[cmd][num] = filtered.slice(0, 20);
+        pHist[cmd][num] = filtered.slice(0, QUICK_COMMAND_PARAM_HISTORY_LIMIT);
       });
       setParamHistory(pHist);
       AppGo.SaveParamHistory(JSON.stringify(pHist)).catch(() => {});
@@ -1541,22 +1541,47 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
                                     ) : filtered.map((val, i) => (
                                       <div
                                         key={i}
-                                        title={val}
-                                        onClick={() => {
-                                          setParamValues(prev => ({ ...prev, [p.num]: val }));
-                                          setHistoryDropdown(null);
-                                          setHistorySearch('');
-                                        }}
                                         style={{
-                                          padding: '7px 12px', fontSize: 12,
-                                          color: C.inputColor, cursor: 'pointer',
-                                          fontFamily: "'JetBrains Mono', monospace",
-                                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                          display: 'flex', alignItems: 'center',
                                           borderBottom: '1px solid var(--border-subtle)',
                                         }}
-                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                      >{val}</div>
+                                      >
+                                        <div
+                                          title={val}
+                                          onClick={() => {
+                                            setParamValues(prev => ({ ...prev, [p.num]: val }));
+                                            setHistoryDropdown(null);
+                                            setHistorySearch('');
+                                          }}
+                                          style={{
+                                            flex: 1, minWidth: 0, padding: '7px 12px', fontSize: 12,
+                                            color: C.inputColor, cursor: 'pointer',
+                                            fontFamily: "'JetBrains Mono', monospace",
+                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                          }}
+                                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >{val}</div>
+                                        <button
+                                          type="button"
+                                          title={t('删除')}
+                                          aria-label={t('删除')}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const pHist: Record<string, Record<string, string[]>> = { ...paramHistory, [cmdKey]: { ...(paramHistory[cmdKey] || {}) } };
+                                            pHist[cmdKey][p.num] = (pHist[cmdKey][p.num] || []).filter(v => v !== val);
+                                            setParamHistory(pHist);
+                                            AppGo.SaveParamHistory(JSON.stringify(pHist)).catch(() => {});
+                                          }}
+                                          style={{
+                                            flexShrink: 0, alignSelf: 'stretch', display: 'inline-flex', alignItems: 'center',
+                                            padding: '0 9px', border: 0, borderLeft: '1px solid var(--border-subtle)',
+                                            background: 'transparent', color: 'var(--danger)', cursor: 'pointer',
+                                          }}
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
                                     ));
                                   })()}
                                 </div>

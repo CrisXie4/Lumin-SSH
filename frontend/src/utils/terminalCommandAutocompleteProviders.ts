@@ -27,6 +27,12 @@ export interface AutocompleteItem {
   badge: string;
   score: number;
   dedupeKey?: string;
+  quickCommand?: {
+    name: string;
+    command: string;
+    groupPath: string;
+    addCR: boolean;
+  };
 }
 
 /** 顶层补全数据源 */
@@ -241,6 +247,7 @@ export function buildSlashQuickCommandItems(options: {
         source: 'quick' as const,
         label: `/${name}`,
         value: buildCommandReplacementValue(context, command),
+        quickCommand: { name, command, groupPath, addCR: item.addCR !== false },
         description: groupPath ? `${command} · ${groupPath}` : command,
         badge: getAutocompleteBadge('quick'),
         dedupeKey: `quick-slash:${name}\u0000${command}\u0000${groupPath}`,

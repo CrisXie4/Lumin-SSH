@@ -9,6 +9,25 @@ export interface QuickCommandParam {
   label: string;
 }
 
+export type QuickCommandParamHistory = Record<string, Record<string, string[]>>;
+
+export const QUICK_COMMAND_PARAM_HISTORY_LIMIT = 20;
+
+export function normalizeQuickCommandParamHistory(raw: unknown, limit = QUICK_COMMAND_PARAM_HISTORY_LIMIT): QuickCommandParamHistory {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result: QuickCommandParamHistory = {};
+  Object.entries(raw as Record<string, unknown>).forEach(([command, params]) => {
+    if (!params || typeof params !== 'object' || Array.isArray(params)) return;
+    const normalizedParams: Record<string, string[]> = {};
+    Object.entries(params as Record<string, unknown>).forEach(([num, values]) => {
+      if (!Array.isArray(values)) return;
+      normalizedParams[num] = [...new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0))].slice(0, limit);
+    });
+    result[command] = normalizedParams;
+  });
+  return result;
+}
+
 /**
  * 提取命令里的动态参数占位符，按编号升序去重。
  * 同一编号多次出现时保留第一个非空参数名，便于 [p#1 IP地址] ... [p#1] 复用同一值。

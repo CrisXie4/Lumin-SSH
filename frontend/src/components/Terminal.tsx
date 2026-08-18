@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Terminal as XTerm } from '@xterm/xterm';
 import type { IBufferLine, IBufferRange, IMarker, ITerminalInitOnlyOptions, ITerminalOptions } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -8,7 +9,7 @@ import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
 import { getModKey, formatShortcut } from '../utils/platform.ts';
 import { clampMenuPosition } from '../utils/menuPosition.ts';
-import { extractQuickCommandParams, fillQuickCommandParams } from '../utils/quickCommandParams.ts';
+import { extractQuickCommandParams, fillQuickCommandParams, normalizeQuickCommandParamHistory, type QuickCommandParamHistory } from '../utils/quickCommandParams.ts';
 import {
   buildPathAutocompleteContext,
   buildStaticAutocompleteItems,
@@ -625,6 +626,33 @@ export default function Terminal({
   const quickCmdSearchRef = useRef<HTMLInputElement | null>(null);
   // 待确认命令：{ item, values } 或 null（点命令条按钮后弹确认框，对齐安卓端）
   const [pendingQuickCmd, setPendingQuickCmd] = useState<{ item: FlattenedQuickCommand; values: Record<string, string> } | null>(null);
+  const [quickCmdHistoryParam, setQuickCmdHistoryParam] = useState<number | null>(null);
+  const [quickCmdHistoryPosition, setQuickCmdHistoryPosition] = useState({ left: 0, top: 0 });
+  const [quickCmdHistorySearch, setQuickCmdHistorySearch] = useState('');
+  const [quickCmdParamHistory, setQuickCmdParamHistory] = useState<QuickCommandParamHistory>({});
+  const quickCmdParamHistoryRef = useRef<QuickCommandParamHistory>({});
+  useEffect(() => {
+    if (quickCmdHistoryParam === null) return;
+    const closeHistory = (event: MouseEvent) => {
+      if ((event.target as HTMLElement).closest('[data-terminal-quick-cmd-history]')) return;
+      setQuickCmdHistoryParam(null);
+      setQuickCmdHistorySearch('');
+    };
+    document.addEventListener('click', closeHistory, true);
+    return () => document.removeEventListener('click', closeHistory, true);
+  }, [quickCmdHistoryParam]);
+  useEffect(() => {
+    let cancelled = false;
+    AppGo.GetParamHistory().then((raw) => {
+      if (cancelled) return;
+      try {
+        const history = normalizeQuickCommandParamHistory(JSON.parse(raw));
+        quickCmdParamHistoryRef.current = history;
+        setQuickCmdParamHistory(history);
+      } catch (_) {}
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // ── 点击历史弹窗外关闭（document 捕获阶段 mousedown） ──
   // 必须用 capture：命令按钮 / 底部快捷命令面板会 stopPropagation，
@@ -3171,7 +3199,8 @@ export default function Terminal({
   const openQuickCmdConfirm = (item: FlattenedQuickCommand) => {
     if (!item?.command) return;
     const values: Record<string, string> = {};
-    extractQuickCommandParams(item.command).forEach((p) => { values[p.num] = ''; });
+    const history = quickCmdParamHistoryRef.current[item.command] || {};
+    extractQuickCommandParams(item.command).forEach((p) => { values[p.num] = history[p.num]?.[0] || ''; });
     setPendingQuickCmd({ item, values });
   };
 
@@ -3182,6 +3211,19 @@ export default function Terminal({
     const filled = fillQuickCommandParams(pending.item.command, pending.values);
     const text = filled.replace(/\r\n?/g, '\n').trim();
     if (!text) return;
+    const nextParamHistory: QuickCommandParamHistory = {
+      ...quickCmdParamHistoryRef.current,
+      [pending.item.command]: { ...(quickCmdParamHistoryRef.current[pending.item.command] || {}) },
+    };
+    Object.entries(pending.values).forEach(([num, value]) => {
+      if (!value) return;
+      const values = nextParamHistory[pending.item.command][num] || [];
+      nextParamHistory[pending.item.command][num] = [value, ...values.filter((entry) => entry !== value)].slice(0, 20);
+    });
+    const normalizedParamHistory = normalizeQuickCommandParamHistory(nextParamHistory);
+    quickCmdParamHistoryRef.current = normalizedParamHistory;
+    setQuickCmdParamHistory(normalizedParamHistory);
+    AppGo.SaveParamHistory(JSON.stringify(normalizedParamHistory)).catch(() => {});
     setPendingQuickCmd(null);
     const lineCount = text.split('\n').length;
     const payload = pending.item.addCR === false
@@ -3397,6 +3439,16 @@ export default function Terminal({
     if (!item || !item.value) {
       return;
     }
+    if (item.quickCommand && extractQuickCommandParams(item.quickCommand.command).length > 0) {
+      openQuickCmdConfirm({
+        name: item.quickCommand.name,
+        command: item.quickCommand.command,
+        groupPath: item.quickCommand.groupPath,
+        addCR: item.quickCommand.addCR,
+      });
+      closeCommandAutocomplete();
+      return;
+    }
     const nextValue = String(item.value);
     setCmdInput(nextValue);
     closeCommandAutocomplete();
@@ -3409,7 +3461,7 @@ export default function Terminal({
       commandAutocompleteFocusedRef.current = true;
       void loadCommandAutocompleteSuggestions(nextValue);
     });
-  }, [closeCommandAutocomplete, loadCommandAutocompleteSuggestions]);
+  }, [closeCommandAutocomplete, loadCommandAutocompleteSuggestions, openQuickCmdConfirm]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4451,6 +4503,7 @@ export default function Terminal({
                     <label className="form-label" htmlFor={`quick-cmd-param-${p.num}`}>
                       {p.label || `${t('参数')}${p.num}`}
                     </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <input
                       name={`terminal-quick-cmd-param-${p.num}`}
                       autoComplete="off"
@@ -4473,13 +4526,142 @@ export default function Terminal({
                       }}
                       autoFocus={i === 0}
                       placeholder={p.label || `p#${p.num}`}
-                      style={{ width: '100%', fontFamily: 'var(--font-mono)' }}
+                      style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)' }}
                     />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      data-terminal-quick-cmd-history="true"
+                      aria-expanded={quickCmdHistoryParam === p.num}
+                      onClick={(event) => {
+                        setQuickCmdHistorySearch('');
+                        if (quickCmdHistoryParam === p.num) {
+                          setQuickCmdHistoryParam(null);
+                          return;
+                        }
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        setQuickCmdHistoryPosition({
+                          left: Math.max(8, Math.min(rect.left, window.innerWidth - 228)),
+                          top: Math.min(rect.bottom + 4, window.innerHeight - 228),
+                        });
+                        setQuickCmdHistoryParam(p.num);
+                      }}
+                    >
+                      {t('历史')}
+                    </button>
+                    </div>
+                    {quickCmdHistoryParam === p.num && createPortal((() => {
+                      const history = quickCmdParamHistory[pendingQuickCmd.item.command]?.[p.num] || [];
+                      const filteredHistory = quickCmdHistorySearch
+                        ? history.filter((value) => value.toLowerCase().includes(quickCmdHistorySearch.toLowerCase()))
+                        : history;
+                      const saveHistory = (values: string[]) => {
+                        const command = pendingQuickCmd.item.command;
+                        const nextHistory = {
+                          ...quickCmdParamHistoryRef.current,
+                          [command]: { ...(quickCmdParamHistoryRef.current[command] || {}), [p.num]: values },
+                        };
+                        quickCmdParamHistoryRef.current = nextHistory;
+                        setQuickCmdParamHistory(nextHistory);
+                        AppGo.SaveParamHistory(JSON.stringify(nextHistory)).catch(() => {});
+                      };
+                      return (
+                        <div
+                          data-terminal-quick-cmd-history="true"
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                          style={{
+                            position: 'fixed',
+                            left: quickCmdHistoryPosition.left,
+                            top: quickCmdHistoryPosition.top,
+                            zIndex: Z.SUBMENU,
+                            width: 220,
+                            maxHeight: 220,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            background: 'var(--surface-raised)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            boxShadow: 'var(--shadow-md)',
+                          }}
+                        >
+                          <div style={{ padding: 6, flexShrink: 0, borderBottom: '1px solid var(--border-subtle)' }}>
+                            <input
+                              type="text"
+                              className="input"
+                              name={`terminal-quick-cmd-history-search-${p.num}`}
+                              autoComplete="off"
+                              autoFocus
+                              value={quickCmdHistorySearch}
+                              onChange={(event) => setQuickCmdHistorySearch(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Escape') {
+                                  setQuickCmdHistoryParam(null);
+                                  setQuickCmdHistorySearch('');
+                                }
+                              }}
+                              placeholder={t('搜索历史...')}
+                              aria-label={t('搜索历史...')}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => {
+                              saveHistory([]);
+                              setQuickCmdHistoryParam(null);
+                              setQuickCmdHistorySearch('');
+                            }}
+                            style={{ width: '100%', flexShrink: 0, justifyContent: 'flex-start', color: 'var(--danger)', borderBottom: '1px solid var(--border-subtle)', borderRadius: 0 }}
+                          >
+                            {t('清空列表')}
+                          </button>
+                          <div style={{ flex: 1, overflowY: 'auto' }}>
+                            {filteredHistory.length === 0 ? (
+                              <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 12 }}>
+                                {quickCmdHistorySearch ? t('无匹配结果') : t('暂无历史')}
+                              </div>
+                            ) : filteredHistory.map((value) => (
+                              <div
+                                key={value}
+                                style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)' }}
+                              >
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  title={value}
+                                  onClick={() => {
+                                    setPendingQuickCmd((prev) => prev ? { ...prev, values: { ...prev.values, [p.num]: value } } : prev);
+                                    setQuickCmdHistoryParam(null);
+                                    setQuickCmdHistorySearch('');
+                                  }}
+                                  style={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', borderRadius: 0, fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
+                                  {value}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-icon"
+                                  title={t('删除')}
+                                  aria-label={t('删除')}
+                                  onClick={() => saveHistory(history.filter((entry) => entry !== value))}
+                                  style={{ flexShrink: 0, color: 'var(--danger)', borderRadius: 0 }}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })(), document.body)}
                   </div>
                 ))}
 
                 <div className="form-group">
-                  <label className="form-label">{t('将要发送')}</label>
+                  <div className="form-label">{t('将要发送')}</div>
                   <div className="term-quick-cmd-preview">{filled}</div>
                 </div>
               </div>
