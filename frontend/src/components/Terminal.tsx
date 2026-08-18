@@ -23,6 +23,7 @@ import {
 } from '../utils/terminalCommandAutocomplete.ts';
 import { parseCommandInputContext } from '../utils/terminalCommandAutocompleteParser.ts';
 import Tiptop from './Tiptop.tsx';
+import { ToggleSwitch } from './settings/SharedComponents.tsx';
 import type { QuickCommandsHandle } from './QuickCommands.tsx';
 import '@xterm/xterm/css/xterm.css';
 import { useTranslation, type I18nKey } from '../i18n.ts';
@@ -570,6 +571,7 @@ export default function Terminal({
   const [justConnected, setJustConnected]     = useState(false);
   const [cmdInput, setCmdInput]               = useState('');
   const [showHistory, setShowHistory]         = useState(false);
+  const [altOpenHistoryEnabled, setAltOpenHistoryEnabled] = useState(localStorage.getItem('altOpenHistory') !== 'false');
   const [historyList, setHistoryList]         = useState<Array<{ id: string; command: string }>>([]);
   const historyListRef                        = useRef<Array<{ id: string; command: string }>>([]);
   useEffect(() => { historyListRef.current = historyList; }, [historyList]);
@@ -2339,6 +2341,10 @@ export default function Terminal({
       const detail = (e as CustomEvent<KeywordRule[]>).detail;
       if (Array.isArray(detail)) setKeywordRules(detail);
     };
+    const handleAltOpenHistoryChange = (e: Event) => {
+      setAltOpenHistoryEnabled((e as CustomEvent<unknown>).detail !== false);
+    };
+    window.addEventListener('alt-open-history-changed', handleAltOpenHistoryChange);
     window.addEventListener('app-shortcuts-changed', handleShortcutsChange);
     window.addEventListener('terminal-local-echo-changed', handleLocalEchoChange);
     window.addEventListener('terminal-timestamps-changed', handleTimestampsChange);
@@ -2352,6 +2358,7 @@ export default function Terminal({
     window.addEventListener('terminal-keyword-rules-changed', handleKeywordRulesChange);
     window.addEventListener('program-font-settings-changed', handleProgramFontSettingsChange);
     return () => {
+      window.removeEventListener('alt-open-history-changed', handleAltOpenHistoryChange);
       window.removeEventListener('app-shortcuts-changed', handleShortcutsChange);
       window.removeEventListener('terminal-local-echo-changed', handleLocalEchoChange);
       window.removeEventListener('terminal-timestamps-changed', handleTimestampsChange);
@@ -3941,6 +3948,7 @@ export default function Terminal({
           }}
           onKeyDown={async (e) => {
             if (e.key === 'Alt' && !e.ctrlKey && !e.shiftKey && !e.metaKey && !e.repeat) {
+              if (!altOpenHistoryEnabled) return;
               e.preventDefault();
               e.stopPropagation();
               closeCommandAutocomplete();
@@ -4019,7 +4027,9 @@ export default function Terminal({
               executeCommand();
             }
           }}
-          placeholder={`${t('输入命令')} (/ ${t('快捷命令')}) · Shift+Enter ${t('换行')} · Alt → ${t('历史指令')} ${t('搜索')}`}
+          placeholder={altOpenHistoryEnabled
+            ? `${t('输入命令')} (/ ${t('快捷命令')}) · Shift+Enter ${t('换行')} · Alt → ${t('历史指令')} ${t('搜索')}`
+            : `${t('输入命令')} (/ ${t('快捷命令')}) · Shift+Enter ${t('换行')}`}
           style={{
             flex: 1,
             fontSize: 12,
@@ -4249,6 +4259,15 @@ export default function Terminal({
             }}>
               <span style={{ color: 'var(--term-status-color)', fontSize: 11 }}>{t('历史命令')}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ color: 'var(--term-muted)', fontSize: 11 }}>{t('Alt 打开历史指令')}</span>
+                  <ToggleSwitch checked={altOpenHistoryEnabled} onChange={() => {
+                    const enabled = !altOpenHistoryEnabled;
+                    setAltOpenHistoryEnabled(enabled);
+                    localStorage.setItem('altOpenHistory', String(enabled));
+                    window.dispatchEvent(new CustomEvent('alt-open-history-changed', { detail: enabled }));
+                  }} />
+                </div>
                 <button
                   onClick={async () => {
                     const scope = historyMode;

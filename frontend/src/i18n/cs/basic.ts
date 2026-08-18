@@ -455,6 +455,7 @@ export default {
   "终端颜色主题": "Barevný motiv terminálu",
   "选择终端的配色风格，即时生效": "Vyberte styl přizpůsobení barev terminálu, který se projeví okamžitě",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Poznámka: Některá chování klávesových zkratek jsou ovlivněna nastavením prostředí v terminálu.",
+  "Alt 打开历史指令": "Otevřít historii příkazů klávesou Alt",
   "云端同步": "Cloudová synchronizace",
   "同步所有配置，全程 AES-256 高强加密": "Synchronizujte všechny konfigurace s vysoce silným šifrováním AES-256 v průběhu celého procesu",
   "自动同步": "Automatická synchronizace",

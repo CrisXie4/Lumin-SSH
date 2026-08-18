@@ -455,6 +455,7 @@ export default {
   "终端颜色主题": "Terminal renk teması",
   "选择终端的配色风格，即时生效": "Hemen etkili olacak terminalin renk eşleştirme stilini seçin",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Not: Bazı kısayol tuşu davranışları terminaldeki Kabuk ayarlarından etkilenir.",
+  "Alt 打开历史指令": "Alt ile komut geçmişini aç",
   "云端同步": "Bulut senkronizasyonu",
   "同步所有配置，全程 AES-256 高强加密": "Süreç boyunca tüm konfigürasyonları AES-256 yüksek güçlü şifrelemeyle senkronize edin",
   "自动同步": "Otomatik senkronizasyon",

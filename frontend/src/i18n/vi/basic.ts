@@ -455,6 +455,7 @@ export default {
   "终端颜色主题": "Chủ đề màu thiết bị đầu cuối",
   "选择终端的配色风格，即时生效": "Chọn kiểu khớp màu của thiết bị đầu cuối, kiểu này sẽ có hiệu lực ngay lập tức",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Lưu ý: Một số hành vi của phím tắt bị ảnh hưởng bởi cài đặt Shell trong thiết bị đầu cuối.",
+  "Alt 打开历史指令": "Mở lịch sử lệnh bằng Alt",
   "云端同步": "Đồng bộ đám mây",
   "同步所有配置，全程 AES-256 高强加密": "Đồng bộ hóa tất cả các cấu hình với mã hóa cường độ cao AES-256 trong suốt quá trình",
   "自动同步": "Tự động đồng bộ hóa",

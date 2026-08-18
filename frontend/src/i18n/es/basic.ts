@@ -455,6 +455,7 @@ export default {
   "终端颜色主题": "Tema de color terminal",
   "选择终端的配色风格，即时生效": "Seleccione el estilo de combinación de colores del terminal, que entrará en vigor de inmediato",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Nota: Algunos comportamientos de las teclas de método abreviado se ven afectados por la configuración del Shell en el terminal.",
+  "Alt 打开历史指令": "Abrir el historial de comandos con Alt",
   "云端同步": "Sincronización en la nube",
   "同步所有配置，全程 AES-256 高强加密": "Sincronice todas las configuraciones con cifrado de alta resistencia AES-256 durante todo el proceso",
   "自动同步": "Sincronización automática",

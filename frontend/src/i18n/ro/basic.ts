@@ -455,6 +455,7 @@ export default {
   "终端颜色主题": "Tema de culoare terminală",
   "选择终端的配色风格，即时生效": "Selectați stilul de potrivire a culorilor pentru terminal, care va intra în vigoare imediat",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Notă: Unele comportamente ale tastelor de comandă rapidă sunt afectate de setările Shell din terminal.",
+  "Alt 打开历史指令": "Deschide istoricul comenzilor cu Alt",
   "云端同步": "Sincronizare cloud",
   "同步所有配置，全程 AES-256 高强加密": "Sincronizați toate configurațiile cu criptarea de înaltă rezistență AES-256 pe tot parcursul procesului",
   "自动同步": "Sincronizare automată",
