@@ -2228,11 +2228,13 @@ const dynamicProbeScript = `#!/bin/sh
 # LuminSSH Dynamic Probe - auto generated
 # Collects dynamic metrics via /proc
 
-# sample_procs 逐进程读取 /proc/[pid]/stat，只输出 top 计算所需的 6 个字段
-# (pid, comm, utime, stime, starttime, rss)，用 \x1f 分隔。
-# 相比全量传输 /proc stat 行，数据量减少约 85%。
-# 用 read 内建读取(不逐 PID fork)，参数扩展提取字段(与 Go 端 parseProcStatLine
-# 的 LastIndex(")") 逻辑一致)，set -- 按空格分割 ) 之后的内容。
+# ── 进程双采样 + 远端选 top6(只传 6 条,流量与 1.2.7 ps|head -6 持平)──
+# sample_procs 逐进程 read /proc/[pid]/stat(不逐 PID fork),输出 6 字段
+# (pid comm utime stime starttime rss,\x1f 分隔)。供 pass1 落盘与 pass2 流式输入。
+# sample_procs_select 按 pid 配对双采样(join),算 CPU delta,按 delta 降序取前 6。
+# emit_procs_pass 把选出的 6 条转成 Go 端 parseProcStatSample 的 6 字段格式,
+# 分 PROC1(pass1)/PROC2(pass2)两段输出——Go 端 parseProbeProcSections 照旧
+# 算 delta 并校验 starttime(PID 复用);远端只负责「选哪 6 个」,不越权算 cpu%。
 sample_procs() {
   for f in /proc/[0-9]*/stat; do
     [ -r "$f" ] || continue
@@ -2245,6 +2247,54 @@ sample_procs() {
     # ${12} 而非 $12: POSIX sh 中 $12 等价于 ${1}2,必须用 ${} 引用两位数参数
     printf '%s\037%s\037%s\037%s\037%s\037%s\n' "$pid" "$comm" "${12}" "${13}" "${20}" "${22}"
   done
+}
+
+# sample_procs_select: pass1 文件($1, 须按 pid 排序)与 pass2(stdin, 须按 pid
+# 排序)按 pid join 配对,算 CPU delta,按 delta 降序取前 6。
+# 出参(stdout): 至多 6 行,每行 10 个 \x1f 字段:
+#   delta pid comm ut1 st1 start1 ut2 st2 start2 rss2
+# join 默认只输出双侧均有的 pid(等价丢弃单侧样本,即采样窗口内创建/退出);
+# starttime 不一致(PID 复用)在 while 中剔除。
+# ponytail: 依赖 join(POSIX,BusyBox 含 applet);join 缺失则无输出,进程段为空,
+# 与无 /proc 的非 Linux 同路径降级(进程列表空,不报错)。升级路径:若需去 join
+# 依赖,可改纯 sh 归并排序(双流 read 指针推进,O(n) 无 fork),但脚本复杂度翻倍。
+sample_procs_select() {
+  sep=$(printf '\037')
+  join -t "$sep" -1 1 -2 1 "$1" - | while IFS="$sep" read -r \
+    pid comm1 ut1 st1 start1 rss1 comm2 ut2 st2 start2 rss2; do
+    [ "$start1" = "$start2" ] || continue
+    d=$(( ut2 + st2 - ut1 - st1 ))
+    [ "$d" -lt 0 ] && d=0
+    printf '%s\n' "$d${sep}$pid${sep}$comm2${sep}$ut1${sep}$st1${sep}$start1${sep}$ut2${sep}$st2${sep}$start2${sep}$rss2"
+  done | sort -rn | head -6
+}
+
+# emit_procs_pass: 将 sample_procs_select 输出($1 文件)按采样($2=1|2)转成
+# Go 端 parseProcStatSample 的 6 字段格式: pid comm utime stime starttime rss。
+# pass1 的 comm/rss Go 端不取(parseProbeProcSections 只用 p2 的 comm/rss),
+# 借 pass2 的值保证 6 字段齐全;utime/stime/starttime 用各自采样值
+# (Go 端 delta + PID 复用检测依赖这两项,必须正确)。
+# pass2 的 comm 字段替换为 argv[0] basename:Linux 内核 comm 截断为 15 字符
+# (TASK_COMM_LEN=16 含 \0),/proc/$pid/cmdline 含完整 argv[0] 及参数,取其
+# argv[0](第一个空格前)再取 basename(最后 / 后),既不截断(ps、openclaw-gateway)
+# 又显示短进程名(与进程管理 name 列一致);内核线程 cmdline 为空回退 comm。
+# 仅 top6 fork tr,basename 用参数展开(${%%}、${##})无 fork,流量与 1.2.7 持平。
+emit_procs_pass() {
+  sep=$(printf '\037')
+  while IFS="$sep" read -r d pid comm ut1 st1 start1 ut2 st2 start2 rss2; do
+    if [ "$2" = "1" ]; then
+      printf '%s\037%s\037%s\037%s\037%s\037%s\n' "$pid" "$comm" "$ut1" "$st1" "$start1" "$rss2"
+    else
+      cmd=$(tr '\0\n' '  ' < /proc/$pid/cmdline 2>/dev/null)
+      if [ -n "$cmd" ]; then
+        case $cmd in *' '*) cmd=${cmd%% *};; esac
+        case $cmd in *'/'*) cmd=${cmd##*/};; esac
+      else
+        cmd=$comm
+      fi
+      printf '%s\037%s\037%s\037%s\037%s\037%s\n' "$pid" "$cmd" "$ut2" "$st2" "$start2" "$rss2"
+    fi
+  done < "$1"
 }
 
 cat /proc/uptime
@@ -2262,10 +2312,11 @@ echo ---NETCONN1---
 if [ "$1" = "network" ]; then if command -v ss >/dev/null 2>&1; then out=$(ss -H -tnapni 2>/dev/null); if [ -n "$out" ]; then printf '%s\n' "$out"; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; fi
 echo ---DISKIO1---
 cat /proc/diskstats
-if [ "$2" = "procs" ]; then
-echo ---PROC1---
-cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s
-sample_procs
+if [ "$1" = "procs" ]; then
+mkdir -p /tmp/.lumin 2>/dev/null
+proctmp=/tmp/.lumin/.ptop.$$
+ts1p=$(cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s)
+sample_procs | sort > "$proctmp"
 fi
 sleep 1
 echo ---CPU2---
@@ -2276,10 +2327,18 @@ echo ---NETCONN2---
 if [ "$1" = "network" ]; then if command -v ss >/dev/null 2>&1; then out=$(ss -H -tnapni 2>/dev/null); if [ -n "$out" ]; then printf '%s\n' "$out"; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; elif command -v netstat >/dev/null 2>&1; then netstat -tnapn 2>/dev/null | tail -n +3; fi; fi
 echo ---DISKIO2---
 cat /proc/diskstats
-if [ "$2" = "procs" ]; then
+if [ "$1" = "procs" ]; then
+ts2p=$(cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s)
+proctop=/tmp/.lumin/.ptop6.$$
+sample_procs | sort | sample_procs_select "$proctmp" > "$proctop"
+rm -f "$proctmp"
+echo ---PROC1---
+printf '%s\n' "$ts1p"
+emit_procs_pass "$proctop" 1
 echo ---PROC2---
-cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s
-sample_procs
+printf '%s\n' "$ts2p"
+emit_procs_pass "$proctop" 2
+rm -f "$proctop"
 fi
 echo ---DONE---
 `
@@ -3131,8 +3190,10 @@ func parseProbeOutput(out string, includeNetworkConnections bool) (map[string]in
 		networkConnections = networkConnections[:200]
 	}
 
-	// ── Parse Processes (PROC1/PROC2 双采样, /proc 直读, 不依赖 ps/procps) ──
-	proc1Lines := extractSection(lines1, "---PROC1---", "---CPU2---")
+	// ── Parse Processes (PROC1/PROC2 双采样, 远端 join 选 top6, /proc 直读) ──
+	// PROC1/PROC2 均在 ---CPU2--- 之后(lines2):pass1 落盘、pass2 选 top6 后
+	// 两段背靠背输出。PROC1 终点为 ---PROC2---(不再是 ---CPU2---)。
+	proc1Lines := extractSection(lines2, "---PROC1---", "---PROC2---")
 	proc2Lines := extractSection(lines2, "---PROC2---", "---DONE---")
 	processes, _ := parseProbeProcSections(proc1Lines, proc2Lines)
 

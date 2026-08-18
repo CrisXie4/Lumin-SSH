@@ -458,27 +458,90 @@ func TestRemoteFeatureProbeCmdDetectsBusyboxPs(t *testing.T) {
 	}
 }
 
-// 探针 PROC 段必须用 sample_procs 函数(纯 read 内建,不逐 PID fork) +
-// /proc/uptime 浮点时间戳。逐 PID fork cat 在低配路由器上一次采样要 fork
-// 数百次;date +%s 整秒截断会让被拖长的采样窗口把 CPU% 放大近一倍。
-// sample_procs 只输出 6 个字段(pid/comm/utime/stime/starttime/rss),
-// 相比 cat /proc/[0-9]*/stat 全量传输减少约 85% 数据量。
-func TestDynamicProbeScriptProcSamplingForkLean(t *testing.T) {
-	for _, marker := range []string{"---PROC1---", "---PROC2---"} {
-		want := marker + "\ncut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s\nsample_procs\n"
+// 探针 PROC 段:远端双采样 join 选 top6,只传 6 条(流量与 1.2.7 ps|head -6 持平)。
+// sample_procs 用 read 内建读取(不逐 PID fork);sample_procs_select 用 join
+// 配对 + sort -rn | head -6 选 top6;emit_procs_pass 分 PROC1/PROC2 两段输出,
+// Go 端 parseProbeProcSections 照旧算 delta + 校 PID 复用。
+func TestDynamicProbeScriptRemoteTopProcs(t *testing.T) {
+	// 两段背靠背输出,各带时间戳变量 + emit_procs_pass 对应采样
+	for _, c := range []struct{ marker, ts, pass string }{
+		{"---PROC1---", `printf '%s\n' "$ts1p"`, `emit_procs_pass "$proctop" 1`},
+		{"---PROC2---", `printf '%s\n' "$ts2p"`, `emit_procs_pass "$proctop" 2`},
+	} {
+		want := c.marker + "\n" + c.ts + "\n" + c.pass + "\n"
 		if !strings.Contains(dynamicProbeScript, want) {
-			t.Fatalf("%s 段应为 uptime 时间戳 + sample_procs, 实际:\n%s", marker, dynamicProbeScript)
+			t.Fatalf("%s 段应为 时间戳 + %s, 实际:\n%s", c.marker, c.pass, dynamicProbeScript)
+		}
+	}
+	// pass1 落盘(sleep 1 之前):时间戳 + sample_procs | sort > proctmp
+	if !strings.Contains(dynamicProbeScript, `ts1p=$(cut -d' ' -f1 /proc/uptime 2>/dev/null || date +%s)
+sample_procs | sort > "$proctmp"`) {
+		t.Fatal("pass1 须落盘 proctmp(sample_procs | sort),且在 sleep 1 之前")
+	}
+	// pass2 选 top6:sample_procs | sort | sample_procs_select > proctop
+	if !strings.Contains(dynamicProbeScript, `sample_procs | sort | sample_procs_select "$proctmp" > "$proctop"`) {
+		t.Fatal("pass2 须经 sample_procs_select 选 top6 落 proctop")
+	}
+	// 三个函数定义齐全
+	for _, fn := range []string{"sample_procs()", "sample_procs_select()", "emit_procs_pass()"} {
+		if !strings.Contains(dynamicProbeScript, fn) {
+			t.Fatalf("探针脚本必须定义 %s", fn)
 		}
 	}
 	// sample_procs 必须用 read 内建读取,不得逐 PID fork cat/awk
-	if !strings.Contains(dynamicProbeScript, "sample_procs()") {
-		t.Fatal("探针脚本必须定义 sample_procs 函数")
-	}
 	if !strings.Contains(dynamicProbeScript, "IFS= read -r s") {
 		t.Fatal("sample_procs 必须用 read 内建读取 stat")
 	}
+	// select 必须用 join 配对 + 按 delta 降序取前 6
+	if !strings.Contains(dynamicProbeScript, `join -t "$sep" -1 1 -2 1`) {
+		t.Fatal("sample_procs_select 必须用 join 按 pid 配对双采样")
+	}
+	if !strings.Contains(dynamicProbeScript, "sort -rn | head -6") {
+		t.Fatal("sample_procs_select 必须按 delta 降序取前 6")
+	}
 	if strings.Contains(dynamicProbeScript, "cat /proc/[0-9]*/stat") {
 		t.Fatal("PROC 段不得用 cat /proc/[0-9]*/stat 全量传输")
+	}
+	// 回归防护:PROC 段开关必须检查 $1(network 与 procs 互斥地落在 $1)。
+	// getSystemInfo 传 "procs" 作为 $1,$2 恒空;检查 $2 会导致 PROC 段永不输出,
+	// 系统监控的进程管理不显示(1.2.8 a5cb387 的回归根因)。
+	if strings.Contains(dynamicProbeScript, `"$2" = "procs"`) {
+		t.Fatal("PROC 段开关不得检查 $2:procs 标志由 $1 传入,$2 恒空")
+	}
+	// pass2 必须读 cmdline 取 argv[0] basename 替代 comm:
+	// Linux 内核 comm 截断为 15 字符(TASK_COMM_LEN=16 含 \0),
+	// cmdline 取 argv[0](第一个空格前)再取 basename(最后 / 后),
+	// 既不截断(ps、openclaw-gateway)又显示短进程名;
+	// 内核线程 cmdline 为空时回退 comm。
+	if !strings.Contains(dynamicProbeScript, `cmd=$(tr '\0\n' '  ' < /proc/$pid/cmdline 2>/dev/null)`) {
+		t.Fatal("emit_procs_pass pass2 必须读 cmdline 替代 comm(内核 comm 截断 15 字符)")
+	}
+	if !strings.Contains(dynamicProbeScript, `case $cmd in *' '*) cmd=${cmd%% *};; esac`) {
+		t.Fatal("emit_procs_pass pass2 必须取 argv[0](第一个空格前)")
+	}
+	if !strings.Contains(dynamicProbeScript, `case $cmd in *'/'*) cmd=${cmd##*/};; esac`) {
+		t.Fatal("emit_procs_pass pass2 必须取 basename(最后 / 后)")
+	}
+	if !strings.Contains(dynamicProbeScript, "cmd=$comm") {
+		t.Fatal("emit_procs_pass pass2 必须在 cmdline 为空时回退 comm(内核线程)")
+	}
+	// 回归防护:不得直接在 PROC 段输出全量 sample_procs(会回退 1.2.8 异常流量)。
+	// sample_procs 只允许出现在 pass1 落盘(管道 sort > proctmp)与 pass2 输入
+	// (管道 sort | sample_procs_select)中,不得单独出现在 PROC 段内。
+	for _, marker := range []string{"---PROC1---", "---PROC2---"} {
+		idx := strings.Index(dynamicProbeScript, marker)
+		if idx < 0 {
+			continue
+		}
+		tail := dynamicProbeScript[idx+len(marker):]
+		// 截到 ---DONE--- 或段末
+		if done := strings.Index(tail, "---DONE---"); done >= 0 {
+			tail = tail[:done]
+		}
+		// 段内不应出现裸 sample_procs 调用(emit_procs_pass 才是段内输出)
+		if strings.Contains(tail, "\nsample_procs\n") {
+			t.Fatalf("%s 段内不得直接输出 sample_procs(须只传 top6):\n%s", marker, tail)
+		}
 	}
 }
 
