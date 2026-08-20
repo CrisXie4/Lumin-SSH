@@ -1,43 +1,37 @@
 # 依赖验证 CI：负责在 PR/push 上跑构建与测试，验证 dependabot 升级后的依赖
 # 是否仍能编译通过。release.yml 只在打 tag 时触发，dependabot PR 走这里。
+#
+# 说明：不能手工拆分 wails generate module + npm run build —— 两者互相依赖
+# （generate 需 dist、npm build 需 wailsjs），会形成死锁。必须用一个
+# `wails build` 由 Wails 自己按序生成绑定、构建前端、再编译 Go。
 
 name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 env:
   NODE_VERSION: '24'
   GO_VERSION: '1.26'
+  WAILS_VERSION: 'v2.14.0'
 
 jobs:
-  go-check:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: 安装系统依赖（wails build 需要 GTK/WebKit 开发库）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libglib2.0-dev \
+            libc6-dev libayatana-appindicator3-dev
 
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Build
-        run: go build ./...
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Test
-        run: go test ./...
-
-  frontend-check:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend  # 本 job 全部命令都在 frontend 下
-    steps:
-      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -45,11 +39,31 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: 安装 Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
-      - name: Build (vite)
-        run: npm run build
+      - name: 安装前端依赖
+        # runner 全局默认走腾讯云 npm 镜像且可能超时；GitHub runner 上用官方源更稳，
+        # 并加大重试次数/超时兜底偶发网络抖动
+        run: >
+          npm ci
+          --registry=https://registry.npmjs.org/
+          --fetch-retries=5
+          --fetch-retry-mintimeout=5000
+          --fetch-retry-maxtimeout=120000
+        working-directory: frontend
 
-      - name: i18n check
+      - name: Wails 完整构建（生成绑定 + 前端产物 + Go 编译）
+        run: |
+          export PATH=$HOME/go/bin:$PATH
+          wails build -clean -tags webkit2_41
+
+      - name: Go 静态检查
+        run: go vet ./...
+
+      - name: Go 测试
+        run: go test ./...
+
+      - name: i18n 校验
         run: npm run i18n:check
+        working-directory: frontend

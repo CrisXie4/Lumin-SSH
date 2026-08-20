@@ -15,6 +15,7 @@ func TestInitLogFileWritesToDisk(t *testing.T) {
 	t.Setenv("USERPROFILE", tmp) // Windows
 	t.Setenv("HOME", tmp)        // Unix
 	t.Setenv("APPDATA", filepath.Join(tmp, "AppData", "Roaming"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, ".config")) // Linux 隔离，避免污染真实用户配置
 	logExeDirSeam = filepath.Join(tmp, "exe")
 	if err := os.MkdirAll(logExeDirSeam, 0700); err != nil {
 		t.Fatalf("创建 exe 缝目录失败: %v", err)
@@ -31,7 +32,13 @@ func TestInitLogFileWritesToDisk(t *testing.T) {
 	}()
 	log.Printf("[channel-diag] TEST-MARKER connect session=probe")
 
-	logPath := filepath.Join(tmp, "AppData", "Roaming", "Lumin", "config", "lumin.log")
+	// 预期路径与 initLogFile 保持一致：os.UserConfigDir() 平台自适配，
+	// Windows=APPDATA、Linux=$XDG_CONFIG_HOME 或 ~/.config，避免测试写死 Windows 路径。
+	ucd, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("获取用户配置目录失败: %v", err)
+	}
+	logPath := filepath.Join(ucd, "Lumin", "config", "lumin.log")
 	raw, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("lumin.log 未生成: %v", err)
