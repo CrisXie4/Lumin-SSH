@@ -29,8 +29,10 @@ func normalizeReasoningEffort(value string) string {
 		return "medium"
 	case "high":
 		return "high"
-	case "xhigh", "max":
+	case "xhigh":
 		return "xhigh"
+	case "max":
+		return "max"
 	default:
 		return "disable"
 	}
@@ -44,21 +46,21 @@ const (
 )
 
 type AIProviderModelCapability struct {
-	Provider                 string   `json:"provider,omitempty"`
-	ModelID                  string   `json:"modelId,omitempty"`
-	Known                    bool     `json:"known"`
-	SupportsPromptCache      bool     `json:"supportsPromptCache"`
-	PromptCacheRetention     string   `json:"promptCacheRetention,omitempty"`
-	SupportsReasoningBinary  bool     `json:"supportsReasoningBinary"`
-	SupportsReasoningBudget  bool     `json:"supportsReasoningBudget"`
-	RequiredReasoningBudget  bool     `json:"requiredReasoningBudget"`
-	SupportsReasoningEffort  []string `json:"supportsReasoningEffort,omitempty"`
-	RequiredReasoningEffort  bool     `json:"requiredReasoningEffort"`
-	ReasoningEffort          string   `json:"reasoningEffort,omitempty"`
-	ReasoningMode            string   `json:"reasoningMode,omitempty"`
-	MaxTokens                int      `json:"maxTokens,omitempty"`
-	MaxThinkingTokens        int      `json:"maxThinkingTokens,omitempty"`
-	SupportsTemperature      bool     `json:"supportsTemperature"`
+	Provider                string   `json:"provider,omitempty"`
+	ModelID                 string   `json:"modelId,omitempty"`
+	Known                   bool     `json:"known"`
+	SupportsPromptCache     bool     `json:"supportsPromptCache"`
+	PromptCacheRetention    string   `json:"promptCacheRetention,omitempty"`
+	SupportsReasoningBinary bool     `json:"supportsReasoningBinary"`
+	SupportsReasoningBudget bool     `json:"supportsReasoningBudget"`
+	RequiredReasoningBudget bool     `json:"requiredReasoningBudget"`
+	SupportsReasoningEffort []string `json:"supportsReasoningEffort,omitempty"`
+	RequiredReasoningEffort bool     `json:"requiredReasoningEffort"`
+	ReasoningEffort         string   `json:"reasoningEffort,omitempty"`
+	ReasoningMode           string   `json:"reasoningMode,omitempty"`
+	MaxTokens               int      `json:"maxTokens,omitempty"`
+	MaxThinkingTokens       int      `json:"maxThinkingTokens,omitempty"`
+	SupportsTemperature     bool     `json:"supportsTemperature"`
 }
 
 type aiProviderModelCapabilityRule struct {
@@ -160,8 +162,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchExact: "o4-mini-high",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -175,8 +177,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchExact: "o4-mini-low",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -190,8 +192,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchPrefix: "o4-mini",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -205,8 +207,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchExact: "o3-mini-high",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -220,8 +222,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchExact: "o3-mini-low",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -235,8 +237,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchPrefix: "o3-mini",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -250,8 +252,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchExact: "o3-low",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -265,8 +267,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchPrefix: "o3",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -280,8 +282,8 @@ var compatibleProviderModelCapabilityRules = []aiProviderModelCapabilityRule{
 	{
 		MatchPrefix: "o1",
 		Capability: AIProviderModelCapability{
-			Known:                true,
-			SupportsPromptCache:  true,
+			Known:               true,
+			SupportsPromptCache: true,
 			SupportsReasoningEffort: []string{
 				"low",
 				"medium",
@@ -413,7 +415,7 @@ func normalizeAIProviderModelReasoningEffortOptions(values []string) []string {
 	for _, value := range values {
 		nextValue := strings.ToLower(strings.TrimSpace(value))
 		switch nextValue {
-		case "disable", "none", "minimal", "low", "medium", "high", "xhigh":
+		case "disable", "none", "minimal", "low", "medium", "high", "xhigh", "max":
 		default:
 			continue
 		}

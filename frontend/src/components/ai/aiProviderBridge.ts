@@ -56,7 +56,7 @@ const EMPTY_PROMPT_CACHE_POLICY: AIProviderPromptCachePolicy = {
 }
 const VALID_PROTOCOLS = new Set<string>(['Compatible', 'Responses', 'Messages'])
 const VALID_CACHE_STRATEGIES = new Set<string>(['off', 'model', '5m', '1h', '30m', 'in_memory', '24h'])
-const VALID_REASONING_EFFORTS = new Set<string>(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
+const VALID_REASONING_EFFORTS = new Set<string>(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
 const VALID_PROMPT_CACHE_FORMATS = new Set<string>(['prompt_cache_options', 'prompt_cache_retention'])
 const VALID_PROMPT_CACHE_DURATIONS = new Set<string>(['30m', 'in_memory', '24h'])
 
