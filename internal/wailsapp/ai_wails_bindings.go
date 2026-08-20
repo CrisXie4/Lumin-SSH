@@ -253,6 +253,10 @@ func (b *AIBindings) GetAIProviderState() ai.AIProviderState {
 	return b.runtime().GetAIProviderState()
 }
 
+func (b *AIBindings) GetAIProviderPromptCachePolicy(modelID string) ai.AIProviderPromptCachePolicy {
+	return b.runtime().GetAIProviderPromptCachePolicy(modelID)
+}
+
 func (b *AIBindings) SaveAIProviderState(jsonStr string) error {
 	previous := b.runtime().GetAIProviderState()
 	if err := b.runtime().SaveAIProviderState(jsonStr); err != nil {

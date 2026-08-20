@@ -2,6 +2,7 @@ import { ArrowLeft, Check, CircleHelp, Globe, Save, Search, Trash2 } from 'lucid
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation, t as translate, type I18nKey } from '../../i18n.ts'
 import { getAIGlobalSettings } from './aiGlobalSettingsBridge.ts'
+import { getAIProviderPromptCachePolicy, type AIProviderPromptCachePolicy } from './aiProviderBridge.ts'
 import {
   availableAIProviders,
   canUseDedicatedWebSearchCandidate,
@@ -35,6 +36,13 @@ const providerHighlightLabelKeys: Record<string, I18nKey> = {
   Responses: '高缓存',
 }
 const selfWebSearchProviderValue = '__self__'
+const responsePromptCacheStrategyLabelKeys: Record<string, I18nKey> = {
+  off: '强制关闭',
+  model: '基于模型能力',
+  '30m': '30分钟',
+  in_memory: '内存缓存',
+  '24h': '24小时',
+}
 
 function getProviderDisplayLabel(provider: { value?: string; label?: string } | null | undefined, t: (key: I18nKey) => string) {
   if (!provider || typeof provider !== 'object') {
@@ -58,6 +66,17 @@ function normalizePositiveInteger(value: unknown, fallback = 0) {
     return fallback
   }
   return Math.floor(nextValue)
+}
+
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return null
+  }
+  const nextValue = Number(value)
+  return Number.isFinite(nextValue) ? nextValue : null
 }
 
 function buildInitialModelOptions(providerDefinition: unknown, model: string) {
@@ -157,6 +176,9 @@ interface ProviderDraft {
   name: string
   provider: string
   cacheStrategy: string
+  openAiResponsesUsePromptCacheRetention: boolean
+  modelTemperature: number | null
+  modelTopP: number | null
   baseUrl: string
   apiKey: string
   model: string
@@ -186,7 +208,10 @@ function buildDraft(provider?: AIProviderLike | null): ProviderDraft {
     provider: providerDefinition.value,
     cacheStrategy: typeof provider?.cacheStrategy === 'string' && provider.cacheStrategy.trim()
       ? provider.cacheStrategy.trim()
-      : '5m',
+      : (providerDefinition.value === 'Responses' ? 'model' : '5m'),
+    openAiResponsesUsePromptCacheRetention: provider?.openAiResponsesUsePromptCacheRetention === true,
+    modelTemperature: normalizeOptionalNumber(provider?.modelTemperature),
+    modelTopP: normalizeOptionalNumber(provider?.modelTopP),
     baseUrl: typeof provider?.baseUrl === 'string' ? provider.baseUrl : '',
     apiKey: typeof provider?.apiKey === 'string' ? provider.apiKey : '',
     model: resolvedModel,
@@ -319,6 +344,70 @@ function SelectMenu({ value, options, open, onToggle, onSelect, menuRef, menuWid
   )
 }
 
+function StyledCheckbox({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  children: React.ReactNode
+}) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        color: 'var(--text-secondary)',
+        fontSize: 12,
+        lineHeight: 1.2,
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}>
+      <span style={{ position: 'relative', width: 18, height: 18, flexShrink: 0 }}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: 18,
+            height: 18,
+            margin: 0,
+            opacity: 0,
+            cursor: 'pointer',
+            zIndex: 1,
+          }}
+        />
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 18,
+            height: 18,
+            boxSizing: 'border-box',
+            borderRadius: 5,
+            border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
+            background: checked ? 'var(--accent)' : 'var(--surface-sunken)',
+            color: '#fff',
+            boxShadow: focused ? '0 0 0 3px var(--accent-dim)' : 'none',
+            transition: 'var(--transition-fast)',
+          }}>
+          {checked ? <Check size={12} strokeWidth={3} /> : null}
+        </span>
+      </span>
+      <span>{children}</span>
+    </label>
+  )
+}
+
 export interface AIProviderQuickEditOverlayProps {
   open: boolean
   mode?: 'create' | 'edit'
@@ -345,6 +434,8 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
   const [webSearchValidationPassed, setWebSearchValidationPassed] = useState(false)
   const [proxyNodes, setProxyNodes] = useState<Array<{ id?: string; name?: string; type?: string; host?: string; port?: number }>>([])
   const [proxyMenuOpen, setProxyMenuOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic')
+  const [modelPromptCachePolicy, setModelPromptCachePolicy] = useState<AIProviderPromptCachePolicy | null>(null)
   const providerFieldRef = useRef<HTMLDivElement | null>(null)
   const dedicatedProviderFieldRef = useRef<HTMLDivElement | null>(null)
   const dedicatedProxyFieldRef = useRef<HTMLDivElement | null>(null)
@@ -397,21 +488,38 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
   }, [draft.modelMaxThinkingTokens, maxThinkingTokenLimit, modelCapability.maxThinkingTokens])
 
   const supportsPromptCacheSettings = providerDefinition.supportsPromptCacheSettings === true
+  const usePromptCacheRetention =
+    providerDefinition.value === 'Responses' && draft.openAiResponsesUsePromptCacheRetention === true
+  const activeModelPromptCachePolicy = useMemo(() => {
+    const currentModelId = draft.model.trim().toLowerCase()
+    if (!currentModelId || modelPromptCachePolicy?.modelId.trim().toLowerCase() !== currentModelId) {
+      return null
+    }
+    return modelPromptCachePolicy
+  }, [draft.model, modelPromptCachePolicy])
+  const responsePromptCacheOptionsReady =
+    providerDefinition.value !== 'Responses' || (activeModelPromptCachePolicy?.availableFormats?.length ?? 0) > 0
   const promptCacheOptions = useMemo(() => {
     if (!supportsPromptCacheSettings) {
-      return [] as Array<{ value: string; labelKey: string }>
+      return [] as Array<{ value: string; labelKey: I18nKey }>
     }
     if (providerDefinition.value === 'Responses') {
-      // providers JSDoc 未声明该函数，按结构断言
-      const getPromptCacheStrategyOptions = (providerDefinition as unknown as { getPromptCacheStrategyOptions?: (model: string) => Array<{ value: string; labelKey: string }> }).getPromptCacheStrategyOptions
-      if (typeof getPromptCacheStrategyOptions === 'function') {
-        return getPromptCacheStrategyOptions(draft.model || '')
-      }
+      const format = usePromptCacheRetention ? 'prompt_cache_retention' : 'prompt_cache_options'
+      const durations = activeModelPromptCachePolicy?.availableFormats
+        .find((option) => option.format === format)
+        ?.durations || []
+      return ['off', 'model', ...durations].map((value) => ({
+        value,
+        labelKey: responsePromptCacheStrategyLabelKeys[value] || value,
+      }))
     }
     return defaultCacheOptions
-  }, [draft.model, providerDefinition, supportsPromptCacheSettings])
+  }, [activeModelPromptCachePolicy, providerDefinition, supportsPromptCacheSettings, usePromptCacheRetention])
   const selectedPromptCacheStrategy = useMemo(() => {
     const values = promptCacheOptions.map((option) => option.value)
+    if (providerDefinition.value === 'Responses' && !responsePromptCacheOptionsReady && draft.cacheStrategy) {
+      return draft.cacheStrategy
+    }
     if (values.includes(draft.cacheStrategy)) {
       return draft.cacheStrategy
     }
@@ -419,7 +527,19 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
       return 'model'
     }
     return values[0] || 'model'
-  }, [draft.cacheStrategy, promptCacheOptions])
+  }, [draft.cacheStrategy, promptCacheOptions, providerDefinition.value, responsePromptCacheOptionsReady])
+  const promptCacheOfficialSupport = useMemo(() => {
+    if (providerDefinition.value !== 'Responses' || !/^gpt-/i.test(draft.model.trim())) {
+      return ''
+    }
+    if (!activeModelPromptCachePolicy?.known || !activeModelPromptCachePolicy.format || activeModelPromptCachePolicy.supportedDurations.length === 0) {
+      return t('当前模型暂无已维护的官方缓存时长')
+    }
+    const defaultDuration = activeModelPromptCachePolicy.defaultDuration
+      ? `,${t('模型默认')}:${activeModelPromptCachePolicy.defaultDuration}`
+      : ''
+    return `${t('当前模型官方支持')}:${activeModelPromptCachePolicy.format}=${activeModelPromptCachePolicy.supportedDurations.join('/')}${defaultDuration}`
+  }, [activeModelPromptCachePolicy, draft.model, providerDefinition.value, t])
   const supportsWebSearch = providerDefinition.supportsWebSearch === true
   const dedicatedProviderOptions = useMemo(
     () => ([
@@ -550,6 +670,7 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
     setDedicatedProviderMenuOpen(false)
     setDedicatedProviderSearch('')
     setProxyMenuOpen(false)
+    setActiveTab('basic')
     setValidatingWebSearch(false)
     setWebSearchValidationMessage('')
     setWebSearchValidationPassed(false)
@@ -567,6 +688,24 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
       lastAutoRefreshKeyRef.current = ''
     }
   }, [open, provider])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!open || providerDefinition.value !== 'Responses' || !draft.model.trim()) {
+      setModelPromptCachePolicy(null)
+      return () => {
+        cancelled = true
+      }
+    }
+    void getAIProviderPromptCachePolicy(draft.model).then((policy) => {
+      if (!cancelled) {
+        setModelPromptCachePolicy(policy)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [draft.model, open, providerDefinition.value])
 
   // 代理节点变更时实时刷新下拉列表
   useEffect(() => {
@@ -671,7 +810,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
         ...prev,
         provider: nextProviderDefinition.value,
         model: nextModel,
-        cacheStrategy: prev.cacheStrategy || '5m',
+        cacheStrategy: nextProviderDefinition.value === 'Responses' && prev.provider !== 'Responses'
+          ? 'model'
+          : (prev.cacheStrategy || '5m'),
         reasoningEffort: prev.reasoningEffort || (typeof nextCapability.reasoningEffort === 'string' ? nextCapability.reasoningEffort : '') || 'disable',
         enableReasoningEffort: nextCapability.requiredReasoningBudget || nextCapability.requiredReasoningEffort
           ? true
@@ -814,6 +955,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
       ...draft,
       provider: providerDefinition.value,
       cacheStrategy: selectedPromptCacheStrategy,
+      openAiResponsesUsePromptCacheRetention: providerDefinition.value === 'Responses' && draft.openAiResponsesUsePromptCacheRetention === true,
+      modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
+      modelTopP: normalizeOptionalNumber(draft.modelTopP),
       webSearchEnabled: draft.webSearchEnabled,
       dedicatedWebSearchEnabled: useDedicatedWebSearchProvider,
       dedicatedWebSearchProviderId: useDedicatedWebSearchProvider ? resolvedWebSearchProviderValue : '',
@@ -1184,7 +1328,31 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
           </div>
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--border)' }}>
+          {(['basic', 'advanced'] as const).map((tab) => {
+            const active = activeTab === tab
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  height: 34,
+                  border: 'none',
+                  borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
+                  background: active ? 'rgba(var(--accent-rgb), 0.10)' : 'transparent',
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: 12,
+                  fontWeight: active ? 700 : 500,
+                  transition: 'var(--transition)',
+                }}>
+                {tab === 'basic' ? t('基本') : t('高级选项')}
+              </button>
+            )
+          })}
+        </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: activeTab === 'basic' ? 'grid' : 'none', gap: 4 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             <div style={{ display: 'grid', gap: 2 }}>
               <label htmlFor="ai-provider-config-name" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('配置文件')}</label>
@@ -1228,7 +1396,29 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
 
           {supportsPromptCacheSettings ? (
             <div style={{ display: 'grid', gap: 3 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('缓存策略')}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{t('缓存策略')}</div>
+                {providerDefinition.value === 'Responses' ? (
+                  <StyledCheckbox
+                    checked={usePromptCacheRetention}
+                    onChange={(nextUseRetention) => {
+                      const nextFormat = nextUseRetention ? 'prompt_cache_retention' : 'prompt_cache_options'
+                      const supportedDurations = activeModelPromptCachePolicy?.availableFormats
+                        .find((option) => option.format === nextFormat)
+                        ?.durations || []
+                      const supportedOptions = ['off', 'model', ...supportedDurations]
+                      setDraft((prev) => ({
+                        ...prev,
+                        openAiResponsesUsePromptCacheRetention: nextUseRetention,
+                        cacheStrategy: !responsePromptCacheOptionsReady || supportedOptions.includes(prev.cacheStrategy)
+                          ? prev.cacheStrategy
+                          : 'model',
+                      }))
+                    }}>
+                    {usePromptCacheRetention ? `${t('当前格式')}:prompt_cache_retention` : `${t('当前格式')}:prompt_cache_options`}
+                  </StyledCheckbox>
+                ) : null}
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(promptCacheOptions.length, 1)}, minmax(0, 1fr))`, gap: 0, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                 {promptCacheOptions.map((option: { value: string; labelKey: string }, index: number) => {
                   const active = selectedPromptCacheStrategy === option.value
@@ -1252,6 +1442,11 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                   )
                 })}
               </div>
+              {promptCacheOfficialSupport ? (
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11, lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+                  {promptCacheOfficialSupport}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1799,6 +1994,71 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', fontSize: 14 }}>
                   {t('暂无可用模型')}
                 </div>
+              )}
+            </div>
+          </div>
+          </div>
+          <div style={{ display: activeTab === 'advanced' ? 'grid' : 'none', gap: 6, padding: '2px 0' }}>
+            <div style={{ display: 'grid', gap: 4, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-overlay)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <label htmlFor="ai-provider-temperature" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Temperature</label>
+                <StyledCheckbox
+                  checked={draft.modelTemperature !== null}
+                  onChange={(checked) => setDraft((prev) => ({
+                    ...prev,
+                    modelTemperature: checked ? (prev.modelTemperature ?? 0) : null,
+                  }))}>
+                  {t('启用自定义温度')}
+                </StyledCheckbox>
+              </div>
+              {draft.modelTemperature !== null ? (
+                <input
+                  id="ai-provider-temperature"
+                  name="ai-provider-temperature"
+                  autoComplete="off"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={draft.modelTemperature}
+                  onChange={(event) => setDraft((prev) => ({
+                    ...prev,
+                    modelTemperature: normalizeOptionalNumber(event.target.value),
+                  }))}
+                  style={{ height: 34, width: '100%', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-sunken)', color: 'var(--text-primary)', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
+                />
+              ) : (
+                <div style={{ fontSize: 11, lineHeight: 1.25, color: 'var(--text-tertiary)' }}>{t('关闭后不发送该参数')}</div>
+              )}
+            </div>
+            <div style={{ display: 'grid', gap: 4, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-overlay)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <label htmlFor="ai-provider-top-p" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('Top P')}</label>
+                <StyledCheckbox
+                  checked={draft.modelTopP !== null}
+                  onChange={(checked) => setDraft((prev) => ({
+                    ...prev,
+                    modelTopP: checked ? (prev.modelTopP ?? 1) : null,
+                  }))}>
+                  {t('启用自定义 Top P')}
+                </StyledCheckbox>
+              </div>
+              {draft.modelTopP !== null ? (
+                <input
+                  id="ai-provider-top-p"
+                  name="ai-provider-top-p"
+                  autoComplete="off"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={draft.modelTopP}
+                  onChange={(event) => setDraft((prev) => ({
+                    ...prev,
+                    modelTopP: normalizeOptionalNumber(event.target.value),
+                  }))}
+                  style={{ height: 34, width: '100%', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-sunken)', color: 'var(--text-primary)', padding: '0 10px', boxSizing: 'border-box', outline: 'none' }}
+                />
+              ) : (
+                <div style={{ fontSize: 11, lineHeight: 1.25, color: 'var(--text-tertiary)' }}>{t('关闭后不发送该参数')}</div>
               )}
             </div>
           </div>

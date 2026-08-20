@@ -286,12 +286,11 @@ func (a *App) requestCompatibleAIChatRound(ctx context.Context, requestID string
 	modelCapability := aiprovider.ResolveModelCapability(profile.Provider, profile.Model)
 	runtimeProfile := toAIProviderRuntimeProfile(profile)
 	requestBody := map[string]any{
-		"model":       profile.Model,
-		"stream":      true,
-		"temperature": 0,
-		"top_p":       1.0,
-		"messages":    aiprovider.BuildOpenAIChatMessages(systemPrompt, toAIProviderRuntimeMessages(requestMessages), aiprovider.ResolvePromptCacheStrategy(runtimeProfile, modelCapability)),
+		"model":    profile.Model,
+		"stream":   true,
+		"messages": aiprovider.BuildOpenAIChatMessages(systemPrompt, toAIProviderRuntimeMessages(requestMessages), aiprovider.ResolvePromptCacheStrategy(runtimeProfile, modelCapability)),
 	}
+	aiprovider.ApplySamplingParameters(requestBody, runtimeProfile)
 
 	if reasoningEffort := aiprovider.GetEffectiveReasoningEffort(runtimeProfile, modelCapability); reasoningEffort != "" {
 		requestBody["reasoning_effort"] = reasoningEffort

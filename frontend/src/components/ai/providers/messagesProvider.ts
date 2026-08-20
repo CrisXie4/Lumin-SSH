@@ -2,8 +2,6 @@
 /** 模型能力（保守默认 + 规则覆盖，modelId 由 buildCapability 注入；type 而非 interface 以兼容消费方索引签名） */
 export type ModelCapability = {
   known: boolean
-  supportsPromptCache: boolean
-  promptCacheRetention: string
   supportsReasoningBinary: boolean
   supportsReasoningBudget: boolean
   requiredReasoningBudget: boolean
@@ -19,8 +17,6 @@ export type ModelCapability = {
 
 const CONSERVATIVE_CAPABILITY: ModelCapability = {
   known: false,
-  supportsPromptCache: false,
-  promptCacheRetention: 'in_memory',
   supportsReasoningBinary: false,
   supportsReasoningBudget: false,
   requiredReasoningBudget: false,
@@ -45,8 +41,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'claude-opus-4-8',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: 'in_memory',
       supportsReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'],
       requiredReasoningEffort: false,
       reasoningEffort: 'medium',
@@ -60,8 +54,6 @@ const capabilityRules: CapabilityRule[] = [
     matchContains: 'claude-opus-4',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: 'in_memory',
       supportsReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'],
       requiredReasoningEffort: false,
       reasoningEffort: 'medium',
@@ -75,8 +67,6 @@ const capabilityRules: CapabilityRule[] = [
     matchContains: 'claude-sonnet-4',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: 'in_memory',
       supportsReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'],
       requiredReasoningEffort: false,
       reasoningEffort: 'medium',
@@ -90,8 +80,6 @@ const capabilityRules: CapabilityRule[] = [
     matchContains: 'claude-3.7-sonnet',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: 'in_memory',
       supportsReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'],
       requiredReasoningEffort: false,
       reasoningEffort: 'medium',
@@ -105,8 +93,6 @@ const capabilityRules: CapabilityRule[] = [
     matchContains: 'claude',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: 'in_memory',
       supportsReasoningEffort: ['minimal', 'low', 'medium', 'high', 'xhigh'],
       requiredReasoningEffort: false,
       reasoningEffort: 'medium',

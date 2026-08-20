@@ -232,11 +232,6 @@ for (const file of files) {
     for (const v of [undefined, null, '', 'gpt-5.4', 'gpt-5.2-x', 'gpt-5.1', 'gpt-5-chat', 'gpt-5', 'gpt-5-2025-06-01', 'o4-mini-high', 'o3-mini-low', 'o3', 'o1-preview', 'codex-mini', 'gpt-4o', '  GPT-5.4  ', 42]) {
       await compare(`cap#${String(v)}`, (m) => m[idx === 'compatibleProvider' ? 'compatibleProvider' : 'responsesProvider'].getModelCapability(v));
     }
-    if (idx === 'responsesProvider') {
-      for (const v of [undefined, '', 'gpt-5.6', 'gpt-5.5-x', 'gpt-5.4', 'gpt-5.2', 'gpt-5', 'gpt-4.1', 'gpt-3.5', 'unknown-model']) {
-        await compare(`cache#${String(v)}`, (m) => m.responsesProvider.getPromptCacheStrategyOptions(v));
-      }
-    }
   } else if (idx === 'index') {
     for (const v of [undefined, null, '', 'Compatible', 'Responses', 'Messages', 'nope', ' compatible ']) {
       await compare(`def#${String(v)}`, (m) => m.getAIProviderDefinition(v).value);

@@ -17,6 +17,9 @@ export interface AIProviderLike {
   baseUrl?: string
   pinned?: boolean
   cacheStrategy?: string
+  openAiResponsesUsePromptCacheRetention?: boolean
+  modelTemperature?: number | null
+  modelTopP?: number | null
   reasoningEffort?: string
   enableReasoningEffort?: boolean
   dedicatedProxyEnabled?: boolean
@@ -59,6 +62,9 @@ const cacheStrategyLabelKeys: Record<string, I18nKey> = {
   off: '强制关闭',
   '5m': '5分钟',
   '1h': '1小时',
+  '30m': '30分钟',
+  in_memory: '内存缓存',
+  '24h': '24小时',
 }
 const reasoningEffortLabelKeys: Record<string, I18nKey> = {
   none: '无',
@@ -286,6 +292,17 @@ function buildProviderModelOptions(provider: AIProviderLike | null | undefined) 
   ;(Array.isArray(providerDefinition?.initialModels) ? providerDefinition.initialModels : []).forEach(appendOption)
   appendOption(providerDefinition?.defaultModel)
   return options
+}
+
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return null
+  }
+  const nextValue = Number(value)
+  return Number.isFinite(nextValue) ? nextValue : null
 }
 
 function getApiKeyPreview(value: unknown) {
@@ -740,6 +757,9 @@ export default function AIProviderSelector({
       baseUrl: typeof draft.baseUrl === 'string' ? draft.baseUrl.trim() : '',
       apiKey: typeof draft.apiKey === 'string' ? draft.apiKey.trim() : '',
       cacheStrategy: typeof draft.cacheStrategy === 'string' ? draft.cacheStrategy : 'model',
+      openAiResponsesUsePromptCacheRetention: draft.openAiResponsesUsePromptCacheRetention === true,
+      modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
+      modelTopP: normalizeOptionalNumber(draft.modelTopP),
       webSearchEnabled: Boolean(draft.webSearchEnabled),
       dedicatedWebSearchEnabled: Boolean(draft.dedicatedWebSearchEnabled),
       dedicatedWebSearchProviderId: typeof draft.dedicatedWebSearchProviderId === 'string' ? draft.dedicatedWebSearchProviderId : '',

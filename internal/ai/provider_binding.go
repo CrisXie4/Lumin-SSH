@@ -34,6 +34,12 @@ func NormalizeAIProviderCacheStrategyForBinding(value string) string {
 		return "5m"
 	case "1h":
 		return "1h"
+	case "30m":
+		return "30m"
+	case "in_memory":
+		return "in_memory"
+	case "24h":
+		return "24h"
 	default:
 		return "model"
 	}

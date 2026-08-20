@@ -19,8 +19,25 @@ export type AIProvider = {
   openAiLegacyReasoningFormatEnabled: boolean
   modelMaxTokens: number
   modelMaxThinkingTokens: number
+  modelTemperature: number | null
+  modelTopP: number | null
+  openAiResponsesUsePromptCacheRetention: boolean
   pinned: boolean
   updatedAt: number
+}
+
+export type AIProviderPromptCacheFormatPolicy = {
+  format: string
+  durations: string[]
+}
+
+export type AIProviderPromptCachePolicy = {
+  modelId: string
+  known: boolean
+  format: string
+  supportedDurations: string[]
+  defaultDuration: string
+  availableFormats: AIProviderPromptCacheFormatPolicy[]
 }
 
 export interface AIProviderState {
@@ -29,12 +46,23 @@ export interface AIProviderState {
 }
 
 const EMPTY_STATE: AIProviderState = { currentProviderId: '', providers: [] }
+const EMPTY_PROMPT_CACHE_POLICY: AIProviderPromptCachePolicy = {
+  modelId: '',
+  known: false,
+  format: '',
+  supportedDurations: [],
+  defaultDuration: '',
+  availableFormats: [],
+}
 const VALID_PROTOCOLS = new Set<string>(['Compatible', 'Responses', 'Messages'])
 const VALID_CACHE_STRATEGIES = new Set<string>(['off', 'model', '5m', '1h', '30m', 'in_memory', '24h'])
 const VALID_REASONING_EFFORTS = new Set<string>(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
+const VALID_PROMPT_CACHE_FORMATS = new Set<string>(['prompt_cache_options', 'prompt_cache_retention'])
+const VALID_PROMPT_CACHE_DURATIONS = new Set<string>(['30m', 'in_memory', '24h'])
 
 interface AIProviderBridgeShape {
   GetAIProviderState?: () => Promise<unknown>
+  GetAIProviderPromptCachePolicy?: (modelId: string) => Promise<unknown>
   SaveAIProviderState?: (payload: string) => Promise<unknown>
   GetAIProviderTokenGroup?: (payload: string) => Promise<unknown>
 }
@@ -66,6 +94,60 @@ function normalizePositiveInteger(value: unknown): number {
   return Math.floor(nextValue)
 }
 
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    return null
+  }
+  if (typeof value === 'string' && !value.trim()) {
+    return null
+  }
+  const nextValue = Number(value)
+  return Number.isFinite(nextValue) ? nextValue : null
+}
+
+function normalizePromptCacheFormatPolicy(value: unknown): AIProviderPromptCacheFormatPolicy | null {
+  const option = (value ?? {}) as Record<string, unknown>
+  const format = typeof option.format === 'string' && VALID_PROMPT_CACHE_FORMATS.has(option.format)
+    ? option.format
+    : ''
+  const durations = Array.isArray(option.durations)
+    ? [...new Set(option.durations
+      .filter((duration) => typeof duration === 'string' && VALID_PROMPT_CACHE_DURATIONS.has(duration))
+      .map((duration) => duration as string))]
+    : []
+  return format && durations.length > 0 ? { format, durations } : null
+}
+
+function normalizePromptCachePolicy(value: unknown, modelId: unknown): AIProviderPromptCachePolicy {
+  const policy = (value ?? {}) as Record<string, unknown>
+  const format = typeof policy.format === 'string' && VALID_PROMPT_CACHE_FORMATS.has(policy.format)
+    ? policy.format
+    : ''
+  const supportedDurations = Array.isArray(policy.supportedDurations)
+    ? policy.supportedDurations
+      .filter((duration) => typeof duration === 'string' && VALID_PROMPT_CACHE_DURATIONS.has(duration))
+      .map((duration) => duration as string)
+    : []
+  const defaultDuration = typeof policy.defaultDuration === 'string' && supportedDurations.includes(policy.defaultDuration)
+    ? policy.defaultDuration
+    : ''
+  const availableFormats = Array.isArray(policy.availableFormats)
+    ? policy.availableFormats
+      .map(normalizePromptCacheFormatPolicy)
+      .filter((option): option is AIProviderPromptCacheFormatPolicy => option !== null)
+    : []
+  return {
+    modelId: typeof policy.modelId === 'string' && policy.modelId.trim()
+      ? policy.modelId.trim()
+      : normalizeModel(modelId),
+    known: policy.known === true && format !== '' && supportedDurations.length > 0,
+    format,
+    supportedDurations,
+    defaultDuration,
+    availableFormats,
+  }
+}
+
 function normalizeModel(value: unknown): string {
   const nextValue = typeof value === 'string' ? value.trim() : ''
   return nextValue === t('未选择模型') ? '' : nextValue
@@ -95,6 +177,9 @@ function normalizeProvider(provider: unknown, index: number): AIProvider {
     openAiLegacyReasoningFormatEnabled: p.openAiLegacyReasoningFormatEnabled === true,
     modelMaxTokens: normalizePositiveInteger(p.modelMaxTokens),
     modelMaxThinkingTokens: normalizePositiveInteger(p.modelMaxThinkingTokens),
+    modelTemperature: normalizeOptionalNumber(p.modelTemperature),
+    modelTopP: normalizeOptionalNumber(p.modelTopP),
+    openAiResponsesUsePromptCacheRetention: p.openAiResponsesUsePromptCacheRetention === true,
     pinned: Boolean(p.pinned),
     updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : now,
   }
@@ -158,6 +243,19 @@ export async function getAIProviderState(): Promise<AIProviderState> {
     return normalizeAIProviderState(state)
   } catch {
     return EMPTY_STATE
+  }
+}
+
+export async function getAIProviderPromptCachePolicy(modelId: unknown): Promise<AIProviderPromptCachePolicy> {
+  const normalizedModelId = normalizeModel(modelId)
+  const bridge = getAppBridge()
+  if (!normalizedModelId || !bridge?.GetAIProviderPromptCachePolicy) {
+    return { ...EMPTY_PROMPT_CACHE_POLICY, modelId: normalizedModelId }
+  }
+  try {
+    return normalizePromptCachePolicy(await bridge.GetAIProviderPromptCachePolicy(normalizedModelId), normalizedModelId)
+  } catch {
+    return { ...EMPTY_PROMPT_CACHE_POLICY, modelId: normalizedModelId }
   }
 }
 

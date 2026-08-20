@@ -4,22 +4,32 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"regexp"
-	"strconv"
 	"strings"
 )
 
 type Profile struct {
-	Provider                string
-	Model                   string
-	BaseURL                 string
-	APIKey                  string
-	CacheStrategy                   string
-	ReasoningEffort                 string
-	EnableReasoningEffort           bool
-	OpenAILegacyReasoningFormatEnabled bool
-	ModelMaxTokens                  int
-	ModelMaxThinkingTokens  int
+	Provider                               string
+	Model                                  string
+	BaseURL                                string
+	APIKey                                 string
+	CacheStrategy                          string
+	ReasoningEffort                        string
+	EnableReasoningEffort                  bool
+	OpenAILegacyReasoningFormatEnabled     bool
+	OpenAIResponsesUsePromptCacheRetention bool
+	ModelTemperature                       *float64
+	ModelTopP                              *float64
+	ModelMaxTokens                         int
+	ModelMaxThinkingTokens                 int
+}
+
+func ApplySamplingParameters(requestBody map[string]any, profile Profile) {
+	if profile.ModelTemperature != nil {
+		requestBody["temperature"] = *profile.ModelTemperature
+	}
+	if profile.ModelTopP != nil {
+		requestBody["top_p"] = *profile.ModelTopP
+	}
 }
 
 type OpenAIResponsesCacheObject struct {
@@ -108,19 +118,6 @@ func cloneAIProviderCacheObjects(cacheObjects *ProviderCacheObjects) *ProviderCa
 	}
 }
 
-var (
-	responsesPromptCacheGPTVersionPattern = regexp.MustCompile(`^gpt-(\d+)(?:\.(\d+))?`)
-	responsesPromptCache24hOnlyPattern    = regexp.MustCompile(`^gpt-5\.5(?:$|[-.])`)
-	responsesPromptCache24hCapablePatterns = []*regexp.Regexp{
-		regexp.MustCompile(`^gpt-5\.4(?:$|[-.])`),
-		regexp.MustCompile(`^gpt-5\.2(?:$|[-.])`),
-		regexp.MustCompile(`^gpt-5\.1(?:$|[-.])`),
-		regexp.MustCompile(`^gpt-5-codex(?:$|[-.])`),
-		regexp.MustCompile(`^gpt-5(?:$|-20\d{2}-\d{2}-\d{2})`),
-		regexp.MustCompile(`^gpt-4\.1(?:$|[-.])`),
-	}
-)
-
 func normalizeCacheStrategy(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "off":
@@ -142,102 +139,57 @@ func normalizeCacheStrategy(value string) string {
 	}
 }
 
-func normalizeResponsesPromptCacheModelID(modelID string) string {
-	return strings.ToLower(strings.TrimSpace(modelID))
+type ResponsesPromptCacheSelection struct {
+	Format          string
+	Duration        string
+	UseModelDefault bool
 }
 
-func supportsResponsesPromptCacheTTL(modelID string) bool {
-	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
-	matches := responsesPromptCacheGPTVersionPattern.FindStringSubmatch(normalizedModelID)
-	if len(matches) < 2 {
-		return false
-	}
-	majorVersion, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return false
-	}
-	minorVersion := 0
-	if len(matches) > 2 && strings.TrimSpace(matches[2]) != "" {
-		minorVersion, err = strconv.Atoi(matches[2])
-		if err != nil {
-			return false
-		}
-	}
-	return majorVersion > 5 || (majorVersion == 5 && minorVersion >= 6)
+func (selection ResponsesPromptCacheSelection) Enabled() bool {
+	return selection.UseModelDefault || (selection.Format != "" && selection.Duration != "" && selection.Duration != "off")
 }
 
-func supportsResponsesExtendedPromptCacheRetention(modelID string, capability AIProviderModelCapability) bool {
-	if strings.EqualFold(strings.TrimSpace(capability.PromptCacheRetention), "24h") {
-		return true
+func ResolveResponsesPromptCacheSelection(profile Profile) ResponsesPromptCacheSelection {
+	if normalizeProviderProtocol(profile.Provider) != "Responses" {
+		return ResponsesPromptCacheSelection{}
 	}
-	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
-	for _, pattern := range responsesPromptCache24hCapablePatterns {
-		if pattern.MatchString(normalizedModelID) {
-			return true
-		}
-	}
-	return false
-}
-
-func GetResponsesPromptCacheStrategyOptions(modelID string, capability AIProviderModelCapability) []string {
-	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
-	if normalizedModelID == "" {
-		return []string{"off", "model"}
-	}
-	if supportsResponsesPromptCacheTTL(normalizedModelID) {
-		return []string{"off", "model", "30m"}
-	}
-	if responsesPromptCache24hOnlyPattern.MatchString(normalizedModelID) {
-		return []string{"off", "model", "24h"}
-	}
-	supportsExtendedRetention := supportsResponsesExtendedPromptCacheRetention(normalizedModelID, capability)
-	if !capability.SupportsPromptCache && !supportsExtendedRetention {
-		return []string{"off", "model"}
-	}
-	options := []string{"off", "model", "in_memory"}
-	if supportsExtendedRetention {
-		options = append(options, "24h")
-	}
-	return options
-}
-
-func containsCacheStrategyOption(options []string, target string) bool {
-	normalizedTarget := strings.TrimSpace(target)
-	for _, option := range options {
-		if option == normalizedTarget {
-			return true
-		}
-	}
-	return false
-}
-
-func ResolveResponsesPromptCacheStrategy(profile Profile, capability AIProviderModelCapability) string {
-	if !providerSupportsAIQuickEditPromptCache(profile.Provider) {
-		return "off"
-	}
-	modelID := strings.TrimSpace(profile.Model)
-	if modelID == "" {
-		modelID = capability.ModelID
-	}
-	availableOptions := GetResponsesPromptCacheStrategyOptions(modelID, capability)
 	selectedStrategy := normalizeCacheStrategy(profile.CacheStrategy)
-	if selectedStrategy != "model" && containsCacheStrategyOption(availableOptions, selectedStrategy) {
-		return selectedStrategy
+	if selectedStrategy == "off" {
+		return ResponsesPromptCacheSelection{}
 	}
-	normalizedModelID := normalizeResponsesPromptCacheModelID(modelID)
-	if supportsResponsesPromptCacheTTL(normalizedModelID) {
-		return "30m"
+	if selectedStrategy != "model" {
+		format := ResponsesPromptCacheFormatOptions
+		if profile.OpenAIResponsesUsePromptCacheRetention {
+			format = ResponsesPromptCacheFormatRetention
+		}
+		return ResponsesPromptCacheSelection{
+			Format:   format,
+			Duration: selectedStrategy,
+		}
 	}
-	if responsesPromptCache24hOnlyPattern.MatchString(normalizedModelID) {
-		return "24h"
+	policy := GetResponsesPromptCachePolicy(profile.Model)
+	if !policy.Known || policy.Format == "" {
+		return ResponsesPromptCacheSelection{}
 	}
-	if supportsResponsesExtendedPromptCacheRetention(normalizedModelID, capability) {
-		return "24h"
+	if policy.DefaultDuration == "" {
+		return ResponsesPromptCacheSelection{UseModelDefault: true}
 	}
-	if capability.SupportsPromptCache {
-		return "in_memory"
+	return ResponsesPromptCacheSelection{
+		Format:   policy.Format,
+		Duration: policy.DefaultDuration,
 	}
-	return "off"
+}
+
+func ApplyResponsesPromptCacheSelection(requestBody map[string]any, selection ResponsesPromptCacheSelection) {
+	if !selection.Enabled() || selection.UseModelDefault {
+		return
+	}
+	switch selection.Format {
+	case ResponsesPromptCacheFormatRetention:
+		requestBody["prompt_cache_retention"] = selection.Duration
+	case ResponsesPromptCacheFormatOptions:
+		requestBody["prompt_cache_options"] = map[string]any{"ttl": selection.Duration}
+	}
 }
 
 const (
