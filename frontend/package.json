@@ -8,6 +8,9 @@
     "preview": "vite preview",
     "i18n:check": "node scripts/check-i18n.mjs"
   },
+  "overrides": {
+    "dompurify": "^3.4.13"
+  },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.12",
