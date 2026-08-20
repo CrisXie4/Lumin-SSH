@@ -3973,7 +3973,7 @@ export default function Terminal({
           text={!cmdInput && !commandAutocomplete.open ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '2px 4px', fontSize: 11, lineHeight: 1.5, textAlign: 'left', minWidth: 190 }}>
               <div style={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span>⌨️</span> <span>{t('命令输入快捷键')}</span>
+                <span>{t('命令输入快捷键')}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <span style={{ color: 'var(--text-secondary)' }}>{t('执行命令')}</span>
