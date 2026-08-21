@@ -5,8 +5,6 @@ const VALID_REASONING_EFFORTS = new Set(['disable', 'none', 'minimal', 'low', 'm
 
 const CONSERVATIVE_CAPABILITY: ModelCapability = {
   known: false,
-  supportsPromptCache: false,
-  promptCacheRetention: 'in_memory',
   supportsReasoningBinary: false,
   supportsReasoningBudget: false,
   requiredReasoningBudget: false,
@@ -31,8 +29,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'gpt-5.4',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: '24h',
       supportsReasoningEffort: ['low', 'medium', 'high', 'xhigh'],
       reasoningEffort: 'xhigh',
       reasoningMode: 'effort',
@@ -43,8 +39,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'gpt-5.2',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: '24h',
       supportsReasoningEffort: ['none', 'low', 'medium', 'high', 'xhigh'],
       reasoningEffort: 'medium',
       reasoningMode: 'effort',
@@ -55,8 +49,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'gpt-5.1',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: '24h',
       supportsReasoningEffort: ['none', 'low', 'medium', 'high'],
       reasoningEffort: 'medium',
       reasoningMode: 'effort',
@@ -67,8 +59,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'gpt-5-chat',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: '24h',
       reasoningMode: 'none',
       supportsTemperature: false,
     },
@@ -77,8 +67,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'gpt-5',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: '24h',
       reasoningMode: 'none',
       supportsTemperature: false,
     },
@@ -87,8 +75,6 @@ const capabilityRules: CapabilityRule[] = [
     matchContains: 'codex',
     capability: {
       known: true,
-      supportsPromptCache: true,
-      promptCacheRetention: '24h',
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'medium',
       reasoningMode: 'effort',
@@ -99,7 +85,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'o4-mini-high',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'high',
       reasoningMode: 'effort',
@@ -110,7 +95,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'o4-mini-low',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'low',
       reasoningMode: 'effort',
@@ -121,7 +105,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'o4-mini',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'medium',
       reasoningMode: 'effort',
@@ -132,7 +115,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'o3-mini-high',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'high',
       reasoningMode: 'effort',
@@ -143,7 +125,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'o3-mini-low',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'low',
       reasoningMode: 'effort',
@@ -154,7 +135,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'o3-mini',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'medium',
       reasoningMode: 'effort',
@@ -165,7 +145,6 @@ const capabilityRules: CapabilityRule[] = [
     matchExact: 'o3-low',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'low',
       reasoningMode: 'effort',
@@ -176,7 +155,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'o3',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'medium',
       reasoningMode: 'effort',
@@ -187,7 +165,6 @@ const capabilityRules: CapabilityRule[] = [
     matchPrefix: 'o1',
     capability: {
       known: true,
-      supportsPromptCache: true,
       supportsReasoningEffort: ['low', 'medium', 'high'],
       reasoningEffort: 'high',
       reasoningMode: 'effort',

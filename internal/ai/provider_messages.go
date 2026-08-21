@@ -141,14 +141,13 @@ func (a *App) requestMessagesAIChatRound(ctx context.Context, requestID string, 
 	}
 
 	requestBody := map[string]any{
-		"model":       profile.Model,
-		"max_tokens":  maxOutputTokens,
-		"temperature": 0,
-		"top_p":       1.0,
-		"system":      []map[string]any{systemBlock},
-		"messages":    aiprovider.BuildAnthropicMessages(toAIProviderRuntimeMessages(requestMessages), promptCacheStrategy),
-		"stream":      true,
+		"model":      profile.Model,
+		"max_tokens": maxOutputTokens,
+		"system":     []map[string]any{systemBlock},
+		"messages":   aiprovider.BuildAnthropicMessages(toAIProviderRuntimeMessages(requestMessages), promptCacheStrategy),
+		"stream":     true,
 	}
+	aiprovider.ApplySamplingParameters(requestBody, runtimeProfile)
 
 	if reasoningEffort := aiprovider.GetEffectiveReasoningEffort(runtimeProfile, modelCapability); reasoningEffort != "" {
 		if profile.OpenAILegacyReasoningFormatEnabled {

@@ -76,6 +76,7 @@ func (a *App) searchAIProviderWeb(ctx context.Context, profile AIProviderProfile
 		"store":  false,
 		"stream": true,
 	}
+	aiprovider.ApplySamplingParameters(requestBody, runtimeProfile)
 
 	if reasoningEffort := aiprovider.GetEffectiveReasoningEffort(runtimeProfile, modelCapability); reasoningEffort != "" {
 		requestBody["reasoning"] = map[string]any{

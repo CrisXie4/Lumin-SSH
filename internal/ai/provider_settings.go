@@ -12,26 +12,31 @@ import (
 )
 
 type AIProviderProfile struct {
-	ID                                 string         `json:"id"`
-	Name                               string         `json:"name"`
-	Provider                           string         `json:"provider"`
-	Model                              string         `json:"model"`
-	BaseURL                            string         `json:"baseUrl"`
-	APIKey                             string         `json:"apiKey"`
-	CacheStrategy                      string         `json:"cacheStrategy"`
-	WebSearchEnabled                   bool           `json:"webSearchEnabled"`
-	DedicatedWebSearchEnabled          bool           `json:"dedicatedWebSearchEnabled"`
-	DedicatedWebSearchProviderID       string         `json:"dedicatedWebSearchProviderId,omitempty"`
-	DedicatedProxyEnabled              bool           `json:"dedicatedProxyEnabled"`
-	DedicatedProxyID                   string         `json:"dedicatedProxyId,omitempty"`
-	ReasoningEffort                    string         `json:"reasoningEffort"`
-	EnableReasoningEffort              bool           `json:"enableReasoningEffort"`
-	OpenAILegacyReasoningFormatEnabled bool           `json:"openAiLegacyReasoningFormatEnabled"`
-	ModelMaxTokens                     int            `json:"modelMaxTokens,omitempty"`
-	ModelMaxThinkingTokens             int            `json:"modelMaxThinkingTokens,omitempty"`
-	Pinned                             bool           `json:"pinned"`
-	UpdatedAt                          int64          `json:"updatedAt,omitempty"`
+	ID                                     string   `json:"id"`
+	Name                                   string   `json:"name"`
+	Provider                               string   `json:"provider"`
+	Model                                  string   `json:"model"`
+	BaseURL                                string   `json:"baseUrl"`
+	APIKey                                 string   `json:"apiKey"`
+	ModelTemperature                       *float64 `json:"modelTemperature,omitempty"`
+	ModelTopP                              *float64 `json:"modelTopP,omitempty"`
+	CacheStrategy                          string   `json:"cacheStrategy"`
+	OpenAIResponsesUsePromptCacheRetention bool     `json:"openAiResponsesUsePromptCacheRetention"`
+	WebSearchEnabled                       bool     `json:"webSearchEnabled"`
+	DedicatedWebSearchEnabled              bool     `json:"dedicatedWebSearchEnabled"`
+	DedicatedWebSearchProviderID           string   `json:"dedicatedWebSearchProviderId,omitempty"`
+	DedicatedProxyEnabled                  bool     `json:"dedicatedProxyEnabled"`
+	DedicatedProxyID                       string   `json:"dedicatedProxyId,omitempty"`
+	ReasoningEffort                        string   `json:"reasoningEffort"`
+	EnableReasoningEffort                  bool     `json:"enableReasoningEffort"`
+	OpenAILegacyReasoningFormatEnabled     bool     `json:"openAiLegacyReasoningFormatEnabled"`
+	ModelMaxTokens                         int      `json:"modelMaxTokens,omitempty"`
+	ModelMaxThinkingTokens                 int      `json:"modelMaxThinkingTokens,omitempty"`
+	Pinned                                 bool     `json:"pinned"`
+	UpdatedAt                              int64    `json:"updatedAt,omitempty"`
 }
+
+type AIProviderPromptCachePolicy = aiprovider.ResponsesPromptCachePolicy
 
 type AIProviderRegistry struct {
 	Providers []AIProviderProfile `json:"providers"`
@@ -41,7 +46,6 @@ type AIProviderState struct {
 	CurrentProviderID string              `json:"currentProviderId"`
 	Providers         []AIProviderProfile `json:"providers"`
 }
-
 
 func normalizeAIProviderProtocol(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
@@ -66,6 +70,12 @@ func normalizeAIProviderCacheStrategy(value string) string {
 		return "5m"
 	case "1h":
 		return "1h"
+	case "30m":
+		return "30m"
+	case "in_memory":
+		return "in_memory"
+	case "24h":
+		return "24h"
 	default:
 		return "model"
 	}
@@ -261,6 +271,10 @@ func (a *App) GetAIProviderState() AIProviderState {
 	return a.configManager.GetAIProviderState()
 }
 
+func (a *App) GetAIProviderPromptCachePolicy(modelID string) AIProviderPromptCachePolicy {
+	return aiprovider.GetResponsesPromptCachePolicy(modelID)
+}
+
 func (a *App) SaveAIProviderState(jsonStr string) error {
 	state := AIProviderState{
 		Providers: []AIProviderProfile{},
@@ -278,16 +292,19 @@ func (a *App) SaveAIProviderState(jsonStr string) error {
 
 func toAIProviderRuntimeProfile(profile AIProviderProfile) aiprovider.Profile {
 	return aiprovider.Profile{
-		Provider:                           profile.Provider,
-		Model:                              profile.Model,
-		BaseURL:                            profile.BaseURL,
-		APIKey:                             profile.APIKey,
-		CacheStrategy:                      profile.CacheStrategy,
-		ReasoningEffort:                    profile.ReasoningEffort,
-		EnableReasoningEffort:              profile.EnableReasoningEffort,
-		OpenAILegacyReasoningFormatEnabled: profile.OpenAILegacyReasoningFormatEnabled,
-		ModelMaxTokens:                     profile.ModelMaxTokens,
-		ModelMaxThinkingTokens:             profile.ModelMaxThinkingTokens,
+		Provider:                               profile.Provider,
+		Model:                                  profile.Model,
+		BaseURL:                                profile.BaseURL,
+		APIKey:                                 profile.APIKey,
+		ModelTemperature:                       profile.ModelTemperature,
+		ModelTopP:                              profile.ModelTopP,
+		CacheStrategy:                          profile.CacheStrategy,
+		OpenAIResponsesUsePromptCacheRetention: profile.OpenAIResponsesUsePromptCacheRetention,
+		ReasoningEffort:                        profile.ReasoningEffort,
+		EnableReasoningEffort:                  profile.EnableReasoningEffort,
+		OpenAILegacyReasoningFormatEnabled:     profile.OpenAILegacyReasoningFormatEnabled,
+		ModelMaxTokens:                         profile.ModelMaxTokens,
+		ModelMaxThinkingTokens:                 profile.ModelMaxThinkingTokens,
 	}
 }
 
