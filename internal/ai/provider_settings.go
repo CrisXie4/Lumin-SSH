@@ -95,8 +95,10 @@ func normalizeAIProviderReasoningEffort(value string) string {
 		return "medium"
 	case "high":
 		return "high"
-	case "xhigh", "max":
+	case "xhigh":
 		return "xhigh"
+	case "max":
+		return "max"
 	default:
 		return "disable"
 	}

@@ -1,7 +1,7 @@
 // 桥接模块（自 .js 收编后类型化）：Responses 供应商模型能力与 Prompt Cache 策略
 import type { ModelCapability } from './messagesProvider.ts'
 
-const VALID_REASONING_EFFORTS = new Set(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
+const VALID_REASONING_EFFORTS = new Set(['disable', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
 
 const CONSERVATIVE_CAPABILITY: ModelCapability = {
   known: false,

@@ -575,7 +575,6 @@ export default function AIChatFollowUpCard({ question, questions, suggestions, r
       >
         {currentQuestion.type === 'free_text' ? (
           <textarea
-            id="ai-chat-followup-free-text"
             name="ai-chat-followup-free-text"
             value={currentTextAnswer}
             onChange={(event) => handleFreeTextChange(currentQuestion, event.target.value)}

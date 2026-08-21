@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, FolderOpen, Loader2, Pencil, Scissors, Search } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Bot, ChevronLeft, ChevronRight, FolderOpen, Loader2, Pencil, Scissors, Search } from 'lucide-react'
 import { EventsOn } from '../../wailsjs/runtime/runtime.js'
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js'
 import { useTranslation, t as translate, getLanguage, type I18nKey } from '../i18n.ts'
@@ -21,6 +21,19 @@ import AIChatConversation from './ai/chat/AIChatConversation.tsx'
 import { getConversationBranchAnchor } from './ai/chat/aiChatMessageTopology.ts'
 import { isCallMyVipProviderHost } from './ai/providerSpecialHosts.ts'
 import { getAIProviderDefinition } from './ai/providers/index.ts'
+import {
+  clearAIWorkspaceTabPendingLocation,
+  createAIWorkspaceTabId,
+  findAIWorkspaceConversationTab,
+  getAIWorkspaceTabGroup,
+  getAIWorkspaceTabPendingLocation,
+  setAIWorkspaceTabGroup,
+  setAIWorkspaceTabPendingLocation,
+  subscribeAIWorkspaceTabGroup,
+  type AIWorkspaceTab,
+  type AIWorkspaceTabGroup,
+} from '../utils/aiWorkspaceTabs.ts'
+import { AIWorkspaceTabProvider } from './ai/aiWorkspaceTabContext.ts'
 import assistantThinkingActiveImg from '../assets/assistant-thinking-active.webm'
 import Tiptop from './Tiptop.tsx'
 
@@ -68,7 +81,19 @@ interface AIPanelProps {
   terminalId: string
   sessionTerminals?: Array<{ id: string; label?: string }>
   settings?: AIPanelSettings
-  onDevilModeChange?: (enabled: boolean) => void
+  workspaceTabId?: string
+  isHomeView?: boolean
+  isPanelVisible?: boolean
+  isWorkspaceTabActive?: boolean
+  showComposer?: boolean
+  initialConversationId?: string
+  tabBar?: React.ReactNode
+  onDevilModeChange?: (enabled: boolean, tabId?: string) => void
+  onActiveTabChange?: (tabId: string) => void
+  onActivateWorkspaceTab?: (terminalId: string, tabId: string) => void
+  onGoHomeRequested?: () => void
+  onOpenConversationRequested?: (conversationId: string, messageId?: string) => void | Promise<void>
+  onWorkspaceTabStateChange?: (tabId: string, state: { conversationId: string; title: string; activeRequestId: string; transient: boolean }) => void
   addToast?: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number
 }
 
@@ -1264,6 +1289,7 @@ function computeAILastAssistantTurnState(messages: unknown): { lastAssistantTurn
 
 const AI_CONVERSATION_DIFF_TOOL_NAMES = new Set(['apply_diff', 'write_to_file', 'search_replace', 'edit_file', 'apply_patch'])
 const AI_CONVERSATION_DIFF_SUCCESS_STATUSES = new Set(['已执行', AI_FOLLOWUP_COMPLETED_STATUS_KEY])
+const AI_WORKSPACE_TAB_CLOSE_QUIET_MS = 250
 
 function extractAIConversationDiffPrimaryPath(copyContent: unknown, fallbackSummary: unknown) {
   const normalizedCopyContent = typeof copyContent === 'string' ? copyContent.trim() : ''
@@ -1378,7 +1404,7 @@ function resolveAIEventSound(payload: AIEventPayloadShape, fallbackSound = '', a
   return typeof fallbackSound === 'string' ? fallbackSound.trim() : ''
 }
 
-export default function AIPanel({ width, side, terminalId = 'global', sessionId = '', sessionTerminals = [], onDevilModeChange, addToast }: AIPanelProps) {
+function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId = '', sessionTerminals = [], workspaceTabId = '', isHomeView = false, isWorkspaceTabActive = true, showComposer = true, initialConversationId = '', tabBar = null, onDevilModeChange, onGoHomeRequested, onOpenConversationRequested, onWorkspaceTabStateChange, addToast }: AIPanelProps) {
   const { t } = useTranslation()
   const audioPlayersRef = useRef<Map<string, HTMLAudioElement>>(new Map())
   const [mcpInfo, setMcpInfo] = useState<McpInfoState>({ url: '', transport: 'streamable-http', endpoint: '/mcp', instructions: '', logs: '', tools: [] })
@@ -1391,6 +1417,8 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   const [activeSettingsTab, setActiveSettingsTab] = useState('')
   const [tasksDirMigrating, setTasksDirMigrating] = useState(false)
   const [isDevilMode, setIsDevilMode] = useState(false)
+  const [themeToolPreview, setThemeToolPreview] = useState<unknown>(null)
+  const [pendingConversationId, setPendingConversationId] = useState('')
   const [conversationList, setConversationList] = useState<ConversationSummary[]>([])
   const [globalAISettings, setGlobalAISettings] = useState<AIGlobalSettings | null>(null)
   const [terminalOutputLineLimit, setTerminalOutputLineLimit] = useState(500)
@@ -1410,6 +1438,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   const [conversationSearchQuery, setConversationSearchQuery] = useState('')
   const [conversationSearchIndex, setConversationSearchIndex] = useState(0)
   const terminalPanelsRef = useRef<Record<string, PanelState>>({})
+  const deletedConversationIdsRef = useRef<Set<string>>(new Set())
+  const isReturningHomeRef = useRef(false)
+  const conversationLoadRequestRef = useRef(0)
   const panelMountedRef = useRef(true)
   const tokenLedgerRef = useRef<Map<string, TokenLedger>>(new Map())
   const sendPerfMetricsRef = useRef<Map<string, PerfRecord>>(new Map())
@@ -1537,9 +1568,33 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       return
     }
     window.dispatchEvent(new CustomEvent('ai-change-review-preview-clear', {
-      detail: { sessionId: terminalId },
+      detail: { sessionId: terminalId, tabId: workspaceTabId },
     }))
-  }, [terminalId])
+  }, [terminalId, workspaceTabId])
+
+  useEffect(() => {
+    if (!isWorkspaceTabActive) {
+      return
+    }
+    if (themeToolPreview) {
+      setThemeToolPreviewPackage(themeToolPreview)
+    } else {
+      clearThemeToolPreviewPackage()
+    }
+    return () => {
+      clearThemeToolPreviewPackage()
+    }
+  }, [isWorkspaceTabActive, themeToolPreview])
+
+  useEffect(() => {
+    if (isWorkspaceTabActive) {
+      return
+    }
+    setShowSettingsPanel(false)
+    setPopupDismissVersion((current) => current + 1)
+    resetGlobalSearchState()
+    resetConversationSearchState()
+  }, [isWorkspaceTabActive, resetConversationSearchState, resetGlobalSearchState])
 
   useEffect(() => {
     terminalPanelsRef.current = terminalPanels
@@ -1557,13 +1612,19 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       const detail = (event as CustomEvent).detail || {}
       const targetSessionId = typeof detail?.sessionId === 'string' ? detail.sessionId.trim() : ''
       const targetTerminalId = typeof detail?.terminalId === 'string' ? detail.terminalId.trim() : ''
+      const targetTabId = typeof detail?.tabId === 'string' ? detail.tabId.trim() : ''
       const preserveWhitespace = detail?.preserveWhitespace === true
       const rawAppendedText = typeof detail?.text === 'string' ? detail.text : ''
       const appendedText = preserveWhitespace ? rawAppendedText : rawAppendedText.trim()
       if (!(preserveWhitespace ? rawAppendedText.trim() : appendedText)) {
         return
       }
-      if (targetSessionId !== (sessionId || '').trim() || targetTerminalId !== (terminalId || '').trim()) {
+      if (
+        !isWorkspaceTabActive
+        || (targetTabId && targetTabId !== workspaceTabId)
+        || targetSessionId !== (sessionId || '').trim()
+        || targetTerminalId !== (terminalId || '').trim()
+      ) {
         return
       }
       setComposerInputValue((current) => {
@@ -1576,7 +1637,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
     window.addEventListener('ai-composer-append', handleAppendComposerText)
     return () => window.removeEventListener('ai-composer-append', handleAppendComposerText)
-  }, [sessionId, terminalId])
+  }, [isWorkspaceTabActive, sessionId, terminalId, workspaceTabId])
 
   const panelState = terminalPanels[panelInstanceKey] || createEmptyPanelState()
   const terminalLabelMap = useMemo(() => {
@@ -1607,6 +1668,33 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       : message
   }, [terminalLabelMap])
   const activeConversation = panelState.conversation
+  useLayoutEffect(() => {
+    const normalizedTabId = workspaceTabId.trim()
+    const normalizedInitialConversationId = initialConversationId.trim()
+    if (!normalizedTabId) {
+      return
+    }
+    if (isReturningHomeRef.current) {
+      if (activeConversation) {
+        return
+      }
+      isReturningHomeRef.current = false
+    }
+    if (normalizedInitialConversationId && activeConversation?.id !== normalizedInitialConversationId) {
+      return
+    }
+    onWorkspaceTabStateChange?.(normalizedTabId, {
+      conversationId: activeConversation?.id || '',
+      title: activeConversation?.title || '',
+      activeRequestId: panelState.activeRequestId,
+      transient: activeConversation?.transient === true,
+    })
+  }, [activeConversation?.id, activeConversation?.title, initialConversationId, onWorkspaceTabStateChange, panelState.activeRequestId, workspaceTabId])
+  const normalizedInitialConversationId = initialConversationId.trim()
+  const isConversationLoading = Boolean(
+    pendingConversationId
+    || (normalizedInitialConversationId && activeConversation?.id !== normalizedInitialConversationId),
+  )
   const activeConversationRelationType = typeof activeConversation?.relationType === 'string' ? activeConversation.relationType.trim() : ''
   const activeConversationArchived = activeConversation?.archived === true
   const isThemeTuningConversation = activeConversation?.transient === true
@@ -1725,10 +1813,12 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   const isArchivedAgentConversation = activeConversationArchived && activeConversationRelationType === 'agent'
   const canQuickCondenseConversation = Boolean(activeConversation) && runtimePhase === 'ready' && !panelState.isCondensingContext && !isArchivedAgentConversation
   const canSummaryCondenseConversation = Boolean(activeConversation) && runtimePhase === 'ready' && !panelState.isCondensingContext
-  const composerInteractionLocked = isArchivedAgentConversation && !isSummarySubtaskCollaborationActive
-  const composerInteractionLockedLabel = t('当前子代理任务已归档,仅可摘要压缩创建新的子阶段任务')
+  const composerInteractionLocked = isConversationLoading || (isArchivedAgentConversation && !isSummarySubtaskCollaborationActive)
+  const composerInteractionLockedLabel = isConversationLoading
+    ? t('加载中...')
+    : t('当前子代理任务已归档,仅可摘要压缩创建新的子阶段任务')
   const collaborationFollowupInteractionLocked = collaborationLocked && collaborationActive && panelState.collaborationMode === 'followup'
-  const showAssistantCollaborationActiveImage = collaborationActive && Boolean(activeConversation)
+  const showAssistantCollaborationActiveImage = !isConversationLoading && collaborationActive && Boolean(activeConversation)
   const toolResumeAvailable = Boolean(activeConversation)
     && !isArchivedAgentConversation
     && panelState.requestPhase === 'idle'
@@ -1841,6 +1931,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       detail: {
         sessionId: sessionId || '',
         terminalId: terminalId || '',
+        tabId: workspaceTabId,
         messageId: activeResult.messageId,
       },
     }))
@@ -2142,20 +2233,36 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
     const summary = rawChange.summary as AIConversationSnapshot | null | undefined
     if (rawChange.type === 'upsert' && summary?.id) {
+      deletedConversationIdsRef.current.delete(summary.id)
       setConversationList((current) => upsertConversationSummary(current, summary))
+      setPanelState(panelInstanceKey, (current) => (
+        current.activeConversationId === summary.id && current.conversation
+          ? {
+              ...current,
+              conversation: {
+                ...current.conversation,
+                ...summary,
+                messages: current.messages,
+                apiMessages: current.apiMessages,
+              },
+            }
+          : current
+      ))
       return
     }
-    if (rawChange.type !== 'delete' || !rawChange.conversationId) {
+    const conversationId = typeof rawChange.conversationId === 'string' ? rawChange.conversationId.trim() : ''
+    if (rawChange.type !== 'delete' || !conversationId) {
       return
     }
-    setConversationList((current) => current.filter((item) => item.id !== rawChange.conversationId))
+    deletedConversationIdsRef.current.add(conversationId)
+    setConversationList((current) => current.filter((item) => item.id !== conversationId))
     const panel = terminalPanelsRef.current[panelInstanceKey]
-    if (panel?.activeConversationId !== rawChange.conversationId) {
+    if (panel?.activeConversationId !== conversationId) {
       return
     }
     const requestId = panel.activeRequestId
     setPanelState(panelInstanceKey, createEmptyPanelState())
-    clearThemeToolPreviewPackage()
+    setThemeToolPreview(null)
     clearRestorePreview()
     resetComposerEditState()
     resetGlobalSearchState()
@@ -2215,17 +2322,17 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       }
 
       if (payload.kind === 'theme_tool_preview' && payload.theme) {
-        setThemeToolPreviewPackage(payload.theme)
+        setThemeToolPreview(payload.theme)
         return
       }
 
       if (payload.kind === 'theme_tool_reverted') {
-        clearThemeToolPreviewPackage()
+        setThemeToolPreview(null)
         return
       }
 
       if (payload.kind === 'theme_tool_committed') {
-        clearThemeToolPreviewPackage()
+        setThemeToolPreview(null)
         void loadThemePackages().catch(() => {})
         return
       }
@@ -2764,6 +2871,16 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           ...current,
           activeChangeReview: payload.review,
         }))
+        if (workspaceTabId && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ai-change-review-required', {
+            detail: {
+              review: payload.review,
+              sessionId: sessionId || '',
+              terminalId: terminalId || '',
+              tabId: workspaceTabId,
+            },
+          }))
+        }
         return
       }
 
@@ -3494,33 +3611,59 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       detail: {
         sessionId: sessionId || terminalId || '',
         terminalId: terminalId || '',
+        tabId: workspaceTabId,
         items: conversationDiffItems,
       },
     }))
-  }, [conversationDiffItems, sessionId, terminalId])
+  }, [conversationDiffItems, sessionId, terminalId, workspaceTabId])
 
   const handleGoHome = useCallback(async () => {
+    conversationLoadRequestRef.current += 1
+    setPendingConversationId('')
+    isReturningHomeRef.current = true
+    onGoHomeRequested?.()
     if (typeof window !== 'undefined') {
       if (terminalId) {
         window.dispatchEvent(new CustomEvent('ai-change-review-clear', {
-          detail: { sessionId: terminalId },
+          detail: { sessionId: terminalId, tabId: workspaceTabId },
         }))
       }
       window.dispatchEvent(new CustomEvent('ai-conversation-diff-close', {
         detail: {
           sessionId: sessionId || '',
           terminalId: terminalId || '',
+          tabId: workspaceTabId,
         },
       }))
     }
-    clearThemeToolPreviewPackage()
+    setThemeToolPreview(null)
     clearRestorePreview()
     setShowSettingsPanel(false)
     setPopupDismissVersion((current) => current + 1)
     resetComposerEditState()
     resetGlobalSearchState()
     resetConversationSearchState()
-    const previousRequestId = terminalPanelsRef.current[panelInstanceKey]?.activeRequestId
+    const previousPanel = terminalPanelsRef.current[panelInstanceKey]
+    const previousRequestId = previousPanel?.activeRequestId || ''
+    const previousConversation = previousPanel?.conversation
+    const persistCurrentConversation = previousConversation && !previousConversation.transient && !deletedConversationIdsRef.current.has(previousConversation.id)
+      ? (() => {
+          const assistantMessageId = previousPanel?.activeAssistantMessageId || previousRequestId
+          const messages = (Array.isArray(previousPanel?.messages) ? previousPanel.messages : []).filter((message) => (
+            !(
+              (message.id === assistantMessageId || message.id === `${assistantMessageId}-reasoning`)
+              && (message.kind === 'assistant' || message.kind === 'reasoning')
+            )
+          ))
+          return saveAIConversation({
+            ...previousConversation,
+            updatedAt: Date.now(),
+            status: 'idle',
+            messages,
+            apiMessages: Array.isArray(previousPanel?.apiMessages) ? previousPanel.apiMessages : [],
+          }).catch(() => {})
+        })()
+      : Promise.resolve()
     setPanelState(panelInstanceKey, (current) => ({
       ...current,
       activeConversationId: '',
@@ -3553,79 +3696,135 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         await cancelAIChat(previousRequestId)
       } catch {}
     }
+    await persistCurrentConversation
     await refreshAIHomeData()
-  }, [clearRestorePreview, panelInstanceKey, refreshAIHomeData, resetComposerEditState, sessionId, setPanelState, terminalId])
+  }, [clearRestorePreview, onGoHomeRequested, panelInstanceKey, refreshAIHomeData, resetComposerEditState, sessionId, setPanelState, terminalId, workspaceTabId])
 
   // ponytail: unmount/会话关闭时取消未决的 AI 请求，避免后端 aiPendingToolBatches 等 map 残留
   useEffect(() => {
     return () => {
-      const id = terminalPanelsRef.current[panelInstanceKey]?.activeRequestId
-      if (id) {
-        void cancelAIChat(id)
+      const panel = terminalPanelsRef.current[panelInstanceKey]
+      const requestId = panel?.activeRequestId
+      if (!requestId) {
+        return
       }
+      const conversation = panel.conversation
+      if (conversation && !conversation.transient && !deletedConversationIdsRef.current.has(conversation.id)) {
+        const assistantMessageId = panel.activeAssistantMessageId || requestId
+        const messages = (Array.isArray(panel.messages) ? panel.messages : []).filter((message) => (
+          !(
+            (message.id === assistantMessageId || message.id === `${assistantMessageId}-reasoning`)
+            && (message.kind === 'assistant' || message.kind === 'reasoning')
+          )
+        ))
+        void saveAIConversation({
+          ...conversation,
+          updatedAt: Date.now(),
+          status: 'idle',
+          messages,
+          apiMessages: Array.isArray(panel.apiMessages) ? panel.apiMessages : [],
+        }).catch(() => {})
+      }
+      void cancelAIChat(requestId)
     }
   }, [panelInstanceKey])
 
-  const handleOpenConversation = useCallback(async (conversationId: string) => {
-    clearThemeToolPreviewPackage()
+  const handleOpenConversation = useCallback(async (conversationId: string, delegateToWorkspace = true) => {
+    if (delegateToWorkspace && onOpenConversationRequested) {
+      await onOpenConversationRequested(conversationId)
+      return
+    }
+    const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
+    if (!normalizedConversationId) {
+      return
+    }
+    const requestToken = conversationLoadRequestRef.current + 1
+    conversationLoadRequestRef.current = requestToken
+    setPendingConversationId(normalizedConversationId)
+    setThemeToolPreview(null)
     clearRestorePreview()
     resetComposerEditState()
     resetGlobalSearchState()
     resetConversationSearchState()
-    const snapshot = await getAIConversation(conversationId)
-    const latestProviderState = await getAIProviderState().catch(() => ({
-      currentProviderId: typeof aiProviderState?.currentProviderId === 'string' ? aiProviderState.currentProviderId.trim() : '',
-      providers: availableAIProviders,
-    }))
-    const latestProviders = Array.isArray(latestProviderState?.providers) ? latestProviderState.providers : []
-    const resolvedProviderId = resolveAvailableProviderId(latestProviders, snapshot?.settings?.currentProviderId)
-    const nextSnapshot = buildConversationWithProviderId(snapshot, resolvedProviderId)
-    setAIProviderState({
-      currentProviderId: resolvedProviderId,
-      providers: latestProviders,
-    })
-    setConversationList((prev) => upsertConversationSummary(prev, nextSnapshot))
-    setPanelState(panelInstanceKey, {
-      activeConversationId: nextSnapshot.id,
-      conversation: nextSnapshot,
-      messages: nextSnapshot.messages,
-      apiMessages: nextSnapshot.apiMessages,
-      activeRequestId: '',
-      activeAssistantMessageId: '',
-      activeToolExecution: null,
-      toolApprovalMode: '',
-      requestPhase: 'idle',
-      runtimePhase: 'ready',
-      queuedSubmission: null,
-      isFlushingQueuedSubmission: false,
-      skipNextAutomaticRequest: false,
-      resumeAfterCancelRequestId: '',
-      recoverableToolStopReason: '',
-      ...computeAILastAssistantTurnState(nextSnapshot.messages),
-      contextTokens: 0,
-      isCondensingContext: false,
-      activeChangeReview: null,
-      collaborationLocked: false,
-      collaborationActive: false,
-      collaborationMode: '',
-      collaborationStreamBuffer: '',
-      collaborationAwaitingManualFollowup: false,
-      collaborationFollowupRequestId: '',
-    })
-    if (nextSnapshot !== snapshot) {
-      await saveConversationSnapshot(nextSnapshot, panelInstanceKey)
+    try {
+      const snapshot = await getAIConversation(normalizedConversationId)
+      if (!panelMountedRef.current || conversationLoadRequestRef.current !== requestToken) {
+        return
+      }
+      const latestProviderState = await getAIProviderState().catch(() => ({
+        currentProviderId: typeof aiProviderState?.currentProviderId === 'string' ? aiProviderState.currentProviderId.trim() : '',
+        providers: availableAIProviders,
+      }))
+      if (!panelMountedRef.current || conversationLoadRequestRef.current !== requestToken) {
+        return
+      }
+      const latestProviders = Array.isArray(latestProviderState?.providers) ? latestProviderState.providers : []
+      const resolvedProviderId = resolveAvailableProviderId(latestProviders, snapshot?.settings?.currentProviderId)
+      const nextSnapshot = buildConversationWithProviderId(snapshot, resolvedProviderId)
+      setAIProviderState({
+        currentProviderId: resolvedProviderId,
+        providers: latestProviders,
+      })
+      setConversationList((prev) => upsertConversationSummary(prev, nextSnapshot))
+      setPanelState(panelInstanceKey, {
+        activeConversationId: nextSnapshot.id,
+        conversation: nextSnapshot,
+        messages: nextSnapshot.messages,
+        apiMessages: nextSnapshot.apiMessages,
+        activeRequestId: '',
+        activeAssistantMessageId: '',
+        activeToolExecution: null,
+        toolApprovalMode: '',
+        requestPhase: 'idle',
+        runtimePhase: 'ready',
+        queuedSubmission: null,
+        isFlushingQueuedSubmission: false,
+        skipNextAutomaticRequest: false,
+        resumeAfterCancelRequestId: '',
+        recoverableToolStopReason: '',
+        ...computeAILastAssistantTurnState(nextSnapshot.messages),
+        contextTokens: 0,
+        isCondensingContext: false,
+        activeChangeReview: null,
+        collaborationLocked: false,
+        collaborationActive: false,
+        collaborationMode: '',
+        collaborationStreamBuffer: '',
+        collaborationAwaitingManualFollowup: false,
+        collaborationFollowupRequestId: '',
+      })
+      if (nextSnapshot !== snapshot) {
+        await saveConversationSnapshot(nextSnapshot, panelInstanceKey)
+        return
+      }
+      void rebuildAIConversationTokenLedger(nextSnapshot, panelInstanceKey)
+    } catch {
+    } finally {
+      if (conversationLoadRequestRef.current === requestToken) {
+        setPendingConversationId('')
+      }
+    }
+  }, [aiProviderState, availableAIProviders, buildConversationWithProviderId, onOpenConversationRequested, panelInstanceKey, rebuildAIConversationTokenLedger, resetComposerEditState, resolveAvailableProviderId, saveConversationSnapshot, setPanelState])
+
+  useEffect(() => {
+    const normalizedConversationId = initialConversationId.trim()
+    if (
+      !isWorkspaceTabActive
+      || !normalizedConversationId
+      || pendingConversationId === normalizedConversationId
+      || panelState.activeConversationId === normalizedConversationId
+    ) {
       return
     }
-    // 进入任务: 全量重建账本 (100% 可靠)
-    void rebuildAIConversationTokenLedger(nextSnapshot, panelInstanceKey)
-  }, [aiProviderState, availableAIProviders, buildConversationWithProviderId, panelInstanceKey, rebuildAIConversationTokenLedger, resetComposerEditState, resolveAvailableProviderId, saveConversationSnapshot, setPanelState])
+    void handleOpenConversation(normalizedConversationId, false)
+  }, [handleOpenConversation, initialConversationId, isWorkspaceTabActive, panelState.activeConversationId, pendingConversationId])
 
   const handleRestoreConversationBackup = useCallback(async (snapshot: unknown) => {
     const rawSnapshot = snapshot && typeof snapshot === 'object' ? snapshot as AIConversationSnapshot : null
     if (!rawSnapshot?.id) {
       return
     }
-    clearThemeToolPreviewPackage()
+    setThemeToolPreview(null)
     clearRestorePreview()
     resetComposerEditState()
     resetGlobalSearchState()
@@ -3730,10 +3929,11 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       detail: {
         sessionId: sessionId || '',
         terminalId: terminalId || '',
+        tabId: workspaceTabId,
         messageId: normalizedMessageId,
       },
     }))
-  }, [sessionId, terminalId])
+  }, [sessionId, terminalId, workspaceTabId])
 
   const handleOpenGlobalSearch = useCallback(() => {
     setGlobalSearchOpen((current) => {
@@ -3774,6 +3974,10 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     if (!conversationId || !messageId) {
       return
     }
+    if (onOpenConversationRequested) {
+      await onOpenConversationRequested(conversationId, messageId)
+      return
+    }
     if (conversationId !== panelState.activeConversationId) {
       await handleOpenConversation(conversationId)
     } else {
@@ -3782,12 +3986,12 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     window.setTimeout(() => {
       locateConversationMessage(messageId)
     }, 40)
-  }, [handleOpenConversation, locateConversationMessage, panelState.activeConversationId, resetGlobalSearchState])
+  }, [handleOpenConversation, locateConversationMessage, onOpenConversationRequested, panelState.activeConversationId, resetGlobalSearchState])
 
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
     const deletingActiveConversation = panelState.activeConversationId === conversationId
     if (deletingActiveConversation) {
-      clearThemeToolPreviewPackage()
+      setThemeToolPreview(null)
     }
     clearRestorePreview()
     const confirmed = await requestDeleteConfirmation(t('确定删除这条对话吗？此操作不可撤销。'))
@@ -4654,14 +4858,20 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       const detail = (event as CustomEvent).detail || {}
       const targetSessionId = typeof detail?.sessionId === 'string' ? detail.sessionId.trim() : ''
       const targetTerminalId = typeof detail?.terminalId === 'string' ? detail.terminalId.trim() : ''
+      const targetTabId = typeof detail?.tabId === 'string' ? detail.tabId.trim() : ''
       const slot = typeof detail?.slot === 'string' ? detail.slot.trim() : ''
-      if ((sessionId || '').trim() !== targetSessionId || (terminalId || '').trim() !== targetTerminalId) {
+      if (
+        !isWorkspaceTabActive
+        || (targetTabId && targetTabId !== workspaceTabId)
+        || (sessionId || '').trim() !== targetSessionId
+        || (terminalId || '').trim() !== targetTerminalId
+      ) {
         return
       }
       if (slot !== 'light' && slot !== 'dark') {
         return
       }
-      clearThemeToolPreviewPackage()
+      setThemeToolPreview(null)
       const starterText = slot === 'light'
         ? '请帮我实时调整当前浅色主题包的配色,先调用 help,随后只用 preview 或 inspect 逐步预览,满意后再 commit.'
         : '请帮我实时调整当前深色主题包的配色,先调用 help,随后只用 preview 或 inspect 逐步预览,满意后再 commit.'
@@ -4673,7 +4883,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
     }
     window.addEventListener('ai-theme-tuning-start', handleStartThemeTuning)
     return () => window.removeEventListener('ai-theme-tuning-start', handleStartThemeTuning)
-  }, [handleSendMessage, sessionId, terminalId])
+  }, [handleSendMessage, isWorkspaceTabActive, sessionId, terminalId, workspaceTabId])
 
   const handleRetryUserMessage = useCallback(async (messageId: string, text: string, images: unknown[] = []) => {
     if (!activeConversation) {
@@ -5275,14 +5485,14 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
       const review = await previewAIChatToolRestore(restoreArtifactPath, terminalId)
       if (typeof window !== 'undefined' && review && typeof review === 'object') {
         window.dispatchEvent(new CustomEvent('ai-change-review-preview', {
-          detail: { sessionId: terminalId, review },
+          detail: { sessionId: terminalId, tabId: workspaceTabId, review },
         }))
       }
     } catch (error) {
       // error.message 为后端动态文案（可能不在翻译表），translate() 内部有兜底
       await showAlert(error instanceof Error ? translate(error.message as I18nKey) : translate('当前状态不支持还原'))
     }
-  }, [showAlert, terminalId])
+  }, [showAlert, terminalId, workspaceTabId])
 
   const handlePreviewDiff = useCallback(async (restoreArtifactPath: string) => {
     try {
@@ -5812,8 +6022,9 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
   }, [conversationList, getLanguage, globalSearchLoading, globalSearchOpen, globalSearchQuery, globalSearchResults, handleDeleteConversation, handleOpenConversation, handleOpenConversationFolder, handleOpenGlobalSearch, handleSelectGlobalSearchResult, hoveredConversationActionKey, isDevilMode, normalizedGlobalSearchQuery, panelState.activeConversationId, resetGlobalSearchState, t])
 
   return (
-    <div
-      data-ai-panel-root="true"
+    <AIWorkspaceTabProvider value={{ sessionId: sessionId || '', terminalId: terminalId || '', tabId: workspaceTabId || '' }}>
+      <div
+        data-ai-panel-root="true"
       data-ai-devil-mode={isDevilMode ? 'true' : 'false'}
       style={{
         width,
@@ -5871,10 +6082,10 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         onToggleMode={handleToggleDevilMode}
         onOpenConversationSearch={handleOpenConversationSearch}
         onOpenConversationDiff={handleOpenConversationDiff}
-        showConversationSearchButton={Boolean(activeConversation)}
-        showConversationDiffButton={Boolean(activeConversation)}
+        showConversationSearchButton={Boolean(activeConversation) && !isConversationLoading}
+        showConversationDiffButton={Boolean(activeConversation) && !isConversationLoading}
         conversationSearchActive={conversationSearchOpen}
-        showContextTokens={Boolean(activeConversation)}
+        showContextTokens={Boolean(activeConversation) && !isConversationLoading}
         contextTokens={panelState.contextTokens}
         apiMessageCount={Array.isArray(panelState.apiMessages) ? panelState.apiMessages.length : 0}
         isCondensingContext={Boolean(panelState.isCondensingContext)}
@@ -5885,11 +6096,12 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         onCondenseContextFullSummary={handleCondenseContextFullSummary}
         fullSummaryCondenseAvailable={true}
       />
+      {tabBar}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div data-ai-chat-stage="true" style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {activeConversation ? (
+          {activeConversation || !isHomeView ? (
             <>
-              {isThemeTuningConversation ? (
+              {isThemeTuningConversation && !isConversationLoading ? (
                 <div
                   style={{
                     padding: '8px 12px',
@@ -6015,10 +6227,11 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
                 </div>
               ) : null}
               <AIChatConversation
-                messages={panelState.messages}
+                messages={isConversationLoading ? [] : panelState.messages}
                 sessionId={sessionId}
                 terminalId={terminalId}
-                conversationId={activeConversation?.id || ''}
+                conversationId={isConversationLoading ? normalizedInitialConversationId || workspaceTabId : activeConversation?.id || workspaceTabId}
+                tabId={workspaceTabId}
                 onSendUserMessage={handleConversationUserMessage}
                 onRetryUserMessage={handleRetryUserMessage}
                 onRetryAssistantMessage={handleRetryAssistantMessage}
@@ -6063,6 +6276,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
             />
           ) : null}
         </div>
+        {showComposer ? (
         <AIComposer
           onSend={handleComposerSendMessage}
           onCancel={handleCancelMessage}
@@ -6120,6 +6334,7 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
           onCancelEdit={resetComposerEditState}
           dismissSignal={popupDismissVersion}
         />
+        ) : null}
       </div>
       <AIPanelSettingsOverlay
         show={showSettingsPanel}
@@ -6161,6 +6376,586 @@ export default function AIPanel({ width, side, terminalId = 'global', sessionId 
         onUpdateMCPClientServerTimeout={handleUpdateMCPClientServerTimeout}
         onMigratingChange={setTasksDirMigrating}
       />
+      </div>
+    </AIWorkspaceTabProvider>
+  )
+}
+
+export default function AIPanel({ width, side, sessionId, terminalId, sessionTerminals = [], isPanelVisible = true, onDevilModeChange, onActiveTabChange, onActivateWorkspaceTab, addToast }: AIPanelProps) {
+  const { t } = useTranslation()
+  const [tabGroup, setTabGroup] = useState<AIWorkspaceTabGroup>(() => getAIWorkspaceTabGroup(terminalId))
+  const [tabRequestIds, setTabRequestIds] = useState<Record<string, string>>({})
+  const [aiWorkspaceTabOverflow, setAIWorkspaceTabOverflow] = useState(false)
+  const [aiWorkspaceTabCanScrollLeft, setAIWorkspaceTabCanScrollLeft] = useState(false)
+  const [aiWorkspaceTabCanScrollRight, setAIWorkspaceTabCanScrollRight] = useState(false)
+  const tabGroupRef = useRef(tabGroup)
+  const tabRequestIdsRef = useRef<Record<string, string>>({})
+  const aiWorkspaceTabRuntimeRef = useRef<Record<string, { conversationId: string; activeRequestId: string }>>({})
+  const aiWorkspaceTabScrollRef = useRef<HTMLDivElement | null>(null)
+  const aiWorkspaceTabCloseLockRef = useRef<{ tabId: string; confirmed: boolean; lastInteractionAt: number }>()
+  const aiWorkspaceTabCloseUnlockTimerRef = useRef<number>()
+  useEffect(() => {
+    tabGroupRef.current = tabGroup
+  }, [tabGroup])
+  useEffect(() => subscribeAIWorkspaceTabGroup(terminalId, setTabGroup), [terminalId])
+  useEffect(() => {
+    const tabIds = new Set(tabGroup.tabs.map((tab) => tab.id))
+    const nextRuntime: Record<string, { conversationId: string; activeRequestId: string }> = {}
+    tabIds.forEach((tabId) => {
+      const runtime = aiWorkspaceTabRuntimeRef.current[tabId]
+      if (runtime) {
+        nextRuntime[tabId] = runtime
+      }
+    })
+    aiWorkspaceTabRuntimeRef.current = nextRuntime
+    setTabRequestIds((current) => {
+      const next = Object.fromEntries(Object.entries(current).filter(([tabId]) => tabIds.has(tabId)))
+      return Object.keys(next).length === Object.keys(current).length ? current : next
+    })
+  }, [tabGroup.tabs])
+  useEffect(() => {
+    onActiveTabChange?.(tabGroup.activeTabId)
+  }, [onActiveTabChange, tabGroup.activeTabId])
+  const updateTabGroup = useCallback((updater: (current: AIWorkspaceTabGroup) => AIWorkspaceTabGroup) => {
+    return setAIWorkspaceTabGroup(terminalId, updater)
+  }, [terminalId])
+  const flushAIWorkspaceTabPendingLocation = useCallback((tabId: string) => {
+    const pendingLocation = getAIWorkspaceTabPendingLocation(terminalId, tabId)
+    const runtime = aiWorkspaceTabRuntimeRef.current[tabId]
+    const tab = getAIWorkspaceTabGroup(terminalId).tabs.find((item) => item.id === tabId)
+    if (
+      !pendingLocation
+      || !runtime
+      || runtime.conversationId !== pendingLocation.conversationId
+      || tab?.conversationId !== pendingLocation.conversationId
+      || typeof window === 'undefined'
+    ) {
+      return
+    }
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const currentPendingLocation = getAIWorkspaceTabPendingLocation(terminalId, tabId)
+        const currentRuntime = aiWorkspaceTabRuntimeRef.current[tabId]
+        const currentTab = getAIWorkspaceTabGroup(terminalId).tabs.find((item) => item.id === tabId)
+        if (
+          currentPendingLocation?.conversationId !== pendingLocation.conversationId
+          || currentPendingLocation?.messageId !== pendingLocation.messageId
+          || !currentRuntime
+          || currentRuntime.conversationId !== pendingLocation.conversationId
+          || currentTab?.conversationId !== pendingLocation.conversationId
+        ) {
+          return
+        }
+        clearAIWorkspaceTabPendingLocation(terminalId, tabId)
+        window.dispatchEvent(new CustomEvent('ai-conversation-diff-locate', {
+          detail: {
+            sessionId,
+            terminalId,
+            tabId,
+            messageId: pendingLocation.messageId,
+          },
+        }))
+      })
+    })
+  }, [sessionId, terminalId])
+  const queueAIWorkspaceTabLocation = useCallback((targetTerminalId: string, tabId: string, conversationId: string, messageId: string) => {
+    const normalizedMessageId = typeof messageId === 'string' ? messageId.trim() : ''
+    if (!targetTerminalId || !tabId || !conversationId || !normalizedMessageId) {
+      return
+    }
+    setAIWorkspaceTabPendingLocation(targetTerminalId, tabId, {
+      conversationId,
+      messageId: normalizedMessageId,
+    })
+    if (targetTerminalId === terminalId) {
+      flushAIWorkspaceTabPendingLocation(tabId)
+    }
+  }, [flushAIWorkspaceTabPendingLocation, terminalId])
+  useEffect(() => {
+    tabGroup.tabs.forEach((tab) => flushAIWorkspaceTabPendingLocation(tab.id))
+  }, [flushAIWorkspaceTabPendingLocation, tabGroup.tabs])
+  const clearAIWorkspaceTabCloseUnlockTimer = useCallback(() => {
+    if (aiWorkspaceTabCloseUnlockTimerRef.current !== undefined) {
+      window.clearTimeout(aiWorkspaceTabCloseUnlockTimerRef.current)
+      aiWorkspaceTabCloseUnlockTimerRef.current = undefined
+    }
+  }, [])
+  const scheduleAIWorkspaceTabCloseUnlock = useCallback(() => {
+    clearAIWorkspaceTabCloseUnlockTimer()
+    const schedule = () => {
+      const closeLock = aiWorkspaceTabCloseLockRef.current
+      if (!closeLock?.confirmed) {
+        return
+      }
+      const remainingDelay = Math.max(0, AI_WORKSPACE_TAB_CLOSE_QUIET_MS - (Date.now() - closeLock.lastInteractionAt))
+      aiWorkspaceTabCloseUnlockTimerRef.current = window.setTimeout(() => {
+        aiWorkspaceTabCloseUnlockTimerRef.current = undefined
+        const currentCloseLock = aiWorkspaceTabCloseLockRef.current
+        if (!currentCloseLock?.confirmed) {
+          return
+        }
+        if (Date.now() - currentCloseLock.lastInteractionAt < AI_WORKSPACE_TAB_CLOSE_QUIET_MS) {
+          schedule()
+          return
+        }
+        aiWorkspaceTabCloseLockRef.current = undefined
+      }, remainingDelay)
+    }
+    schedule()
+  }, [clearAIWorkspaceTabCloseUnlockTimer])
+  const suppressAIWorkspaceTabCloseInteraction = useCallback((event: React.SyntheticEvent) => {
+    const closeLock = aiWorkspaceTabCloseLockRef.current
+    if (!closeLock) {
+      return
+    }
+    closeLock.lastInteractionAt = Date.now()
+    event.preventDefault()
+    event.stopPropagation()
+    scheduleAIWorkspaceTabCloseUnlock()
+  }, [scheduleAIWorkspaceTabCloseUnlock])
+  const syncAIWorkspaceTabScrollState = useCallback(() => {
+    const element = aiWorkspaceTabScrollRef.current
+    if (!element) {
+      setAIWorkspaceTabOverflow(false)
+      setAIWorkspaceTabCanScrollLeft(false)
+      setAIWorkspaceTabCanScrollRight(false)
+      return
+    }
+    const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth)
+    const hasOverflow = maxScrollLeft > 1
+    setAIWorkspaceTabOverflow(hasOverflow)
+    setAIWorkspaceTabCanScrollLeft(hasOverflow && element.scrollLeft > 1)
+    setAIWorkspaceTabCanScrollRight(hasOverflow && element.scrollLeft < maxScrollLeft - 1)
+  }, [])
+  const scrollActiveAIWorkspaceTabIntoView = useCallback((tabId: string) => {
+    const element = aiWorkspaceTabScrollRef.current
+    if (!element || !tabId) {
+      return
+    }
+    const tabElement = Array.from(element.querySelectorAll<HTMLElement>('[data-ai-workspace-tab-id]'))
+      .find((item) => item.dataset.aiWorkspaceTabId === tabId)
+    if (!tabElement) {
+      return
+    }
+    const scrollRect = element.getBoundingClientRect()
+    const tabRect = tabElement.getBoundingClientRect()
+    const edgePadding = 6
+    const delta = tabRect.left < scrollRect.left + edgePadding
+      ? tabRect.left - scrollRect.left - edgePadding
+      : tabRect.right > scrollRect.right - edgePadding
+        ? tabRect.right - scrollRect.right + edgePadding
+        : 0
+    if (delta) {
+      element.scrollBy({ left: delta, behavior: 'smooth' })
+    }
+  }, [])
+  const scrollAIWorkspaceTabs = useCallback((direction: number) => {
+    const element = aiWorkspaceTabScrollRef.current
+    if (!element) {
+      return
+    }
+    const step = Math.max(96, Math.round(element.clientWidth * 0.45))
+    element.scrollBy({ left: step * direction, behavior: 'smooth' })
+  }, [])
+  const handleAIWorkspaceTabScroll = useCallback(() => {
+    syncAIWorkspaceTabScrollState()
+  }, [syncAIWorkspaceTabScrollState])
+  const handleAIWorkspaceTabWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const element = aiWorkspaceTabScrollRef.current
+    if (!element || element.scrollWidth <= element.clientWidth) {
+      return
+    }
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+    if (!delta) {
+      return
+    }
+    element.scrollBy({ left: delta, behavior: 'auto' })
+    event.preventDefault()
+  }, [])
+  useEffect(() => {
+    if (tabGroup.tabs.length > 0) {
+      if (!tabGroup.tabs.some((tab) => tab.id === tabGroup.activeTabId)) {
+        updateTabGroup((current) => ({
+          ...current,
+          activeTabId: current.tabs[0]?.id || '',
+        }))
+      }
+      return
+    }
+    const tabId = createAIWorkspaceTabId()
+    updateTabGroup((current) => (
+      current.tabs.length > 0
+        ? current
+        : {
+            activeTabId: tabId,
+            tabs: [{ id: tabId, conversationId: '', title: t('新对话') }],
+          }
+    ))
+  }, [t, tabGroup.activeTabId, tabGroup.tabs, updateTabGroup])
+  useEffect(() => {
+    const closeLock = aiWorkspaceTabCloseLockRef.current
+    if (!closeLock || tabGroup.tabs.some((tab) => tab.id === closeLock.tabId)) {
+      return
+    }
+    closeLock.confirmed = true
+    scheduleAIWorkspaceTabCloseUnlock()
+  }, [scheduleAIWorkspaceTabCloseUnlock, tabGroup.tabs])
+  useEffect(() => () => clearAIWorkspaceTabCloseUnlockTimer(), [clearAIWorkspaceTabCloseUnlockTimer])
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      scrollActiveAIWorkspaceTabIntoView(tabGroup.activeTabId)
+      syncAIWorkspaceTabScrollState()
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [scrollActiveAIWorkspaceTabIntoView, syncAIWorkspaceTabScrollState, tabGroup.activeTabId, tabGroup.tabs])
+  useEffect(() => {
+    const element = aiWorkspaceTabScrollRef.current
+    if (!element) {
+      return undefined
+    }
+    const handleResize = () => {
+      scrollActiveAIWorkspaceTabIntoView(tabGroup.activeTabId)
+      syncAIWorkspaceTabScrollState()
+    }
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(handleResize) : null
+    observer?.observe(element)
+    window.addEventListener('resize', handleResize)
+    handleResize()
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [scrollActiveAIWorkspaceTabIntoView, syncAIWorkspaceTabScrollState, tabGroup.activeTabId])
+  const dismissTabPanels = useCallback((tabId: string) => {
+    if (typeof window === 'undefined' || !tabId) {
+      return
+    }
+    window.dispatchEvent(new CustomEvent('ai-change-review-clear', {
+      detail: { sessionId: terminalId, tabId },
+    }))
+    window.dispatchEvent(new CustomEvent('ai-conversation-diff-close', {
+      detail: { sessionId, terminalId, tabId },
+    }))
+  }, [sessionId, terminalId])
+  const createWorkspaceTab = useCallback(() => {
+    const tabId = createAIWorkspaceTabId()
+    updateTabGroup((current) => ({
+      activeTabId: tabId,
+      tabs: [...current.tabs, { id: tabId, conversationId: '', title: t('新对话') }],
+    }))
+    return tabId
+  }, [t, updateTabGroup])
+  const returnWorkspaceTabHome = useCallback((tabId: string) => {
+    updateTabGroup((current) => ({
+      ...current,
+      tabs: current.tabs.map((tab) => (
+        tab.id === tabId
+          ? { ...tab, conversationId: '', title: t('新对话') }
+          : tab
+      )),
+    }))
+  }, [t, updateTabGroup])
+  const activateWorkspaceTab = useCallback((tabId: string) => {
+    updateTabGroup((current) => (
+      current.tabs.some((tab) => tab.id === tabId)
+        ? { ...current, activeTabId: tabId }
+        : current
+    ))
+  }, [updateTabGroup])
+  const closeWorkspaceTab = useCallback((tabId: string) => {
+    const current = tabGroupRef.current
+    const tabIndex = current.tabs.findIndex((tab) => tab.id === tabId)
+    if (tabIndex < 0 || current.tabs.length <= 1) {
+      return
+    }
+    const requestId = tabRequestIdsRef.current[tabId]
+    delete tabRequestIdsRef.current[tabId]
+    delete aiWorkspaceTabRuntimeRef.current[tabId]
+    clearAIWorkspaceTabPendingLocation(terminalId, tabId)
+    setTabRequestIds((currentRequests) => {
+      if (!currentRequests[tabId]) {
+        return currentRequests
+      }
+      const nextRequests = { ...currentRequests }
+      delete nextRequests[tabId]
+      return nextRequests
+    })
+    if (requestId) {
+      void cancelAIChat(requestId)
+    }
+    dismissTabPanels(tabId)
+    updateTabGroup((group) => {
+      const index = group.tabs.findIndex((tab) => tab.id === tabId)
+      if (index < 0) {
+        return group
+      }
+      const tabs = group.tabs.filter((tab) => tab.id !== tabId)
+      const activeTabId = group.activeTabId === tabId
+        ? (tabs[Math.max(0, index - 1)]?.id || '')
+        : group.activeTabId
+      return { activeTabId, tabs }
+    })
+  }, [dismissTabPanels, updateTabGroup])
+  const openConversationInWorkspaceTab = useCallback(async (conversationId: string, messageId = '') => {
+    const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
+    if (!normalizedConversationId) {
+      return
+    }
+    const existing = findAIWorkspaceConversationTab(normalizedConversationId)
+    if (existing) {
+      queueAIWorkspaceTabLocation(existing.terminalId, existing.tabId, normalizedConversationId, messageId)
+      if (existing.terminalId !== terminalId) {
+        setAIWorkspaceTabGroup(existing.terminalId, (current) => ({
+          ...current,
+          activeTabId: existing.tabId,
+        }))
+        onActivateWorkspaceTab?.(existing.terminalId, existing.tabId)
+        return
+      }
+      activateWorkspaceTab(existing.tabId)
+      return
+    }
+    const activeTabId = tabGroupRef.current.activeTabId
+    const activeTabExists = tabGroupRef.current.tabs.some((tab) => tab.id === activeTabId)
+    const activeRequestId = activeTabExists
+      ? (tabRequestIdsRef.current[activeTabId] || tabRequestIds[activeTabId] || '')
+      : ''
+    const tabId = activeTabExists && !activeRequestId ? activeTabId : createAIWorkspaceTabId()
+    updateTabGroup((current) => ({
+      activeTabId: tabId,
+      tabs: current.tabs.some((tab) => tab.id === tabId)
+        ? current.tabs.map((tab) => (
+            tab.id === tabId
+              ? { ...tab, conversationId: normalizedConversationId, title: '' }
+              : tab
+          ))
+        : [...current.tabs, {
+            id: tabId,
+            conversationId: normalizedConversationId,
+            title: '',
+          }],
+    }))
+    queueAIWorkspaceTabLocation(terminalId, tabId, normalizedConversationId, messageId)
+  }, [activateWorkspaceTab, onActivateWorkspaceTab, queueAIWorkspaceTabLocation, tabRequestIds, terminalId, updateTabGroup])
+  const handleWorkspaceTabStateChange = useCallback((tabId: string, state: { conversationId: string; title: string; activeRequestId: string; transient: boolean }) => {
+    const conversationId = state.transient ? '' : state.conversationId
+    aiWorkspaceTabRuntimeRef.current[tabId] = {
+      conversationId,
+      activeRequestId: state.activeRequestId,
+    }
+    if (state.activeRequestId) {
+      tabRequestIdsRef.current[tabId] = state.activeRequestId
+    } else {
+      delete tabRequestIdsRef.current[tabId]
+    }
+    setTabRequestIds((currentRequests) => {
+      const currentRequestId = currentRequests[tabId] || ''
+      if (currentRequestId === state.activeRequestId) {
+        return currentRequests
+      }
+      if (!state.activeRequestId) {
+        const nextRequests = { ...currentRequests }
+        delete nextRequests[tabId]
+        return nextRequests
+      }
+      return {
+        ...currentRequests,
+        [tabId]: state.activeRequestId,
+      }
+    })
+    const title = state.transient ? t('AI调色') : (conversationId ? state.title : t('新对话'))
+    const currentTab = tabGroupRef.current.tabs.find((tab) => tab.id === tabId)
+    flushAIWorkspaceTabPendingLocation(tabId)
+    if (!currentTab || (currentTab.conversationId === conversationId && currentTab.title === title)) {
+      return
+    }
+    updateTabGroup((current) => ({
+      ...current,
+      tabs: current.tabs.map((tab) => (
+        tab.id === tabId
+          ? { ...tab, conversationId, title }
+          : tab
+      )),
+    }))
+  }, [flushAIWorkspaceTabPendingLocation, t, updateTabGroup])
+  useEffect(() => subscribeAIConversationChanges((change: unknown) => {
+    const detail = change && typeof change === 'object' ? change as Record<string, unknown> : null
+    const conversationId = typeof detail?.conversationId === 'string' ? detail.conversationId.trim() : ''
+    if (detail?.type !== 'delete' || !conversationId) {
+      return
+    }
+    const affectedTabs = tabGroupRef.current.tabs.filter((tab) => tab.conversationId === conversationId)
+    affectedTabs.forEach((tab) => {
+      const requestId = tabRequestIdsRef.current[tab.id]
+      delete tabRequestIdsRef.current[tab.id]
+      delete aiWorkspaceTabRuntimeRef.current[tab.id]
+      clearAIWorkspaceTabPendingLocation(terminalId, tab.id)
+      if (requestId) {
+        void cancelAIChat(requestId)
+      }
+      dismissTabPanels(tab.id)
+    })
+    if (affectedTabs.length === 0) {
+      return
+    }
+    const affectedTabIds = new Set(affectedTabs.map((tab) => tab.id))
+    setTabRequestIds((currentRequests) => Object.fromEntries(
+      Object.entries(currentRequests).filter(([tabId]) => !affectedTabIds.has(tabId)),
+    ))
+    updateTabGroup((current) => {
+      const tabs = current.tabs.filter((tab) => !affectedTabIds.has(tab.id))
+      return {
+        activeTabId: affectedTabIds.has(current.activeTabId) ? (tabs[0]?.id || '') : current.activeTabId,
+        tabs,
+      }
+    })
+  }), [dismissTabPanels, updateTabGroup])
+  const activeTabId = tabGroup.activeTabId
+  const taskTabBar = (
+    <div
+      data-ai-workspace-tab-bar="true"
+      onClickCapture={suppressAIWorkspaceTabCloseInteraction}
+      onDoubleClickCapture={suppressAIWorkspaceTabCloseInteraction}
+      style={{
+        height: 36,
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: 2,
+        padding: '0 6px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--surface-base)',
+        flexShrink: 0,
+        overflow: 'hidden',
+      }}>
+      {aiWorkspaceTabOverflow ? (
+        <button
+          type="button"
+          className={`terminal-sub-tab-nav terminal-sub-tab-nav-left${aiWorkspaceTabCanScrollLeft ? '' : ' disabled'}`}
+          onClick={() => scrollAIWorkspaceTabs(-1)}
+          aria-label={t('向左滚动标签')}
+          title={t('向左滚动标签')}
+          disabled={!aiWorkspaceTabCanScrollLeft}>
+          <ChevronLeft size={14} />
+        </button>
+      ) : null}
+      <div
+        ref={aiWorkspaceTabScrollRef}
+        className="terminal-sub-tab-scroll"
+        onWheel={handleAIWorkspaceTabWheel}
+        onScroll={handleAIWorkspaceTabScroll}>
+        {tabGroup.tabs.map((tab: AIWorkspaceTab, index) => {
+          const active = tab.id === activeTabId
+          const running = Boolean(tabRequestIds[tab.id])
+          const tabLabel = String(index + 1)
+          return (
+            <div
+              key={tab.id}
+              data-ai-workspace-tab-id={tab.id}
+              style={{
+                flex: '0 0 auto',
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+                background: active ? 'rgba(var(--accent-rgb), 0.10)' : 'transparent',
+              }}>
+              <Tiptop text="双击关闭标签页" placement="bottom" style={{ display: 'flex', height: '100%' }}>
+                <button
+                  type="button"
+                  onClick={() => activateWorkspaceTab(tab.id)}
+                  onDoubleClick={(event) => {
+                    if (tabGroupRef.current.tabs.length <= 1 || aiWorkspaceTabCloseLockRef.current) {
+                      return
+                    }
+                    event.preventDefault()
+                    event.stopPropagation()
+                    clearAIWorkspaceTabCloseUnlockTimer()
+                    aiWorkspaceTabCloseLockRef.current = {
+                      tabId: tab.id,
+                      confirmed: false,
+                      lastInteractionAt: Date.now(),
+                    }
+                    closeWorkspaceTab(tab.id)
+                  }}
+                  aria-label={tabLabel}
+                  style={{
+                    minWidth: 30,
+                    flex: '0 0 auto',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 8px',
+                    border: 'none',
+                    position: 'relative',
+                    background: 'transparent',
+                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: active ? 700 : 500,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>
+                  {running ? <span style={{ position: 'absolute', left: 6, width: 6, height: 6, borderRadius: 999, background: 'var(--accent)' }} /> : null}
+                  <span>{tabLabel}</span>
+                </button>
+              </Tiptop>
+            </div>
+          )
+        })}
+      </div>
+      {aiWorkspaceTabOverflow ? (
+        <button
+          type="button"
+          className={`terminal-sub-tab-nav terminal-sub-tab-nav-right${aiWorkspaceTabCanScrollRight ? '' : ' disabled'}`}
+          onClick={() => scrollAIWorkspaceTabs(1)}
+          aria-label={t('向右滚动标签')}
+          title={t('向右滚动标签')}
+          disabled={!aiWorkspaceTabCanScrollRight}>
+          <ChevronRight size={14} />
+        </button>
+      ) : null}
+      <button
+        type="button"
+        title={t('新对话')}
+        aria-label={t('新对话')}
+        onClick={createWorkspaceTab}
+        style={{
+          width: 30,
+          border: 'none',
+          borderBottom: '2px solid transparent',
+          background: 'transparent',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+          fontSize: 18,
+          flexShrink: 0,
+        }}>
+        +
+      </button>
+    </div>
+  )
+  return (
+    <div style={{ width, minWidth: width, height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      {tabGroup.tabs.map((tab) => (
+        <div key={tab.id} style={{ position: 'absolute', inset: 0, display: activeTabId === tab.id ? 'flex' : 'none' }}>
+          <AIConversationTabPanel
+            width="100%"
+            side={side}
+            sessionId={sessionId}
+            terminalId={terminalId}
+            sessionTerminals={sessionTerminals}
+            workspaceTabId={tab.id}
+            isHomeView={tab.conversationId === ''}
+            isWorkspaceTabActive={isPanelVisible && activeTabId === tab.id}
+            initialConversationId={tab.conversationId}
+            tabBar={taskTabBar}
+            onDevilModeChange={isPanelVisible && activeTabId === tab.id ? (enabled) => onDevilModeChange?.(enabled, tab.id) : undefined}
+            onGoHomeRequested={() => returnWorkspaceTabHome(tab.id)}
+            onOpenConversationRequested={openConversationInWorkspaceTab}
+            onWorkspaceTabStateChange={handleWorkspaceTabStateChange}
+            addToast={addToast}
+          />
+        </div>
+      ))}
     </div>
   )
 }

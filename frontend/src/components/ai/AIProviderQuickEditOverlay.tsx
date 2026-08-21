@@ -26,11 +26,12 @@ const reasoningEffortLabels: Record<string, I18nKey> = {
   medium: '中',
   high: '高',
   xhigh: '超高',
+  max: '最高',
 }
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 16384
 const DEFAULT_MAX_THINKING_TOKENS = 8192
-const DEFAULT_EFFORT_REASONING_OPTIONS = ['low', 'medium', 'high', 'xhigh']
+const DEFAULT_EFFORT_REASONING_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max']
 const providerHighlightLabelKeys: Record<string, I18nKey> = {
   Compatible: '高兼容',
   Responses: '高缓存',

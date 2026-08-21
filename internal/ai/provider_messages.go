@@ -54,7 +54,7 @@ func normalizeAIMessagesAdaptiveReasoningEffort(value string) string {
 		return "high"
 	case "minimal":
 		return "low"
-	case "xhigh":
+	case "xhigh", "max":
 		return "high"
 	default:
 		return ""

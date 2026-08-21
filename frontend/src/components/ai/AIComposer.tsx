@@ -7,6 +7,7 @@ import AIAutoApproveDropdown from './AIAutoApproveDropdown.tsx'
 import AICollaborationPromptDropdown from './AICollaborationPromptDropdown.tsx'
 import AIProviderSelector from './AIProviderSelector.tsx'
 import Tiptop from '../Tiptop.tsx'
+import { useAIWorkspaceTabContext } from './aiWorkspaceTabContext.ts'
 import {
   buildRemoteFileMention,
   buildRemoteFolderMention,
@@ -412,6 +413,7 @@ export default function AIComposer({
   dismissSignal = 0,
 }: AIComposerProps) {
   const { t } = useTranslation()
+  const { sessionId, terminalId, tabId } = useAIWorkspaceTabContext()
   const [localInputValue, setLocalInputValue] = useState('')
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [mentionMenu, setMentionMenu] = useState<MentionMenuState>(createMentionMenuState())
@@ -809,9 +811,18 @@ export default function AIComposer({
       if (isComposerBlocked) {
         return
       }
-      const detail = (event as CustomEvent<{ text?: unknown }>).detail || {}
+      const detail = (event as CustomEvent<Record<string, unknown>>).detail || {}
+      const targetSessionId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : ''
+      const targetTerminalId = typeof detail.terminalId === 'string' ? detail.terminalId.trim() : ''
+      const targetTabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : ''
       const selectedText = typeof detail.text === 'string' ? detail.text : ''
-      if (!selectedText) {
+      if (
+        !targetTabId
+        || targetSessionId !== sessionId
+        || targetTerminalId !== terminalId
+        || targetTabId !== tabId
+        || !selectedText
+      ) {
         return
       }
       const textarea = textareaRef.current
@@ -827,7 +838,7 @@ export default function AIComposer({
     }
     window.addEventListener('ai-quote-selection', handleQuoteSelection)
     return () => window.removeEventListener('ai-quote-selection', handleQuoteSelection)
-  }, [closeInlineMenus, focusTextAreaAt, isComposerBlocked, setValue, value])
+  }, [closeInlineMenus, focusTextAreaAt, isComposerBlocked, sessionId, setValue, tabId, terminalId, value])
 
   const loadSlashCommandSuggestions = useCallback((nextText: string, nextCursorPosition: number) => {
     if (isComposerBlocked) {
@@ -1585,7 +1596,6 @@ export default function AIComposer({
           )
         ) : null}
         <input
-          id="ai-composer-file-input"
           name="ai-composer-file-input"
           autoComplete="off"
           ref={fileInputRef}

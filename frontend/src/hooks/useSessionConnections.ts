@@ -6,6 +6,7 @@ import type { SessionLike, WorkspaceContentTab } from '../utils/sessionWorkspace
 import type { TerminalPaneLayout } from '../utils/terminalPaneLayout.ts';
 import type { FileManagerWorkspaceState } from '../utils/fileWorkbench.ts';
 import type { SnapshotOverrides, WorkspaceSessionSnapshot } from './useWorkspacePersistence.ts';
+import type { AIWorkspaceTabGroup } from '../utils/aiWorkspaceTabs.ts';
 
 /** 连接中的服务器卡片 */
 export interface ConnectingServer {
@@ -52,9 +53,9 @@ export interface UseSessionConnectionsDeps {
   credentials: config.Credential[];
   disconnectSessionConnection: (sessionId: string, terminalIds?: string[]) => Promise<unknown>;
   disconnectSessionTerminals: (ids: string[]) => Promise<unknown>;
-  enqueueChangeReview: (review: Record<string, unknown>) => void;
   fileManagerPosition: string;
   getAllSessionFileManagerWorkspaces: () => Record<string, FileManagerWorkspaceState>;
+  getAllAIWorkspaceTabGroups: () => Record<string, AIWorkspaceTabGroup>;
   getSessionFileManagerWorkspace: (terminalId: string) => FileManagerWorkspaceState;
   isRecoveryPasswordError: (error: unknown) => boolean;
   isUnsupportedMonitorSession: (session: SessionLike | null | undefined) => boolean;
@@ -70,6 +71,7 @@ export interface UseSessionConnectionsDeps {
   registerServerDisconnect: (serverId: string, promise: Promise<unknown>) => void;
   remapSessionFileManagerWorkspaceMap: (workspaces: Record<string, unknown> | null | undefined, idMap: Record<string, string> | null | undefined) => Record<string, unknown>;
   remapSessionFileManagerWorkspaces: (idMap: Record<string, string> | null | undefined) => Record<string, FileManagerWorkspaceState>;
+  remapAIWorkspaceTabGroups: (idMap: Record<string, string> | null | undefined) => Record<string, AIWorkspaceTabGroup>;
   remapSessionWorkspaceLayouts: (
     layouts: Record<string, TerminalPaneLayout> | null | undefined,
     idMap: Record<string, string> | null | undefined,
@@ -85,6 +87,8 @@ export interface UseSessionConnectionsDeps {
   rememberWorkspaceLoaded: boolean;
   removeChangeReviewsByRequestId: (requestId: string) => void;
   replaceAllSessionFileManagerWorkspaces: (nextState: unknown) => Record<string, FileManagerWorkspaceState>;
+  replaceAllAIWorkspaceTabGroups: (nextState: unknown) => Record<string, AIWorkspaceTabGroup>;
+  clearAIWorkspaceTabGroup: (terminalId: string) => void;
   resolveSessionRootTerminalId: (
     session: SessionLike,
     fallbackTerminalId: string | null | undefined,
@@ -188,6 +192,67 @@ interface RestoredSnapshotSession {
   activeTerminalLabel?: unknown;
   terminals?: Array<{ id?: unknown; label?: unknown }>;
   workspaceTabs?: Array<{ terminalIds?: unknown }>;
+  aiTabWorkspaces?: Record<string, unknown>;
+}
+
+function normalizeAIWorkspaceReconnectTerminals(
+  terminals: unknown,
+  preferredRootTerminalId: unknown,
+  fallbackTerminalId: string,
+  fallbackLabel: string,
+  aiTabWorkspaces: Record<string, unknown> | null | undefined = null,
+): Array<{ id: string; label: string }> {
+  const seenIds = new Set<string>()
+  const normalizedTerminals = (Array.isArray(terminals) ? terminals : []).flatMap((terminal, index) => {
+    const item = terminal && typeof terminal === 'object' ? terminal as Record<string, unknown> : {}
+    const id = typeof item.id === 'string' ? item.id.trim() : ''
+    if (!id || seenIds.has(id)) {
+      return []
+    }
+    seenIds.add(id)
+    return [{
+      id,
+      label: typeof item.label === 'string' && item.label.trim()
+        ? item.label.trim()
+        : `${fallbackLabel}${index + 1}`,
+    }]
+  })
+  Object.keys(aiTabWorkspaces || {}).forEach((terminalId) => {
+    const id = terminalId.trim()
+    if (!id || seenIds.has(id)) {
+      return
+    }
+    seenIds.add(id)
+    normalizedTerminals.push({
+      id,
+      label: `${fallbackLabel}${normalizedTerminals.length + 1}`,
+    })
+  })
+  const normalizedPreferredRootTerminalId = typeof preferredRootTerminalId === 'string'
+    ? preferredRootTerminalId.trim()
+    : ''
+  const rootTerminal = normalizedTerminals.find((terminal) => terminal.id === normalizedPreferredRootTerminalId)
+    || normalizedTerminals[0]
+    || {
+      id: fallbackTerminalId,
+      label: fallbackLabel,
+    }
+  return [
+    rootTerminal,
+    ...normalizedTerminals.filter((terminal) => terminal.id !== rootTerminal.id),
+  ]
+}
+
+function remapAIWorkspaceTabSnapshotGroups(
+  workspaces: Record<string, unknown> | null | undefined,
+  idMap: Record<string, string>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(workspaces || {}).flatMap(([terminalId, group]) => {
+      const mappedTerminalId = idMap[terminalId]
+      return mappedTerminalId ? [[mappedTerminalId, group]] : []
+    }),
+  )
 }
 
 export default function useSessionConnections(deps: UseSessionConnectionsDeps): UseSessionConnectionsResult {
@@ -195,15 +260,15 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     activeSessionIdRef, activeTerminalIdRef, addToast, authPromptTokenRef, awaitDisconnectTerminals,
     buildTerminalCloneCwdCommand, cancelledConnectionsRef, clearSessionAuthPrompt,
     cloneSessionFileManagerWorkspaceState, connectingServersRef, contentTabRef, creatingTerminalRef,
-    credentials, disconnectSessionConnection, disconnectSessionTerminals, enqueueChangeReview, fileManagerPosition,
-    getAllSessionFileManagerWorkspaces, getSessionFileManagerWorkspace, isRecoveryPasswordError,
+    credentials, disconnectSessionConnection, disconnectSessionTerminals, fileManagerPosition,
+    getAllSessionFileManagerWorkspaces, getAllAIWorkspaceTabGroups, getSessionFileManagerWorkspace, isRecoveryPasswordError,
     isUnsupportedMonitorSession, lastContentTabRef, lastTerminalRef, loadServerWorkspaceSessionSnapshot,
     markWorkspaceRestoreNavigationOverride, mountedRef, normalizeWorkspaceContentTab,
     persistServerWorkspaceSessionSnapshot, persistWorkspaceSnapshotRef, recordRecentConnection,
-    registerServerDisconnect, remapSessionFileManagerWorkspaceMap, remapSessionFileManagerWorkspaces,
+    registerServerDisconnect, remapSessionFileManagerWorkspaceMap, remapSessionFileManagerWorkspaces, remapAIWorkspaceTabGroups,
     remapSessionWorkspaceLayouts, remapTerminalPaneLayouts, rememberSessionActiveTerminal,
     rememberWorkspace, rememberWorkspaceLoaded, removeChangeReviewsByRequestId,
-    replaceAllSessionFileManagerWorkspaces, resolveSessionRootTerminalId, restoringWorkspaceRef,
+    replaceAllSessionFileManagerWorkspaces, replaceAllAIWorkspaceTabGroups, clearAIWorkspaceTabGroup, resolveSessionRootTerminalId, restoringWorkspaceRef,
     restoringWorkspaceSessionIds,
     serversLoaded, serversRef, sessionsRef, setActiveSessionId, setActiveTerminalId,
     setConnectingServers, setContentTab, setCreatingTerminalSessionId, setCredentials,
@@ -306,8 +371,9 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     setActiveSessionId(null);
     setActiveTerminalId(null);
     setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
+    termIds.forEach((terminalId) => clearAIWorkspaceTabGroup(terminalId));
     clearSessionAuthPrompt(sessionId);
-  }, [clearSessionAuthPrompt, disconnectSessionConnection, registerServerDisconnect]);
+  }, [clearAIWorkspaceTabGroup, clearSessionAuthPrompt, disconnectSessionConnection, registerServerDisconnect]);
 
   // ── 切换到下一个可用 session ──────────────────────────────
   const resolveSessionContentTab = useCallback((sessionId: string) => {
@@ -488,7 +554,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       const hasSavedTerminals = Array.isArray(session.terminals) && session.terminals.length > 0;
       const savedTerminals = hasSavedTerminals ? session.terminals! : [{ id: session.id!, label: `${t('终端')}1` }];
       const rootTerminal = savedTerminals.find(term => term.id === session.id) || savedTerminals[0] || { id: session.id!, label: `${t('终端')}1` };
-      const subTerminals = savedTerminals.filter(term => term.id !== session.id);
+      const subTerminals = savedTerminals.filter(term => term.id !== rootTerminal.id);
       const oldToNew: Record<string, string> = { [rootTerminal.id!]: session.id!, [session.id!]: session.id! };
       for (const sub of subTerminals) {
         try {
@@ -505,6 +571,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
 
       if (!deferState && Object.keys(oldToNew).length > 0) {
         remapSessionFileManagerWorkspaces(oldToNew);
+        remapAIWorkspaceTabGroups(oldToNew);
         const remappedLayouts = remapTerminalPaneLayouts(terminalPaneLayoutsRef.current, oldToNew, session.id!);
         terminalPaneLayoutsRef.current = remappedLayouts;
         setTerminalPaneLayouts(remappedLayouts);
@@ -563,6 +630,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         sessions?: RestoredSnapshotSession[];
         terminalPaneLayouts?: Record<string, TerminalPaneLayout>;
         fileManagerWorkspaces?: Record<string, unknown>;
+        aiTabWorkspaces?: Record<string, unknown>;
       };
       try {
         snapshot = JSON.parse(raw) as typeof snapshot;
@@ -624,10 +692,15 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         Object.entries(snapshot.fileManagerWorkspaces || {})
           .filter(([terminalId]) => savedTerminalIds.has(terminalId))
       );
+      const savedAITabWorkspaces = Object.fromEntries(
+        Object.entries(snapshot.aiTabWorkspaces || {})
+          .filter(([terminalId]) => savedTerminalIds.has(terminalId))
+      );
       const initialActiveSessionId = savedSessions.some((session) => session.id === snapshot.activeSessionId)
         ? snapshot.activeSessionId as string
         : savedSessions[0].id!;
       replaceAllSessionFileManagerWorkspaces(savedFileManagerWorkspaces);
+      replaceAllAIWorkspaceTabGroups(savedAITabWorkspaces);
       restoringWorkspaceRef.current = true;
       setRestoringWorkspaceSessionIds(new Set(savedSessions.map((session) => session.id!)));
       setSessions(savedSessions);
@@ -658,6 +731,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         if (result?.oldToNew) {
           Object.assign(idMap, result.oldToNew);
           remapSessionFileManagerWorkspaces(result.oldToNew);
+          remapAIWorkspaceTabGroups(result.oldToNew);
           restoredLayouts = remapTerminalPaneLayouts(restoredLayouts, result.oldToNew, savedSession.id!);
           const restoredSession = { ...savedSession, status: 'connected', terminals: result.newTerminals };
           const restoredSessionLayouts = Object.fromEntries(
@@ -777,6 +851,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       }
 
       // 单终端 channel 结束：只移除该终端；若已无终端再标 closed
+      endedTerminalIds.forEach((terminalId) => clearAIWorkspaceTabGroup(terminalId));
       setSessions((prev) => prev.map((s) => {
         if (s.id !== parentId) return s;
         const nextTerminals = (s.terminals || []).filter((term) => !endedTerminalIds.includes(term.id!));
@@ -794,7 +869,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     return () => {
       if (unbind) unbind();
     };
-  }, [addToast, t]);
+  }, [addToast, clearAIWorkspaceTabGroup, t]);
 
   // ── 主机密钥确认：用户在会话卡片上做出选择后 ──────────────────
   // chosen: 0=取消, 1=仅本次接受, 2=接受并保存
@@ -1165,10 +1240,6 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       if (!payload || typeof payload !== 'object') {
         return;
       }
-      if (payload.kind === 'change_review_required' && payload.review) {
-        enqueueChangeReview(payload.review as Record<string, unknown>);
-        return;
-      }
       if (
         payload.kind === 'tool_approval_resolved'
         || payload.kind === 'tool_rejected'
@@ -1181,7 +1252,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     return () => {
       if (unbind) unbind();
     };
-  }, [enqueueChangeReview, removeChangeReviewsByRequestId]);
+  }, [removeChangeReviewsByRequestId]);
 
   // ── 监听终端触发的重连请求 ──────────────────────────────────
   useEffect(() => {
@@ -1218,51 +1289,68 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       return;
     }
 
+    const sessionSnapshot = rememberWorkspace && workspacePersistenceLevel === 'session'
+      ? await loadServerWorkspaceSessionSnapshot(server.id)
+      : null;
     const closedSession = sessionsRef.current.find((s) => s.serverId === server.id && (s.status === 'closed' || s.status === 'error'));
     if (closedSession) {
-      // ponytail: 应用启动的工作区恢复正在重连该会话（恢复循环先 put 了
-      // sessions 再逐个 reconnectSession，期间状态为 closed）。此时再走
-      // reconnectSession 会与恢复循环并发对同一 sessionId 执行 ConnectSSH，
-      // 后端 setupSession 把同一 id 重复登记进 connTerminals（[X, X]），
-      // 多出的通道无法被前端感知，关闭后残留 → 通道占用持续 +1。
-      // 恢复进行中直接切焦点，等待恢复完成即可。只对正在恢复的会话生效——
-      // 恢复窗口内点其它 closed/error 会话（如已恢复失败的）不应被吞掉，仍走重连。
       if (restoringWorkspaceRef.current && restoringWorkspaceSessionIds.has(closedSession.id!)) {
         setActiveSessionId(closedSession.id!);
         setActiveTerminalId(resolveSessionRootTerminalId(closedSession, lastTerminalRef.current[closedSession.id!]));
         setContentTab(resolveSessionContentTab(closedSession.id!));
         return;
       }
+      const restoreTerminals = normalizeAIWorkspaceReconnectTerminals(
+        sessionSnapshot?.terminals || closedSession.terminals,
+        sessionSnapshot?.sessionId || closedSession.id,
+        closedSession.id!,
+        `${t('终端')}1`,
+        sessionSnapshot?.aiTabWorkspaces,
+      );
       setActiveSessionId(closedSession.id!);
-      setActiveTerminalId(resolveSessionRootTerminalId(closedSession, lastTerminalRef.current[closedSession.id!]));
       setContentTab(resolveSessionContentTab(closedSession.id!));
-      // ponytail: 手动进入只开根终端。残留会话的 terminals 可能含历史子终端
-      // （含虚拟根重建产生的 [根, 子]），reconnectSession 会逐个 OpenTerminal
-      // 把子终端全部重开 —— 服务器上多出 N 个 /bin/bash，通道占用虚高。
-      // 用户需要多终端时可手动点「+」明确创建。
-      await reconnectSession({
+      const result = await reconnectSession({
         ...closedSession,
-        terminals: [{ id: closedSession.id!, label: `${t('终端')}1` }],
+        terminals: restoreTerminals,
       });
+      if (!result) {
+        return;
+      }
+      if (sessionSnapshot) {
+        const currentAITabWorkspaces = { ...getAllAIWorkspaceTabGroups() };
+        Object.keys(sessionSnapshot.aiTabWorkspaces || {}).forEach((terminalId) => {
+          delete currentAITabWorkspaces[terminalId];
+        });
+        replaceAllAIWorkspaceTabGroups({
+          ...currentAITabWorkspaces,
+          ...remapAIWorkspaceTabSnapshotGroups(sessionSnapshot.aiTabWorkspaces, result.oldToNew),
+        });
+      }
+      const previousActiveTerminalId = String(sessionSnapshot?.activeTerminalId || closedSession.activeTerminalId || '');
+      const nextActiveTerminalId = result.oldToNew[previousActiveTerminalId] || result.newTerminals[0]?.id || closedSession.id!;
+      const nextActiveTerminalLabel = result.newTerminals.find((terminal) => terminal.id === nextActiveTerminalId)?.label || '';
+      lastTerminalRef.current[closedSession.id!] = nextActiveTerminalId;
+      rememberSessionActiveTerminal(closedSession.id!, nextActiveTerminalId, nextActiveTerminalLabel);
+      setActiveTerminalId(nextActiveTerminalId);
       return;
     }
-
-    const sessionSnapshot = rememberWorkspace && workspacePersistenceLevel === 'session'
-      ? await loadServerWorkspaceSessionSnapshot(server.id)
-      : null;
     const sessionId = `session_${Date.now()}`;
+    const restoredTerminals = sessionSnapshot
+      ? normalizeAIWorkspaceReconnectTerminals(
+          sessionSnapshot.terminals,
+          sessionSnapshot.sessionId,
+          sessionId,
+          `${t('终端')}1`,
+          sessionSnapshot.aiTabWorkspaces,
+        )
+      : [{ id: sessionId, label: `${t('终端')}1` }];
     const newSession: SessionLike = {
       id: sessionId,
       serverId: server.id,
       serverName: server.name || server.host,
       host: server.host,
       status: 'connecting',
-      // ponytail: 手动进入只开根终端。快照里的子终端是历史布局（可能来自
-      // 上次会话残留或虚拟根重建），reconnectSession 会逐个 OpenTerminal
-      // 重开 —— 服务器上多出 N 个 /bin/bash 且关闭后快照仍保存 N 条，循环
-      // 虚高。用户需要多终端时可手动点「+」明确创建（openNewTerminal）。
-      // app 启动的工作区恢复（restoreWorkspace）仍保留多终端布局。
-      terminals: [{ id: sessionId, label: `${t('终端')}1` }],
+      terminals: restoredTerminals,
     };
 
     const nextSessions = [...sessionsRef.current, newSession];
@@ -1284,12 +1372,24 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         const mergedLayouts = { ...terminalPaneLayoutsRef.current, ...restoredLayouts };
         const currentWorkspaces = { ...getAllSessionFileManagerWorkspaces() };
         const remappedSnapshotWorkspaces = remapSessionFileManagerWorkspaceMap(sessionSnapshot.fileManagerWorkspaces || {}, result.oldToNew);
+        const currentAITabWorkspaces = { ...getAllAIWorkspaceTabGroups() };
+        const remappedSnapshotAITabWorkspaces = remapAIWorkspaceTabSnapshotGroups(
+          sessionSnapshot.aiTabWorkspaces,
+          result.oldToNew,
+        );
         Object.keys(sessionSnapshot.fileManagerWorkspaces || {}).forEach((terminalId) => {
           delete currentWorkspaces[terminalId];
         });
         replaceAllSessionFileManagerWorkspaces({
           ...currentWorkspaces,
           ...remappedSnapshotWorkspaces,
+        });
+        Object.keys(sessionSnapshot.aiTabWorkspaces || {}).forEach((terminalId) => {
+          delete currentAITabWorkspaces[terminalId];
+        });
+        replaceAllAIWorkspaceTabGroups({
+          ...currentAITabWorkspaces,
+          ...remappedSnapshotAITabWorkspaces,
         });
         sessionsRef.current = sessionsRef.current.map((item) => (
           item.id === sessionId ? restoredSession : item
@@ -1473,8 +1573,9 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     if (connectingServersRef.current.some((s) => s.sessionId === sessionId)) {
       setConnectingServers((prev) => prev.filter((s) => s.sessionId !== sessionId));
     }
+    termIds.forEach((terminalId) => clearAIWorkspaceTabGroup(terminalId));
     clearSessionAuthPrompt(sessionId);
-  }, [clearSessionAuthPrompt, disconnectSessionConnection, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, switchToNextSession]);
+  }, [clearAIWorkspaceTabGroup, clearSessionAuthPrompt, disconnectSessionConnection, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, switchToNextSession]);
 
   const closeSession = useCallback(async (sessionId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -1525,8 +1626,9 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     setActiveSessionId(null);
     setActiveTerminalId(null);
     setConnectingServers([]);
+    all.flatMap((session) => (session.terminals || []).map((terminal) => terminal.id as string)).forEach((terminalId) => clearAIWorkspaceTabGroup(terminalId));
     setSessionAuthPrompts({});
-  }, [disconnectSessionConnection, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, t]);
+  }, [clearAIWorkspaceTabGroup, disconnectSessionConnection, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, t]);
 
   // ── 在当前服务器上新建终端标签 ──────────────────────────────
   const openNewTerminal = useCallback(async (sessionId: string, options: {
@@ -1701,6 +1803,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         contentTab: normalizeWorkspaceContentTab(activeSessionIdRef.current === sessionId ? contentTabRef.current : (lastContentTabRef.current[sessionId] || 'terminal')),
       });
     }
+    clearAIWorkspaceTabGroup(terminalId);
     const disconnectPromise = disconnectSessionTerminals([terminalId]);
     if (remaining.length === 0 && session?.serverId) {
       registerServerDisconnect(String(session.serverId), disconnectPromise);
@@ -1734,7 +1837,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     if (activeSessionIdRef.current === sessionId && activeTerminalIdRef.current === terminalId) {
       setActiveTerminalId(resolveSessionRootTerminalId({ ...session, terminals: remaining }, lastTerminalRef.current[sessionId]));
     }
-  }, [disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, resolveSessionRootTerminalId, switchToNextSession]);
+  }, [clearAIWorkspaceTabGroup, disconnectSessionTerminals, persistServerWorkspaceSessionSnapshot, registerServerDisconnect, resolveSessionRootTerminalId, switchToNextSession]);
 
   return {
     handleConnectError, postConnectSetup, loadServers, handleCancelConnection,
