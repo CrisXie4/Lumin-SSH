@@ -1868,16 +1868,9 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
 
           {renderReasoningSection()}
 
-          <div style={{ display: 'grid', gap: 3 }}>
+          <div style={{ display: 'grid', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <label htmlFor="ai-provider-model-query" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('模型')}</label>
-                {modelRefreshError ? (
-                  <div style={{ color: 'var(--danger)', fontSize: 11, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-                    {modelRefreshError}
-                  </div>
-                ) : null}
-              </div>
+              <label htmlFor="ai-provider-model-query" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{t('模型')}</label>
               <button
                 type="button"
                 onClick={handleRefreshModels}
@@ -1893,6 +1886,45 @@ export default function AIProviderQuickEditOverlay({ open, mode = 'edit', provid
                 {modelRefreshing ? t('刷新中...') : t('刷新模型')}
               </button>
             </div>
+
+            {modelRefreshError ? (
+              <div
+                role="alert"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '18px minmax(0, 1fr)',
+                  alignItems: 'start',
+                  gap: 8,
+                  padding: '7px 9px',
+                  border: '1px solid rgba(var(--danger-rgb), 0.28)',
+                  borderRadius: 8,
+                  background: 'var(--danger-dim)',
+                  color: 'var(--danger)',
+                }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 999,
+                    background: 'rgba(var(--danger-rgb), 0.16)',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                  }}>
+                  !
+                </span>
+                <div style={{ minWidth: 0, display: 'grid', gap: 2 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.3 }}>{t('刷新模型失败')}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 10, lineHeight: 1.45, overflowWrap: 'anywhere', userSelect: 'text' }}>
+                    {modelRefreshError}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <input
               id="ai-provider-model-query"
