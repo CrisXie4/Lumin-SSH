@@ -25,8 +25,8 @@ export interface AppTopbarProps {
   showTopbarRefreshedLogo: boolean;
   topbarLogoTransitionImg: string;
   sessions: TopbarSession[];
-  tabScrollRef: React.RefObject<HTMLDivElement>;
-  tabListRef: React.RefObject<HTMLDivElement>;
+  tabScrollRef: React.RefObject<HTMLDivElement | null>;
+  tabListRef: React.RefObject<HTMLDivElement | null>;
   activeSessionId: string | null;
   handleTabClick: (sessionId: string) => void;
   closeSession: (sessionId: string, e?: React.MouseEvent) => Promise<void>;
@@ -34,8 +34,8 @@ export interface AppTopbarProps {
   sessionAuthPrompts: Record<string, SessionAuthPrompt>;
   sshChannelUsage: Record<string, SshChannelUsage>;
   tabsOverflow: boolean;
-  tabActionsRef: React.RefObject<HTMLDivElement>;
-  sessionListBtnRef: React.RefObject<HTMLButtonElement>;
+  tabActionsRef: React.RefObject<HTMLDivElement | null>;
+  sessionListBtnRef: React.RefObject<HTMLButtonElement | null>;
   toggleSessionList: () => void;
   closeAllSessions: () => Promise<void>;
   showThemeQuickEntry: boolean;

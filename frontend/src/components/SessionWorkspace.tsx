@@ -160,9 +160,9 @@ export interface SessionWorkspaceTerminalTabsProps {
   handleTerminalSubTabWheel: (e: React.WheelEvent<HTMLElement>) => void;
   shouldIgnoreTerminalDockClick: () => boolean;
   terminalDockDragPreview: TerminalDockDragPreview | null;
-  terminalSubTabActionsRef: React.RefObject<HTMLDivElement>;
+  terminalSubTabActionsRef: React.RefObject<HTMLDivElement | null>;
   terminalSubTabOverflow: boolean;
-  terminalSubTabScrollRef: React.RefObject<HTMLDivElement>;
+  terminalSubTabScrollRef: React.RefObject<HTMLDivElement | null>;
   terminalSubTabScrollStyle: React.CSSProperties;
   terminalToolbarIconOnly: boolean;
 }
@@ -193,7 +193,7 @@ export interface SessionWorkspaceAIProps {
 
 export interface SessionWorkspaceQuickCommandsProps {
   handleQuickCommandsOpenChange: (open: boolean) => void;
-  quickCmdsRef: React.RefObject<QuickCommandsHandle>;
+  quickCmdsRef: React.RefObject<QuickCommandsHandle | null>;
   setShowQuickCommands: (v: boolean) => void;
   showQuickCommands: boolean;
 }

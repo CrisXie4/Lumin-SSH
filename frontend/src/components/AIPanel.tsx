@@ -6392,8 +6392,8 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
   const tabRequestIdsRef = useRef<Record<string, string>>({})
   const aiWorkspaceTabRuntimeRef = useRef<Record<string, { conversationId: string; activeRequestId: string }>>({})
   const aiWorkspaceTabScrollRef = useRef<HTMLDivElement | null>(null)
-  const aiWorkspaceTabCloseLockRef = useRef<{ tabId: string; confirmed: boolean; lastInteractionAt: number }>()
-  const aiWorkspaceTabCloseUnlockTimerRef = useRef<number>()
+  const aiWorkspaceTabCloseLockRef = useRef<{ tabId: string; confirmed: boolean; lastInteractionAt: number } | undefined>(undefined)
+  const aiWorkspaceTabCloseUnlockTimerRef = useRef<number | undefined>(undefined)
   useEffect(() => {
     tabGroupRef.current = tabGroup
   }, [tabGroup])

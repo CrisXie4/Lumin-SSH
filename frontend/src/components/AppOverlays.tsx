@@ -118,7 +118,7 @@ export interface AppOverlaysProps {
     sessionAuthPrompts: Record<string, SessionAuthPrompt>;
     sessionListPos: { x: number; y: number };
     sessionListQuery: string;
-    sessionListRef: React.RefObject<HTMLDivElement>;
+    sessionListRef: React.RefObject<HTMLDivElement | null>;
     sessions: TopbarSession[];
     setSessionListQuery: (q: string) => void;
     setShowSessionList: (v: boolean) => void;

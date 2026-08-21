@@ -532,7 +532,7 @@ export interface TerminalProps {
   connectedSessions?: Array<{ id?: string }>;
   showCommands?: boolean;
   onQuickCommandsOpenChange?: (open: boolean) => void;
-  quickCmdsRef?: React.RefObject<QuickCommandsHandle>;
+  quickCmdsRef?: React.RefObject<QuickCommandsHandle | null>;
   // 重连触发器：串口/本地复用同一 sessionId 重连时，wsRebuildKey 自增，
   // 让下方建立 xterm+WebSocket 的主 effect 重跑，重建 WS（对齐 SSH 重连靠新 terminalId 触发的行为）。
   wsRebuildKey?: number;
@@ -3157,7 +3157,7 @@ export default function Terminal({
     }
     // 关闭面板时检查是否有未保存的修改
     if (quickCmdsRef?.current?.isDirty?.()) {
-      quickCmdsRef.current.showCloseConfirm();
+      quickCmdsRef.current?.showCloseConfirm();
       return; // 让 onClose 回调来关闭
     }
     onQuickCommandsOpenChange?.(false);
