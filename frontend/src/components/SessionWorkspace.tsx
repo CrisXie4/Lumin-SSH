@@ -173,12 +173,14 @@ export interface SessionWorkspaceAIProps {
   activeConversationDiffPanel: unknown;
   activeRestorePreviewReview: unknown;
   activeWorkspaceTerminalKey: string;
+  activeAIWorkspaceTabId: string;
   aiPanelNode: React.ReactNode;
-  handleApplyConversationDiffRestore: (artifactPath: string, targetSessionId: string, targetTerminalId: string) => Promise<boolean>;
-  handleReapplyConversationDiffItem: (artifactPath: string, targetSessionId: string, targetTerminalId: string) => Promise<boolean>;
+  handleApplyConversationDiffRestore: (artifactPath: string, targetSessionId: string, targetTerminalId: string, tabId?: string) => Promise<boolean>;
+  handleReapplyConversationDiffItem: (artifactPath: string, targetSessionId: string, targetTerminalId: string, tabId?: string) => Promise<boolean>;
   handleSelectConversationDiffItem: (item: ConversationDiffItem, options?: {
     sessionId?: string;
     terminalId?: string;
+    tabId?: string;
     items?: ConversationDiffItem[];
     locate?: boolean;
     setActive?: boolean;
@@ -223,6 +225,7 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
     activeSessionRootTerminals,
     activeTerminalId,
     activeWorkspaceTerminalKey,
+    activeAIWorkspaceTabId,
     addToast,
     aiPanelNode,
     allGroups,
@@ -1400,10 +1403,11 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                     onSelectItem={(item) => void handleSelectConversationDiffItem(item, {
                       sessionId: (activeConversationDiffPanel as { sessionId?: string }).sessionId,
                       terminalId: (activeConversationDiffPanel as { terminalId?: string }).terminalId,
+                      tabId: activeAIWorkspaceTabId,
                       locate: true,
                     })}
-                    onPreviewRestore={(artifactPath) => handleReapplyConversationDiffItem(artifactPath, String((activeConversationDiffPanel as { sessionId?: unknown }).sessionId || ''), String((activeConversationDiffPanel as { terminalId?: unknown }).terminalId || ''))}
-                    onApplyRestore={(artifactPath) => handleApplyConversationDiffRestore(artifactPath, String((activeConversationDiffPanel as { sessionId?: unknown }).sessionId || ''), String((activeConversationDiffPanel as { terminalId?: unknown }).terminalId || ''))}
+                    onPreviewRestore={(artifactPath) => handleReapplyConversationDiffItem(artifactPath, String((activeConversationDiffPanel as { sessionId?: unknown }).sessionId || ''), String((activeConversationDiffPanel as { terminalId?: unknown }).terminalId || ''), activeAIWorkspaceTabId)}
+                    onApplyRestore={(artifactPath) => handleApplyConversationDiffRestore(artifactPath, String((activeConversationDiffPanel as { sessionId?: unknown }).sessionId || ''), String((activeConversationDiffPanel as { terminalId?: unknown }).terminalId || ''), activeAIWorkspaceTabId)}
                     onClose={() => {
                       if (!activeWorkspaceTerminalKey) {
                         return;

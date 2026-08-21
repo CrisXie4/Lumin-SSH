@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { useTranslation } from '../../../i18n.ts'
 import { openGlobalContextMenu } from '../../../utils/contextMenu.ts'
 import * as runtime from '../../../../wailsjs/runtime/runtime.js'
+import { useAIWorkspaceTabContext } from '../aiWorkspaceTabContext.ts'
 
 // 清理 GFM 自动链接中误吞的非 URL 字符
 // 1. 硬截断：HTML 定界符/引号/反斜杠不应出现在 URL 中
@@ -269,6 +270,7 @@ interface AIChatMarkdownProps {
 
 export default function AIChatMarkdown({ text, enableQuoteContextMenu = false }: AIChatMarkdownProps) {
   const { t, lang } = useTranslation()
+  const { sessionId, terminalId, tabId } = useAIWorkspaceTabContext()
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const handleContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -302,13 +304,13 @@ export default function AIChatMarkdown({ text, enableQuoteContextMenu = false }:
               return
             }
             window.dispatchEvent(new CustomEvent('ai-quote-selection', {
-              detail: { text: selectedText },
+              detail: { text: selectedText, sessionId, terminalId, tabId },
             }))
           },
         },
       ],
     })
-  }, [enableQuoteContextMenu, t, lang])
+  }, [enableQuoteContextMenu, t, lang, sessionId, terminalId, tabId])
 
   return (
     <div

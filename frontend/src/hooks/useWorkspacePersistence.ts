@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { getAllSessionFileManagerWorkspaces } from '../utils/fileWorkbench.ts';
+import { getAllAIWorkspaceTabGroups, subscribeAIWorkspaceTabGroups } from '../utils/aiWorkspaceTabs.ts';
 import { normalizeWorkspaceContentTab, type SessionLike, type WorkspaceContentTab } from '../utils/sessionWorkspace.ts';
 import { sortTerminalPaneCells, type TerminalPaneLayout } from '../utils/terminalPaneLayout.ts';
 
@@ -15,6 +16,7 @@ export interface WorkspaceSessionSnapshot {
   terminals: Array<{ id: string; label: string }>;
   terminalPaneLayouts: Record<string, TerminalPaneLayout>;
   fileManagerWorkspaces: Record<string, unknown>;
+  aiTabWorkspaces: Record<string, unknown>;
   savedAt?: number;
 }
 
@@ -94,6 +96,9 @@ export function useWorkspaceSessionPersistence({
     const fileManagerWorkspaces = Object.fromEntries(
       Object.entries(getAllSessionFileManagerWorkspaces()).filter(([terminalId]) => terminalIds.has(terminalId)),
     );
+    const aiTabWorkspaces = Object.fromEntries(
+      Object.entries(getAllAIWorkspaceTabGroups()).filter(([terminalId]) => terminalIds.has(terminalId)),
+    );
     const preferredTerminalId = overrides.activeTerminalId
       || (activeSessionIdRef.current === nextSession.id ? activeTerminalIdRef.current : lastTerminalRef.current[nextSession.id]);
     const resolvedActiveTerminalId = resolveSessionRootTerminalId(nextSession, preferredTerminalId, nextLayouts) || nextTerminals[0]?.id || nextSession.id || '';
@@ -112,6 +117,7 @@ export function useWorkspaceSessionPersistence({
       terminals: nextTerminals.map((term) => ({ id: term.id, label: term.label })),
       terminalPaneLayouts: sessionLayouts,
       fileManagerWorkspaces,
+      aiTabWorkspaces,
       savedAt: Date.now(),
     };
   }, [activeSessionIdRef, activeTerminalIdRef, contentTabRef, lastContentTabRef, lastTerminalRef, resolveSessionRootTerminalId, t, terminalPaneLayoutsRef]);
@@ -162,6 +168,9 @@ export function useWorkspaceSessionPersistence({
           : {},
         fileManagerWorkspaces: parsed.fileManagerWorkspaces && typeof parsed.fileManagerWorkspaces === 'object'
           ? parsed.fileManagerWorkspaces as Record<string, unknown>
+          : {},
+        aiTabWorkspaces: parsed.aiTabWorkspaces && typeof parsed.aiTabWorkspaces === 'object'
+          ? parsed.aiTabWorkspaces as Record<string, unknown>
           : {},
       };
     } catch {
@@ -260,6 +269,9 @@ export default function useWorkspacePersistence({
     const savedFileManagerWorkspaces = Object.fromEntries(
       Object.entries(getAllSessionFileManagerWorkspaces()).filter(([terminalId]) => openTerminalIds.has(terminalId)),
     );
+    const savedAITabWorkspaces = Object.fromEntries(
+      Object.entries(getAllAIWorkspaceTabGroups()).filter(([terminalId]) => openTerminalIds.has(terminalId)),
+    );
     const savedActiveSessionId = openSessions.some((session) => session.id === nextActiveSessionId)
       ? nextActiveSessionId : (openSessions[openSessions.length - 1]?.id || null);
     const savedActiveSession = openSessions.find((session) => session.id === savedActiveSessionId) || openSessions[0] || null;
@@ -304,6 +316,7 @@ export default function useWorkspacePersistence({
       }),
       terminalPaneLayouts: savedLayouts,
       fileManagerWorkspaces: savedFileManagerWorkspaces,
+      aiTabWorkspaces: savedAITabWorkspaces,
     });
     setLiveSnapshot(workspaceStatePayload);
     if (!rememberWorkspace) {
@@ -343,5 +356,16 @@ export default function useWorkspacePersistence({
       window.clearTimeout(timerId);
       window.removeEventListener('lumin-file-manager-workspace-changed', handleWorkspaceChange);
     };
+  }, [persistWorkspaceSnapshot]);
+
+  useEffect(() => {
+    let timerId = 0;
+    return subscribeAIWorkspaceTabGroups(() => {
+      window.clearTimeout(timerId);
+      timerId = window.setTimeout(() => {
+        timerId = 0;
+        persistWorkspaceSnapshot();
+      }, 120);
+    });
   }, [persistWorkspaceSnapshot]);
 }

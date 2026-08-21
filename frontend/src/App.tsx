@@ -17,6 +17,12 @@ import {
   type FileManagerWorkspaceState,
 } from './utils/fileWorkbench.ts';
 import AppTopbar, { type TopbarSession } from './components/AppTopbar.tsx';
+import {
+  clearAIWorkspaceTabGroup,
+  getAllAIWorkspaceTabGroups,
+  remapAIWorkspaceTabGroups,
+  replaceAllAIWorkspaceTabGroups,
+} from './utils/aiWorkspaceTabs.ts';
 import SessionWorkspace from './components/SessionWorkspace.tsx';
 import type { QuickCommandsHandle } from './components/QuickCommands.tsx';
 import AppOverlays, {
@@ -36,6 +42,7 @@ import {
   type TerminalPaneLayout,
 } from './utils/terminalPaneLayout.ts';
 import {
+  buildAIWorkspaceTabPanelKey,
   buildAIWorkspaceTerminalPanelKey,
   formatAIQuotedSelection,
   resolveAIWorkspaceTerminalBindingByTerminalId,
@@ -223,13 +230,16 @@ export default function App() {
     conversationDiffPanels,
     setRestorePreviewReviews,
     setConversationDiffPanels,
-    enqueueChangeReview,
     removeChangeReviewsByRequestId,
     removeChangeReviewsBySessionId,
     handleReapplyConversationDiffItem,
     handleApplyConversationDiffRestore,
     handleSelectConversationDiffItem,
   } = useAIReview({ sessionsRef, addToast: looseAddToast, t: looseT });
+  const clearAIWorkspaceTabGroupAndReviews = useCallback((terminalId: string) => {
+    clearAIWorkspaceTabGroup(terminalId);
+    removeChangeReviewsBySessionId(terminalId);
+  }, [removeChangeReviewsBySessionId]);
   const [monitoringEnabled, setMonitoringEnabled] = useState<Record<string, boolean>>({});
   const [probeSnapshots, setProbeSnapshots] = useState<Record<string, ProbeSnapshot>>({});
   const {
@@ -772,8 +782,14 @@ export default function App() {
   const [terminalToolbarIconOnly, setTerminalToolbarIconOnly] = useState(localStorage.getItem('terminalToolbarIconOnly') === 'true');
   const [showTopbarRefreshedLogo, setShowTopbarRefreshedLogo] = useState(false);
   const [aiPanelDevilModes, setAIPanelDevilModes] = useState<Record<string, boolean>>({});
+  const [activeAIWorkspaceTabs, setActiveAIWorkspaceTabs] = useState<Record<string, string>>({});
   const activeAIPanelKey = useMemo(() => buildAIWorkspaceTerminalPanelKey(activeSessionId || '', activeTerminalId || ''), [activeSessionId, activeTerminalId]);
-  const activeAIDevilMode = activeAIPanelKey ? aiPanelDevilModes[activeAIPanelKey] === true : false;
+  const activeAIWorkspaceTabId = activeAIPanelKey ? activeAIWorkspaceTabs[activeAIPanelKey] || '' : '';
+  const activeAIWorkspaceTabKey = useMemo(
+    () => buildAIWorkspaceTabPanelKey(activeSessionId || '', activeTerminalId || '', activeAIWorkspaceTabId),
+    [activeAIWorkspaceTabId, activeSessionId, activeTerminalId],
+  );
+  const activeAIDevilMode = activeAIWorkspaceTabKey ? aiPanelDevilModes[activeAIWorkspaceTabKey] === true : false;
 
   const handleQuickCommandsOpenChange = useCallback((open: boolean) => {
     if (open) {
@@ -852,7 +868,13 @@ export default function App() {
       const detail = (event as CustomEvent<Record<string, unknown>>).detail || {};
       const selectedText = typeof detail.text === 'string' ? detail.text : '';
       const quotedText = formatAIQuotedSelection(selectedText);
-      const currentSessionId = activeSessionIdRef.current;
+      const scopedSessionId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
+      const scopedTerminalId = typeof detail.terminalId === 'string' ? detail.terminalId.trim() : '';
+      const scopedTabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
+      if (scopedTabId) {
+        return;
+      }
+      const currentSessionId = scopedSessionId || activeSessionIdRef.current;
       if (!currentSessionId || !quotedText) {
         return;
       }
@@ -860,11 +882,11 @@ export default function App() {
       if (!session) {
         return;
       }
-      const preferredTerminalId = activeTerminalIdRef.current || lastTerminalRef.current[currentSessionId] || '';
-      const activeLayout = preferredTerminalId ? terminalPaneLayoutsRef.current[preferredTerminalId] : null;
-      const resolvedTerminalId = activeLayout?.sessionId === currentSessionId
+      const preferredTerminalId = scopedTerminalId || activeTerminalIdRef.current || lastTerminalRef.current[currentSessionId] || '';
+      const activeLayout = !scopedTerminalId && preferredTerminalId ? terminalPaneLayoutsRef.current[preferredTerminalId] : null;
+      const resolvedTerminalId = scopedTerminalId || (activeLayout?.sessionId === currentSessionId
         ? (activeLayout.rootTerminalId || preferredTerminalId)
-        : resolveSessionRootTerminalId(session, preferredTerminalId, terminalPaneLayoutsRef.current);
+        : resolveSessionRootTerminalId(session, preferredTerminalId, terminalPaneLayoutsRef.current));
       if (!resolvedTerminalId) {
         return;
       }
@@ -872,6 +894,7 @@ export default function App() {
         detail: {
           sessionId: currentSessionId,
           terminalId: resolvedTerminalId,
+          tabId: scopedTabId,
           text: quotedText,
           preserveWhitespace: true,
         },
@@ -1055,18 +1078,17 @@ export default function App() {
     }
   };
 
-  const activeWorkspaceTerminalKey = useMemo(() => buildAIWorkspaceTerminalPanelKey(activeSessionId || '', activeTerminalId || ''), [activeSessionId, activeTerminalId]);
   const activeChangeReviewQueue = useMemo(() => (
-    activeWorkspaceTerminalKey && Array.isArray(changeReviewQueues[activeWorkspaceTerminalKey])
-      ? changeReviewQueues[activeWorkspaceTerminalKey]
+    activeAIWorkspaceTabKey && Array.isArray(changeReviewQueues[activeAIWorkspaceTabKey])
+      ? changeReviewQueues[activeAIWorkspaceTabKey]
       : []
-  ), [activeWorkspaceTerminalKey, changeReviewQueues]);
+  ), [activeAIWorkspaceTabKey, changeReviewQueues]);
   const activeChangeReview = activeChangeReviewQueue.length > 0 ? activeChangeReviewQueue[0] : null;
-  const activeRestorePreviewReview = activeWorkspaceTerminalKey
-    ? restorePreviewReviews[activeWorkspaceTerminalKey] || null
+  const activeRestorePreviewReview = activeAIWorkspaceTabKey
+    ? restorePreviewReviews[activeAIWorkspaceTabKey] || null
     : null;
-  const activeConversationDiffPanel = activeWorkspaceTerminalKey
-    ? conversationDiffPanels[activeWorkspaceTerminalKey] || null
+  const activeConversationDiffPanel = activeAIWorkspaceTabKey
+    ? conversationDiffPanels[activeAIWorkspaceTabKey] || null
     : null;
 
   // ── 连接错误通用处理 ──────────────────────────────────────
@@ -1100,10 +1122,9 @@ export default function App() {
     credentials,
     disconnectSessionConnection,
     disconnectSessionTerminals,
-    // useAIReview 返回严格 AIChangeReview，注入侧为宽松 Record
-    enqueueChangeReview: enqueueChangeReview as (review: Record<string, unknown>) => void,
     fileManagerPosition,
     getAllSessionFileManagerWorkspaces,
+    getAllAIWorkspaceTabGroups,
     getSessionFileManagerWorkspace,
     isRecoveryPasswordError,
     isUnsupportedMonitorSession,
@@ -1119,6 +1140,7 @@ export default function App() {
     registerServerDisconnect,
     remapSessionFileManagerWorkspaceMap,
     remapSessionFileManagerWorkspaces,
+    remapAIWorkspaceTabGroups,
     remapSessionWorkspaceLayouts,
     remapTerminalPaneLayouts,
     rememberSessionActiveTerminal,
@@ -1126,6 +1148,8 @@ export default function App() {
     rememberWorkspaceLoaded,
     removeChangeReviewsByRequestId,
     replaceAllSessionFileManagerWorkspaces,
+    replaceAllAIWorkspaceTabGroups,
+    clearAIWorkspaceTabGroup: clearAIWorkspaceTabGroupAndReviews,
     resolveSessionRootTerminalId,
     restoringWorkspaceRef,
     restoringWorkspaceSessionIds,
@@ -1365,11 +1389,12 @@ export default function App() {
                 side={probePanelPosition}
                 sessionId={String(s.id ?? '')}
                 terminalId={t.id}
+                isPanelVisible={isPanelActive}
                 // AIPanel 已转 TSX：sessionTerminals 契约 = getEffectiveTerminals 返回形状
                 sessionTerminals={getEffectiveTerminals(s)}
                 addToast={looseAddToast}
-                onDevilModeChange={(enabled: boolean) => {
-                  const panelKey = buildAIWorkspaceTerminalPanelKey(s.id || '', t.id);
+                onDevilModeChange={(enabled: boolean, tabId = '') => {
+                  const panelKey = buildAIWorkspaceTabPanelKey(s.id || '', t.id, tabId);
                   if (!panelKey) {
                     return;
                   }
@@ -1378,6 +1403,36 @@ export default function App() {
                       ? prev
                       : { ...prev, [panelKey]: enabled }
                   ));
+                }}
+                onActiveTabChange={(tabId: string) => {
+                  const panelKey = buildAIWorkspaceTerminalPanelKey(s.id || '', t.id);
+                  if (!panelKey) {
+                    return;
+                  }
+                  setActiveAIWorkspaceTabs((prev) => (
+                    prev[panelKey] === tabId
+                      ? prev
+                      : { ...prev, [panelKey]: tabId }
+                  ));
+                }}
+                onActivateWorkspaceTab={(targetTerminalId: string, tabId: string) => {
+                  const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, targetTerminalId);
+                  if (!binding) {
+                    return;
+                  }
+                  markWorkspaceRestoreNavigationOverride();
+                  setAIPanelVisibility(true);
+                  setActiveSessionId(binding.sessionId);
+                  setActiveTerminalId(binding.terminalId);
+                  setContentTab('terminal');
+                  const targetPanelKey = buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId);
+                  if (targetPanelKey) {
+                    setActiveAIWorkspaceTabs((prev) => (
+                      prev[targetPanelKey] === tabId
+                        ? prev
+                        : { ...prev, [targetPanelKey]: tabId }
+                    ));
+                  }
                 }}
               />
             </div>
@@ -1982,7 +2037,7 @@ export default function App() {
         session={{ activeSession, activeSessionId, activeSessionRootTerminals, activeTerminalId, connectingServers, contentTab, getEffectiveTerminals, getSessionPanes, getSessionRootPaneCells, getSessionWorkspaceTabs, handleCancelConnection, isActiveSessionConnected, isCreatingTerminal, isSessionWorkspaceVisible, markWorkspaceRestoreNavigationOverride, mountedSessions, openNewTerminal, persistWorkspaceSnapshotRef, rememberSessionActiveTerminal, resolveHostKeyChoice, resolvePasswordPrompt, restoringWorkspaceSessionIds, sessionAuthPrompts, sessions, setActiveTerminalId, setContentTab: setContentTabLoose, setTabContextMenu, setTerminalTabContextMenu, terminalPaneLayouts }}
         fileManager={{ bottomSplitHeight, collapseDragIntent, fileManagerCollapsed, fileManagerDockConfirmTarget, fileManagerDockDropzones, fileManagerDockPreview, fileManagerDockTabAnchorRef, fileManagerPosition, leftSplitWidth, probePanelCollapsed, probePanelNode, probePanelPosition, probePanelWidth, renderSessionFileManagers, setFileManagerCollapsedPersistent, setProbePanelCollapsedPersistent, shouldIgnoreResizerClick, startDrag }}
         terminalTabs={{ closeTerminal, closeTerminalGroup, closeTerminalPane, handleTerminalSubTabClickCapture, handleTerminalSubTabDockMouseDown, handleTerminalSubTabMouseDown, handleTerminalSubTabScroll, handleTerminalSubTabWheel, shouldIgnoreTerminalDockClick, terminalDockDragPreview, terminalSubTabActionsRef, terminalSubTabOverflow, terminalSubTabScrollRef, terminalSubTabScrollStyle, terminalToolbarIconOnly }}
-        ai={{ activeChangeReview, activeChangeReviewQueue, activeConversationDiffPanel, activeRestorePreviewReview, activeWorkspaceTerminalKey, aiPanelNode, handleApplyConversationDiffRestore, handleReapplyConversationDiffItem, handleSelectConversationDiffItem, setAIPanelVisibility, setConversationDiffPanels, setRestorePreviewReviews, showAIPanel }}
+        ai={{ activeChangeReview, activeChangeReviewQueue, activeConversationDiffPanel, activeRestorePreviewReview, activeWorkspaceTerminalKey: activeAIWorkspaceTabKey, activeAIWorkspaceTabId, aiPanelNode, handleApplyConversationDiffRestore, handleReapplyConversationDiffItem, handleSelectConversationDiffItem, setAIPanelVisibility, setConversationDiffPanels, setRestorePreviewReviews, showAIPanel }}
         quickCommands={{ handleQuickCommandsOpenChange, quickCmdsRef, setShowQuickCommands, showQuickCommands }}
         shared={{ addToast: looseAddToast, t: looseT }}
       />

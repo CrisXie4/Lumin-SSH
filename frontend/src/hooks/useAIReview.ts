@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { restoreAIChatTool } from '../components/ai/aiChatBridge.ts';
 import {
+  buildAIWorkspaceTabPanelKey,
   buildAIWorkspaceTerminalPanelKey,
   resolveAIWorkspaceTerminalBindingByTerminalId,
 } from '../utils/sessionWorkspace.ts';
@@ -17,6 +18,7 @@ export interface AIChangeReview {
 export interface RestorePreviewState {
   sessionId: string;
   terminalId: string;
+  tabId: string;
   review: AIChangeReview;
 }
 
@@ -39,6 +41,7 @@ export interface ConversationDiffItem {
 export interface ConversationDiffPanel {
   sessionId: string;
   terminalId: string;
+  tabId: string;
   openedAt: number;
   items: ConversationDiffItem[];
   selectedMessageId: string;
@@ -65,18 +68,25 @@ export interface UseAIReviewResult {
   conversationDiffPanels: Record<string, ConversationDiffPanel>;
   setRestorePreviewReviews: React.Dispatch<React.SetStateAction<Record<string, RestorePreviewState>>>;
   setConversationDiffPanels: React.Dispatch<React.SetStateAction<Record<string, ConversationDiffPanel>>>;
-  enqueueChangeReview: (review: AIChangeReview) => void;
+  enqueueChangeReview: (review: AIChangeReview, tabId?: string) => void;
   removeChangeReviewsByRequestId: (requestId: string) => void;
-  removeChangeReviewsBySessionId: (terminalId: string) => void;
-  handleReapplyConversationDiffItem: (artifactPath: string, targetSessionId: string, targetTerminalId: string) => Promise<boolean>;
-  handleApplyConversationDiffRestore: (artifactPath: string, targetSessionId: string, targetTerminalId: string) => Promise<boolean>;
+  removeChangeReviewsBySessionId: (terminalId: string, tabId?: string) => void;
+  handleReapplyConversationDiffItem: (artifactPath: string, targetSessionId: string, targetTerminalId: string, tabId?: string) => Promise<boolean>;
+  handleApplyConversationDiffRestore: (artifactPath: string, targetSessionId: string, targetTerminalId: string, tabId?: string) => Promise<boolean>;
   handleSelectConversationDiffItem: (item: ConversationDiffItem, options?: {
     sessionId?: string;
     terminalId?: string;
     items?: ConversationDiffItem[];
     locate?: boolean;
     setActive?: boolean;
+    tabId?: string;
   }) => Promise<void>;
+}
+
+function buildAIReviewPanelKey(sessionId: string, terminalId: string, tabId = ''): string {
+  return tabId
+    ? buildAIWorkspaceTabPanelKey(sessionId, terminalId, tabId)
+    : buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
 }
 
 export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOptions): UseAIReviewResult {
@@ -84,7 +94,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
   const [restorePreviewReviews, setRestorePreviewReviews] = useState<Record<string, RestorePreviewState>>({});
   const [conversationDiffPanels, setConversationDiffPanels] = useState<Record<string, ConversationDiffPanel>>({});
 
-  const enqueueChangeReview = useCallback((review: AIChangeReview) => {
+  const enqueueChangeReview = useCallback((review: AIChangeReview, tabId = '') => {
     if (!review || typeof review !== 'object' || !review.reviewId || !review.requestId) {
       return;
     }
@@ -92,7 +102,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     if (!binding) {
       return;
     }
-    const panelKey = buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId);
+    const panelKey = buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId);
     if (!panelKey) {
       return;
     }
@@ -164,42 +174,62 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     });
   }, []);
 
-  const removeChangeReviewsBySessionId = useCallback((terminalId: string) => {
+  const removeChangeReviewsBySessionId = useCallback((terminalId: string, tabId = '') => {
     const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, terminalId);
     if (!binding) {
       return;
     }
-    const panelKey = buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId);
-    if (!panelKey) {
+    const basePanelKey = buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId);
+    const panelKey = buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId);
+    if (!basePanelKey || !panelKey) {
       return;
     }
+    const matchesPanelKey = (currentKey: string) => (
+      tabId
+        ? currentKey === panelKey
+        : currentKey === basePanelKey || currentKey.startsWith(`${basePanelKey}::`)
+    );
     setChangeReviewQueues((prev) => {
-      if (!prev[panelKey]) {
-        return prev;
-      }
-      const next = { ...prev };
-      delete next[panelKey];
-      return next;
+      const next = Object.fromEntries(Object.entries(prev).filter(([currentKey]) => !matchesPanelKey(currentKey)));
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
     });
     setRestorePreviewReviews((prev) => {
-      if (!prev[panelKey]) {
-        return prev;
-      }
-      const next = { ...prev };
-      delete next[panelKey];
-      return next;
+      const next = Object.fromEntries(Object.entries(prev).filter(([currentKey]) => !matchesPanelKey(currentKey)));
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+    setConversationDiffPanels((prev) => {
+      const next = Object.fromEntries(Object.entries(prev).filter(([currentKey]) => !matchesPanelKey(currentKey)));
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
     });
   }, []);
 
   useEffect(() => {
+    const handleRequiredChangeReview = (event: Event) => {
+      const detail = (event as CustomEvent<{ review?: unknown; terminalId?: unknown; tabId?: unknown }>).detail || {};
+      const review = detail.review;
+      const terminalId = typeof detail.terminalId === 'string' ? detail.terminalId.trim() : '';
+      const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
+      if (!review || typeof review !== 'object' || !terminalId || !tabId) {
+        return;
+      }
+      enqueueChangeReview({
+        ...(review as AIChangeReview),
+        sessionId: terminalId,
+      }, tabId);
+    };
+    window.addEventListener('ai-change-review-required', handleRequiredChangeReview);
+    return () => window.removeEventListener('ai-change-review-required', handleRequiredChangeReview);
+  }, [enqueueChangeReview]);
+
+  useEffect(() => {
     const handleClearChangeReview = (event: Event) => {
-      const sessionId = typeof (event as CustomEvent<{ sessionId?: unknown }>).detail?.sessionId === 'string'
-        ? (event as CustomEvent<{ sessionId: string }>).detail.sessionId.trim()
-        : '';
+      const detail = (event as CustomEvent<{ sessionId?: unknown; tabId?: unknown }>).detail || {};
+      const sessionId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
+      const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
       if (!sessionId) {
         return;
       }
-      removeChangeReviewsBySessionId(sessionId);
+      removeChangeReviewsBySessionId(sessionId, tabId);
     };
 
     window.addEventListener('ai-change-review-clear', handleClearChangeReview);
@@ -208,9 +238,10 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
 
   useEffect(() => {
     const handlePreviewChangeReview = (event: Event) => {
-      const detail = (event as CustomEvent<{ review?: unknown; sessionId?: unknown }>).detail || {};
+      const detail = (event as CustomEvent<{ review?: unknown; sessionId?: unknown; tabId?: unknown }>).detail || {};
       const review = detail.review;
       const terminalId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
+      const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
       if (!review || typeof review !== 'object') {
         return;
       }
@@ -218,7 +249,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
       if (!binding) {
         return;
       }
-      const panelKey = buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId);
+      const panelKey = buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId);
       if (!panelKey) {
         return;
       }
@@ -227,17 +258,19 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
         [panelKey]: {
           sessionId: binding.sessionId,
           terminalId: binding.terminalId,
+          tabId,
           review: review as AIChangeReview,
         },
       }));
     };
 
     const handleClearPreviewChangeReview = (event: Event) => {
-      const detail = (event as CustomEvent<{ reviewId?: unknown; sessionId?: unknown }>).detail || {};
+      const detail = (event as CustomEvent<{ reviewId?: unknown; sessionId?: unknown; tabId?: unknown }>).detail || {};
       const reviewId = typeof detail.reviewId === 'string' ? detail.reviewId.trim() : '';
       const terminalId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
+      const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
       const binding = terminalId ? resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, terminalId) : null;
-      const panelKey = binding ? buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId) : '';
+      const panelKey = binding ? buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId) : '';
       setRestorePreviewReviews((prev) => {
         let changed = false;
         const next: Record<string, RestorePreviewState> = {};
@@ -273,7 +306,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     return review && typeof review === 'object' ? review : null;
   }, []);
 
-  const handleReapplyConversationDiffItem = useCallback(async (artifactPath: string, targetSessionId: string, targetTerminalId: string) => {
+  const handleReapplyConversationDiffItem = useCallback(async (artifactPath: string, targetSessionId: string, targetTerminalId: string, _tabId = '') => {
     const bridge = (window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App) as AIBridgeLike;
     const effectiveTerminalId = typeof targetTerminalId === 'string' && targetTerminalId.trim()
       ? targetTerminalId.trim()
@@ -293,13 +326,13 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     }
   }, [addToast, t]);
 
-  const handleApplyConversationDiffRestore = useCallback(async (artifactPath: string, targetSessionId: string, targetTerminalId: string) => {
+  const handleApplyConversationDiffRestore = useCallback(async (artifactPath: string, targetSessionId: string, targetTerminalId: string, tabId = '') => {
     try {
       await restoreAIChatTool(artifactPath, targetTerminalId);
       addToast(t('已还原'), 'success', 3200);
       // 还原成功：标记该条目 restored=true（按钮持久显示「已还原」并禁用），保留条目不再移除
       const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, targetSessionId || targetTerminalId);
-      const panelKey = binding ? buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId) : '';
+      const panelKey = binding ? buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId) : '';
       if (panelKey) {
         setConversationDiffPanels((prev) => {
           const panel = prev[panelKey];
@@ -333,6 +366,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
   const handleSelectConversationDiffItem = useCallback(async (item: ConversationDiffItem, options: {
     sessionId?: string;
     terminalId?: string;
+    tabId?: string;
     items?: ConversationDiffItem[];
     locate?: boolean;
     setActive?: boolean;
@@ -341,10 +375,11 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     const messageId = typeof item?.messageId === 'string' ? item.messageId.trim() : '';
     const sessionId = typeof options?.sessionId === 'string' ? options.sessionId.trim() : '';
     const terminalId = typeof options?.terminalId === 'string' ? options.terminalId.trim() : '';
+    const tabId = typeof options?.tabId === 'string' ? options.tabId.trim() : '';
     const providedItems = Array.isArray(options?.items) ? options.items : [];
     const shouldLocate = options?.locate === true;
     const shouldSetActive = options?.setActive !== false;
-    const panelKey = buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
+    const panelKey = buildAIReviewPanelKey(sessionId, terminalId, tabId);
     if (!artifactPath || !panelKey) {
       return;
     }
@@ -352,6 +387,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
       const currentPanel = prev[panelKey] || {
         sessionId,
         terminalId,
+        tabId,
         openedAt: Date.now(),
         items: providedItems,
       };
@@ -376,6 +412,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
         const currentPanel = prev[panelKey] || {
           sessionId,
           terminalId,
+          tabId,
           openedAt: Date.now(),
           items: providedItems,
         };
@@ -404,6 +441,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
           detail: {
             sessionId,
             terminalId,
+            tabId,
             messageId,
             token: Date.now(),
           },
@@ -414,6 +452,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
         const currentPanel = prev[panelKey] || {
           sessionId,
           terminalId,
+          tabId,
           openedAt: Date.now(),
           items: providedItems,
         };
@@ -443,11 +482,13 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
       const detail = (event as CustomEvent<{
         sessionId?: unknown;
         terminalId?: unknown;
+        tabId?: unknown;
         items?: unknown;
       }>).detail || {};
       const sessionId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
       const terminalId = typeof detail.terminalId === 'string' ? detail.terminalId.trim() : '';
-      const panelKey = buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
+      const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
+      const panelKey = buildAIReviewPanelKey(sessionId, terminalId, tabId);
       const rawItems = Array.isArray(detail.items) ? detail.items : [];
       const items: ConversationDiffItem[] = rawItems
         .filter((item) => item && typeof item === 'object')
@@ -485,6 +526,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
           [panelKey]: {
             sessionId,
             terminalId,
+            tabId,
             openedAt: Date.now(),
             items,
             selectedMessageId: firstItem?.messageId || '',
@@ -495,18 +537,19 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
         };
       });
       if (shouldOpen && firstItem) {
-        void handleSelectConversationDiffItem(firstItem, { sessionId, terminalId, locate: false, items, setActive: true });
+        void handleSelectConversationDiffItem(firstItem, { sessionId, terminalId, tabId, locate: false, items, setActive: true });
         items.slice(1).forEach((nextItem) => {
-          void handleSelectConversationDiffItem(nextItem, { sessionId, terminalId, locate: false, items, setActive: false });
+          void handleSelectConversationDiffItem(nextItem, { sessionId, terminalId, tabId, locate: false, items, setActive: false });
         });
       }
     };
 
     const handleCloseConversationDiffPanel = (event: Event) => {
-      const detail = (event as CustomEvent<{ sessionId?: unknown; terminalId?: unknown }>).detail || {};
+      const detail = (event as CustomEvent<{ sessionId?: unknown; terminalId?: unknown; tabId?: unknown }>).detail || {};
       const sessionId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
       const terminalId = typeof detail.terminalId === 'string' ? detail.terminalId.trim() : '';
-      const panelKey = buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
+      const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
+      const panelKey = buildAIReviewPanelKey(sessionId, terminalId, tabId);
       setConversationDiffPanels((prev) => {
         if (!panelKey) {
           return {};

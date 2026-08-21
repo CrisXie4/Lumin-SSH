@@ -217,6 +217,7 @@ export interface AIChatConversationProps {
   sessionId?: string
   terminalId?: string
   conversationId?: string
+  tabId?: string
   onSendUserMessage?: (text: string) => void
   onRetryUserMessage?: (id: string, text: string, images: string[]) => void
   onRetryAssistantMessage?: (id: string) => void
@@ -234,7 +235,7 @@ export interface AIChatConversationProps {
   editingTargetMessageId?: string
 }
 
-export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', conversationId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, messageNavEnabled = true, side = 'right', scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }: AIChatConversationProps) {
+export default function AIChatConversation({ messages = [], sessionId = '', terminalId = '', conversationId = '', tabId = '', onSendUserMessage, onRetryUserMessage, onRetryAssistantMessage, onEditUserMessage, onDeleteMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, messageNavEnabled = true, side = 'right', scrollToBottomSignal = 0, sendPerfMetricsRef = null, editingTargetMessageId = '' }: AIChatConversationProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const virtuosoRef = useRef<VirtuosoHandle | null>(null)
@@ -403,6 +404,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
       const detail = (event as CustomEvent).detail as Record<string, unknown> | undefined
       const targetSessionId = typeof detail?.sessionId === 'string' ? detail.sessionId.trim() : ''
       const targetTerminalId = typeof detail?.terminalId === 'string' ? detail.terminalId.trim() : ''
+      const targetTabId = typeof detail?.tabId === 'string' ? detail.tabId.trim() : ''
       const targetMessageId = typeof detail?.messageId === 'string' ? detail.messageId.trim() : ''
       if (!targetMessageId) {
         return
@@ -411,6 +413,9 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
         return
       }
       if (targetTerminalId && targetTerminalId !== terminalId) {
+        return
+      }
+      if (targetTabId && targetTabId !== tabId) {
         return
       }
 
@@ -459,7 +464,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
     return () => {
       window.removeEventListener('ai-conversation-diff-locate', handleLocateConversationDiffItem)
     }
-  }, [groupedMessages, sessionId, suspendFollow, terminalId])
+  }, [groupedMessages, sessionId, suspendFollow, tabId, terminalId])
 
   const handleScrollToBottom = useCallback(() => {
     followIntentRef.current = true

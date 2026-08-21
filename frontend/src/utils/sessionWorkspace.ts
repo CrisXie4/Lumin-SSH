@@ -19,6 +19,12 @@ export function buildAIWorkspaceTerminalPanelKey(sessionId: string, terminalId: 
   return `${normalizedSessionId}::${normalizedTerminalId}`;
 }
 
+export function buildAIWorkspaceTabPanelKey(sessionId: string, terminalId: string, tabId: string): string {
+  const panelKey = buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
+  const normalizedTabId = typeof tabId === 'string' ? tabId.trim() : '';
+  return panelKey && normalizedTabId ? `${panelKey}::${normalizedTabId}` : '';
+}
+
 export function formatAIQuotedSelection(text: string): string {
   const normalizedText = typeof text === 'string' ? text.trim() : '';
   if (!normalizedText) {
