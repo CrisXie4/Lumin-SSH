@@ -787,7 +787,7 @@ func findLongestAICommandPatternMatch(command string, patterns []string) string 
 		if lowerPattern == "" {
 			continue
 		}
-		if lowerPattern == "*" || strings.HasPrefix(trimmedCommand, lowerPattern) {
+		if strings.HasPrefix(trimmedCommand, lowerPattern) {
 			if longestMatch == "" || aiJSStringLength(lowerPattern) > aiJSStringLength(longestMatch) {
 				longestMatch = lowerPattern
 			}
@@ -1214,13 +1214,19 @@ func stripFirstAIRedirection(command string) string {
 	return command[:match[0]] + command[match[1]:]
 }
 
-func getAISingleCommandDecision(command string, allowedCommands []string, deniedCommands []string) aiApprovalDecision {
+func getAISingleCommandDecision(command string, allowedCommands []string, deniedCommands []string, allowAll bool) aiApprovalDecision {
 	if command == "" {
 		return aiApprovalDecisionAutoApprove
 	}
 
 	longestAllowedMatch := findLongestAICommandPatternMatch(command, allowedCommands)
 	longestDeniedMatch := findLongestAICommandPatternMatch(command, deniedCommands)
+	if allowAll {
+		if longestDeniedMatch != "" {
+			return aiApprovalDecisionAutoDeny
+		}
+		return aiApprovalDecisionAutoApprove
+	}
 
 	if longestAllowedMatch != "" && longestDeniedMatch == "" {
 		return aiApprovalDecisionAutoApprove
@@ -1237,7 +1243,7 @@ func getAISingleCommandDecision(command string, allowedCommands []string, denied
 	return aiApprovalDecisionAskUser
 }
 
-func getAICommandDecision(command string, allowedCommands []string, deniedCommands []string) aiApprovalDecision {
+func getAICommandDecision(command string, allowedCommands []string, deniedCommands []string, allowAll bool) aiApprovalDecision {
 	if strings.TrimSpace(command) == "" {
 		return aiApprovalDecisionAutoApprove
 	}
@@ -1246,7 +1252,7 @@ func getAICommandDecision(command string, allowedCommands []string, deniedComman
 	decisions := make([]aiApprovalDecision, 0, len(subCommands))
 	for _, subCommand := range subCommands {
 		commandWithoutRedirection := strings.TrimSpace(stripFirstAIRedirection(subCommand))
-		decisions = append(decisions, getAISingleCommandDecision(commandWithoutRedirection, allowedCommands, deniedCommands))
+		decisions = append(decisions, getAISingleCommandDecision(commandWithoutRedirection, allowedCommands, deniedCommands, allowAll))
 	}
 
 	for _, decision := range decisions {
@@ -1280,12 +1286,10 @@ func getAIExecuteCommandDecision(settings AIConversationTaskSettings, command st
 	}
 
 	deniedCommands := normalizeAICommandList(settings.DeniedCommands)
-	if strings.TrimSpace(rawIsMutating) != "1" && settings.AlwaysAllowExecuteReadOnly {
-		return getAICommandDecision(command, []string{"*"}, deniedCommands)
-	}
-
 	allowedCommands := normalizeAICommandList(settings.AllowedCommands)
-	return getAICommandDecision(command, allowedCommands, deniedCommands)
+	executeApprovalMode := normalizeAIExecuteApprovalMode(settings.ExecuteApprovalMode)
+	allowAll := executeApprovalMode == "all" || (executeApprovalMode == "read_only" && strings.TrimSpace(rawIsMutating) != "1")
+	return getAICommandDecision(command, allowedCommands, deniedCommands, allowAll)
 }
 
 func getAIParsedToolUseDecision(settings AIConversationTaskSettings, tool aiParsedToolUse) aiApprovalDecision {

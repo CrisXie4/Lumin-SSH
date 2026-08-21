@@ -4097,17 +4097,19 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
   const handlePatchAutoApprovalSettings = useCallback(async (patch: Record<string, unknown>) => {
     const { allowedCommands, deniedCommands, ...taskPatch } = patch || {}
     const hasGlobalOnlyPatch = allowedCommands !== undefined || deniedCommands !== undefined
+    const hasTaskPatch = Object.keys(taskPatch).length > 0
 
     if (hasGlobalOnlyPatch) {
       const nextGlobalSettings = await saveAIGlobalSettings({
         ...normalizeAIGlobalSettings(globalAISettings),
+        ...(!activeConversation ? taskPatch : {}),
         ...(allowedCommands !== undefined ? { allowedCommands } : {}),
         ...(deniedCommands !== undefined ? { deniedCommands } : {}),
       })
       setGlobalAISettings(nextGlobalSettings)
     }
 
-    if (activeConversation && Object.keys(taskPatch).length > 0) {
+    if (activeConversation && hasTaskPatch) {
       const nextConversation = {
         ...activeConversation,
         updatedAt: Date.now(),
@@ -4121,14 +4123,13 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
         conversation: nextConversation,
       }))
       await saveConversationSnapshot(nextConversation, panelInstanceKey)
-    } else if (!activeConversation && Object.keys(taskPatch).length > 0) {
+    } else if (!activeConversation && hasTaskPatch && !hasGlobalOnlyPatch) {
       const nextSettings = await saveAIGlobalSettings({
         ...normalizeAIGlobalSettings(globalAISettings),
         ...taskPatch,
       })
       setGlobalAISettings(nextSettings)
     }
-
     if (taskPatch.alwaysAllowFollowupQuestions === false) {
       let shouldDisableCurrentCollaboration = false
       let shouldMarkInterruptedRequestId = ''
