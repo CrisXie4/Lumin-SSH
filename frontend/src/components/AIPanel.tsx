@@ -34,6 +34,7 @@ import {
   type AIWorkspaceTabGroup,
 } from '../utils/aiWorkspaceTabs.ts'
 import { AIWorkspaceTabProvider } from './ai/aiWorkspaceTabContext.ts'
+import { openGlobalContextMenu } from '../utils/contextMenu.ts'
 import assistantThinkingActiveImg from '../assets/assistant-thinking-active.webm'
 import Tiptop from './Tiptop.tsx'
 
@@ -4019,6 +4020,27 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
     }
   }, [clearRestorePreview, handleGoHome, handleOpenConversation, panelInstanceKey, panelState.activeConversationId, requestDeleteConfirmation, t])
 
+  useEffect(() => {
+    const handleDeleteWorkspaceTabConversation = (event: Event) => {
+      const detail = (event as CustomEvent).detail || {}
+      const targetSessionId = typeof detail?.sessionId === 'string' ? detail.sessionId.trim() : ''
+      const targetTerminalId = typeof detail?.terminalId === 'string' ? detail.terminalId.trim() : ''
+      const targetTabId = typeof detail?.tabId === 'string' ? detail.tabId.trim() : ''
+      const targetConversationId = typeof detail?.conversationId === 'string' ? detail.conversationId.trim() : ''
+      if (
+        !targetConversationId
+        || targetTabId !== (workspaceTabId || '').trim()
+        || targetSessionId !== (sessionId || '').trim()
+        || targetTerminalId !== (terminalId || '').trim()
+      ) {
+        return
+      }
+      void handleDeleteConversation(targetConversationId)
+    }
+    window.addEventListener('ai-workspace-tab-delete-conversation', handleDeleteWorkspaceTabConversation)
+    return () => window.removeEventListener('ai-workspace-tab-delete-conversation', handleDeleteWorkspaceTabConversation)
+  }, [handleDeleteConversation, sessionId, terminalId, workspaceTabId])
+
   const handleProviderChange = useCallback(async (providerId: string) => {
     const normalizedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
     const syncLatestProviderState = async () => {
@@ -6852,6 +6874,40 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
             <div
               key={tab.id}
               data-ai-workspace-tab-id={tab.id}
+              onContextMenu={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                const canCloseTab = tabGroupRef.current.tabs.length > 1
+                const tabConversationId = typeof tab.conversationId === 'string' ? tab.conversationId.trim() : ''
+                openGlobalContextMenu({
+                  x: event.clientX,
+                  y: event.clientY,
+                  estimatedWidth: 188,
+                  estimatedHeight: 84,
+                  items: [
+                    {
+                      key: 'close-workspace-tab',
+                      label: '关闭此选项卡',
+                      disabled: !canCloseTab,
+                      onSelect: () => closeWorkspaceTab(tab.id),
+                    },
+                    {
+                      key: 'delete-workspace-tab-conversation',
+                      label: '删除此选项卡中任务',
+                      danger: true,
+                      disabled: !tabConversationId,
+                      onSelect: () => {
+                        if (typeof window === 'undefined') {
+                          return
+                        }
+                        window.dispatchEvent(new CustomEvent('ai-workspace-tab-delete-conversation', {
+                          detail: { sessionId, terminalId, tabId: tab.id, conversationId: tabConversationId },
+                        }))
+                      },
+                    },
+                  ],
+                })
+              }}
               style={{
                 flex: '0 0 auto',
                 minWidth: 0,
