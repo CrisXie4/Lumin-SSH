@@ -6719,6 +6719,67 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
       return { activeTabId, tabs }
     })
   }, [dismissTabPanels, updateTabGroup])
+  const forkWorkspaceTabConversation = useCallback(async (sourceConversationId: string, sourceTabId: string, openInNewTab: boolean) => {
+    const normalizedSourceId = typeof sourceConversationId === 'string' ? sourceConversationId.trim() : ''
+    if (!normalizedSourceId) {
+      return
+    }
+    let forkedId = ''
+    try {
+      const snapshot = await getAIConversation(normalizedSourceId)
+      if (!snapshot?.id) {
+        return
+      }
+      const baseTitle = typeof snapshot.title === 'string' && snapshot.title.trim() ? snapshot.title.trim() : t('新对话')
+      const now = Date.now()
+      const forkedSnapshot = await saveAIConversation({
+        ...snapshot,
+        id: '',
+        title: `${baseTitle} - 副本`,
+        parentConversationId: '',
+        rootConversationId: '',
+        relationType: '',
+        relationSource: '',
+        parentTitleSnapshot: '',
+        archived: false,
+        status: 'idle',
+        createdAt: now,
+        updatedAt: now,
+      })
+      forkedId = typeof forkedSnapshot?.id === 'string' ? forkedSnapshot.id.trim() : ''
+    } catch {
+      return
+    }
+    if (!forkedId) {
+      return
+    }
+    if (openInNewTab) {
+      const newTabId = createAIWorkspaceTabId()
+      updateTabGroup((current) => ({
+        activeTabId: newTabId,
+        tabs: [...current.tabs, { id: newTabId, conversationId: forkedId, title: '' }],
+      }))
+      return
+    }
+    const normalizedSourceTabId = typeof sourceTabId === 'string' ? sourceTabId.trim() : ''
+    updateTabGroup((current) => {
+      if (!normalizedSourceTabId || !current.tabs.some((tab) => tab.id === normalizedSourceTabId)) {
+        const newTabId = createAIWorkspaceTabId()
+        return {
+          activeTabId: newTabId,
+          tabs: [...current.tabs, { id: newTabId, conversationId: forkedId, title: '' }],
+        }
+      }
+      return {
+        activeTabId: normalizedSourceTabId,
+        tabs: current.tabs.map((tab) => (
+          tab.id === normalizedSourceTabId
+            ? { ...tab, conversationId: forkedId, title: '' }
+            : tab
+        )),
+      }
+    })
+  }, [t, updateTabGroup])
   const openConversationInWorkspaceTab = useCallback(async (conversationId: string, messageId = '') => {
     const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
     if (!normalizedConversationId) {
@@ -6883,13 +6944,36 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                   x: event.clientX,
                   y: event.clientY,
                   estimatedWidth: 188,
-                  estimatedHeight: 84,
+                  estimatedHeight: 120,
                   items: [
                     {
                       key: 'close-workspace-tab',
                       label: '关闭此选项卡',
                       disabled: !canCloseTab,
                       onSelect: () => closeWorkspaceTab(tab.id),
+                    },
+                    {
+                      key: 'fork-workspace-tab-conversation',
+                      label: '分叉此选项卡任务',
+                      disabled: !tabConversationId,
+                      children: [
+                        {
+                          key: 'fork-workspace-tab-conversation-new-tab',
+                          label: '分叉到新标签页',
+                          disabled: !tabConversationId,
+                          onSelect: () => {
+                            void forkWorkspaceTabConversation(tabConversationId, tab.id, true)
+                          },
+                        },
+                        {
+                          key: 'fork-workspace-tab-conversation-current-tab',
+                          label: '分叉到当前标签页',
+                          disabled: !tabConversationId,
+                          onSelect: () => {
+                            void forkWorkspaceTabConversation(tabConversationId, tab.id, false)
+                          },
+                        },
+                      ],
                     },
                     {
                       key: 'delete-workspace-tab-conversation',
