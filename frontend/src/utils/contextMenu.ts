@@ -5,6 +5,7 @@ export interface GlobalContextMenuItem {
   key: string;
   label: string;
   shortcut?: string;
+  danger?: boolean;
   disabled?: boolean;
   onSelect?: () => void | Promise<void>;
 }

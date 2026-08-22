@@ -100,10 +100,8 @@ function buildTriggerLabel(t: (key: I18nKey, vars?: Record<string, unknown>) => 
   if (enabledCount === 0) {
     return `${t('自动批准')} 0`
   }
-  if (enabledCount === VISIBLE_OPTIONS.length) {
-    return `${t('自动批准')} ${t('全部')}`
-  }
-  return `${t('自动批准')} ${enabledCount}`
+  const approvalCount = enabledCount + (settings.alwaysAllowExecute && settings.executeApprovalMode === 'all' ? 1 : 0)
+  return `${t('自动批准')} ${approvalCount}`
 }
 interface OptionButtonProps {
   active: boolean
