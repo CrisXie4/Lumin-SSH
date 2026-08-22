@@ -1600,10 +1600,30 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
   useEffect(() => {
     const syncTemporaryConversations = () => {
       setConversationList((current) => listTemporaryAIConversations().reduce<ConversationSummary[]>((list, snapshot) => upsertConversationSummary(list, snapshot), current.filter((item) => item.transient !== true)))
+      // 同步活动临时会话到面板：快照仍在则更新最新状态，已删除则清空面板并取消未完成请求
+      const panel = terminalPanelsRef.current[panelInstanceKey]
+      const activeConversationId = panel?.activeConversationId || ''
+      if (!activeConversationId || panel?.conversation?.transient !== true) {
+        return
+      }
+      const latest = temporaryAIConversations.get(activeConversationId)
+      if (latest) {
+        setPanelState(panelInstanceKey, (current) => (
+          current.activeConversationId === activeConversationId && current.conversation
+            ? { ...current, conversation: { ...current.conversation, title: latest.title, archived: latest.archived === true } }
+            : current
+        ))
+      } else {
+        const requestId = panel.activeRequestId
+        setPanelState(panelInstanceKey, createEmptyPanelState())
+        if (requestId) {
+          void cancelAIChat(requestId)
+        }
+      }
     }
     window.addEventListener(TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT, syncTemporaryConversations)
     return () => window.removeEventListener(TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT, syncTemporaryConversations)
-  }, [])
+  }, [panelInstanceKey])
 
   const showAlert = useCallback(async (message: string) => {
     // message 为动态内容（可能不在翻译表），t() 内部有兜底
@@ -2214,6 +2234,10 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
   }, [buildAIConversationCurrentApiMessageIds, computeAITokenLedgerContextTokens, panelInstanceKey, rebuildAIConversationTokenLedger, setPanelState, terminalId])
 
   const saveConversationSnapshot = useCallback(async (snapshot: AIConversationSnapshot, targetPanelKey = panelInstanceKey, options: { hydrate?: boolean } = {}) => {
+    // 已删除会话不允许被并发保存请求写回（避免删除后重新创建）
+    if (deletedConversationIdsRef.current.has(snapshot.id)) {
+      return
+    }
     const shouldHydrate = options?.hydrate === true
     const isTransientConversation = snapshot?.transient === true
     const saved = isTransientConversation
@@ -3813,6 +3837,7 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
       if (!panelMountedRef.current || conversationLoadRequestRef.current !== requestToken) {
         return
       }
+      setTemporarySessionEnabled(temporarySnapshot != null)
       const latestProviderState = await getAIProviderState().catch(() => ({
         currentProviderId: typeof aiProviderState?.currentProviderId === 'string' ? aiProviderState.currentProviderId.trim() : '',
         providers: availableAIProviders,
@@ -4065,6 +4090,13 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
     if (!removedTemporaryConversation) await deleteAIConversation(conversationId)
     else deletedConversationIdsRef.current.add(conversationId)
     tokenLedgerRef.current.delete(conversationId)
+    // 与批量删除一致：删除成功后同步清理分组归属，避免 localStorage 留下孤立映射
+    setConversationOrganizer((current) => {
+      if (!(conversationId in current.assignments)) return current
+      const assignments = { ...current.assignments }
+      delete assignments[conversationId]
+      return saveAIConversationOrganizer({ ...current, assignments })
+    })
     setComposerEditState((current) => (
       current.mode !== 'new' && deletingActiveConversation
         ? { mode: 'new', targetMessageId: '', targetMessageText: '' }
@@ -4277,14 +4309,18 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
     if (ids.length === 0) return
     const confirmed = await requestDeleteConfirmation(t('确定删除选中的对话吗？此操作不可撤销。'))
     if (!confirmed) return
-    await Promise.all(ids.map((conversationId) => removeTemporaryAIConversation(conversationId) ? Promise.resolve() : deleteAIConversation(conversationId)))
+    const results = await Promise.allSettled(ids.map((conversationId) => removeTemporaryAIConversation(conversationId) ? Promise.resolve() : deleteAIConversation(conversationId)))
     persistConversationOrganizer((current) => ({
       ...current,
       assignments: Object.fromEntries(Object.entries(current.assignments).filter(([conversationId]) => !selectedConversationIds.has(conversationId))),
     }))
     clearConversationSelection()
     await refreshConversationList()
-  }, [clearConversationSelection, persistConversationOrganizer, refreshConversationList, requestDeleteConfirmation, selectedConversationIds, t])
+    const failedCount = results.filter((result) => result.status === 'rejected').length
+    if (failedCount > 0) {
+      addToast?.(`${t('部分对话删除失败')}（${failedCount}），其余删除已生效`, 'error')
+    }
+  }, [addToast, clearConversationSelection, persistConversationOrganizer, refreshConversationList, requestDeleteConfirmation, selectedConversationIds, t])
   useEffect(() => {
     const handleDeleteWorkspaceTabConversation = (event: Event) => {
       const detail = (event as CustomEvent).detail || {}
@@ -7102,7 +7138,7 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
       const forkedSnapshot = await saveAIConversation({
         ...snapshot,
         id: '',
-        title: `${baseTitle} - 副本`,
+        title: `${baseTitle} - ${t('副本')}`,
         parentConversationId: '',
         rootConversationId: '',
         relationType: '',
@@ -7191,8 +7227,9 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
   }, [activateWorkspaceTab, onActivateWorkspaceTab, queueAIWorkspaceTabLocation, tabRequestIds, terminalId, updateTabGroup])
   const handleWorkspaceTabStateChange = useCallback((tabId: string, state: { conversationId: string; title: string; activeRequestId: string; transient: boolean }) => {
     const conversationId = state.transient ? '' : state.conversationId
+    // 运行时始终保留真实会话 ID（即使临时会话也不清空），便于右键菜单/索引识别临时会话
     aiWorkspaceTabRuntimeRef.current[tabId] = {
-      conversationId,
+      conversationId: state.conversationId,
       activeRequestId: state.activeRequestId,
     }
     if (state.activeRequestId) {
@@ -7309,27 +7346,27 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                 event.preventDefault()
                 event.stopPropagation()
                 const canCloseTab = tabGroupRef.current.tabs.length > 1
-                const tabConversationId = typeof tab.conversationId === 'string' ? tab.conversationId.trim() : ''
+                const tabConversationId = (typeof tab.conversationId === 'string' ? tab.conversationId.trim() : '') || aiWorkspaceTabRuntimeRef.current[tab.id]?.conversationId || ''
                 openGlobalContextMenu({
                   x: event.clientX,
                   y: event.clientY,
                   estimatedWidth: 188,
-                  estimatedHeight: 120,
+                  estimatedHeight: 148,
                   items: [
                     {
                       key: 'close-workspace-tab',
-                      label: '关闭此选项卡',
+                      label: t('关闭此选项卡'),
                       disabled: !canCloseTab,
                       onSelect: () => closeWorkspaceTab(tab.id),
                     },
                     {
                       key: 'fork-workspace-tab-conversation',
-                      label: '分叉此选项卡任务',
+                      label: t('分叉此选项卡任务'),
                       disabled: !tabConversationId,
                       children: [
                         {
                           key: 'fork-workspace-tab-conversation-new-tab',
-                          label: '分叉到新标签页',
+                          label: t('分叉到新标签页'),
                           disabled: !tabConversationId,
                           onSelect: () => {
                             void forkWorkspaceTabConversation(tabConversationId, tab.id, true)
@@ -7337,7 +7374,7 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                         },
                         {
                           key: 'fork-workspace-tab-conversation-current-tab',
-                          label: '分叉到当前标签页',
+                          label: t('分叉到当前标签页'),
                           disabled: !tabConversationId,
                           onSelect: () => {
                             void forkWorkspaceTabConversation(tabConversationId, tab.id, false)
@@ -7347,7 +7384,7 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                     },
                     {
                       key: 'delete-workspace-tab-conversation',
-                      label: '删除此选项卡中任务',
+                      label: t('删除此选项卡中任务'),
                       danger: true,
                       disabled: !tabConversationId,
                       onSelect: () => {
