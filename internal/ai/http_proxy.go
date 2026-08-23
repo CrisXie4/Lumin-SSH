@@ -170,10 +170,6 @@ func (a *App) newAIHTTPTransportForProfile(profile *AIProviderProfile) (*http.Tr
 	return transport, nil
 }
 
-func (a *App) newAIHTTPTransport() (*http.Transport, error) {
-	return a.newAIHTTPTransportForProfile(nil)
-}
-
 func (a *App) newAIHTTPClientForProfile(profile *AIProviderProfile, timeout time.Duration) (*http.Client, error) {
 	transport, err := a.newAIHTTPTransportForProfile(profile)
 	if err != nil {

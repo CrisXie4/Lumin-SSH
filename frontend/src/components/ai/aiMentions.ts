@@ -13,15 +13,15 @@ const maxRemoteMentionResults = 60
 const maxRemoteMentionVisitedDirs = 160
 const maxRemoteMentionDepth = 6
 
-export function escapeMentionPathSpaces(value: unknown): string {
+function escapeMentionPathSpaces(value: unknown): string {
   return String(value || '').replace(/ /g, '\\ ')
 }
 
-export function unescapeMentionPathSpaces(value: unknown): string {
+function unescapeMentionPathSpaces(value: unknown): string {
   return String(value || '').replace(/\\ /g, ' ')
 }
 
-export function normalizeMentionAbsolutePath(value: unknown): string {
+function normalizeMentionAbsolutePath(value: unknown): string {
   let normalized = String(value || '').trim()
   normalized = normalized.replace(/^['"]|['"]$/g, '')
   if (normalized.startsWith('@')) {
@@ -406,7 +406,7 @@ interface AIMention {
   path?: string
 }
 
-export interface AIMentionProcessOptions {
+interface AIMentionProcessOptions {
   sessionId?: string
   readFile?: (sessionId: string, path: string) => Promise<unknown> | unknown
   listDir?: (sessionId: string, path: string) => Promise<unknown> | unknown
@@ -414,7 +414,7 @@ export interface AIMentionProcessOptions {
   readLocalWrappedFile?: (path: string) => Promise<unknown> | unknown
 }
 
-export async function processAIMentions(
+async function processAIMentions(
   text: unknown,
   {
     sessionId = '',
