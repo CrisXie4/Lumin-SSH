@@ -116,14 +116,6 @@ type App struct {
 	shutdownOnce              sync.Once
 	quitOnce                  sync.Once
 	onBeforeQuit              func()
-	aiChatReqMu               sync.Mutex
-	aiChatReqCancel           map[string]context.CancelFunc
-	aiPendingToolMu           sync.Mutex
-	aiPendingToolBatches      map[string]*ai.PendingToolBatch
-	aiToolExecMu              sync.Mutex
-	aiToolExecutions          map[string]*ai.ToolExecutionState
-	aiSkipNextAutoReqMu       sync.Mutex
-	aiSkipNextAutomaticReqMap map[string]bool
 	liveWorkspaceStateMu      sync.RWMutex
 	liveWorkspaceState        string
 	externalEdit              *externaledit.Manager
@@ -166,10 +158,6 @@ func NewApp() *App {
 		sshManager:                sshmanager.NewSSHManager(),
 		configManager:             config.NewConfigManager(),
 		wsManager:                 wsbuffer.NewManager(),
-		aiChatReqCancel:           make(map[string]context.CancelFunc),
-		aiPendingToolBatches:      make(map[string]*ai.PendingToolBatch),
-		aiToolExecutions:          make(map[string]*ai.ToolExecutionState),
-		aiSkipNextAutomaticReqMap: make(map[string]bool),
 	}
 	app.mcpReporter = newMCPActivityReporter(app)
 	app.configManager.SetProgramDir(getProgramDirectory())
