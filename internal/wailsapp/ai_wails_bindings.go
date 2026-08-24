@@ -27,7 +27,7 @@ import (
 
 type AIBindings struct {
 	app                       *App
-	runtimeApp                *ai.App
+	runtimeApp                *ai.Service
 	temporaryConversationsDir string
 	temporaryConversationsMu  sync.RWMutex
 }
@@ -147,7 +147,7 @@ func (b *AIBindings) DeleteTemporaryAIConversation(conversationID string) error 
 	return err
 }
 
-func (b *AIBindings) runtime() *ai.App {
+func (b *AIBindings) runtime() *ai.Service {
 	if b == nil {
 		return nil
 	}
@@ -162,7 +162,7 @@ func (b *AIBindings) runtime() *ai.App {
 			sessionProvider = mcpbridge.SessionProvider{Host: newMCPHost(b.app)}
 			sshDelegate = aiSSHDelegate{manager: b.app.sshManager}
 		}
-		b.runtimeApp = ai.NewRuntimeApp(context.Background(), configDir, sessionProvider, sshDelegate)
+		b.runtimeApp = ai.NewService(context.Background(), configDir, sessionProvider, sshDelegate)
 	}
 	if b.app != nil {
 		b.runtimeApp.SetContext(b.app.ctx)

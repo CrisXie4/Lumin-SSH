@@ -2,215 +2,36 @@ package ai
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	aiprovider "luminssh-go/internal/ai/provider"
+	"luminssh-go/internal/aitypes"
 )
 
-type AIProviderProfile struct {
-	ID                                     string   `json:"id"`
-	Name                                   string   `json:"name"`
-	Provider                               string   `json:"provider"`
-	Model                                  string   `json:"model"`
-	BaseURL                                string   `json:"baseUrl"`
-	APIKey                                 string   `json:"apiKey"`
-	ModelTemperature                       *float64 `json:"modelTemperature,omitempty"`
-	ModelTopP                              *float64 `json:"modelTopP,omitempty"`
-	CacheStrategy                          string   `json:"cacheStrategy"`
-	OpenAIResponsesUsePromptCacheRetention bool     `json:"openAiResponsesUsePromptCacheRetention"`
-	WebSearchEnabled                       bool     `json:"webSearchEnabled"`
-	DedicatedWebSearchEnabled              bool     `json:"dedicatedWebSearchEnabled"`
-	DedicatedWebSearchProviderID           string   `json:"dedicatedWebSearchProviderId,omitempty"`
-	DedicatedProxyEnabled                  bool     `json:"dedicatedProxyEnabled"`
-	DedicatedProxyID                       string   `json:"dedicatedProxyId,omitempty"`
-	ReasoningEffort                        string   `json:"reasoningEffort"`
-	EnableReasoningEffort                  bool     `json:"enableReasoningEffort"`
-	OpenAILegacyReasoningFormatEnabled     bool     `json:"openAiLegacyReasoningFormatEnabled"`
-	ModelMaxTokens                         int      `json:"modelMaxTokens,omitempty"`
-	ModelMaxThinkingTokens                 int      `json:"modelMaxThinkingTokens,omitempty"`
-	Pinned                                 bool     `json:"pinned"`
-	UpdatedAt                              int64    `json:"updatedAt,omitempty"`
-}
+type AIProviderProfile = aitypes.AIProviderProfile
 
 type AIProviderPromptCachePolicy = aiprovider.ResponsesPromptCachePolicy
 
-type AIProviderRegistry struct {
-	Providers []AIProviderProfile `json:"providers"`
-}
+type AIProviderRegistry = aitypes.AIProviderRegistry
 
-type AIProviderState struct {
-	CurrentProviderID string              `json:"currentProviderId"`
-	Providers         []AIProviderProfile `json:"providers"`
-}
+type AIProviderState = aitypes.AIProviderState
 
-func normalizeAIProviderProtocol(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "compatible":
-		return "Compatible"
-	case "responses":
-		return "Responses"
-	case "messages":
-		return "Messages"
-	default:
-		return "Compatible"
-	}
-}
+var (
+	normalizeAIProviderProtocol        = aitypes.NormalizeAIProviderProtocol
+	normalizeAIProviderCacheStrategy   = aitypes.NormalizeAIProviderCacheStrategy
+	normalizeAIProviderReasoningEffort = aitypes.NormalizeAIProviderReasoningEffort
+	normalizeAIProviderProfiles        = aitypes.NormalizeAIProviderProfiles
+	normalizeAIProviderRegistry        = aitypes.NormalizeAIProviderRegistry
+	normalizeAIProviderState           = aitypes.NormalizeAIProviderState
+)
 
-func normalizeAIProviderCacheStrategy(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "off":
-		return "off"
-	case "model":
-		return "model"
-	case "5m":
-		return "5m"
-	case "1h":
-		return "1h"
-	case "30m":
-		return "30m"
-	case "in_memory":
-		return "in_memory"
-	case "24h":
-		return "24h"
-	default:
-		return "model"
-	}
-}
-
-func normalizeAIProviderReasoningEffort(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "disable":
-		return "disable"
-	case "none":
-		return "none"
-	case "minimal":
-		return "minimal"
-	case "low":
-		return "low"
-	case "medium":
-		return "medium"
-	case "high":
-		return "high"
-	case "xhigh":
-		return "xhigh"
-	case "max":
-		return "max"
-	default:
-		return "disable"
-	}
-}
-
-func normalizeAIProviderProfiles(profiles []AIProviderProfile) []AIProviderProfile {
-	if profiles == nil {
-		profiles = []AIProviderProfile{}
-	}
-
-	now := time.Now().UnixMilli()
-	normalized := make([]AIProviderProfile, len(profiles))
-	copy(normalized, profiles)
-
-	for index := range normalized {
-		profile := &normalized[index]
-		if strings.TrimSpace(profile.ID) == "" {
-			profile.ID = fmt.Sprintf("ai-provider-%d-%d", now, index)
-		}
-		if strings.TrimSpace(profile.Name) == "" {
-			profile.Name = "未命名供应商"
-		}
-		profile.Provider = normalizeAIProviderProtocol(profile.Provider)
-		profile.Model = strings.TrimSpace(profile.Model)
-		if profile.Model == "" {
-			profile.Model = "未选择模型"
-		}
-		profile.BaseURL = strings.TrimSpace(profile.BaseURL)
-		profile.APIKey = strings.TrimSpace(profile.APIKey)
-		profile.DedicatedProxyID = strings.TrimSpace(profile.DedicatedProxyID)
-		profile.CacheStrategy = normalizeAIProviderCacheStrategy(profile.CacheStrategy)
-		profile.ReasoningEffort = normalizeAIProviderReasoningEffort(profile.ReasoningEffort)
-		profile.EnableReasoningEffort = profile.EnableReasoningEffort || (profile.ReasoningEffort != "" && profile.ReasoningEffort != "disable") || profile.ModelMaxTokens > 0 || profile.ModelMaxThinkingTokens > 0
-		if profile.ModelMaxTokens < 0 {
-			profile.ModelMaxTokens = 0
-		}
-		if profile.ModelMaxThinkingTokens < 0 {
-			profile.ModelMaxThinkingTokens = 0
-		}
-		if profile.ModelMaxTokens > 0 && profile.ModelMaxThinkingTokens > 0 {
-			maxThinkingTokens := int(float64(profile.ModelMaxTokens) * 0.8)
-			if maxThinkingTokens > 0 && profile.ModelMaxThinkingTokens > maxThinkingTokens {
-				profile.ModelMaxThinkingTokens = maxThinkingTokens
-			}
-		}
-		if profile.UpdatedAt == 0 {
-			profile.UpdatedAt = now
-		}
-	}
-
-	dedicatedCandidateIDs := make(map[string]struct{}, len(normalized))
-	for _, profile := range normalized {
-		if aiprovider.CanBeDedicatedWebSearchCandidate(profile.Provider) {
-			dedicatedCandidateIDs[profile.ID] = struct{}{}
-		}
-	}
-
-	for index := range normalized {
-		profile := &normalized[index]
-
-		if profile.DedicatedWebSearchProviderID == profile.ID {
-			profile.DedicatedWebSearchProviderID = ""
-		}
-
-		if profile.DedicatedWebSearchEnabled {
-			if _, ok := dedicatedCandidateIDs[profile.DedicatedWebSearchProviderID]; !ok || profile.DedicatedWebSearchProviderID == "" {
-				replacement := ""
-				for otherIndex := range normalized {
-					if normalized[otherIndex].ID != profile.ID && aiprovider.CanBeDedicatedWebSearchCandidate(normalized[otherIndex].Provider) {
-						replacement = normalized[otherIndex].ID
-						break
-					}
-				}
-				profile.DedicatedWebSearchProviderID = replacement
-				profile.DedicatedWebSearchEnabled = replacement != ""
-			}
-		} else if profile.DedicatedWebSearchProviderID != "" {
-			if _, ok := dedicatedCandidateIDs[profile.DedicatedWebSearchProviderID]; !ok {
-				profile.DedicatedWebSearchProviderID = ""
-			}
-		}
-	}
-
-	return normalized
-}
-
-func normalizeAIProviderRegistry(registry AIProviderRegistry) AIProviderRegistry {
-	registry.Providers = normalizeAIProviderProfiles(registry.Providers)
-	return registry
-}
-
-func normalizeAIProviderState(state AIProviderState) AIProviderState {
-	state.CurrentProviderID = strings.TrimSpace(state.CurrentProviderID)
-	state.Providers = normalizeAIProviderProfiles(state.Providers)
-
-	validIDs := make(map[string]struct{}, len(state.Providers))
-	for _, profile := range state.Providers {
-		validIDs[profile.ID] = struct{}{}
-	}
-
-	if _, ok := validIDs[state.CurrentProviderID]; !ok {
-		state.CurrentProviderID = ""
-	}
-
-	return state
-}
-
-func (c *ConfigManager) aiProviderRegistryPath() string {
+func (c *configBridge) aiProviderRegistryPath() string {
 	return filepath.Join(c.configDir, "ai_providers.json")
 }
 
-func (c *ConfigManager) GetAIProviderRegistry() AIProviderRegistry {
+func (c *configBridge) GetAIProviderRegistry() AIProviderRegistry {
 	registry := AIProviderRegistry{
 		Providers: []AIProviderProfile{},
 	}
@@ -227,7 +48,7 @@ func (c *ConfigManager) GetAIProviderRegistry() AIProviderRegistry {
 	return normalizeAIProviderRegistry(registry)
 }
 
-func (c *ConfigManager) SaveAIProviderRegistry(registry AIProviderRegistry) error {
+func (c *configBridge) SaveAIProviderRegistry(registry AIProviderRegistry) error {
 	if c == nil {
 		return nil
 	}
@@ -241,7 +62,7 @@ func (c *ConfigManager) SaveAIProviderRegistry(registry AIProviderRegistry) erro
 	return atomicWriteFile(c.aiProviderRegistryPath(), data, 0600)
 }
 
-func (c *ConfigManager) GetAIProviderState() AIProviderState {
+func (c *configBridge) GetAIProviderState() AIProviderState {
 	if c == nil {
 		return normalizeAIProviderState(AIProviderState{Providers: []AIProviderProfile{}})
 	}
@@ -253,7 +74,7 @@ func (c *ConfigManager) GetAIProviderState() AIProviderState {
 	})
 }
 
-func (c *ConfigManager) SaveAIProviderState(state AIProviderState) error {
+func (c *configBridge) SaveAIProviderState(state AIProviderState) error {
 	if c == nil {
 		return nil
 	}
@@ -266,18 +87,18 @@ func (c *ConfigManager) SaveAIProviderState(state AIProviderState) error {
 	return c.SaveAIGlobalSettings(globalSettings)
 }
 
-func (a *App) GetAIProviderState() AIProviderState {
+func (a *Service) GetAIProviderState() AIProviderState {
 	if a == nil || a.configManager == nil {
 		return normalizeAIProviderState(AIProviderState{Providers: []AIProviderProfile{}})
 	}
 	return a.configManager.GetAIProviderState()
 }
 
-func (a *App) GetAIProviderPromptCachePolicy(modelID string) AIProviderPromptCachePolicy {
+func (a *Service) GetAIProviderPromptCachePolicy(modelID string) AIProviderPromptCachePolicy {
 	return aiprovider.GetResponsesPromptCachePolicy(modelID)
 }
 
-func (a *App) SaveAIProviderState(jsonStr string) error {
+func (a *Service) SaveAIProviderState(jsonStr string) error {
 	state := AIProviderState{
 		Providers: []AIProviderProfile{},
 	}

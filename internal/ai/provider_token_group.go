@@ -79,7 +79,7 @@ func requestAIProviderTokenGroup(client *http.Client, profile AIProviderProfile)
 	return group, nil
 }
 
-func (a *App) GetAIProviderTokenGroup(jsonStr string) (string, error) {
+func (a *Service) GetAIProviderTokenGroup(jsonStr string) (string, error) {
 	profile := AIProviderProfile{}
 	if strings.TrimSpace(jsonStr) != "" {
 		if err := json.Unmarshal([]byte(jsonStr), &profile); err != nil {

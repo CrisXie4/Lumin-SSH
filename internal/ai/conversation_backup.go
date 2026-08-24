@@ -134,15 +134,15 @@ func isAIConversationBackupExcludedRelativePath(rootDir string, relativePath str
 	return false
 }
 
-func (c *ConfigManager) aiConversationBackupRootDir(conversationID string) string {
+func (c *configBridge) aiConversationBackupRootDir(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), aiConversationBackupDirName)
 }
 
-func (c *ConfigManager) aiConversationBackupDir(conversationID string, backupID string) string {
+func (c *configBridge) aiConversationBackupDir(conversationID string, backupID string) string {
 	return filepath.Join(c.aiConversationBackupRootDir(conversationID), backupID)
 }
 
-func (c *ConfigManager) aiConversationBackupSummaryPath(conversationID string, backupID string) string {
+func (c *configBridge) aiConversationBackupSummaryPath(conversationID string, backupID string) string {
 	return filepath.Join(c.aiConversationBackupDir(conversationID, backupID), aiConversationBackupSummaryFileName)
 }
 
@@ -241,7 +241,7 @@ func readAIConversationBackupAPIMessagesFromDir(backupDir string) []AIConversati
 	return normalizeAIConversationAPIMessages(messages)
 }
 
-func (c *ConfigManager) writeAIConversationBackupSummaryLocked(conversationID string, backupID string) (AIConversationBackupSummary, error) {
+func (c *configBridge) writeAIConversationBackupSummaryLocked(conversationID string, backupID string) (AIConversationBackupSummary, error) {
 	backupDir := c.aiConversationBackupDir(conversationID, backupID)
 	summary := buildAIConversationBackupSummary(readAIConversationBackupAPIMessagesFromDir(backupDir), backupID)
 	data, err := marshalAIConversationJSON(summary)
@@ -254,7 +254,7 @@ func (c *ConfigManager) writeAIConversationBackupSummaryLocked(conversationID st
 	return summary, nil
 }
 
-func (c *ConfigManager) readAIConversationBackupSummaryLocked(conversationID string, backupID string) AIConversationBackupSummary {
+func (c *configBridge) readAIConversationBackupSummaryLocked(conversationID string, backupID string) AIConversationBackupSummary {
 	data, err := os.ReadFile(c.aiConversationBackupSummaryPath(conversationID, backupID))
 	if err == nil {
 		var summary AIConversationBackupSummary
@@ -309,7 +309,7 @@ func trimAIConversationBackupDirectoriesLocked(backupRootDir string, maxCount in
 	}
 }
 
-func (c *ConfigManager) createAIConversationAutoBackupLocked(conversationID string) (AIConversationBackup, error) {
+func (c *configBridge) createAIConversationAutoBackupLocked(conversationID string) (AIConversationBackup, error) {
 	trimmedConversationID := strings.TrimSpace(conversationID)
 	if trimmedConversationID == "" {
 		return AIConversationBackup{}, fmt.Errorf("缺少对话 ID")
@@ -347,7 +347,7 @@ func (c *ConfigManager) createAIConversationAutoBackupLocked(conversationID stri
 	}, nil
 }
 
-func (c *ConfigManager) readAIGlobalSettingsUnlocked() AIGlobalSettings {
+func (c *configBridge) readAIGlobalSettingsUnlocked() AIGlobalSettings {
 	settings := defaultAIGlobalSettings()
 	if c == nil {
 		return settings
@@ -360,7 +360,7 @@ func (c *ConfigManager) readAIGlobalSettingsUnlocked() AIGlobalSettings {
 	return normalizeAIGlobalSettings(settings)
 }
 
-func (c *ConfigManager) buildAIConversationSnapshotLocked(conversationID string) (AIConversationSnapshot, error) {
+func (c *configBridge) buildAIConversationSnapshotLocked(conversationID string) (AIConversationSnapshot, error) {
 	summary, err := c.readAIConversationSummary(conversationID)
 	if err != nil {
 		return AIConversationSnapshot{}, err
@@ -387,7 +387,7 @@ func (c *ConfigManager) buildAIConversationSnapshotLocked(conversationID string)
 	return normalizeAIConversationSnapshot(snapshot, fallbackSettings), nil
 }
 
-func (c *ConfigManager) ListAIConversationBackups(conversationID string) []AIConversationBackup {
+func (c *configBridge) ListAIConversationBackups(conversationID string) []AIConversationBackup {
 	if c == nil {
 		return []AIConversationBackup{}
 	}
@@ -432,7 +432,7 @@ func (c *ConfigManager) ListAIConversationBackups(conversationID string) []AICon
 	return backups
 }
 
-func (c *ConfigManager) GetAIConversationBackupHistory(conversationID string, backupID string) []AIConversationAPIMessage {
+func (c *configBridge) GetAIConversationBackupHistory(conversationID string, backupID string) []AIConversationAPIMessage {
 	if c == nil {
 		return []AIConversationAPIMessage{}
 	}
@@ -446,7 +446,7 @@ func (c *ConfigManager) GetAIConversationBackupHistory(conversationID string, ba
 	return readAIConversationBackupAPIMessagesFromDir(c.aiConversationBackupDir(trimmedConversationID, trimmedBackupID))
 }
 
-func (c *ConfigManager) RestoreAIConversationBackup(conversationID string, backupID string) (AIConversationSnapshot, error) {
+func (c *configBridge) RestoreAIConversationBackup(conversationID string, backupID string) (AIConversationSnapshot, error) {
 	if c == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -474,7 +474,7 @@ func (c *ConfigManager) RestoreAIConversationBackup(conversationID string, backu
 	return c.buildAIConversationSnapshotLocked(trimmedConversationID)
 }
 
-func (c *ConfigManager) DeleteAIConversationBackup(conversationID string, backupID string) error {
+func (c *configBridge) DeleteAIConversationBackup(conversationID string, backupID string) error {
 	if c == nil {
 		return fmt.Errorf("配置管理器不可用")
 	}
@@ -491,14 +491,14 @@ func (c *ConfigManager) DeleteAIConversationBackup(conversationID string, backup
 	return os.RemoveAll(c.aiConversationBackupDir(trimmedConversationID, trimmedBackupID))
 }
 
-func (a *App) CreateAIConversationAutoBackup(conversationID string) (AIConversationBackup, error) {
+func (a *Service) CreateAIConversationAutoBackup(conversationID string) (AIConversationBackup, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationBackup{}, fmt.Errorf("配置管理器不可用")
 	}
 	return a.configManager.CreateAIConversationAutoBackup(conversationID)
 }
 
-func (c *ConfigManager) CreateAIConversationAutoBackup(conversationID string) (AIConversationBackup, error) {
+func (c *configBridge) CreateAIConversationAutoBackup(conversationID string) (AIConversationBackup, error) {
 	if c == nil {
 		return AIConversationBackup{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -507,28 +507,28 @@ func (c *ConfigManager) CreateAIConversationAutoBackup(conversationID string) (A
 	return c.createAIConversationAutoBackupLocked(conversationID)
 }
 
-func (a *App) ListAIConversationBackups(conversationID string) []AIConversationBackup {
+func (a *Service) ListAIConversationBackups(conversationID string) []AIConversationBackup {
 	if a == nil || a.configManager == nil {
 		return []AIConversationBackup{}
 	}
 	return a.configManager.ListAIConversationBackups(conversationID)
 }
 
-func (a *App) GetAIConversationBackupHistory(conversationID string, backupID string) []AIConversationAPIMessage {
+func (a *Service) GetAIConversationBackupHistory(conversationID string, backupID string) []AIConversationAPIMessage {
 	if a == nil || a.configManager == nil {
 		return []AIConversationAPIMessage{}
 	}
 	return a.configManager.GetAIConversationBackupHistory(conversationID, backupID)
 }
 
-func (a *App) RestoreAIConversationBackup(conversationID string, backupID string) (AIConversationSnapshot, error) {
+func (a *Service) RestoreAIConversationBackup(conversationID string, backupID string) (AIConversationSnapshot, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
 	return a.configManager.RestoreAIConversationBackup(conversationID, backupID)
 }
 
-func (a *App) DeleteAIConversationBackup(conversationID string, backupID string) error {
+func (a *Service) DeleteAIConversationBackup(conversationID string, backupID string) error {
 	if a == nil || a.configManager == nil {
 		return fmt.Errorf("配置管理器不可用")
 	}

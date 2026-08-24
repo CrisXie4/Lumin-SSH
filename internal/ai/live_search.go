@@ -34,7 +34,7 @@ func buildAILiveSearchPrompt(query string) string {
 		"您被安排的任务一个或多个搜索任务是:\n" + strings.TrimSpace(query)
 }
 
-func (a *App) resolveAIProviderWebSearchRuntimeProfile(profile AIProviderProfile) (AIProviderProfile, error) {
+func (a *Service) resolveAIProviderWebSearchRuntimeProfile(profile AIProviderProfile) (AIProviderProfile, error) {
 	normalizedProfile := normalizeAIProviderValidationProfile(profile)
 	if !normalizedProfile.WebSearchEnabled {
 		return AIProviderProfile{}, fmt.Errorf("当前配置未启用可用的联网搜索工具")
@@ -55,7 +55,7 @@ func (a *App) resolveAIProviderWebSearchRuntimeProfile(profile AIProviderProfile
 	return normalizedProfile, nil
 }
 
-func (a *App) searchAIProviderWeb(ctx context.Context, profile AIProviderProfile, query string, onProgress func(string)) (string, error) {
+func (a *Service) searchAIProviderWeb(ctx context.Context, profile AIProviderProfile, query string, onProgress func(string)) (string, error) {
 	normalizedQuery := strings.TrimSpace(query)
 	if normalizedQuery == "" {
 		return "", fmt.Errorf("query 不能为空")

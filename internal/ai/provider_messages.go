@@ -98,7 +98,7 @@ func buildAIMessagesLegacyReasoning(maxOutputTokens int, reasoningEffort string)
 	}
 }
 
-func (a *App) requestMessagesAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
+func (a *Service) requestMessagesAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
 	result := aiChatRoundResult{}
 	startedAt := time.Now()
 	firstTokenAt := time.Time{}

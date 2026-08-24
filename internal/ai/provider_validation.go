@@ -39,7 +39,7 @@ func normalizeAIProviderValidationProfile(profile AIProviderProfile) AIProviderP
 	return profile
 }
 
-func (a *App) resolveAIProviderWebSearchValidationProfile(profile AIProviderProfile) (AIProviderProfile, bool, error) {
+func (a *Service) resolveAIProviderWebSearchValidationProfile(profile AIProviderProfile) (AIProviderProfile, bool, error) {
 	normalizedProfile := normalizeAIProviderValidationProfile(profile)
 	if !normalizedProfile.DedicatedWebSearchEnabled {
 		return normalizedProfile, false, nil
@@ -63,7 +63,7 @@ func (a *App) resolveAIProviderWebSearchValidationProfile(profile AIProviderProf
 	return AIProviderProfile{}, false, fmt.Errorf("所选联网专用供应商不存在或已被删除")
 }
 
-func (a *App) ValidateAIProviderWebSearch(jsonStr string) AIProviderWebSearchValidationResult {
+func (a *Service) ValidateAIProviderWebSearch(jsonStr string) AIProviderWebSearchValidationResult {
 	result := AIProviderWebSearchValidationResult{
 		Success:       false,
 		ExpectedTitle: aiProviderWebSearchValidationExpectedTitle,

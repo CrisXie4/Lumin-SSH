@@ -257,7 +257,7 @@ func buildAIConversationCompressionSummary(
 	)
 }
 
-func (a *App) CountAIConversationContextTokens(sessionID string, snapshotJSON string) (AIConversationContextMetrics, error) {
+func (a *Service) CountAIConversationContextTokens(sessionID string, snapshotJSON string) (AIConversationContextMetrics, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationContextMetrics{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -339,7 +339,7 @@ func buildAIConversationTokenLedger(conversationID string, sessionID string, mes
 	}, nil
 }
 
-func (a *App) BuildAIConversationTokenLedger(sessionID string, snapshotJSON string) (AIConversationTokenLedger, error) {
+func (a *Service) BuildAIConversationTokenLedger(sessionID string, snapshotJSON string) (AIConversationTokenLedger, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationTokenLedger{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -355,7 +355,7 @@ func (a *App) BuildAIConversationTokenLedger(sessionID string, snapshotJSON stri
 	return buildAIConversationTokenLedger(snapshot.ID, strings.TrimSpace(sessionID), snapshot.APIMessages, profile)
 }
 
-func (a *App) CountAIConversationAPIMessageRawTokens(sessionID string, conversationID string, messagesJSON string) ([]AIConversationAPIMessageTokenEntry, error) {
+func (a *Service) CountAIConversationAPIMessageRawTokens(sessionID string, conversationID string, messagesJSON string) ([]AIConversationAPIMessageTokenEntry, error) {
 	if a == nil || a.configManager == nil {
 		return nil, fmt.Errorf("配置管理器不可用")
 	}
@@ -380,7 +380,7 @@ func (a *App) CountAIConversationAPIMessageRawTokens(sessionID string, conversat
 	return entries, nil
 }
 
-func (a *App) CondenseAIConversationContext(conversationID string, sessionID string) (AIConversationContextCondenseResult, error) {
+func (a *Service) CondenseAIConversationContext(conversationID string, sessionID string) (AIConversationContextCondenseResult, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationContextCondenseResult{}, fmt.Errorf("配置管理器不可用")
 	}

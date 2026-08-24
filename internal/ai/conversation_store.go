@@ -457,7 +457,7 @@ func aiConversationID() string {
 	return "conv-" + hex.EncodeToString(randomBytes)
 }
 
-func (c *ConfigManager) aiConversationsRootDir() string {
+func (c *configBridge) aiConversationsRootDir() string {
 	// 读取 app_settings.json 获取自定义 tasks 目录, 失败则用默认 configDir/tasks
 	settingsPath := filepath.Join(c.configDir, "app_settings.json")
 	if data, err := os.ReadFile(settingsPath); err == nil {
@@ -473,27 +473,27 @@ func (c *ConfigManager) aiConversationsRootDir() string {
 	return filepath.Join(c.configDir, "tasks")
 }
 
-func (c *ConfigManager) aiConversationDir(conversationID string) string {
+func (c *configBridge) aiConversationDir(conversationID string) string {
 	return filepath.Join(c.aiConversationsRootDir(), conversationID)
 }
 
-func (c *ConfigManager) aiConversationMetadataPath(conversationID string) string {
+func (c *configBridge) aiConversationMetadataPath(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), "task_metadata.json")
 }
 
-func (c *ConfigManager) aiConversationMessagesPath(conversationID string) string {
+func (c *configBridge) aiConversationMessagesPath(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), "ui_messages.json")
 }
 
-func (c *ConfigManager) aiConversationAPIMessagesPath(conversationID string) string {
+func (c *configBridge) aiConversationAPIMessagesPath(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), "api_conversation_history.json")
 }
 
-func (c *ConfigManager) aiConversationSettingsPath(conversationID string) string {
+func (c *configBridge) aiConversationSettingsPath(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), "setting.json")
 }
 
-func (c *ConfigManager) readAIConversationSummary(conversationID string) (AIConversationSummary, error) {
+func (c *configBridge) readAIConversationSummary(conversationID string) (AIConversationSummary, error) {
 	data, err := os.ReadFile(c.aiConversationMetadataPath(conversationID))
 	if err != nil {
 		return AIConversationSummary{}, err
@@ -505,7 +505,7 @@ func (c *ConfigManager) readAIConversationSummary(conversationID string) (AIConv
 	return normalizeAIConversationSummary(summary), nil
 }
 
-func (c *ConfigManager) readAIConversationMessages(conversationID string) []AIConversationMessage {
+func (c *configBridge) readAIConversationMessages(conversationID string) []AIConversationMessage {
 	data, err := os.ReadFile(c.aiConversationMessagesPath(conversationID))
 	if err != nil {
 		return []AIConversationMessage{}
@@ -520,7 +520,7 @@ func (c *ConfigManager) readAIConversationMessages(conversationID string) []AICo
 	return messages
 }
 
-func (c *ConfigManager) readAIConversationAPIMessages(conversationID string) []AIConversationAPIMessage {
+func (c *configBridge) readAIConversationAPIMessages(conversationID string) []AIConversationAPIMessage {
 	data, err := os.ReadFile(c.aiConversationAPIMessagesPath(conversationID))
 	if err != nil {
 		return []AIConversationAPIMessage{}
@@ -535,7 +535,7 @@ func (c *ConfigManager) readAIConversationAPIMessages(conversationID string) []A
 	return normalizeAIConversationAPIMessages(messages)
 }
 
-func (c *ConfigManager) readAIConversationSettings(conversationID string, fallback AIConversationTaskSettings) AIConversationTaskSettings {
+func (c *configBridge) readAIConversationSettings(conversationID string, fallback AIConversationTaskSettings) AIConversationTaskSettings {
 	data, err := os.ReadFile(c.aiConversationSettingsPath(conversationID))
 	if err != nil {
 		return fallback
@@ -558,7 +558,7 @@ func marshalAIConversationJSON(value interface{}) ([]byte, error) {
 	return []byte(strings.TrimSuffix(builder.String(), "\n")), nil
 }
 
-func (c *ConfigManager) writeAIConversationSnapshot(snapshot AIConversationSnapshot) error {
+func (c *configBridge) writeAIConversationSnapshot(snapshot AIConversationSnapshot) error {
 	if err := os.MkdirAll(c.aiConversationDir(snapshot.ID), 0700); err != nil {
 		return err
 	}
@@ -611,7 +611,7 @@ func (c *ConfigManager) writeAIConversationSnapshot(snapshot AIConversationSnaps
 	return atomicWriteFile(c.aiConversationSettingsPath(snapshot.ID), settingsBytes, 0600)
 }
 
-func (c *ConfigManager) ListAIConversations() []AIConversationSummary {
+func (c *configBridge) ListAIConversations() []AIConversationSummary {
 	if c == nil {
 		return []AIConversationSummary{}
 	}
@@ -645,7 +645,7 @@ func (c *ConfigManager) ListAIConversations() []AIConversationSummary {
 	return summaries
 }
 
-func (c *ConfigManager) CreateAIConversation(title string) (AIConversationSnapshot, error) {
+func (c *configBridge) CreateAIConversation(title string) (AIConversationSnapshot, error) {
 	if c == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -672,7 +672,7 @@ func (c *ConfigManager) CreateAIConversation(title string) (AIConversationSnapsh
 	return snapshot, nil
 }
 
-func (c *ConfigManager) GetAIConversation(conversationID string) (AIConversationSnapshot, error) {
+func (c *configBridge) GetAIConversation(conversationID string) (AIConversationSnapshot, error) {
 	if c == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -713,7 +713,7 @@ func (c *ConfigManager) GetAIConversation(conversationID string) (AIConversation
 	return normalizeAIConversationSnapshot(snapshot, fallbackSettings), nil
 }
 
-func (c *ConfigManager) SaveAIConversation(snapshot AIConversationSnapshot) (AIConversationSnapshot, error) {
+func (c *configBridge) SaveAIConversation(snapshot AIConversationSnapshot) (AIConversationSnapshot, error) {
 	if c == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -752,7 +752,7 @@ func (c *ConfigManager) SaveAIConversation(snapshot AIConversationSnapshot) (AIC
 	return normalized, nil
 }
 
-func (c *ConfigManager) DeleteAIConversation(conversationID string) error {
+func (c *configBridge) DeleteAIConversation(conversationID string) error {
 	if c == nil {
 		return fmt.Errorf("配置管理器不可用")
 	}
@@ -793,28 +793,28 @@ func (c *ConfigManager) DeleteAIConversation(conversationID string) error {
 	return nil
 }
 
-func (a *App) ListAIConversations() []AIConversationSummary {
+func (a *Service) ListAIConversations() []AIConversationSummary {
 	if a == nil || a.configManager == nil {
 		return []AIConversationSummary{}
 	}
 	return a.configManager.ListAIConversations()
 }
 
-func (a *App) CreateAIConversation(title string) (AIConversationSnapshot, error) {
+func (a *Service) CreateAIConversation(title string) (AIConversationSnapshot, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
 	return a.configManager.CreateAIConversation(title)
 }
 
-func (a *App) GetAIConversation(conversationID string) (AIConversationSnapshot, error) {
+func (a *Service) GetAIConversation(conversationID string) (AIConversationSnapshot, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
 	return a.configManager.GetAIConversation(conversationID)
 }
 
-func (a *App) SaveAIConversation(jsonStr string) (AIConversationSnapshot, error) {
+func (a *Service) SaveAIConversation(jsonStr string) (AIConversationSnapshot, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationSnapshot{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -827,7 +827,7 @@ func (a *App) SaveAIConversation(jsonStr string) (AIConversationSnapshot, error)
 	return a.configManager.SaveAIConversation(snapshot)
 }
 
-func (a *App) DeleteAIConversation(conversationID string) error {
+func (a *Service) DeleteAIConversation(conversationID string) error {
 	if a == nil || a.configManager == nil {
 		return fmt.Errorf("配置管理器不可用")
 	}

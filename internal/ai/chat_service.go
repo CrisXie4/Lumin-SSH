@@ -396,7 +396,7 @@ func applyAIUserNodeCompensation(messages []AIChatRequestMessage) aiUserNodeComp
 	}
 }
 
-func (a *App) persistAIUserNodeCompensation(requestID string, conversationID string, requestMessages []AIChatRequestMessage) {
+func (a *Service) persistAIUserNodeCompensation(requestID string, conversationID string, requestMessages []AIChatRequestMessage) {
 	if a == nil || a.configManager == nil || strings.TrimSpace(conversationID) == "" {
 		return
 	}
@@ -1668,7 +1668,7 @@ The current host uses direct XML tool calls as its only authoritative tool proto
 This indicates a protocol compatibility conflict between the current host XML protocol and an additional provider or model response protocol. Do not repeat the ignored tool call(s). Do not emit native tool_calls/function calling, commentary/final_answer copies, extra XML containers, or duplicate XML tool tags. Continue with one direct XML tool tag per logical tool call.`, duplicateToolCount, envelopeLabel))
 }
 
-func (a *App) emitAIDuplicateToolProtocolConflictMessage(requestID string, duplicateToolCount int) AIChatRequestMessage {
+func (a *Service) emitAIDuplicateToolProtocolConflictMessage(requestID string, duplicateToolCount int) AIChatRequestMessage {
 	content := buildAIDuplicateToolProtocolConflictMessage(duplicateToolCount)
 	if content == "" {
 		return AIChatRequestMessage{}
@@ -1834,7 +1834,7 @@ func normalizeAIAssistantRoundResultForToolProtocol(roundResult aiChatRoundResul
 	return roundResult
 }
 
-func (a *App) getAIProviderProfileByID(providerID string) (AIProviderProfile, error) {
+func (a *Service) getAIProviderProfileByID(providerID string) (AIProviderProfile, error) {
 	if a == nil || a.configManager == nil {
 		return AIProviderProfile{}, fmt.Errorf("供应商状态不可用")
 	}
@@ -1860,7 +1860,7 @@ func (a *App) getAIProviderProfileByID(providerID string) (AIProviderProfile, er
 	return state.Providers[0], nil
 }
 
-func (a *App) getAIProviderProfileForConversation(conversationID string) (AIProviderProfile, error) {
+func (a *Service) getAIProviderProfileForConversation(conversationID string) (AIProviderProfile, error) {
 	if a == nil || a.configManager == nil {
 		return AIProviderProfile{}, fmt.Errorf("供应商状态不可用")
 	}
@@ -1875,7 +1875,7 @@ func (a *App) getAIProviderProfileForConversation(conversationID string) (AIProv
 	return a.getAIProviderProfileByID(globalSettings.CurrentProviderID)
 }
 
-func (a *App) getAIAutoApprovalSettingsForConversation(conversationID string) AIConversationTaskSettings {
+func (a *Service) getAIAutoApprovalSettingsForConversation(conversationID string) AIConversationTaskSettings {
 	if a == nil || a.configManager == nil {
 		return AIConversationTaskSettings{}
 	}
@@ -1896,7 +1896,7 @@ func (a *App) getAIAutoApprovalSettingsForConversation(conversationID string) AI
 	return settings
 }
 
-func (a *App) setAIChatRequestCancel(requestID string, cancel context.CancelFunc) {
+func (a *Service) setAIChatRequestCancel(requestID string, cancel context.CancelFunc) {
 	if a == nil || requestID == "" || cancel == nil {
 		return
 	}
@@ -1908,7 +1908,7 @@ func (a *App) setAIChatRequestCancel(requestID string, cancel context.CancelFunc
 	a.aiChatReqMu.Unlock()
 }
 
-func (a *App) popAIChatRequestCancel(requestID string) context.CancelFunc {
+func (a *Service) popAIChatRequestCancel(requestID string) context.CancelFunc {
 	if a == nil || requestID == "" {
 		return nil
 	}
@@ -1919,7 +1919,7 @@ func (a *App) popAIChatRequestCancel(requestID string) context.CancelFunc {
 	return cancel
 }
 
-func (a *App) setAIChatPendingToolBatch(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) setAIChatPendingToolBatch(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || requestID == "" || batch == nil {
 		return
 	}
@@ -1928,7 +1928,7 @@ func (a *App) setAIChatPendingToolBatch(requestID string, batch *aiPendingToolBa
 	a.aiPendingToolMu.Unlock()
 }
 
-func (a *App) popAIChatPendingToolBatch(requestID string) *aiPendingToolBatch {
+func (a *Service) popAIChatPendingToolBatch(requestID string) *aiPendingToolBatch {
 	if a == nil || requestID == "" {
 		return nil
 	}
@@ -1939,7 +1939,7 @@ func (a *App) popAIChatPendingToolBatch(requestID string) *aiPendingToolBatch {
 	return batch
 }
 
-func (a *App) setAIChatPendingFollowupBatch(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) setAIChatPendingFollowupBatch(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || requestID == "" || batch == nil {
 		return
 	}
@@ -1948,7 +1948,7 @@ func (a *App) setAIChatPendingFollowupBatch(requestID string, batch *aiPendingTo
 	a.aiPendingFollowupMu.Unlock()
 }
 
-func (a *App) popAIChatPendingFollowupBatch(requestID string) *aiPendingToolBatch {
+func (a *Service) popAIChatPendingFollowupBatch(requestID string) *aiPendingToolBatch {
 	if a == nil || requestID == "" {
 		return nil
 	}
@@ -1959,7 +1959,7 @@ func (a *App) popAIChatPendingFollowupBatch(requestID string) *aiPendingToolBatc
 	return batch
 }
 
-func (a *App) finishAIChatRequest(requestID string) {
+func (a *Service) finishAIChatRequest(requestID string) {
 	if a == nil || requestID == "" {
 		return
 	}
@@ -1973,7 +1973,7 @@ func (a *App) finishAIChatRequest(requestID string) {
 	a.setAIChatSkipNextAutomaticRequest(requestID, false)
 }
 
-func (a *App) setAIChatSkipNextAutomaticRequest(requestID string, enabled bool) {
+func (a *Service) setAIChatSkipNextAutomaticRequest(requestID string, enabled bool) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return
@@ -1987,7 +1987,7 @@ func (a *App) setAIChatSkipNextAutomaticRequest(requestID string, enabled bool) 
 	a.aiSkipNextAutoReqMu.Unlock()
 }
 
-func (a *App) consumeAIChatSkipNextAutomaticRequest(requestID string) bool {
+func (a *Service) consumeAIChatSkipNextAutomaticRequest(requestID string) bool {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return false
@@ -1999,18 +1999,18 @@ func (a *App) consumeAIChatSkipNextAutomaticRequest(requestID string) bool {
 	return enabled
 }
 
-func (a *App) SetAIChatSkipNextAutomaticRequest(requestID string, enabled bool) {
+func (a *Service) SetAIChatSkipNextAutomaticRequest(requestID string, enabled bool) {
 	a.setAIChatSkipNextAutomaticRequest(requestID, enabled)
 }
 
-func (a *App) emitAIChatEvent(payload map[string]interface{}) {
+func (a *Service) emitAIChatEvent(payload map[string]interface{}) {
 	if a == nil || a.ctx == nil {
 		return
 	}
 	runtime.EventsEmit(a.ctx, "ai-chat-stream", payload)
 }
 
-func (a *App) emitAIChatRuntimePhase(requestID string, phase string) {
+func (a *Service) emitAIChatRuntimePhase(requestID string, phase string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	trimmedPhase := strings.TrimSpace(phase)
 	if a == nil || trimmedRequestID == "" || trimmedPhase == "" {
@@ -2097,7 +2097,7 @@ func waitForAIAssistantFirstReplyChunk(ctx context.Context, duration time.Durati
 	}
 }
 
-func (a *App) requestAIAssistantFirstReplyRound(ctx context.Context, requestID string, payload AIChatRequestPayload, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
+func (a *Service) requestAIAssistantFirstReplyRound(ctx context.Context, requestID string, payload AIChatRequestPayload, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
 	result := aiChatRoundResult{}
 	assistantFirstReplyText := strings.TrimSpace(payload.AssistantFirstReplyText)
 	if assistantFirstReplyText == "" {
@@ -2140,7 +2140,7 @@ func (a *App) requestAIAssistantFirstReplyRound(ctx context.Context, requestID s
 	return result, nil
 }
 
-func (a *App) StartAIChat(requestID string, messagesJSON string) error {
+func (a *Service) StartAIChat(requestID string, messagesJSON string) error {
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
 		return fmt.Errorf("缺少请求 ID")
@@ -2183,7 +2183,7 @@ func (a *App) StartAIChat(requestID string, messagesJSON string) error {
 	return nil
 }
 
-func (a *App) CancelAIChat(requestID string) {
+func (a *Service) CancelAIChat(requestID string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	cancel := a.popAIChatRequestCancel(trimmedRequestID)
 	if cancel != nil {
@@ -2213,7 +2213,7 @@ func (a *App) CancelAIChat(requestID string) {
 	}
 }
 
-func (a *App) ApproveAIChatTools(requestID string) error {
+func (a *Service) ApproveAIChatTools(requestID string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	pendingBatch := a.popAIChatPendingToolBatch(trimmedRequestID)
 	if pendingBatch == nil {
@@ -2229,7 +2229,7 @@ func (a *App) ApproveAIChatTools(requestID string) error {
 	return nil
 }
 
-func (a *App) RejectAIChatTools(requestID string) error {
+func (a *Service) RejectAIChatTools(requestID string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	pendingBatch := a.popAIChatPendingToolBatch(trimmedRequestID)
 	if pendingBatch == nil {
@@ -2270,7 +2270,7 @@ func (a *App) RejectAIChatTools(requestID string) error {
 	return nil
 }
 
-func (a *App) RejectAIChatToolsForQueuedSubmission(requestID string) error {
+func (a *Service) RejectAIChatToolsForQueuedSubmission(requestID string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	pendingBatch := a.popAIChatPendingToolBatch(trimmedRequestID)
 	if pendingBatch == nil {
@@ -2494,7 +2494,7 @@ func buildAIForcedCollaborationFlags(requestMessages []AIChatRequestMessage, rou
 	return true, "assistant_same_output_twice"
 }
 
-func (a *App) requestAIProviderChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
+func (a *Service) requestAIProviderChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
 	if shouldUseAIAssistantFirstReply(payload, requestMessages) {
 		return a.requestAIAssistantFirstReplyRound(ctx, requestID, payload, requestMessages)
 	}
@@ -2508,7 +2508,7 @@ func (a *App) requestAIProviderChatRound(ctx context.Context, requestID string, 
 	}
 }
 
-func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage, autoApprovalSettings AIConversationTaskSettings, assistantMessageID string, assistantRetryCount int, collaborationRetryCount int) {
+func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage, autoApprovalSettings AIConversationTaskSettings, assistantMessageID string, assistantRetryCount int, collaborationRetryCount int) {
 	// Drop historical protocol-retry noise before talking to the model.
 	requestMessages = purgeAIProtocolRetryNoiseFromMessages(normalizeAIChatRequestMessages(requestMessages))
 	consecutiveNoToolCount := 0
@@ -2847,7 +2847,7 @@ func (a *App) runCompatibleAIChatLoop(ctx context.Context, requestID string, pay
 	a.finishAIChatRequest(requestID)
 }
 
-func (a *App) runCompatibleAIChat(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile) {
+func (a *Service) runCompatibleAIChat(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile) {
 	requestMessages := normalizeAIChatRequestMessages(payload.Messages)
 	if len(requestMessages) == 0 {
 		a.emitAIChatEvent(map[string]interface{}{

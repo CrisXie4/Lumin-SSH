@@ -239,7 +239,7 @@ func buildAIMCPToolMessage(execution *aiToolExecutionState, serverName string, t
 	return attachAIResultTokenEstimateMeta(message, buildAIMCPToolResultContent(serverName, toolName, response), profile)
 }
 
-func (a *App) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
+func (a *Service) runAIChatMCPClientToolExecution(execution *aiToolExecutionState) {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return
 	}
@@ -577,7 +577,7 @@ func indentAIMCPMultiline(text string, indent string) string {
 	return strings.Join(lines, "\n")
 }
 
-func (a *App) emitAIMCPToolResultMessage(requestID string, execution *aiToolExecutionState, serverName string, toolName string, resultText string) {
+func (a *Service) emitAIMCPToolResultMessage(requestID string, execution *aiToolExecutionState, serverName string, toolName string, resultText string) {
 	if a == nil || strings.TrimSpace(resultText) == "" {
 		return
 	}

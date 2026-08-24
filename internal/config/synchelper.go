@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -61,9 +61,9 @@ type SyncSnapshot struct {
 	Connections            []Connection           `json:"connections"`
 	Credentials            []Credential           `json:"credentials"`
 	QuickCommands          string                 `json:"quick_commands"`
-	AIProviders            []ai.AIProviderProfile `json:"ai_providers"`
-	AIGlobalSettings       *ai.AIGlobalSettings   `json:"-"` // ponytail: ai_global_settings 不再同步, 字段保留仅供本地读写
-	ProxyNodes             []ai.AIProxyNode       `json:"proxy_nodes"`
+	AIProviders            []aitypes.AIProviderProfile `json:"ai_providers"`
+	AIGlobalSettings       *aitypes.AIGlobalSettings   `json:"-"` // ponytail: ai_global_settings 不再同步, 字段保留仅供本地读写
+	ProxyNodes             []aitypes.AIProxyNode       `json:"proxy_nodes"`
 	// PortForwards 端口映射持久化(按 serverId 分组)。不同设备端口占用不同, 不同步。
 	PortForwards map[string][]PersistedPortForward `json:"-"` // ponytail: 端口映射不同步, 设备运行时状态
 	// deleted_* 始终写出（含 []），与安卓 desktopSnapshotJson 一致，避免「字段缺失 vs 空数组」语义分叉。
@@ -227,11 +227,11 @@ func credsEqual(a, b []Credential) bool {
 	return true
 }
 
-func aiProvidersEqual(a, b []ai.AIProviderProfile) bool {
+func aiProvidersEqual(a, b []aitypes.AIProviderProfile) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	m := make(map[string]ai.AIProviderProfile, len(a))
+	m := make(map[string]aitypes.AIProviderProfile, len(a))
 	for _, p := range a {
 		m[p.ID] = p
 	}
@@ -245,11 +245,11 @@ func aiProvidersEqual(a, b []ai.AIProviderProfile) bool {
 }
 
 // AIProvidersEqual 导出包装器
-func AIProvidersEqual(a, b []ai.AIProviderProfile) bool {
+func AIProvidersEqual(a, b []aitypes.AIProviderProfile) bool {
 	return aiProvidersEqual(a, b)
 }
 
-func normalizeAIGlobalSettingsForCompare(settings ai.AIGlobalSettings) ai.AIGlobalSettings {
+func normalizeAIGlobalSettingsForCompare(settings aitypes.AIGlobalSettings) aitypes.AIGlobalSettings {
 	settings.CurrentProviderID = strings.TrimSpace(settings.CurrentProviderID)
 	settings.AIRequestProxyID = strings.TrimSpace(settings.AIRequestProxyID)
 	settings.CollaborationExtraPrompt = strings.TrimSpace(strings.ReplaceAll(settings.CollaborationExtraPrompt, "\r\n", "\n"))
@@ -262,21 +262,21 @@ func normalizeAIGlobalSettingsForCompare(settings ai.AIGlobalSettings) ai.AIGlob
 		settings.DeniedCommands = []string{}
 	}
 	if settings.SlashCommands == nil {
-		settings.SlashCommands = []ai.AISlashCommand{}
+		settings.SlashCommands = []aitypes.AISlashCommand{}
 	}
 	// omitempty 上传后远端缺失字段解成 nil；本地 Load 会规范成空切片。比较必须等价，否则每次启动都误判 cloudChanged。
 	if settings.CollaborationPromptPresets == nil {
-		settings.CollaborationPromptPresets = []ai.AICollaborationPromptPreset{}
+		settings.CollaborationPromptPresets = []aitypes.AICollaborationPromptPreset{}
 	}
 	return settings
 }
 
-func aiGlobalSettingsEqual(a, b *ai.AIGlobalSettings) bool {
+func aiGlobalSettingsEqual(a, b *aitypes.AIGlobalSettings) bool {
 	// ponytail: ai_global_settings 不再同步, 始终返回 true 跳过变更检测
 	return true
 }
 
-func aiGlobalSettingsDiffSummary(a, b *ai.AIGlobalSettings) string {
+func aiGlobalSettingsDiffSummary(a, b *aitypes.AIGlobalSettings) string {
 	if a == nil || b == nil {
 		return fmt.Sprintf("nil a=%v b=%v", a == nil, b == nil)
 	}
@@ -307,11 +307,11 @@ func aiGlobalSettingsDiffSummary(a, b *ai.AIGlobalSettings) string {
 	return strings.Join(parts, "; ")
 }
 
-func aiProxyNodesEqual(a, b []ai.AIProxyNode) bool {
+func aiProxyNodesEqual(a, b []aitypes.AIProxyNode) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	m := make(map[string]ai.AIProxyNode, len(a))
+	m := make(map[string]aitypes.AIProxyNode, len(a))
 	for _, n := range a {
 		m[n.ID] = n
 	}
@@ -324,84 +324,12 @@ func aiProxyNodesEqual(a, b []ai.AIProxyNode) bool {
 	return true
 }
 
-func (c *ConfigManager) aiProviderRegistryPath() string {
-	return filepath.Join(c.configDir, "ai_providers.json")
-}
-
-func (c *ConfigManager) aiGlobalSettingsPath() string {
-	return filepath.Join(c.configDir, "ai_global_settings.json")
-}
-
-func (c *ConfigManager) aiProxyNodesPath() string {
-	return filepath.Join(c.configDir, "proxy_nodes.json")
-}
-
-func (c *ConfigManager) GetAIProviderRegistry() ai.AIProviderRegistry {
-	registry := ai.AIProviderRegistry{Providers: []ai.AIProviderProfile{}}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	data, err := os.ReadFile(c.aiProviderRegistryPath())
-	if err == nil {
-		_ = json.Unmarshal(data, &registry)
-	}
-	if registry.Providers == nil {
-		registry.Providers = []ai.AIProviderProfile{}
-	}
-	return registry
-}
-
-func (c *ConfigManager) SaveAIProviderRegistry(registry ai.AIProviderRegistry) error {
-	registry.Providers = normalizeSyncAIProviders(registry.Providers)
-	data, err := json.MarshalIndent(registry, "", "  ")
-	if err != nil {
-		return err
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return atomicWriteFile(c.aiProviderRegistryPath(), data, 0600)
-}
-
-func (c *ConfigManager) GetAIGlobalSettings() ai.AIGlobalSettings {
-	settings := ai.LoadAIGlobalSettings(c.configDir)
-	settings.ProxyNodes = nil
-	return settings
-}
-
-func (c *ConfigManager) SaveAIGlobalSettings(settings ai.AIGlobalSettings) error {
-	settings.ProxyNodes = nil
-	if settings.UpdatedAt <= 0 {
-		settings.UpdatedAt = time.Now().UnixMilli()
-	}
-	data, err := json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return err
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return atomicWriteFile(c.aiGlobalSettingsPath(), data, 0600)
-}
-
-func (c *ConfigManager) GetAIProxyNodes() []ai.AIProxyNode {
-	return ai.LoadAIProxyNodes(c.configDir)
-}
-
-func (c *ConfigManager) SaveAIProxyNodes(nodes []ai.AIProxyNode) error {
-	nodes = normalizeSyncAIProxyNodes(nodes)
-	data, err := json.MarshalIndent(nodes, "", "  ")
-	if err != nil {
-		return err
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return atomicWriteFile(c.aiProxyNodesPath(), data, 0600)
-}
-
-func normalizeSyncAIProviders(providers []ai.AIProviderProfile) []ai.AIProviderProfile {
+func normalizeSyncAIProviders(providers []aitypes.AIProviderProfile) []aitypes.AIProviderProfile {
 	if providers == nil {
-		return []ai.AIProviderProfile{}
+		return []aitypes.AIProviderProfile{}
 	}
 	now := time.Now().UnixMilli()
-	normalized := make([]ai.AIProviderProfile, 0, len(providers))
+	normalized := make([]aitypes.AIProviderProfile, 0, len(providers))
 	seen := make(map[string]struct{}, len(providers))
 	for i, provider := range providers {
 		provider.ID = strings.TrimSpace(provider.ID)
@@ -427,12 +355,12 @@ func normalizeSyncAIProviders(providers []ai.AIProviderProfile) []ai.AIProviderP
 	return normalized
 }
 
-func normalizeSyncAIProxyNodes(nodes []ai.AIProxyNode) []ai.AIProxyNode {
+func normalizeSyncAIProxyNodes(nodes []aitypes.AIProxyNode) []aitypes.AIProxyNode {
 	if nodes == nil {
-		return []ai.AIProxyNode{}
+		return []aitypes.AIProxyNode{}
 	}
 	now := time.Now().UnixMilli()
-	normalized := make([]ai.AIProxyNode, 0, len(nodes))
+	normalized := make([]aitypes.AIProxyNode, 0, len(nodes))
 	seen := make(map[string]struct{}, len(nodes))
 	for i, node := range nodes {
 		node.Host = strings.TrimSpace(node.Host)
@@ -521,7 +449,7 @@ func (c *ConfigManager) fetchLatestBackup(s RemoteStorage, password string) (*Sy
 	return snap, nil
 }
 
-func (c *ConfigManager) localAIGlobalSettingsForSync() *ai.AIGlobalSettings {
+func (c *ConfigManager) localAIGlobalSettingsForSync() *aitypes.AIGlobalSettings {
 	// ponytail: ai_global_settings 不再同步, 返回 nil 使上传快照不含此字段
 	return nil
 }
@@ -769,12 +697,12 @@ func (c *ConfigManager) syncFromProvider(s RemoteStorage, maxBackups int, passwo
 	localAIProviders := c.GetAIProviderRegistry().Providers
 	mergedAIProviders := c.mergeAIProviders(localAIProviders, remoteSnap.AIProviders, lastSyncTime)
 	if remoteSnap.HasAIProviders {
-		if err := c.SaveAIProviderRegistry(ai.AIProviderRegistry{Providers: mergedAIProviders}); err != nil {
+		if err := c.SaveAIProviderRegistry(aitypes.AIProviderRegistry{Providers: mergedAIProviders}); err != nil {
 			log.Printf("[syncFromProvider] failed to save AI providers: %v", err)
 		}
 	}
 	localAIGlobalSettings := c.localAIGlobalSettingsForSync()
-	var mergedAIGlobalSettings ai.AIGlobalSettings
+	var mergedAIGlobalSettings aitypes.AIGlobalSettings
 	if localAIGlobalSettings != nil {
 		mergedAIGlobalSettings = *localAIGlobalSettings
 	}
@@ -854,7 +782,7 @@ func latestSnapshotHasItem(itemUpdatedAt int64, snaps []*SyncSnapshot, hasField 
 	return latest == nil || contains(latest)
 }
 
-func filterRemoteDeletedAIProviders(providers []ai.AIProviderProfile, snaps []*SyncSnapshot) []ai.AIProviderProfile {
+func filterRemoteDeletedAIProviders(providers []aitypes.AIProviderProfile, snaps []*SyncSnapshot) []aitypes.AIProviderProfile {
 	out := providers[:0]
 	for _, provider := range providers {
 		if latestSnapshotHasItem(provider.UpdatedAt, snaps, func(snap *SyncSnapshot) bool { return snap.HasAIProviders }, func(snap *SyncSnapshot) bool { return aiProviderInSnapshot(snap.AIProviders, provider.ID) }) {
@@ -864,7 +792,7 @@ func filterRemoteDeletedAIProviders(providers []ai.AIProviderProfile, snaps []*S
 	return out
 }
 
-func aiProviderInSnapshot(providers []ai.AIProviderProfile, id string) bool {
+func aiProviderInSnapshot(providers []aitypes.AIProviderProfile, id string) bool {
 	for _, provider := range providers {
 		if provider.ID == id {
 			return true
@@ -873,7 +801,7 @@ func aiProviderInSnapshot(providers []ai.AIProviderProfile, id string) bool {
 	return false
 }
 
-func filterRemoteDeletedAIProxyNodes(nodes []ai.AIProxyNode, snaps []*SyncSnapshot) []ai.AIProxyNode {
+func filterRemoteDeletedAIProxyNodes(nodes []aitypes.AIProxyNode, snaps []*SyncSnapshot) []aitypes.AIProxyNode {
 	out := nodes[:0]
 	for _, node := range nodes {
 		if latestSnapshotHasItem(node.UpdatedAt, snaps, func(snap *SyncSnapshot) bool { return snap.HasProxyNodes }, func(snap *SyncSnapshot) bool { return aiProxyNodeInSnapshot(snap.ProxyNodes, node.ID) }) {
@@ -883,7 +811,7 @@ func filterRemoteDeletedAIProxyNodes(nodes []ai.AIProxyNode, snaps []*SyncSnapsh
 	return out
 }
 
-func aiProxyNodeInSnapshot(nodes []ai.AIProxyNode, id string) bool {
+func aiProxyNodeInSnapshot(nodes []aitypes.AIProxyNode, id string) bool {
 	for _, node := range nodes {
 		if node.ID == id {
 			return true
@@ -985,9 +913,9 @@ func (c *ConfigManager) syncAllProviders(entries []providerEntry, password strin
 	var remoteConnTombs []SyncTombstone
 	var remoteCredTombs []SyncTombstone
 	remoteQuickCmds := ""
-	var remoteAIProviders []ai.AIProviderProfile
-	var remoteAIGlobalSettings ai.AIGlobalSettings
-	var remoteProxyNodes []ai.AIProxyNode
+	var remoteAIProviders []aitypes.AIProviderProfile
+	var remoteAIGlobalSettings aitypes.AIGlobalSettings
+	var remoteProxyNodes []aitypes.AIProxyNode
 	remoteHasCreds := false
 	remoteHasQuick := false
 	remoteHasAIProviders := false
@@ -1109,7 +1037,7 @@ func (c *ConfigManager) syncAllProviders(entries []providerEntry, password strin
 	if remoteHasAIProviders {
 		mergedAIProviders = c.mergeAIProviders(localAIProviders, remoteAIProviders, lastSyncTime)
 	}
-	var mergedAIGlobalSettings ai.AIGlobalSettings
+	var mergedAIGlobalSettings aitypes.AIGlobalSettings
 	if localAIGlobalSettings != nil {
 		mergedAIGlobalSettings = *localAIGlobalSettings
 	}
@@ -1126,7 +1054,7 @@ func (c *ConfigManager) syncAllProviders(entries []providerEntry, password strin
 		mergedProxyNodes = filterRemoteDeletedAIProxyNodes(mergedProxyNodes, remoteSnaps)
 	}
 
-	var finalAIGlobalSettings *ai.AIGlobalSettings
+	var finalAIGlobalSettings *aitypes.AIGlobalSettings
 	if localAIGlobalSettings != nil || remoteHasAIGlobalSettingsValue {
 		finalAIGlobalSettings = &mergedAIGlobalSettings
 	}
@@ -1305,8 +1233,8 @@ func (c *ConfigManager) autoSyncProvider(s RemoteStorage, maxBackups int, provid
 		mergedAIProviders = c.mergeAIProviders(localAIProviders, remoteSnap.AIProviders, lastSyncTime)
 	}
 	localAIGlobalSettings := c.localAIGlobalSettingsForSync()
-	var mergedAIGlobalSettings ai.AIGlobalSettings
-	var mergedAIGlobalSettingsPtr *ai.AIGlobalSettings
+	var mergedAIGlobalSettings aitypes.AIGlobalSettings
+	var mergedAIGlobalSettingsPtr *aitypes.AIGlobalSettings
 	if localAIGlobalSettings != nil {
 		mergedAIGlobalSettings = *localAIGlobalSettings
 		mergedAIGlobalSettingsPtr = &mergedAIGlobalSettings
@@ -1387,7 +1315,7 @@ func (c *ConfigManager) autoSyncProvider(s RemoteStorage, maxBackups int, provid
 		}
 		c.mu.Unlock()
 		if aiProvidersChanged {
-			if err := c.SaveAIProviderRegistry(ai.AIProviderRegistry{Providers: mergedAIProviders}); err != nil {
+			if err := c.SaveAIProviderRegistry(aitypes.AIProviderRegistry{Providers: mergedAIProviders}); err != nil {
 				log.Printf("[autoSyncProvider] save AI providers: %v", err)
 			}
 		}
@@ -1704,15 +1632,15 @@ func pruneCredentialTombstones(tombs []SyncTombstone, creds []Credential) []Sync
 	return pruneTombstonesByAlive(tombs, alive)
 }
 
-func (c *ConfigManager) mergeAIProviders(localProviders, remoteProviders []ai.AIProviderProfile, lastSyncTime int64) []ai.AIProviderProfile {
+func (c *ConfigManager) mergeAIProviders(localProviders, remoteProviders []aitypes.AIProviderProfile, lastSyncTime int64) []aitypes.AIProviderProfile {
 	if remoteProviders == nil {
 		return localProviders
 	}
-	remoteMap := make(map[string]ai.AIProviderProfile, len(remoteProviders))
+	remoteMap := make(map[string]aitypes.AIProviderProfile, len(remoteProviders))
 	for _, p := range remoteProviders {
 		remoteMap[p.ID] = p
 	}
-	merged := make([]ai.AIProviderProfile, 0, len(localProviders)+len(remoteProviders))
+	merged := make([]aitypes.AIProviderProfile, 0, len(localProviders)+len(remoteProviders))
 	added := make(map[string]bool)
 	for _, lp := range localProviders {
 		if added[lp.ID] {
@@ -1740,15 +1668,15 @@ func (c *ConfigManager) mergeAIProviders(localProviders, remoteProviders []ai.AI
 	return merged
 }
 
-func (c *ConfigManager) mergeAIProxyNodes(localNodes, remoteNodes []ai.AIProxyNode, lastSyncTime int64) []ai.AIProxyNode {
+func (c *ConfigManager) mergeAIProxyNodes(localNodes, remoteNodes []aitypes.AIProxyNode, lastSyncTime int64) []aitypes.AIProxyNode {
 	if remoteNodes == nil {
 		return localNodes
 	}
-	remoteMap := make(map[string]ai.AIProxyNode, len(remoteNodes))
+	remoteMap := make(map[string]aitypes.AIProxyNode, len(remoteNodes))
 	for _, n := range remoteNodes {
 		remoteMap[n.ID] = n
 	}
-	merged := make([]ai.AIProxyNode, 0, len(localNodes)+len(remoteNodes))
+	merged := make([]aitypes.AIProxyNode, 0, len(localNodes)+len(remoteNodes))
 	added := make(map[string]bool)
 	for _, ln := range localNodes {
 		if added[ln.ID] {
@@ -1989,7 +1917,7 @@ func (c *ConfigManager) PruneSyncTombstones(days int) (SyncTombstonePruneResult,
 	return result, nil
 }
 
-func mergeAIGlobalSettings(localSettings ai.AIGlobalSettings, remoteSettings *ai.AIGlobalSettings) ai.AIGlobalSettings {
+func mergeAIGlobalSettings(localSettings aitypes.AIGlobalSettings, remoteSettings *aitypes.AIGlobalSettings) aitypes.AIGlobalSettings {
 	// ponytail: ai_global_settings 不再同步, 保留本地设置不变
 	return localSettings
 }
@@ -2255,7 +2183,7 @@ func mergeSnapshot(c *ConfigManager, dst, src *SyncSnapshot) {
 		dst.AIProviders = c.mergeAIProviders(dst.AIProviders, src.AIProviders, -1)
 	}
 	if src.HasAIGlobalSettings {
-		var local ai.AIGlobalSettings
+		var local aitypes.AIGlobalSettings
 		if dst.AIGlobalSettings != nil {
 			local = *dst.AIGlobalSettings
 		}
@@ -2292,7 +2220,7 @@ func (c *ConfigManager) persistSyncSnapshot(snap *SyncSnapshot) error {
 	c.connCacheDirty, c.credCacheDirty = true, true
 	c.mu.Unlock()
 
-	if err := c.SaveAIProviderRegistry(ai.AIProviderRegistry{Providers: snap.AIProviders}); err != nil {
+	if err := c.SaveAIProviderRegistry(aitypes.AIProviderRegistry{Providers: snap.AIProviders}); err != nil {
 		return fmt.Errorf("保存 AI 供应商失败：%w", err)
 	}
 	// ponytail: ai_global_settings 不再同步, 不在 persistSyncSnapshot 中保存/清除
@@ -2778,7 +2706,7 @@ func (c *ConfigManager) restoreSnapshotToLocal(snap *SyncSnapshot) {
 		}
 	}
 	if snap.AIProviders != nil {
-		if err := c.SaveAIProviderRegistry(ai.AIProviderRegistry{Providers: snap.AIProviders}); err != nil {
+		if err := c.SaveAIProviderRegistry(aitypes.AIProviderRegistry{Providers: snap.AIProviders}); err != nil {
 			log.Printf("[restoreSnapshotToLocal] failed to write AI providers: %v", err)
 		}
 	}

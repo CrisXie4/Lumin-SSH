@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 )
 
 // 节点导入/导出功能。
@@ -28,7 +28,7 @@ type connectionsExport struct {
 	ExportedAt  int64            `json:"exportedAt"` // Unix 毫秒时间戳
 	Connections []Connection     `json:"connections"`
 	Credentials []Credential     `json:"credentials"` // 仅含被 connection 引用的凭据
-	ProxyNodes  []ai.AIProxyNode `json:"proxy_nodes,omitempty"`
+	ProxyNodes  []aitypes.AIProxyNode `json:"proxy_nodes,omitempty"`
 }
 
 // skippedItem 记录导入时被跳过（本地已存在）的节点信息
@@ -62,7 +62,7 @@ func buildConnectionsExport(conns []Connection, creds []Credential) SyncSnapshot
 	return buildConnectionsExportWithProxyNodes(conns, creds, nil)
 }
 
-func buildConnectionsExportWithProxyNodes(conns []Connection, creds []Credential, proxyNodes []ai.AIProxyNode) SyncSnapshot {
+func buildConnectionsExportWithProxyNodes(conns []Connection, creds []Credential, proxyNodes []aitypes.AIProxyNode) SyncSnapshot {
 	// 收集所有被引用的 credentialId
 	referenced := make(map[string]bool)
 	referencedProxyNodes := make(map[string]bool)
@@ -80,7 +80,7 @@ func buildConnectionsExportWithProxyNodes(conns []Connection, creds []Credential
 			exportedCreds = append(exportedCreds, cr)
 		}
 	}
-	exportedProxyNodes := make([]ai.AIProxyNode, 0, len(referencedProxyNodes))
+	exportedProxyNodes := make([]aitypes.AIProxyNode, 0, len(referencedProxyNodes))
 	for _, node := range proxyNodes {
 		if referencedProxyNodes[node.ID] {
 			exportedProxyNodes = append(exportedProxyNodes, node)
@@ -95,7 +95,7 @@ func buildConnectionsExportWithProxyNodes(conns []Connection, creds []Credential
 }
 
 // BuildConnectionsExportWithProxyNodes 导出包装器
-func BuildConnectionsExportWithProxyNodes(conns []Connection, creds []Credential, proxyNodes []ai.AIProxyNode) SyncSnapshot {
+func BuildConnectionsExportWithProxyNodes(conns []Connection, creds []Credential, proxyNodes []aitypes.AIProxyNode) SyncSnapshot {
 	return buildConnectionsExportWithProxyNodes(conns, creds, proxyNodes)
 }
 
@@ -209,14 +209,14 @@ func filterImportCredentialsForConnections(importCreds []Credential, conns []Con
 	return filtered
 }
 
-func mergeImportProxyNodes(localNodes, importNodes []ai.AIProxyNode) ([]ai.AIProxyNode, map[string]string) {
+func mergeImportProxyNodes(localNodes, importNodes []aitypes.AIProxyNode) ([]aitypes.AIProxyNode, map[string]string) {
 	localIDs := make(map[string]bool, len(localNodes))
 	for _, node := range localNodes {
 		localIDs[node.ID] = true
 	}
 	now := time.Now().UnixMilli()
 	seenImportIDs := make(map[string]bool, len(importNodes))
-	toAdd := make([]ai.AIProxyNode, 0, len(importNodes))
+	toAdd := make([]aitypes.AIProxyNode, 0, len(importNodes))
 	idMap := make(map[string]string, len(importNodes))
 	for _, node := range importNodes {
 		oldID := strings.TrimSpace(node.ID)
@@ -240,14 +240,14 @@ func mergeImportProxyNodes(localNodes, importNodes []ai.AIProxyNode) ([]ai.AIPro
 	return toAdd, idMap
 }
 
-func filterImportProxyNodesForConnections(importNodes []ai.AIProxyNode, conns []Connection) []ai.AIProxyNode {
+func filterImportProxyNodesForConnections(importNodes []aitypes.AIProxyNode, conns []Connection) []aitypes.AIProxyNode {
 	referenced := make(map[string]bool, len(conns))
 	for _, conn := range conns {
 		if conn.ProxyMode == "node" && conn.ProxyNodeID != "" {
 			referenced[conn.ProxyNodeID] = true
 		}
 	}
-	filtered := make([]ai.AIProxyNode, 0, len(importNodes))
+	filtered := make([]aitypes.AIProxyNode, 0, len(importNodes))
 	for _, node := range importNodes {
 		if referenced[node.ID] {
 			filtered = append(filtered, node)

@@ -30,11 +30,11 @@ type aiConversationSearchState struct {
 
 var aiConversationSearchDBCache sync.Map
 
-func (c *ConfigManager) aiConversationSearchDBPath() string {
+func (c *configBridge) aiConversationSearchDBPath() string {
 	return filepath.Join(c.configDir, "ai_conversation_search.db")
 }
 
-func (c *ConfigManager) getAIConversationSearchDB() (*sql.DB, error) {
+func (c *configBridge) getAIConversationSearchDB() (*sql.DB, error) {
 	if c == nil || strings.TrimSpace(c.configDir) == "" {
 		return nil, fmt.Errorf("配置管理器不可用")
 	}
@@ -75,7 +75,7 @@ func (c *ConfigManager) getAIConversationSearchDB() (*sql.DB, error) {
 	return db, nil
 }
 
-func (c *ConfigManager) ensureAIConversationSearchSchemaLocked(tx *sql.Tx) error {
+func (c *configBridge) ensureAIConversationSearchSchemaLocked(tx *sql.Tx) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS ai_conversation_message_index (
 			message_id TEXT PRIMARY KEY,
@@ -173,7 +173,7 @@ func extractAIConversationSearchRecord(message AIConversationMessage) (string, s
 	return messageID, role, body, true
 }
 
-func (c *ConfigManager) replaceAIConversationSearchRowsLocked(tx *sql.Tx, snapshot AIConversationSnapshot) error {
+func (c *configBridge) replaceAIConversationSearchRowsLocked(tx *sql.Tx, snapshot AIConversationSnapshot) error {
 	conversationID := strings.TrimSpace(snapshot.ID)
 	if conversationID == "" {
 		return fmt.Errorf("缺少对话 ID")
@@ -224,7 +224,7 @@ func (c *ConfigManager) replaceAIConversationSearchRowsLocked(tx *sql.Tx, snapsh
 	return nil
 }
 
-func (c *ConfigManager) deleteAIConversationSearchRowsLocked(tx *sql.Tx, conversationID string) error {
+func (c *configBridge) deleteAIConversationSearchRowsLocked(tx *sql.Tx, conversationID string) error {
 	normalizedConversationID := strings.TrimSpace(conversationID)
 	if normalizedConversationID == "" {
 		return nil
@@ -241,7 +241,7 @@ func (c *ConfigManager) deleteAIConversationSearchRowsLocked(tx *sql.Tx, convers
 	return nil
 }
 
-func (c *ConfigManager) loadAIConversationSearchStatesLocked(tx *sql.Tx) (map[string]int64, error) {
+func (c *configBridge) loadAIConversationSearchStatesLocked(tx *sql.Tx) (map[string]int64, error) {
 	rows, err := tx.Query(`SELECT conversation_id, updated_at FROM ai_conversation_search_state`)
 	if err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func (c *ConfigManager) loadAIConversationSearchStatesLocked(tx *sql.Tx) (map[st
 	return states, nil
 }
 
-func (c *ConfigManager) syncAIConversationSearchIndexLocked() error {
+func (c *configBridge) syncAIConversationSearchIndexLocked() error {
 	db, err := c.getAIConversationSearchDB()
 	if err != nil {
 		return err
@@ -435,7 +435,7 @@ func buildAIConversationSearchSnippet(body string, query string) string {
 	return snippet
 }
 
-func (c *ConfigManager) appendAIConversationSearchResultsFromFTS(db *sql.DB, results []AIConversationMessageSearchResult, seen map[string]struct{}, query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
+func (c *configBridge) appendAIConversationSearchResultsFromFTS(db *sql.DB, results []AIConversationMessageSearchResult, seen map[string]struct{}, query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
 	ftsQuery := tokenizeAIConversationFTSQuery(query)
 	if ftsQuery == "" {
 		return results, nil
@@ -478,7 +478,7 @@ func (c *ConfigManager) appendAIConversationSearchResultsFromFTS(db *sql.DB, res
 	return results, nil
 }
 
-func (c *ConfigManager) appendAIConversationSearchResultsFromLike(db *sql.DB, results []AIConversationMessageSearchResult, seen map[string]struct{}, query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
+func (c *configBridge) appendAIConversationSearchResultsFromLike(db *sql.DB, results []AIConversationMessageSearchResult, seen map[string]struct{}, query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
 	pattern := "%" + strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(query, `\`, `\\`), `%`, `\%`), `_`, `\_`) + "%"
 	rows, err := db.Query(
 		`SELECT conversation_id, conversation_title, message_id, role, body, updated_at
@@ -517,7 +517,7 @@ func (c *ConfigManager) appendAIConversationSearchResultsFromLike(db *sql.DB, re
 	return results, nil
 }
 
-func (c *ConfigManager) SearchAIConversationMessages(query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
+func (c *configBridge) SearchAIConversationMessages(query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
 	if c == nil {
 		return []AIConversationMessageSearchResult{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -553,7 +553,7 @@ func (c *ConfigManager) SearchAIConversationMessages(query string, conversationI
 	return results, nil
 }
 
-func (a *App) SearchAIConversationMessages(query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
+func (a *Service) SearchAIConversationMessages(query string, conversationID string, limit int) ([]AIConversationMessageSearchResult, error) {
 	if a == nil || a.configManager == nil {
 		return []AIConversationMessageSearchResult{}, fmt.Errorf("配置管理器不可用")
 	}

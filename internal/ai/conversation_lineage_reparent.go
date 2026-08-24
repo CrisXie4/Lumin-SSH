@@ -26,7 +26,7 @@ func sortAIConversationSummariesByCreatedAt(items []AIConversationSummary) {
 	})
 }
 
-func (c *ConfigManager) listAIConversationSummariesLocked() []AIConversationSummary {
+func (c *configBridge) listAIConversationSummariesLocked() []AIConversationSummary {
 	entries, err := os.ReadDir(c.aiConversationsRootDir())
 	if err != nil {
 		return []AIConversationSummary{}
@@ -136,7 +136,7 @@ func pickPromotedAIConversationPhaseSummary(descendants []aiConversationDescenda
 	return phaseDescendants[0].Summary, true
 }
 
-func (c *ConfigManager) readAIConversationSnapshotLocked(conversationID string) (AIConversationSnapshot, error) {
+func (c *configBridge) readAIConversationSnapshotLocked(conversationID string) (AIConversationSnapshot, error) {
 	trimmedConversationID := strings.TrimSpace(conversationID)
 	if trimmedConversationID == "" {
 		return AIConversationSnapshot{}, fmt.Errorf("缺少对话 ID")
@@ -191,7 +191,7 @@ func normalizeAIConversationPhaseSnapshotUnderRoot(snapshot AIConversationSnapsh
 	return normalizeAIConversationSnapshot(snapshot, AIConversationTaskSettings{})
 }
 
-func (c *ConfigManager) reorganizeAIRootConversationDescendantsLocked(rootSummary AIConversationSummary) error {
+func (c *configBridge) reorganizeAIRootConversationDescendantsLocked(rootSummary AIConversationSummary) error {
 	trimmedRootConversationID := strings.TrimSpace(rootSummary.ID)
 	if trimmedRootConversationID == "" {
 		return nil

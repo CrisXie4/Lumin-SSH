@@ -257,7 +257,7 @@ func buildAIThemeToolResultPayload(themeResult ThemeToolResult) map[string]inter
 	return payload
 }
 
-func (a *App) runAIChatThemeToolExecution(execution *aiToolExecutionState) {
+func (a *Service) runAIChatThemeToolExecution(execution *aiToolExecutionState) {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return
 	}

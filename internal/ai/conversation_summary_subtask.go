@@ -164,7 +164,7 @@ Output plain text only, without any XML tags. The first line is a concise task t
 	}
 }
 
-func (a *App) buildAIConversationCompressedSeed(snapshot AIConversationSnapshot, sessionID string) (aiConversationCompressedSeed, error) {
+func (a *Service) buildAIConversationCompressedSeed(snapshot AIConversationSnapshot, sessionID string) (aiConversationCompressedSeed, error) {
 	apiMessages := normalizeAIConversationAPIMessages(snapshot.APIMessages)
 	if len(apiMessages) <= 2 {
 		return aiConversationCompressedSeed{}, fmt.Errorf("当前消息不足，无法压缩上下文")
@@ -251,7 +251,7 @@ func resolveAIConversationSummarySubtaskLineage(parentSnapshot AIConversationSna
 	return parentConversationID, rootConversationID, parentTitleSnapshot
 }
 
-func (a *App) generateAIConversationSummarySubtaskOutput(parentSnapshot AIConversationSnapshot, requestMessages []AIChatRequestMessage, sessionID string, requestID string) (aiConversationSummarySubtaskOutput, error) {
+func (a *Service) generateAIConversationSummarySubtaskOutput(parentSnapshot AIConversationSnapshot, requestMessages []AIChatRequestMessage, sessionID string, requestID string) (aiConversationSummarySubtaskOutput, error) {
 	if a == nil || a.configManager == nil {
 		return aiConversationSummarySubtaskOutput{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -297,7 +297,7 @@ func (a *App) generateAIConversationSummarySubtaskOutput(parentSnapshot AIConver
 	return summaryOutput, nil
 }
 
-func (a *App) createAIConversationSummarySubtaskFromRequestMessages(parentSnapshot AIConversationSnapshot, requestMessages []AIChatRequestMessage, prevContextTokens int, newContextTokens int, sessionID string, requestID string) (AIConversationSummarySubtaskResult, error) {
+func (a *Service) createAIConversationSummarySubtaskFromRequestMessages(parentSnapshot AIConversationSnapshot, requestMessages []AIChatRequestMessage, prevContextTokens int, newContextTokens int, sessionID string, requestID string) (AIConversationSummarySubtaskResult, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationSummarySubtaskResult{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -345,7 +345,7 @@ func (a *App) createAIConversationSummarySubtaskFromRequestMessages(parentSnapsh
 	}, nil
 }
 
-func (a *App) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (AIConversationSummarySubtaskResult, error) {
+func (a *Service) CreateAIConversationSummarySubtask(conversationID string, sessionID string, requestID string) (AIConversationSummarySubtaskResult, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationSummarySubtaskResult{}, fmt.Errorf("配置管理器不可用")
 	}

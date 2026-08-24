@@ -167,19 +167,19 @@ func buildAICopyContentForTool(tool aiParsedToolUse, state *aiToolRestoreState) 
 	}
 }
 
-func (c *ConfigManager) aiConversationRestoreArtifactsDir(conversationID string) string {
+func (c *configBridge) aiConversationRestoreArtifactsDir(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(strings.TrimSpace(conversationID)), "restore_artifacts")
 }
 
-func (c *ConfigManager) aiConversationRestoreArtifactDir(conversationID string, reviewID string) string {
+func (c *configBridge) aiConversationRestoreArtifactDir(conversationID string, reviewID string) string {
 	return filepath.Join(c.aiConversationRestoreArtifactsDir(conversationID), sanitizeAIRestoreArtifactName(reviewID))
 }
 
-func (c *ConfigManager) aiConversationRestoreArtifactPath(conversationID string, reviewID string) string {
+func (c *configBridge) aiConversationRestoreArtifactPath(conversationID string, reviewID string) string {
 	return filepath.Join(c.aiConversationRestoreArtifactDir(conversationID, reviewID), "restore.json")
 }
 
-func (c *ConfigManager) aiConversationRestorePatchPath(conversationID string, reviewID string) string {
+func (c *configBridge) aiConversationRestorePatchPath(conversationID string, reviewID string) string {
 	return filepath.Join(c.aiConversationRestoreArtifactDir(conversationID, reviewID), "forward.patch")
 }
 
@@ -210,7 +210,7 @@ func normalizeAIRestoreArtifactState(state aiToolRestoreState) aiToolRestoreStat
 	return state
 }
 
-func (c *ConfigManager) WriteAIConversationRestoreArtifact(state *aiToolRestoreState) (string, error) {
+func (c *configBridge) WriteAIConversationRestoreArtifact(state *aiToolRestoreState) (string, error) {
 	if c == nil {
 		return "", fmt.Errorf("配置管理器不可用")
 	}
@@ -249,7 +249,7 @@ func (c *ConfigManager) WriteAIConversationRestoreArtifact(state *aiToolRestoreS
 	return artifactPath, nil
 }
 
-func (c *ConfigManager) ReadAIConversationRestoreArtifact(artifactPath string) (*aiToolRestoreState, error) {
+func (c *configBridge) ReadAIConversationRestoreArtifact(artifactPath string) (*aiToolRestoreState, error) {
 	if c == nil {
 		return nil, fmt.Errorf("配置管理器不可用")
 	}

@@ -125,7 +125,7 @@ func buildAIResponsesAssistantMessageWithCache(content string, cacheObject *AICo
 	}
 }
 
-func (a *App) requestResponsesAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
+func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
 	result := aiChatRoundResult{}
 	startedAt := time.Now()
 	firstTokenAt := time.Time{}

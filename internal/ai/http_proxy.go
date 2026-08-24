@@ -138,7 +138,7 @@ func buildAISOCKS5DialContext(node AIProxyNode) (func(context.Context, string, s
 	}, nil
 }
 
-func (a *App) newAIHTTPTransportForProfile(profile *AIProviderProfile) (*http.Transport, error) {
+func (a *Service) newAIHTTPTransportForProfile(profile *AIProviderProfile) (*http.Transport, error) {
 	transport := cloneDefaultAIHTTPTransport()
 	transport.Proxy = nil
 	if a == nil || a.configManager == nil {
@@ -170,7 +170,7 @@ func (a *App) newAIHTTPTransportForProfile(profile *AIProviderProfile) (*http.Tr
 	return transport, nil
 }
 
-func (a *App) newAIHTTPClientForProfile(profile *AIProviderProfile, timeout time.Duration) (*http.Client, error) {
+func (a *Service) newAIHTTPClientForProfile(profile *AIProviderProfile, timeout time.Duration) (*http.Client, error) {
 	transport, err := a.newAIHTTPTransportForProfile(profile)
 	if err != nil {
 		return nil, err
@@ -181,10 +181,10 @@ func (a *App) newAIHTTPClientForProfile(profile *AIProviderProfile, timeout time
 	}, nil
 }
 
-func (a *App) newAINeverTimeoutHTTPClientForProfile(profile *AIProviderProfile) (*http.Client, error) {
+func (a *Service) newAINeverTimeoutHTTPClientForProfile(profile *AIProviderProfile) (*http.Client, error) {
 	return a.newAIHTTPClientForProfile(profile, 0)
 }
 
-func (a *App) newAIHTTPClient(timeout time.Duration) (*http.Client, error) {
+func (a *Service) newAIHTTPClient(timeout time.Duration) (*http.Client, error) {
 	return a.newAIHTTPClientForProfile(nil, timeout)
 }

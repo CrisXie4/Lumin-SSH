@@ -12,18 +12,20 @@ import (
 	"sync"
 	"time"
 
+	"luminssh-go/internal/aitypes"
 	"luminssh-go/internal/mcpserver"
 )
 
-type ToolExecutionAction string
-
-const (
-	ToolExecutionActionNone      ToolExecutionAction = ""
-	ToolExecutionActionContinue  ToolExecutionAction = "continue"
-	ToolExecutionActionTerminate ToolExecutionAction = "terminate"
+type (
+	ToolExecutionAction            = aitypes.ToolExecutionAction
+	AIChatCommandTerminalCandidate = aitypes.AIChatCommandTerminalCandidate
 )
 
 const (
+	ToolExecutionActionNone      = aitypes.ToolExecutionActionNone
+	ToolExecutionActionContinue  = aitypes.ToolExecutionActionContinue
+	ToolExecutionActionTerminate = aitypes.ToolExecutionActionTerminate
+
 	aiToolExecutionActionNone      = ToolExecutionActionNone
 	aiToolExecutionActionContinue  = ToolExecutionActionContinue
 	aiToolExecutionActionTerminate = ToolExecutionActionTerminate
@@ -57,14 +59,6 @@ type ToolExecutionState struct {
 	mu                              sync.Mutex
 	terminated                      bool
 	snapshotOutputValue             string
-}
-
-type AIChatCommandTerminalCandidate struct {
-	SessionID   string `json:"sessionId"`
-	Busy        bool   `json:"busy"`
-	Cwd         string `json:"cwd"`
-	Current     bool   `json:"current"`
-	Recommended bool   `json:"recommended"`
 }
 
 type aiToolExecutionState = ToolExecutionState
@@ -410,7 +404,7 @@ func (e *aiToolExecutionState) isTerminated() bool {
 	return e.terminated
 }
 
-func (a *App) setAIChatToolExecution(requestID string, execution *aiToolExecutionState) {
+func (a *Service) setAIChatToolExecution(requestID string, execution *aiToolExecutionState) {
 	if a == nil || strings.TrimSpace(requestID) == "" || execution == nil {
 		return
 	}
@@ -419,7 +413,7 @@ func (a *App) setAIChatToolExecution(requestID string, execution *aiToolExecutio
 	a.aiToolExecMu.Unlock()
 }
 
-func (a *App) getAIChatToolExecution(requestID string) *aiToolExecutionState {
+func (a *Service) getAIChatToolExecution(requestID string) *aiToolExecutionState {
 	if a == nil || strings.TrimSpace(requestID) == "" {
 		return nil
 	}
@@ -428,7 +422,7 @@ func (a *App) getAIChatToolExecution(requestID string) *aiToolExecutionState {
 	return a.aiToolExecutions[strings.TrimSpace(requestID)]
 }
 
-func (a *App) popAIChatToolExecution(requestID string) *aiToolExecutionState {
+func (a *Service) popAIChatToolExecution(requestID string) *aiToolExecutionState {
 	if a == nil || strings.TrimSpace(requestID) == "" {
 		return nil
 	}
@@ -439,7 +433,7 @@ func (a *App) popAIChatToolExecution(requestID string) *aiToolExecutionState {
 	return execution
 }
 
-func (a *App) popAIChatToolExecutionIfMatches(requestID string, executionID string) *aiToolExecutionState {
+func (a *Service) popAIChatToolExecutionIfMatches(requestID string, executionID string) *aiToolExecutionState {
 	if a == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(executionID) == "" {
 		return nil
 	}
@@ -453,7 +447,7 @@ func (a *App) popAIChatToolExecutionIfMatches(requestID string, executionID stri
 	return execution
 }
 
-func (a *App) isAIChatToolExecutionCurrent(requestID string, executionID string) bool {
+func (a *Service) isAIChatToolExecutionCurrent(requestID string, executionID string) bool {
 	if a == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(executionID) == "" {
 		return false
 	}
@@ -463,7 +457,7 @@ func (a *App) isAIChatToolExecutionCurrent(requestID string, executionID string)
 	return execution != nil && execution.ExecutionID == strings.TrimSpace(executionID)
 }
 
-func (a *App) ListAIChatCommandTerminalCandidates(requestID string) ([]AIChatCommandTerminalCandidate, error) {
+func (a *Service) ListAIChatCommandTerminalCandidates(requestID string) ([]AIChatCommandTerminalCandidate, error) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return nil, fmt.Errorf("没有可指派的命令实例")
@@ -488,7 +482,7 @@ func (a *App) ListAIChatCommandTerminalCandidates(requestID string) ([]AIChatCom
 	return a.sshManager.ListSiblingTerminalCandidates(targetSessionID)
 }
 
-func (a *App) AssignAIChatToolTerminal(requestID string, targetSessionID string) error {
+func (a *Service) AssignAIChatToolTerminal(requestID string, targetSessionID string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	trimmedTargetSessionID := strings.TrimSpace(targetSessionID)
 	if a == nil || trimmedRequestID == "" {
@@ -693,7 +687,7 @@ func buildChangeReviewEnvelope(turnID string, index int, sessionID string, remot
 	return envelope
 }
 
-func (a *App) buildApplyDiffChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
+func (a *Service) buildApplyDiffChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("应用不可用")
 	}
@@ -734,7 +728,7 @@ func (a *App) buildApplyDiffChangeReview(tool aiParsedToolUse, payload AIChatReq
 	return buildChangeReviewMessage(turnID, tool, index), buildChangeReviewEnvelope(turnID, index, sessionID, remotePath, tool, diffPayload, nil, reviewBlocks), nil
 }
 
-func (a *App) buildWriteToFileChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
+func (a *Service) buildWriteToFileChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("应用不可用")
 	}
@@ -784,7 +778,7 @@ func parseSearchReplaceOperations(raw string) ([]mcpserver.SearchReplaceOperatio
 	return operations, nil
 }
 
-func (a *App) buildSearchReplaceChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
+func (a *Service) buildSearchReplaceChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("应用不可用")
 	}
@@ -826,7 +820,7 @@ func (a *App) buildSearchReplaceChangeReview(tool aiParsedToolUse, payload AICha
 	return buildChangeReviewMessage(turnID, tool, index), buildChangeReviewEnvelope(turnID, index, sessionID, remotePath, tool, operationsRaw, nil, blocks), nil
 }
 
-func (a *App) buildEditFileChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
+func (a *Service) buildEditFileChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("应用不可用")
 	}
@@ -872,7 +866,7 @@ func (a *App) buildEditFileChangeReview(tool aiParsedToolUse, payload AIChatRequ
 	return buildChangeReviewMessage(turnID, tool, index), buildChangeReviewEnvelope(turnID, index, sessionID, remotePath, tool, rawPayload, nil, blocks), nil
 }
 
-func (a *App) buildApplyPatchChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
+func (a *Service) buildApplyPatchChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("应用不可用")
 	}
@@ -930,7 +924,7 @@ func (a *App) buildApplyPatchChangeReview(tool aiParsedToolUse, payload AIChatRe
 	return buildChangeReviewMessage(turnID, tool, index), buildChangeReviewEnvelope(turnID, index, sessionID, reviewPath, tool, patchPayload, pathParams, reviewBlocks), nil
 }
 
-func (a *App) buildToolChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
+func (a *Service) buildToolChangeReview(tool aiParsedToolUse, payload AIChatRequestPayload, turnID string, index int) (map[string]interface{}, map[string]interface{}, error) {
 	switch strings.TrimSpace(tool.Name) {
 	case "apply_diff":
 		return a.buildApplyDiffChangeReview(tool, payload, turnID, index)
@@ -947,7 +941,7 @@ func (a *App) buildToolChangeReview(tool aiParsedToolUse, payload AIChatRequestP
 	}
 }
 
-func (a *App) failAIChatToolPreview(requestID string, batch *aiPendingToolBatch, tool aiParsedToolUse, resultText string) {
+func (a *Service) failAIChatToolPreview(requestID string, batch *aiPendingToolBatch, tool aiParsedToolUse, resultText string) {
 	if a == nil || batch == nil {
 		return
 	}
@@ -985,10 +979,10 @@ func (a *App) failAIChatToolPreview(requestID string, batch *aiPendingToolBatch,
 const aiDefaultToolResultTokenThreshold = 350000
 
 type aiToolResultThresholdResult struct {
-	Content                  string
-	TokenCount               int
-	TokenEstimateDisplay     string
-	Oversized                bool
+	Content              string
+	TokenCount           int
+	TokenEstimateDisplay string
+	Oversized            bool
 }
 
 func buildAIChatToolResultContent(toolName string, resultText string) string {
@@ -1117,7 +1111,7 @@ func shouldSuppressAIChatToolResultUserMessage(toolName string) bool {
 	}
 }
 
-func (a *App) emitAIChatToolResultMessage(requestID string, execution *aiToolExecutionState, resultText string) {
+func (a *Service) emitAIChatToolResultMessage(requestID string, execution *aiToolExecutionState, resultText string) {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return
 	}
@@ -1143,7 +1137,7 @@ func (a *App) emitAIChatToolResultMessage(requestID string, execution *aiToolExe
 	})
 }
 
-func (a *App) emitAIChatToolExecutionStarted(requestID string, execution *aiToolExecutionState, message map[string]interface{}) {
+func (a *Service) emitAIChatToolExecutionStarted(requestID string, execution *aiToolExecutionState, message map[string]interface{}) {
 	if a == nil || execution == nil {
 		return
 	}
@@ -1157,7 +1151,7 @@ func (a *App) emitAIChatToolExecutionStarted(requestID string, execution *aiTool
 	})
 }
 
-func (a *App) emitAIChatToolExecutionActionRequired(requestID string, execution *aiToolExecutionState, message map[string]interface{}) {
+func (a *Service) emitAIChatToolExecutionActionRequired(requestID string, execution *aiToolExecutionState, message map[string]interface{}) {
 	if a == nil || execution == nil {
 		return
 	}
@@ -1176,7 +1170,7 @@ func (a *App) emitAIChatToolExecutionActionRequired(requestID string, execution 
 	a.emitAIChatEvent(payload)
 }
 
-func (a *App) emitAIChatToolExecutionPersistRequested(requestID string) {
+func (a *Service) emitAIChatToolExecutionPersistRequested(requestID string) {
 	if a == nil || strings.TrimSpace(requestID) == "" {
 		return
 	}
@@ -1231,7 +1225,7 @@ func buildAIChatCommandToolMessage(execution *aiToolExecutionState, purpose stri
 	return attachAIResultTokenEstimateMeta(message, buildAIChatToolResultContent(execution.Tool.Name, output), resolveAIExecutionProfile(execution))
 }
 
-func (a *App) emitAIChatCommandToolMessage(requestID string, execution *aiToolExecutionState, purpose string, command string, output string, status string, extra map[string]interface{}) {
+func (a *Service) emitAIChatCommandToolMessage(requestID string, execution *aiToolExecutionState, purpose string, command string, output string, status string, extra map[string]interface{}) {
 	if a == nil || execution == nil || strings.TrimSpace(requestID) == "" {
 		return
 	}
@@ -1242,7 +1236,7 @@ func (a *App) emitAIChatCommandToolMessage(requestID string, execution *aiToolEx
 	})
 }
 
-func (a *App) emitAIChatToolExecutionTerminalAssignmentRequired(requestID string, execution *aiToolExecutionState, message map[string]interface{}) {
+func (a *Service) emitAIChatToolExecutionTerminalAssignmentRequired(requestID string, execution *aiToolExecutionState, message map[string]interface{}) {
 	if a == nil || execution == nil || strings.TrimSpace(requestID) == "" {
 		return
 	}
@@ -1260,7 +1254,7 @@ func (a *App) emitAIChatToolExecutionTerminalAssignmentRequired(requestID string
 	a.emitAIChatEvent(payload)
 }
 
-func (a *App) skipCompatibleAIChatAfterResolvedTools(requestID string) {
+func (a *Service) skipCompatibleAIChatAfterResolvedTools(requestID string) {
 	if a == nil || strings.TrimSpace(requestID) == "" {
 		return
 	}
@@ -1272,7 +1266,7 @@ func (a *App) skipCompatibleAIChatAfterResolvedTools(requestID string) {
 	a.finishAIChatRequest(strings.TrimSpace(requestID))
 }
 
-func (a *App) finishAIChatAfterTerminatedTool(requestID string) {
+func (a *Service) finishAIChatAfterTerminatedTool(requestID string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return
@@ -1286,7 +1280,7 @@ func (a *App) finishAIChatAfterTerminatedTool(requestID string) {
 	a.finishAIChatRequest(trimmedRequestID)
 }
 
-func (a *App) continueCompatibleAIChatAfterResolvedTools(ctx context.Context, requestID string, batch *aiPendingToolBatch) {
+func (a *Service) continueCompatibleAIChatAfterResolvedTools(ctx context.Context, requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil {
 		return
 	}
@@ -1308,7 +1302,7 @@ func (a *App) continueCompatibleAIChatAfterResolvedTools(ctx context.Context, re
 	a.runCompatibleAIChatLoop(ctx, requestID, batch.Payload, batch.Profile, requestMessages, batch.AutoApprovalSettings, nextAssistantMessageID, batch.AssistantRetryCount, batch.CollaborationRetryCount)
 }
 
-func (a *App) resumeAIChatAfterToolBatch(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) resumeAIChatAfterToolBatch(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil {
 		return
 	}
@@ -1320,7 +1314,7 @@ func (a *App) resumeAIChatAfterToolBatch(requestID string, batch *aiPendingToolB
 
 // forceRejectAIChatToolBatchForCollaboration rejects every remaining tool in the batch
 // regardless of approval settings, then hands control to the forced collaboration layer.
-func (a *App) forceRejectAIChatToolBatchForCollaboration(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) forceRejectAIChatToolBatchForCollaboration(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil {
 		return
 	}
@@ -1354,7 +1348,7 @@ func (a *App) forceRejectAIChatToolBatchForCollaboration(requestID string, batch
 	a.startAIForcedCollaboration(requestID, batch)
 }
 
-func (a *App) advanceAIChatToolBatch(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) advanceAIChatToolBatch(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil {
 		return
 	}
@@ -1469,7 +1463,7 @@ func (a *App) advanceAIChatToolBatch(requestID string, batch *aiPendingToolBatch
 	a.startAIChatToolExecution(requestID, batch)
 }
 
-func (a *App) startAIChatFollowup(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) startAIChatFollowup(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return
 	}
@@ -1492,7 +1486,7 @@ func (a *App) startAIChatFollowup(requestID string, batch *aiPendingToolBatch) {
 	}
 }
 
-func (a *App) startAIChatToolExecution(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) startAIChatToolExecution(requestID string, batch *aiPendingToolBatch) {
 	if a == nil || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return
 	}
@@ -1511,28 +1505,28 @@ func (a *App) startAIChatToolExecution(requestID string, batch *aiPendingToolBat
 	executionID := fmt.Sprintf("%s-tool-exec-%d-%d", requestID, batch.NextToolIndex, time.Now().UnixNano())
 	executionCtx, cancel := context.WithCancel(context.Background())
 	execution := &aiToolExecutionState{
-		ExecutionID:             executionID,
-		RequestID:               requestID,
-		AssistantMessageID:      batch.AssistantMessageID,
-		ToolIndex:               batch.NextToolIndex,
-		ToolMessageID:           buildToolMessageID(batch.AssistantMessageID, batch.NextToolIndex),
-		RestoreArtifactPath:       restoreArtifact.ArtifactPath,
-		CopyContent:               restoreArtifact.CopyContent,
-		ConversationDiffPrimaryPath: restoreArtifact.ConversationDiffPrimaryPath,
-		ConversationDiffFileCount:   restoreArtifact.ConversationDiffFileCount,
-		ConversationDiffToolName:    restoreArtifact.ConversationDiffToolName,
-		ConversationDiffHasPreview:  restoreArtifact.ConversationDiffHasPreview,
-		Tool:                      tool,
-		Batch:                   batch,
+		ExecutionID:                     executionID,
+		RequestID:                       requestID,
+		AssistantMessageID:              batch.AssistantMessageID,
+		ToolIndex:                       batch.NextToolIndex,
+		ToolMessageID:                   buildToolMessageID(batch.AssistantMessageID, batch.NextToolIndex),
+		RestoreArtifactPath:             restoreArtifact.ArtifactPath,
+		CopyContent:                     restoreArtifact.CopyContent,
+		ConversationDiffPrimaryPath:     restoreArtifact.ConversationDiffPrimaryPath,
+		ConversationDiffFileCount:       restoreArtifact.ConversationDiffFileCount,
+		ConversationDiffToolName:        restoreArtifact.ConversationDiffToolName,
+		ConversationDiffHasPreview:      restoreArtifact.ConversationDiffHasPreview,
+		Tool:                            tool,
+		Batch:                           batch,
 		TargetSessionID:                 strings.TrimSpace(batch.Payload.SessionID),
 		AllowContinue:                   false,
 		AllowTerminate:                  true,
 		AllowTerminalAssignment:         false,
 		SuppressNextActionRequiredSound: suppressNextCommandActionSound,
 		DecisionCh:                      make(chan aiToolExecutionAction, 1),
-		ReassignCh:              make(chan string, 1),
-		ExecutionCtx:            executionCtx,
-		Cancel:                  cancel,
+		ReassignCh:                      make(chan string, 1),
+		ExecutionCtx:                    executionCtx,
+		Cancel:                          cancel,
 	}
 	a.setAIChatToolExecution(requestID, execution)
 	message := buildToolPreviewMessage(batch.AssistantMessageID, tool, batch.NextToolIndex)
@@ -1576,7 +1570,7 @@ func (a *App) startAIChatToolExecution(requestID string, batch *aiPendingToolBat
 	go a.runAIChatGenericToolExecution(execution)
 }
 
-func (a *App) runAIChatAttemptCompletionExecution(execution *aiToolExecutionState) {
+func (a *Service) runAIChatAttemptCompletionExecution(execution *aiToolExecutionState) {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return
 	}
@@ -1628,7 +1622,7 @@ func (a *App) runAIChatAttemptCompletionExecution(execution *aiToolExecutionStat
 	a.finishAIChatRequest(execution.RequestID)
 }
 
-func (a *App) runAIChatGenericToolExecution(execution *aiToolExecutionState) {
+func (a *Service) runAIChatGenericToolExecution(execution *aiToolExecutionState) {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return
 	}
@@ -1732,7 +1726,7 @@ func (a *App) runAIChatGenericToolExecution(execution *aiToolExecutionState) {
 	a.advanceAIChatToolBatch(execution.RequestID, execution.Batch)
 }
 
-func (a *App) runAIChatLiveSearchToolExecution(execution *aiToolExecutionState) {
+func (a *Service) runAIChatLiveSearchToolExecution(execution *aiToolExecutionState) {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return
 	}
@@ -1850,7 +1844,7 @@ func (a *App) runAIChatLiveSearchToolExecution(execution *aiToolExecutionState) 
 	a.advanceAIChatToolBatch(execution.RequestID, execution.Batch)
 }
 
-func (a *App) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
+func (a *Service) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
 	if a == nil || execution == nil || execution.Batch == nil || a.sshManager == nil {
 		return
 	}
@@ -2050,7 +2044,7 @@ func (a *App) runAIChatCommandToolExecution(execution *aiToolExecutionState) {
 	a.advanceAIChatToolBatch(execution.RequestID, execution.Batch)
 }
 
-func (a *App) ResolveAIChatFollowup(requestID string, answer string, imagesJSON string) error {
+func (a *Service) ResolveAIChatFollowup(requestID string, answer string, imagesJSON string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	answerText := strings.TrimSpace(answer)
 	followupImages := decodeAIFollowupImages(imagesJSON)
@@ -2128,7 +2122,7 @@ func (a *App) ResolveAIChatFollowup(requestID string, answer string, imagesJSON 
 	return nil
 }
 
-func (a *App) ContinueAIChatTool(requestID string) error {
+func (a *Service) ContinueAIChatTool(requestID string) error {
 	execution := a.getAIChatToolExecution(requestID)
 	if execution == nil {
 		return fmt.Errorf("没有可继续的工具实例")
@@ -2149,7 +2143,7 @@ func (a *App) ContinueAIChatTool(requestID string) error {
 	}
 }
 
-func (a *App) terminateAIChatToolExecutionImmediately(execution *aiToolExecutionState, fallbackResult string) error {
+func (a *Service) terminateAIChatToolExecutionImmediately(execution *aiToolExecutionState, fallbackResult string) error {
 	if a == nil || execution == nil || execution.Batch == nil {
 		return fmt.Errorf("没有可终止的工具实例")
 	}
@@ -2194,7 +2188,7 @@ func (a *App) terminateAIChatToolExecutionImmediately(execution *aiToolExecution
 	return nil
 }
 
-func (a *App) TerminateAIChatTool(requestID string) error {
+func (a *Service) TerminateAIChatTool(requestID string) error {
 	execution := a.getAIChatToolExecution(requestID)
 	if execution == nil {
 		return fmt.Errorf("没有可终止的工具实例")

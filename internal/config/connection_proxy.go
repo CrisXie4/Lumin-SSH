@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 
 	xproxy "golang.org/x/net/proxy"
 )
@@ -137,11 +137,11 @@ func normalizeCredentialsForSync(creds []Credential) []Credential {
 	return out
 }
 
-func (c *ConfigManager) GetProxyNodes() []ai.AIProxyNode {
+func (c *ConfigManager) GetProxyNodes() []aitypes.AIProxyNode {
 	if c == nil {
 		return nil
 	}
-	return ai.LoadAIProxyNodes(c.configDir)
+	return aitypes.LoadAIProxyNodes(c.configDir)
 }
 
 func (c *ConfigManager) ResolveConnectionRuntime(conn Connection) (Connection, error) {

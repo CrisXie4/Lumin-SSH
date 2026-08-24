@@ -123,7 +123,7 @@ func attachAIConversationDiffMeta(message map[string]interface{}, primaryPath st
 	return message
 }
 
-func (a *App) readAIRestoreTargetState(ctx context.Context, sessionID string, remotePath string) (string, bool, error) {
+func (a *Service) readAIRestoreTargetState(ctx context.Context, sessionID string, remotePath string) (string, bool, error) {
 	if a == nil || a.sshManager == nil {
 		return "", false, fmt.Errorf("SSH 管理器不可用")
 	}
@@ -205,7 +205,7 @@ func buildAIConversationDiffPreviewState(state *aiToolRestoreState) *aiToolDiffP
 	}
 }
 
-func (a *App) buildAIRestoreReviewPayload(state *aiToolRestoreState) map[string]interface{} {
+func (a *Service) buildAIRestoreReviewPayload(state *aiToolRestoreState) map[string]interface{} {
 	blocks := make([]map[string]interface{}, 0, len(state.Files))
 	for index, file := range state.Files {
 		label := file.Path
@@ -248,7 +248,7 @@ func (a *App) buildAIRestoreReviewPayload(state *aiToolRestoreState) map[string]
 	return payload
 }
 
-func (a *App) buildAIConversationDiffPayload(state *aiToolRestoreState) map[string]interface{} {
+func (a *Service) buildAIConversationDiffPayload(state *aiToolRestoreState) map[string]interface{} {
 	preview := state.ConversationDiffPreview
 	if preview == nil {
 		preview = buildAIConversationDiffPreviewState(state)
@@ -306,7 +306,7 @@ func (a *App) buildAIConversationDiffPayload(state *aiToolRestoreState) map[stri
 	return payload
 }
 
-func (a *App) verifyAIRestoreState(ctx context.Context, state *aiToolRestoreState) error {
+func (a *Service) verifyAIRestoreState(ctx context.Context, state *aiToolRestoreState) error {
 	if state == nil || len(state.Files) == 0 {
 		return fmt.Errorf("当前状态不支持还原")
 	}
@@ -325,7 +325,7 @@ func (a *App) verifyAIRestoreState(ctx context.Context, state *aiToolRestoreStat
 	return nil
 }
 
-func (a *App) verifyAIReapplyState(ctx context.Context, state *aiToolRestoreState) error {
+func (a *Service) verifyAIReapplyState(ctx context.Context, state *aiToolRestoreState) error {
 	if state == nil || len(state.Files) == 0 {
 		return fmt.Errorf("当前状态不支持重新应用")
 	}
@@ -344,7 +344,7 @@ func (a *App) verifyAIReapplyState(ctx context.Context, state *aiToolRestoreStat
 	return nil
 }
 
-func (a *App) buildApplyDiffRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
+func (a *Service) buildApplyDiffRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
 	sessionID := strings.TrimSpace(payload.SessionID)
 	if sessionID == "" {
 		return nil, fmt.Errorf("缺少终端会话")
@@ -388,7 +388,7 @@ func (a *App) buildApplyDiffRestoreState(tool aiParsedToolUse, payload AIChatReq
 	}, nil
 }
 
-func (a *App) buildWriteToFileRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
+func (a *Service) buildWriteToFileRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
 	sessionID := strings.TrimSpace(payload.SessionID)
 	if sessionID == "" {
 		return nil, fmt.Errorf("缺少终端会话")
@@ -421,7 +421,7 @@ func (a *App) buildWriteToFileRestoreState(tool aiParsedToolUse, payload AIChatR
 	}, nil
 }
 
-func (a *App) buildSearchReplaceRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
+func (a *Service) buildSearchReplaceRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
 	sessionID := strings.TrimSpace(payload.SessionID)
 	if sessionID == "" {
 		return nil, fmt.Errorf("缺少终端会话")
@@ -466,7 +466,7 @@ func (a *App) buildSearchReplaceRestoreState(tool aiParsedToolUse, payload AICha
 	}, nil
 }
 
-func (a *App) buildEditFileRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
+func (a *Service) buildEditFileRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
 	sessionID := strings.TrimSpace(payload.SessionID)
 	if sessionID == "" {
 		return nil, fmt.Errorf("缺少终端会话")
@@ -514,7 +514,7 @@ func (a *App) buildEditFileRestoreState(tool aiParsedToolUse, payload AIChatRequ
 	}, nil
 }
 
-func (a *App) buildApplyPatchRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
+func (a *Service) buildApplyPatchRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
 	sessionID := strings.TrimSpace(payload.SessionID)
 	if sessionID == "" {
 		return nil, fmt.Errorf("缺少终端会话")
@@ -560,7 +560,7 @@ func (a *App) buildApplyPatchRestoreState(tool aiParsedToolUse, payload AIChatRe
 	}, nil
 }
 
-func (a *App) buildAIChatToolRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
+func (a *Service) buildAIChatToolRestoreState(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string) (*aiToolRestoreState, error) {
 	conversationID := strings.TrimSpace(payload.ConversationID)
 	if conversationID == "" {
 		return nil, fmt.Errorf("缺少对话 ID")
@@ -600,7 +600,7 @@ type aiToolRestoreArtifactResult struct {
 	ConversationDiffHasPreview  bool
 }
 
-func (a *App) persistAIChatToolRestoreArtifact(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string, requestID string) (aiToolRestoreArtifactResult, error) {
+func (a *Service) persistAIChatToolRestoreArtifact(tool aiParsedToolUse, payload AIChatRequestPayload, reviewID string, requestID string) (aiToolRestoreArtifactResult, error) {
 	if a == nil || a.configManager == nil {
 		return aiToolRestoreArtifactResult{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -623,7 +623,7 @@ func (a *App) persistAIChatToolRestoreArtifact(tool aiParsedToolUse, payload AIC
 	}, nil
 }
 
-func (a *App) PreviewAIChatToolRestore(artifactPath string, sessionID string) (map[string]interface{}, error) {
+func (a *Service) PreviewAIChatToolRestore(artifactPath string, sessionID string) (map[string]interface{}, error) {
 	trimmedArtifactPath := strings.TrimSpace(artifactPath)
 	trimmedSessionID := strings.TrimSpace(sessionID)
 	if a == nil || a.configManager == nil || trimmedArtifactPath == "" {
@@ -642,7 +642,7 @@ func (a *App) PreviewAIChatToolRestore(artifactPath string, sessionID string) (m
 	return a.buildAIRestoreReviewPayload(state), nil
 }
 
-func (a *App) PreviewAIChatToolDiff(artifactPath string, sessionID string) (map[string]interface{}, error) {
+func (a *Service) PreviewAIChatToolDiff(artifactPath string, sessionID string) (map[string]interface{}, error) {
 	trimmedArtifactPath := strings.TrimSpace(artifactPath)
 	trimmedSessionID := strings.TrimSpace(sessionID)
 	if a == nil || a.configManager == nil || trimmedArtifactPath == "" {
@@ -661,7 +661,7 @@ func (a *App) PreviewAIChatToolDiff(artifactPath string, sessionID string) (map[
 	return a.buildAIConversationDiffPayload(state), nil
 }
 
-func (a *App) ReapplyAIChatTool(artifactPath string, sessionID string) error {
+func (a *Service) ReapplyAIChatTool(artifactPath string, sessionID string) error {
 	trimmedArtifactPath := strings.TrimSpace(artifactPath)
 	trimmedSessionID := strings.TrimSpace(sessionID)
 	if a == nil || a.configManager == nil || trimmedArtifactPath == "" {
@@ -692,7 +692,7 @@ func (a *App) ReapplyAIChatTool(artifactPath string, sessionID string) error {
 	return nil
 }
 
-func (a *App) RestoreAIChatTool(artifactPath string, sessionID string) error {
+func (a *Service) RestoreAIChatTool(artifactPath string, sessionID string) error {
 	trimmedArtifactPath := strings.TrimSpace(artifactPath)
 	trimmedSessionID := strings.TrimSpace(sessionID)
 	if a == nil || a.configManager == nil || trimmedArtifactPath == "" {

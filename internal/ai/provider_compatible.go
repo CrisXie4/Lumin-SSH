@@ -227,7 +227,7 @@ func fetchMessagesProviderModels(client *http.Client, baseURL string, apiKey str
 	return models, nil
 }
 
-func (a *App) RequestAIProviderModels(baseURL string, apiKey string) ([]string, error) {
+func (a *Service) RequestAIProviderModels(baseURL string, apiKey string) ([]string, error) {
 	client, err := a.newAIHTTPClient(20 * time.Second)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func (a *App) RequestAIProviderModels(baseURL string, apiKey string) ([]string, 
 	return fetchCompatibleProviderModels(client, baseURL, apiKey)
 }
 
-func (a *App) RequestAIProviderModelsWithProfile(jsonStr string) ([]string, error) {
+func (a *Service) RequestAIProviderModelsWithProfile(jsonStr string) ([]string, error) {
 	profile := AIProviderProfile{}
 	if strings.TrimSpace(jsonStr) != "" {
 		if err := json.Unmarshal([]byte(jsonStr), &profile); err != nil {
@@ -254,7 +254,7 @@ func (a *App) RequestAIProviderModelsWithProfile(jsonStr string) ([]string, erro
 	return fetchCompatibleProviderModels(client, profile.BaseURL, profile.APIKey)
 }
 
-func (a *App) requestCompatibleAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
+func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
 	result := aiChatRoundResult{}
 	startedAt := time.Now()
 	firstTokenAt := time.Time{}

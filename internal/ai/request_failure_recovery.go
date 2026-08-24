@@ -79,7 +79,7 @@ func buildAIAutoRecoveryRequestID(sourceRequestID string) string {
 	return fmt.Sprintf("%s-auto-recovery-%d", trimmedSourceRequestID, time.Now().UnixNano())
 }
 
-func (a *App) emitAIAutoRecoveryStarted(sourceRequestID string, recoveryRequestID string, text string) {
+func (a *Service) emitAIAutoRecoveryStarted(sourceRequestID string, recoveryRequestID string, text string) {
 	trimmedSourceRequestID := strings.TrimSpace(sourceRequestID)
 	trimmedRecoveryRequestID := strings.TrimSpace(recoveryRequestID)
 	if a == nil || trimmedSourceRequestID == "" || trimmedRecoveryRequestID == "" {
@@ -93,7 +93,7 @@ func (a *App) emitAIAutoRecoveryStarted(sourceRequestID string, recoveryRequestI
 	})
 }
 
-func (a *App) emitAIAutoRecoveryStatus(requestID string, text string, reasoningText string) {
+func (a *Service) emitAIAutoRecoveryStatus(requestID string, text string, reasoningText string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return
@@ -106,7 +106,7 @@ func (a *App) emitAIAutoRecoveryStatus(requestID string, text string, reasoningT
 	})
 }
 
-func (a *App) emitAIAutoRecoveryRunFullSummary(requestID string, text string) {
+func (a *Service) emitAIAutoRecoveryRunFullSummary(requestID string, text string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return
@@ -118,7 +118,7 @@ func (a *App) emitAIAutoRecoveryRunFullSummary(requestID string, text string) {
 	})
 }
 
-func (a *App) probeAIProviderLiveness(ctx context.Context, requestID string, sessionID string, profile AIProviderProfile) (bool, error) {
+func (a *Service) probeAIProviderLiveness(ctx context.Context, requestID string, sessionID string, profile AIProviderProfile) (bool, error) {
 	if a == nil {
 		return false, fmt.Errorf("AI 运行时不可用")
 	}
@@ -141,7 +141,7 @@ func (a *App) probeAIProviderLiveness(ctx context.Context, requestID string, ses
 	return strings.TrimSpace(roundResult.Text) != "", nil
 }
 
-func (a *App) ProbeAIProviderLiveness(conversationID string, sessionID string, requestID string) (bool, error) {
+func (a *Service) ProbeAIProviderLiveness(conversationID string, sessionID string, requestID string) (bool, error) {
 	if a == nil || a.configManager == nil {
 		return false, fmt.Errorf("配置管理器不可用")
 	}
@@ -163,7 +163,7 @@ func (a *App) ProbeAIProviderLiveness(conversationID string, sessionID string, r
 	return a.probeAIProviderLiveness(ctx, trimmedRequestID, sessionID, profile)
 }
 
-func (a *App) PreviewAIConversationContextCondense(conversationID string, sessionID string) (AIConversationContextCondenseResult, error) {
+func (a *Service) PreviewAIConversationContextCondense(conversationID string, sessionID string) (AIConversationContextCondenseResult, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationContextCondenseResult{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -174,7 +174,7 @@ func (a *App) PreviewAIConversationContextCondense(conversationID string, sessio
 	return a.previewAIConversationContextCondenseFromSnapshot(snapshot, sessionID)
 }
 
-func (a *App) previewAIConversationContextCondenseFromSnapshot(snapshot AIConversationSnapshot, sessionID string) (AIConversationContextCondenseResult, error) {
+func (a *Service) previewAIConversationContextCondenseFromSnapshot(snapshot AIConversationSnapshot, sessionID string) (AIConversationContextCondenseResult, error) {
 	if a == nil || a.configManager == nil {
 		return AIConversationContextCondenseResult{}, fmt.Errorf("配置管理器不可用")
 	}
@@ -222,7 +222,7 @@ func (a *App) previewAIConversationContextCondenseFromSnapshot(snapshot AIConver
 	}, nil
 }
 
-func (a *App) failAIAutoRecovery(requestID string, err error, fallbackText string) bool {
+func (a *Service) failAIAutoRecovery(requestID string, err error, fallbackText string) bool {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return false
@@ -244,7 +244,7 @@ func (a *App) failAIAutoRecovery(requestID string, err error, fallbackText strin
 	return true
 }
 
-func (a *App) recoverAIChatAfterRequestFailure(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage, autoApprovalSettings AIConversationTaskSettings, assistantMessageID string, assistantRetryCount int, collaborationRetryCount int, requestErr error) bool {
+func (a *Service) recoverAIChatAfterRequestFailure(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage, autoApprovalSettings AIConversationTaskSettings, assistantMessageID string, assistantRetryCount int, collaborationRetryCount int, requestErr error) bool {
 	trimmedSourceRequestID := strings.TrimSpace(requestID)
 	if a == nil || strings.TrimSpace(payload.ConversationID) == "" || trimmedSourceRequestID == "" || ctx == nil || ctx.Err() != nil {
 		return false

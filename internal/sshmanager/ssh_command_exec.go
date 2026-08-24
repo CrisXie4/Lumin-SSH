@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 	"luminssh-go/internal/mcp"
 	"luminssh-go/internal/mcpserver"
 )
@@ -91,38 +91,38 @@ func (m *SSHManager) ExecuteCommandInTerminal(sessionID string, command string, 
 	}
 }
 
-func (m *SSHManager) waitForInteractiveSessionIdle(sessionID string, control <-chan ai.ToolExecutionAction, reassign <-chan string, outputChannel <-chan []byte, onWaitStart func()) (ai.ToolExecutionAction, bool, string, error) {
+func (m *SSHManager) waitForInteractiveSessionIdle(sessionID string, control <-chan aitypes.ToolExecutionAction, reassign <-chan string, outputChannel <-chan []byte, onWaitStart func()) (aitypes.ToolExecutionAction, bool, string, error) {
 	waitingNotified := false
 	reassignChannel := reassign
 	graceDeadline := time.Time{}
 
-	waitOnce := func(waitDuration time.Duration) (ai.ToolExecutionAction, string, error) {
+	waitOnce := func(waitDuration time.Duration) (aitypes.ToolExecutionAction, string, error) {
 		select {
 		case nextSessionID, ok := <-reassignChannel:
 			if !ok {
 				reassignChannel = nil
-				return ai.ToolExecutionActionNone, "", nil
+				return aitypes.ToolExecutionActionNone, "", nil
 			}
 			trimmedSessionID := strings.TrimSpace(nextSessionID)
 			if trimmedSessionID == "" || trimmedSessionID == sessionID {
-				return ai.ToolExecutionActionNone, "", nil
+				return aitypes.ToolExecutionActionNone, "", nil
 			}
-			return ai.ToolExecutionActionNone, trimmedSessionID, nil
+			return aitypes.ToolExecutionActionNone, trimmedSessionID, nil
 		case action, ok := <-control:
 			if !ok {
-				return ai.ToolExecutionActionNone, "", nil
+				return aitypes.ToolExecutionActionNone, "", nil
 			}
-			if action == ai.ToolExecutionActionTerminate {
-				return ai.ToolExecutionActionTerminate, "", nil
+			if action == aitypes.ToolExecutionActionTerminate {
+				return aitypes.ToolExecutionActionTerminate, "", nil
 			}
-			return ai.ToolExecutionActionNone, "", nil
+			return aitypes.ToolExecutionActionNone, "", nil
 		case _, ok := <-outputChannel:
 			if !ok {
-				return ai.ToolExecutionActionNone, "", fmt.Errorf("session output unavailable")
+				return aitypes.ToolExecutionActionNone, "", fmt.Errorf("session output unavailable")
 			}
-			return ai.ToolExecutionActionNone, "", nil
+			return aitypes.ToolExecutionActionNone, "", nil
 		case <-time.After(waitDuration):
-			return ai.ToolExecutionActionNone, "", nil
+			return aitypes.ToolExecutionActionNone, "", nil
 		}
 	}
 
@@ -132,10 +132,10 @@ func (m *SSHManager) waitForInteractiveSessionIdle(sessionID string, control <-c
 		shouldWait := ok && sessionData != nil && sessionData.RemoteHistoryActive && !sessionData.PromptReady
 		m.mu.RUnlock()
 		if !ok || sessionData == nil {
-			return ai.ToolExecutionActionNone, waitingNotified, "", fmt.Errorf("session not found")
+			return aitypes.ToolExecutionActionNone, waitingNotified, "", fmt.Errorf("session not found")
 		}
 		if !shouldWait {
-			return ai.ToolExecutionActionNone, waitingNotified, "", nil
+			return aitypes.ToolExecutionActionNone, waitingNotified, "", nil
 		}
 		if !waitingNotified {
 			if graceDeadline.IsZero() {
@@ -148,13 +148,13 @@ func (m *SSHManager) waitForInteractiveSessionIdle(sessionID string, control <-c
 				}
 				action, reassignedSessionID, err := waitOnce(waitDuration)
 				if err != nil {
-					return ai.ToolExecutionActionNone, waitingNotified, "", err
+					return aitypes.ToolExecutionActionNone, waitingNotified, "", err
 				}
-				if action == ai.ToolExecutionActionTerminate {
-					return ai.ToolExecutionActionTerminate, waitingNotified, "", nil
+				if action == aitypes.ToolExecutionActionTerminate {
+					return aitypes.ToolExecutionActionTerminate, waitingNotified, "", nil
 				}
 				if reassignedSessionID != "" {
-					return ai.ToolExecutionActionNone, waitingNotified, reassignedSessionID, nil
+					return aitypes.ToolExecutionActionNone, waitingNotified, reassignedSessionID, nil
 				}
 				continue
 			}
@@ -165,13 +165,13 @@ func (m *SSHManager) waitForInteractiveSessionIdle(sessionID string, control <-c
 		}
 		action, reassignedSessionID, err := waitOnce(interactiveIdlePollInterval)
 		if err != nil {
-			return ai.ToolExecutionActionNone, waitingNotified, "", err
+			return aitypes.ToolExecutionActionNone, waitingNotified, "", err
 		}
-		if action == ai.ToolExecutionActionTerminate {
-			return ai.ToolExecutionActionTerminate, waitingNotified, "", nil
+		if action == aitypes.ToolExecutionActionTerminate {
+			return aitypes.ToolExecutionActionTerminate, waitingNotified, "", nil
 		}
 		if reassignedSessionID != "" {
-			return ai.ToolExecutionActionNone, waitingNotified, reassignedSessionID, nil
+			return aitypes.ToolExecutionActionNone, waitingNotified, reassignedSessionID, nil
 		}
 	}
 }
@@ -197,7 +197,7 @@ func drainInteractiveOutputChannel(outputChannel <-chan []byte) {
 	}
 }
 
-func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration, control <-chan ai.ToolExecutionAction, reassign <-chan string, onCommandQueued func(), onCommandStarted func(), onCommandOutput func(string)) (mcpserver.CommandExecutionResult, ai.ToolExecutionAction, error) {
+func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration, control <-chan aitypes.ToolExecutionAction, reassign <-chan string, onCommandQueued func(), onCommandStarted func(), onCommandOutput func(string)) (mcpserver.CommandExecutionResult, aitypes.ToolExecutionAction, error) {
 	result := mcpserver.CommandExecutionResult{
 		SessionID:  sessionID,
 		Command:    command,
@@ -223,7 +223,7 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 		sessionData, ok := m.sessions[currentSessionID]
 		m.mu.RUnlock()
 		if !ok || sessionData == nil || sessionData.Stdin == nil {
-			return result, ai.ToolExecutionActionNone, fmt.Errorf("session not found")
+			return result, aitypes.ToolExecutionActionNone, fmt.Errorf("session not found")
 		}
 
 		result.SessionID = currentSessionID
@@ -247,11 +247,11 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 		}
 		if err != nil {
 			nextCancel()
-			return result, ai.ToolExecutionActionNone, err
+			return result, aitypes.ToolExecutionActionNone, err
 		}
-		if waitOutcome == ai.ToolExecutionActionTerminate {
+		if waitOutcome == aitypes.ToolExecutionActionTerminate {
 			nextCancel()
-			return result, ai.ToolExecutionActionTerminate, nil
+			return result, aitypes.ToolExecutionActionTerminate, nil
 		}
 		if reassignedSessionID != "" && reassignedSessionID != currentSessionID {
 			nextCancel()
@@ -270,7 +270,7 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 	drainInteractiveOutputChannel(outputChannel)
 	wrappedCommand, err := m.prepareInteractiveCommandWrapper(currentSessionID, command, cwd, shellType, startMarker, endMarker)
 	if err != nil {
-		return result, ai.ToolExecutionActionNone, err
+		return result, aitypes.ToolExecutionActionNone, err
 	}
 	if !strings.HasSuffix(wrappedCommand, "\n") {
 		wrappedCommand += "\n"
@@ -301,12 +301,12 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 				continue
 			}
 			switch action {
-			case ai.ToolExecutionActionContinue:
+			case aitypes.ToolExecutionActionContinue:
 				if decisionRequired {
 					result.Output = sanitizeInteractiveCommandOutput(captured.String(), startMarker, endMarker)
-					return result, ai.ToolExecutionActionContinue, nil
+					return result, aitypes.ToolExecutionActionContinue, nil
 				}
-			case ai.ToolExecutionActionTerminate:
+			case aitypes.ToolExecutionActionTerminate:
 				terminationRequested = true
 				m.WriteBytes(currentSessionID, []byte{3})
 				if terminateTimer == nil {
@@ -338,13 +338,13 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 				}
 				result.Output = snapshot
 				if terminationRequested {
-					return result, ai.ToolExecutionActionTerminate, nil
+					return result, aitypes.ToolExecutionActionTerminate, nil
 				}
-				return result, ai.ToolExecutionActionNone, nil
+				return result, aitypes.ToolExecutionActionNone, nil
 			}
 		case <-terminateDeadline:
 			result.Output = sanitizeInteractiveCommandOutput(captured.String(), startMarker, endMarker)
-			return result, ai.ToolExecutionActionTerminate, nil
+			return result, aitypes.ToolExecutionActionTerminate, nil
 		case <-deadline.C:
 			raw := captured.String()
 			exitCode, hasExitCode := extractInteractiveExitCode(raw)
@@ -354,9 +354,9 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 			result.TimedOut = true
 			result.Output = sanitizeInteractiveCommandOutput(raw, startMarker, endMarker)
 			if terminationRequested {
-				return result, ai.ToolExecutionActionTerminate, nil
+				return result, aitypes.ToolExecutionActionTerminate, nil
 			}
-			return result, ai.ToolExecutionActionNone, nil
+			return result, aitypes.ToolExecutionActionNone, nil
 		}
 	}
 }

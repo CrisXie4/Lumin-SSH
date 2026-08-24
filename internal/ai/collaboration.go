@@ -79,7 +79,7 @@ func (s *aiCollaborationState) start(cancel context.CancelFunc) bool {
 	return true
 }
 
-func (a *App) setAIChatCollaborationState(requestID string, state *aiCollaborationState) {
+func (a *Service) setAIChatCollaborationState(requestID string, state *aiCollaborationState) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || state == nil {
 		return
@@ -89,7 +89,7 @@ func (a *App) setAIChatCollaborationState(requestID string, state *aiCollaborati
 	a.aiCollabMu.Unlock()
 }
 
-func (a *App) getAIChatCollaborationState(requestID string) *aiCollaborationState {
+func (a *Service) getAIChatCollaborationState(requestID string) *aiCollaborationState {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return nil
@@ -99,7 +99,7 @@ func (a *App) getAIChatCollaborationState(requestID string) *aiCollaborationStat
 	return a.aiCollaborations[trimmedRequestID]
 }
 
-func (a *App) popAIChatCollaborationState(requestID string) *aiCollaborationState {
+func (a *Service) popAIChatCollaborationState(requestID string) *aiCollaborationState {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return nil
@@ -122,14 +122,14 @@ func getAICollaborationModeForTool(tool aiParsedToolUse) aiCollaborationMode {
 	}
 }
 
-func (a *App) isAIChatCollaborationEnabledForBatch(batch *aiPendingToolBatch) bool {
+func (a *Service) isAIChatCollaborationEnabledForBatch(batch *aiPendingToolBatch) bool {
 	if a == nil || batch == nil {
 		return false
 	}
 	return a.getAIAutoApprovalSettingsForConversation(batch.Payload.ConversationID).AlwaysAllowFollowupQuestions
 }
 
-func (a *App) resolveAICollaborationExtraPrompt(batch *aiPendingToolBatch, mode aiCollaborationMode) string {
+func (a *Service) resolveAICollaborationExtraPrompt(batch *aiPendingToolBatch, mode aiCollaborationMode) string {
 	if a == nil || batch == nil {
 		return ""
 	}
@@ -139,7 +139,7 @@ func (a *App) resolveAICollaborationExtraPrompt(batch *aiPendingToolBatch, mode 
 	return strings.TrimSpace(a.getAIAutoApprovalSettingsForConversation(batch.Payload.ConversationID).CollaborationExtraPrompt)
 }
 
-func (a *App) shouldUseAIChatCollaboration(batch *aiPendingToolBatch) bool {
+func (a *Service) shouldUseAIChatCollaboration(batch *aiPendingToolBatch) bool {
 	if a == nil || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return false
 	}
@@ -199,7 +199,7 @@ func aiChatPayloadEventKind(payload AIChatRequestPayload, baseKind string) strin
 	return prefix + "_" + strings.TrimSpace(baseKind)
 }
 
-func (a *App) emitAIChatPayloadReasoningDelta(payload AIChatRequestPayload, requestID string, delta string) {
+func (a *Service) emitAIChatPayloadReasoningDelta(payload AIChatRequestPayload, requestID string, delta string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || delta == "" {
 		return
@@ -211,7 +211,7 @@ func (a *App) emitAIChatPayloadReasoningDelta(payload AIChatRequestPayload, requ
 	})
 }
 
-func (a *App) emitAIChatPayloadContentDelta(payload AIChatRequestPayload, requestID string, delta string) {
+func (a *Service) emitAIChatPayloadContentDelta(payload AIChatRequestPayload, requestID string, delta string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || delta == "" {
 		return
@@ -231,7 +231,7 @@ func resolveAICollaborationCompletionResult(tool aiParsedToolUse) string {
 	return resultText
 }
 
-func (a *App) emitAICollaborationCompletionCard(requestID string, batch *aiPendingToolBatch, status string, sound string) {
+func (a *Service) emitAICollaborationCompletionCard(requestID string, batch *aiPendingToolBatch, status string, sound string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return
@@ -398,7 +398,7 @@ func resolveAIForcedCollaborationHint(reason string) string {
 	}
 }
 
-func (a *App) emitAIChatForcedCollaborationTakeover(requestID string, text string) {
+func (a *Service) emitAIChatForcedCollaborationTakeover(requestID string, text string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	trimmedText := strings.TrimSpace(text)
 	if a == nil || trimmedRequestID == "" || trimmedText == "" {
@@ -411,7 +411,7 @@ func (a *App) emitAIChatForcedCollaborationTakeover(requestID string, text strin
 	})
 }
 
-func (a *App) startAIForcedCollaboration(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) startAIForcedCollaboration(requestID string, batch *aiPendingToolBatch) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || batch == nil {
 		return
@@ -571,7 +571,7 @@ func parseAICollaborationDecision(text string) (aiCollaborationDecision, string)
 	}
 }
 
-func (a *App) emitAIChatCollaborationPending(requestID string, mode aiCollaborationMode) {
+func (a *Service) emitAIChatCollaborationPending(requestID string, mode aiCollaborationMode) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || mode == aiCollaborationModeNone {
 		return
@@ -583,7 +583,7 @@ func (a *App) emitAIChatCollaborationPending(requestID string, mode aiCollaborat
 	})
 }
 
-func (a *App) emitAIChatCollaborationStarted(requestID string, mode aiCollaborationMode, compressionAttempts int) {
+func (a *Service) emitAIChatCollaborationStarted(requestID string, mode aiCollaborationMode, compressionAttempts int) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || mode == aiCollaborationModeNone {
 		return
@@ -596,7 +596,7 @@ func (a *App) emitAIChatCollaborationStarted(requestID string, mode aiCollaborat
 	})
 }
 
-func (a *App) emitAIChatCollaborationFinished(requestID string, mode aiCollaborationMode, decision aiCollaborationDecision, text string) {
+func (a *Service) emitAIChatCollaborationFinished(requestID string, mode aiCollaborationMode, decision aiCollaborationDecision, text string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || mode == aiCollaborationModeNone || decision == aiCollaborationDecisionNone {
 		return
@@ -610,7 +610,7 @@ func (a *App) emitAIChatCollaborationFinished(requestID string, mode aiCollabora
 	})
 }
 
-func (a *App) emitAIChatCollaborationContextCondensed(requestID string, result AIConversationContextCondenseResult) {
+func (a *Service) emitAIChatCollaborationContextCondensed(requestID string, result AIConversationContextCondenseResult) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || strings.TrimSpace(result.Snapshot.ID) == "" {
 		return
@@ -625,7 +625,7 @@ func (a *App) emitAIChatCollaborationContextCondensed(requestID string, result A
 	})
 }
 
-func (a *App) finishAIChatCollaborationWithFallback(requestID string, state *aiCollaborationState) {
+func (a *Service) finishAIChatCollaborationWithFallback(requestID string, state *aiCollaborationState) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || state == nil || state.Batch == nil || !state.markFinished() {
 		return
@@ -662,7 +662,7 @@ func (a *App) finishAIChatCollaborationWithFallback(requestID string, state *aiC
 	}
 }
 
-func (a *App) finalizeAIChatCollaborationContinue(requestID string, state *aiCollaborationState, messageText string) {
+func (a *Service) finalizeAIChatCollaborationContinue(requestID string, state *aiCollaborationState, messageText string) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || state == nil || !state.markFinished() {
 		return
@@ -734,7 +734,7 @@ func (a *App) finalizeAIChatCollaborationContinue(requestID string, state *aiCol
 	a.finishAIChatRequest(trimmedRequestID)
 }
 
-func (a *App) finalizeAIChatCollaborationRetry(requestID string, state *aiCollaborationState) {
+func (a *Service) finalizeAIChatCollaborationRetry(requestID string, state *aiCollaborationState) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || state == nil || state.Batch == nil {
 		return
@@ -784,7 +784,7 @@ func (a *App) finalizeAIChatCollaborationRetry(requestID string, state *aiCollab
 	)
 }
 
-func (a *App) finalizeAIChatCollaborationDone(requestID string, state *aiCollaborationState) {
+func (a *Service) finalizeAIChatCollaborationDone(requestID string, state *aiCollaborationState) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || state == nil || state.Batch == nil || !state.markFinished() {
 		return
@@ -805,7 +805,7 @@ func (a *App) finalizeAIChatCollaborationDone(requestID string, state *aiCollabo
 	a.finishAIChatRequest(trimmedRequestID)
 }
 
-func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, state *aiCollaborationState) {
+func (a *Service) runAIChatCollaboration(ctx context.Context, requestID string, state *aiCollaborationState) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || state == nil || state.Batch == nil {
 		return
@@ -882,7 +882,7 @@ func (a *App) runAIChatCollaboration(ctx context.Context, requestID string, stat
 	}
 }
 
-func (a *App) queueAIChatCollaboration(requestID string, batch *aiPendingToolBatch) {
+func (a *Service) queueAIChatCollaboration(requestID string, batch *aiPendingToolBatch) {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" || batch == nil || batch.NextToolIndex >= len(batch.ParsedTools) {
 		return
@@ -901,7 +901,7 @@ func (a *App) queueAIChatCollaboration(requestID string, batch *aiPendingToolBat
 	a.emitAIChatCollaborationPending(trimmedRequestID, mode)
 }
 
-func (a *App) StartAIChatCollaboration(requestID string) error {
+func (a *Service) StartAIChatCollaboration(requestID string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return nil
@@ -924,7 +924,7 @@ func (a *App) StartAIChatCollaboration(requestID string) error {
 	return nil
 }
 
-func (a *App) DisableAIChatCollaboration(requestID string) error {
+func (a *Service) DisableAIChatCollaboration(requestID string) error {
 	trimmedRequestID := strings.TrimSpace(requestID)
 	if a == nil || trimmedRequestID == "" {
 		return nil

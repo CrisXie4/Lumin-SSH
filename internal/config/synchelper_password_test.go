@@ -5,7 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/json"
 	"errors"
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -259,8 +259,8 @@ func TestPersistSyncSnapshotSavesAllMergedFields(t *testing.T) {
 		Connections:      []Connection{{ID: "connection", Host: "host"}},
 		Credentials:      []Credential{{ID: "credential", Name: "凭据"}},
 		QuickCommands:    "[]",
-		AIProviders:      []ai.AIProviderProfile{{ID: "provider", Name: "供应商", UpdatedAt: 1}},
-		ProxyNodes:       []ai.AIProxyNode{{ID: "proxy", Name: "代理", Host: "127.0.0.1", Port: 1080, UpdatedAt: 1}},
+		AIProviders:      []aitypes.AIProviderProfile{{ID: "provider", Name: "供应商", UpdatedAt: 1}},
+		ProxyNodes:       []aitypes.AIProxyNode{{ID: "proxy", Name: "代理", Host: "127.0.0.1", Port: 1080, UpdatedAt: 1}},
 		SnapshotTime:     123,
 	}
 	if err := cm.persistSyncSnapshot(snap); err != nil {
@@ -459,8 +459,8 @@ func TestSyncAllProvidersUploadsOnlyDifferentAndNoBackup(t *testing.T) {
 		Connections:         []Connection{{ID: "same", Host: "same", LastModified: 10}},
 		Credentials:         []Credential{},
 		QuickCommands:       "[]",
-		AIProviders:         []ai.AIProviderProfile{},
-		ProxyNodes:          []ai.AIProxyNode{},
+		AIProviders:         []aitypes.AIProviderProfile{},
+		ProxyNodes:          []aitypes.AIProxyNode{},
 		SnapshotTime:        10,
 		HasCredentials:      true,
 		HasQuickCommands:    true,
@@ -1266,14 +1266,14 @@ func TestConnsEqualNormalizesAndroidDefaultProxyFields(t *testing.T) {
 
 func TestAIGlobalSettingsEqualTreatsNilCollaborationPresetsAsEmpty(t *testing.T) {
 	// ponytail: ai_global_settings 不再同步, aiGlobalSettingsEqual 始终返回 true
-	local := &ai.AIGlobalSettings{
+	local := &aitypes.AIGlobalSettings{
 		CurrentProviderID:          "p1",
 		AlwaysAllowExecute:         true,
-		CollaborationPromptPresets: []ai.AICollaborationPromptPreset{},
+		CollaborationPromptPresets: []aitypes.AICollaborationPromptPreset{},
 		CollaborationExtraPrompt:   "  extra\r\n ",
 		UpdatedAt:                  100,
 	}
-	remote := &ai.AIGlobalSettings{
+	remote := &aitypes.AIGlobalSettings{
 		CurrentProviderID:          "p1",
 		AlwaysAllowExecute:         true,
 		CollaborationPromptPresets: nil,

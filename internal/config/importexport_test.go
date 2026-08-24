@@ -3,7 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 	"testing"
 )
 
@@ -327,7 +327,7 @@ func TestParseImportData_SyncSnapshotKeepsProxyNodes(t *testing.T) {
 	cm := newTestConfigManager(t)
 	snap := SyncSnapshot{
 		Connections: []Connection{{Host: "snap-host", Port: 22, Username: "u", ProxyMode: "node", ProxyNodeID: "proxy-1"}},
-		ProxyNodes:  []ai.AIProxyNode{{ID: "proxy-1", Name: "Proxy", Type: "socks5", Host: "127.0.0.1", Port: 1080}},
+		ProxyNodes:  []aitypes.AIProxyNode{{ID: "proxy-1", Name: "Proxy", Type: "socks5", Host: "127.0.0.1", Port: 1080}},
 	}
 	data, _ := json.Marshal(snap)
 	parsed, err := cm.parseImportData(data, "")

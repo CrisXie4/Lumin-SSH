@@ -41,10 +41,10 @@ type SSHDelegate interface {
 	BridgeGetSFTPClient(sessionID string) (*sftp.Client, error)
 }
 
-type App struct {
+type Service struct {
 	ctx                       context.Context
-	sshManager                *SSHManager
-	configManager             *ConfigManager
+	sshManager                *sshBridge
+	configManager             *configBridge
 	sessionProvider           SessionProviderDelegate
 	themeToolDelegate         ThemeToolDelegate
 	aiChatReqMu               sync.Mutex
@@ -61,20 +61,20 @@ type App struct {
 	aiSkipNextAutomaticReqMap map[string]bool
 }
 
-type ConfigManager struct {
+type configBridge struct {
 	configDir string
 	mu        sync.RWMutex
 }
 
-type SSHManager struct {
+type sshBridge struct {
 	delegate SSHDelegate
 }
 
-func NewRuntimeApp(ctx context.Context, configDir string, sessionProvider SessionProviderDelegate, sshDelegate SSHDelegate) *App {
-	return &App{
+func NewService(ctx context.Context, configDir string, sessionProvider SessionProviderDelegate, sshDelegate SSHDelegate) *Service {
+	return &Service{
 		ctx:                       ctx,
-		sshManager:                &SSHManager{delegate: sshDelegate},
-		configManager:             &ConfigManager{configDir: configDir},
+		sshManager:                &sshBridge{delegate: sshDelegate},
+		configManager:             &configBridge{configDir: configDir},
 		sessionProvider:           sessionProvider,
 		aiChatReqCancel:           make(map[string]context.CancelFunc),
 		aiPendingToolBatches:      make(map[string]*PendingToolBatch),
@@ -85,14 +85,14 @@ func NewRuntimeApp(ctx context.Context, configDir string, sessionProvider Sessio
 	}
 }
 
-func (a *App) SetContext(ctx context.Context) {
+func (a *Service) SetContext(ctx context.Context) {
 	if a == nil {
 		return
 	}
 	a.ctx = ctx
 }
 
-func (a *App) SetThemeToolDelegate(delegate ThemeToolDelegate) {
+func (a *Service) SetThemeToolDelegate(delegate ThemeToolDelegate) {
 	if a == nil {
 		return
 	}
@@ -216,11 +216,11 @@ func isAIPathWithinBase(basePath string, targetPath string) bool {
 	return relativePath == "." || (relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(filepath.Separator)))
 }
 
-func (c *ConfigManager) aiConversationTempDir(conversationID string) string {
+func (c *configBridge) aiConversationTempDir(conversationID string) string {
 	return filepath.Join(c.configDir, "tasks", conversationID, "temp")
 }
 
-func (c *ConfigManager) PreprocessAIConversationLongText(conversationID string, text string) (string, error) {
+func (c *configBridge) PreprocessAIConversationLongText(conversationID string, text string) (string, error) {
 	if c == nil || strings.TrimSpace(c.configDir) == "" || strings.TrimSpace(text) == "" {
 		return text, nil
 	}
@@ -259,7 +259,7 @@ func (c *ConfigManager) PreprocessAIConversationLongText(conversationID string, 
 	return strings.Join(rewritten, ""), nil
 }
 
-func (c *ConfigManager) ReadAIConversationWrappedFile(conversationID string, localPath string) (string, error) {
+func (c *configBridge) ReadAIConversationWrappedFile(conversationID string, localPath string) (string, error) {
 	if c == nil || strings.TrimSpace(c.configDir) == "" {
 		return "", fmt.Errorf("配置管理器不可用")
 	}
@@ -289,21 +289,21 @@ func (c *ConfigManager) ReadAIConversationWrappedFile(conversationID string, loc
 	return string(data), nil
 }
 
-func (a *App) PreprocessAIConversationLongText(conversationID string, text string) (string, error) {
+func (a *Service) PreprocessAIConversationLongText(conversationID string, text string) (string, error) {
 	if a == nil || a.configManager == nil {
 		return "", fmt.Errorf("配置管理器不可用")
 	}
 	return a.configManager.PreprocessAIConversationLongText(conversationID, text)
 }
 
-func (a *App) ReadAIConversationWrappedFile(conversationID string, localPath string) (string, error) {
+func (a *Service) ReadAIConversationWrappedFile(conversationID string, localPath string) (string, error) {
 	if a == nil || a.configManager == nil {
 		return "", fmt.Errorf("配置管理器不可用")
 	}
 	return a.configManager.ReadAIConversationWrappedFile(conversationID, localPath)
 }
 
-func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration, control <-chan aiToolExecutionAction, reassign <-chan string, onCommandQueued func(), onCommandStarted func(), onCommandOutput func(string)) (mcpserver.CommandExecutionResult, aiToolExecutionAction, error) {
+func (m *sshBridge) ExecuteCommandInTerminalControlled(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration, control <-chan aiToolExecutionAction, reassign <-chan string, onCommandQueued func(), onCommandStarted func(), onCommandOutput func(string)) (mcpserver.CommandExecutionResult, aiToolExecutionAction, error) {
 	if m == nil || m.delegate == nil {
 		result := mcpserver.CommandExecutionResult{
 			SessionID:  sessionID,
@@ -318,63 +318,63 @@ func (m *SSHManager) ExecuteCommandInTerminalControlled(sessionID string, comman
 	return m.delegate.ExecuteCommandInTerminalControlled(sessionID, command, purpose, isMutating, cwd, shellType, timeout, control, reassign, onCommandQueued, onCommandStarted, onCommandOutput)
 }
 
-func (m *SSHManager) ListSiblingTerminalCandidates(sessionID string) ([]AIChatCommandTerminalCandidate, error) {
+func (m *sshBridge) ListSiblingTerminalCandidates(sessionID string) ([]AIChatCommandTerminalCandidate, error) {
 	if m == nil || m.delegate == nil {
 		return nil, fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.ListSiblingTerminalCandidates(sessionID)
 }
 
-func (m *SSHManager) ListDirContext(ctx context.Context, sessionID string, remotePath string) ([]map[string]interface{}, error) {
+func (m *sshBridge) ListDirContext(ctx context.Context, sessionID string, remotePath string) ([]map[string]interface{}, error) {
 	if m == nil || m.delegate == nil {
 		return nil, fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.ListDirContext(ctx, sessionID, remotePath)
 }
 
-func (m *SSHManager) ReadFileContext(ctx context.Context, sessionID string, remotePath string) (string, error) {
+func (m *sshBridge) ReadFileContext(ctx context.Context, sessionID string, remotePath string) (string, error) {
 	if m == nil || m.delegate == nil {
 		return "", fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.ReadFileContext(ctx, sessionID, remotePath)
 }
 
-func (m *SSHManager) WriteFileContext(ctx context.Context, sessionID string, remotePath string, content string) error {
+func (m *sshBridge) WriteFileContext(ctx context.Context, sessionID string, remotePath string, content string) error {
 	if m == nil || m.delegate == nil {
 		return fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.WriteFileContext(ctx, sessionID, remotePath, content)
 }
 
-func (m *SSHManager) DeleteItemContext(ctx context.Context, sessionID string, remotePath string, isDir bool) error {
+func (m *sshBridge) DeleteItemContext(ctx context.Context, sessionID string, remotePath string, isDir bool) error {
 	if m == nil || m.delegate == nil {
 		return fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.DeleteItemContext(ctx, sessionID, remotePath, isDir)
 }
 
-func (m *SSHManager) MkdirContext(ctx context.Context, sessionID string, remotePath string) error {
+func (m *sshBridge) MkdirContext(ctx context.Context, sessionID string, remotePath string) error {
 	if m == nil || m.delegate == nil {
 		return fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.MkdirContext(ctx, sessionID, remotePath)
 }
 
-func (m *SSHManager) getClientEntry(sessionID string) (*ssh.Client, *sftp.Client, error) {
+func (m *sshBridge) getClientEntry(sessionID string) (*ssh.Client, *sftp.Client, error) {
 	if m == nil || m.delegate == nil {
 		return nil, nil, fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.BridgeGetClientEntry(sessionID)
 }
 
-func (m *SSHManager) executeCmdWithClientContext(ctx context.Context, client *ssh.Client, command string) (string, error) {
+func (m *sshBridge) executeCmdWithClientContext(ctx context.Context, client *ssh.Client, command string) (string, error) {
 	if m == nil || m.delegate == nil {
 		return "", fmt.Errorf("SSH 管理器桥接不可用")
 	}
 	return m.delegate.BridgeExecuteCmdWithClientContext(ctx, client, command)
 }
 
-func (m *SSHManager) getSFTPClient(sessionID string) (*sftp.Client, error) {
+func (m *sshBridge) getSFTPClient(sessionID string) (*sftp.Client, error) {
 	if m == nil || m.delegate == nil {
 		return nil, fmt.Errorf("SSH 管理器桥接不可用")
 	}
@@ -382,7 +382,7 @@ func (m *SSHManager) getSFTPClient(sessionID string) (*sftp.Client, error) {
 }
 
 type mcpSessionProvider struct {
-	app *App
+	app *Service
 }
 
 func (p mcpSessionProvider) ListConnectedSessions() ([]mcpserver.SessionDescriptor, error) {
@@ -400,7 +400,7 @@ func (p mcpSessionProvider) GetWorkspaceState() string {
 }
 
 type mcpCommandProvider struct {
-	app *App
+	app *Service
 }
 
 func (p mcpCommandProvider) ExecuteCommand(sessionID string, command string, purpose string, isMutating bool, cwd string, shellType string, timeout time.Duration) (mcpserver.CommandExecutionResult, error) {
@@ -416,7 +416,7 @@ func (p mcpCommandProvider) ExecuteCommandContext(ctx context.Context, sessionID
 }
 
 type mcpTransferProvider struct {
-	app *App
+	app *Service
 }
 
 func (p mcpTransferProvider) TransferFile(sessionID string, request mcpserver.TransferFileRequest) (mcpserver.TransferTaskSnapshot, error) {
@@ -442,7 +442,7 @@ func (p mcpTransferProvider) ListTransfersContext(ctx context.Context, sessionID
 }
 
 type mcpFileProvider struct {
-	app *App
+	app *Service
 }
 
 func (p mcpFileProvider) ListDirectory(sessionID string, remotePath string) ([]mcpserver.DirectoryEntry, error) {
@@ -720,7 +720,7 @@ if __name__ == "__main__":
 `
 
 type mcpRemoteEditExecutor struct {
-	app *App
+	app *Service
 }
 
 func (e mcpRemoteEditExecutor) GetCapabilities(sessionID string) (mcpserver.RemoteEditCapabilities, error) {

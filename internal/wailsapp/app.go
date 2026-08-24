@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -34,10 +33,10 @@ import (
 	"luminssh-go/internal/transfer"
 	"luminssh-go/internal/updatedownload"
 	"luminssh-go/internal/wsbuffer"
+	"luminssh-go/internal/wslocal"
 	runtimeenv "luminssh-go/module/runtimeenv"
 	runtimeinstaller "luminssh-go/module/runtimeinstaller"
 
-	"github.com/gorilla/websocket"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -101,26 +100,23 @@ func (externalEditOpener) OpenWith(editorPath string, localPath string) error {
 
 // App struct
 type App struct {
-	ctx                       context.Context
-	sshManager                *sshmanager.SSHManager
-	configManager             *config.ConfigManager
-	wsPort                    int
-	wsToken                   string
-	wsManager                 *wsbuffer.Manager
-	wsServer                  *http.Server
-	wsListener                net.Listener
-	mainLivenessLockPath      string
-	mainLivenessLockRelease   func()
-	quitting                  atomic.Bool
-	closeAck                  atomic.Bool
-	shutdownOnce              sync.Once
-	quitOnce                  sync.Once
-	onBeforeQuit              func()
-	liveWorkspaceStateMu      sync.RWMutex
-	liveWorkspaceState        string
-	externalEdit              *externaledit.Manager
-	icon                      []byte
-	mcpReporter               *mcpActivityReporter
+	ctx                     context.Context
+	sshManager              *sshmanager.SSHManager
+	configManager           *config.ConfigManager
+	wsManager               *wsbuffer.Manager
+	wsServer                *wslocal.Server
+	mainLivenessLockPath    string
+	mainLivenessLockRelease func()
+	quitting                atomic.Bool
+	closeAck                atomic.Bool
+	shutdownOnce            sync.Once
+	quitOnce                sync.Once
+	onBeforeQuit            func()
+	liveWorkspaceStateMu    sync.RWMutex
+	liveWorkspaceState      string
+	externalEdit            *externaledit.Manager
+	icon                    []byte
+	mcpReporter             *mcpActivityReporter
 }
 
 type GitHubContributorAuthor struct {
@@ -155,9 +151,9 @@ const githubContributorsMaxRetries = 5
 // NewApp creates a new App application struct
 func NewApp() *App {
 	app := &App{
-		sshManager:                sshmanager.NewSSHManager(),
-		configManager:             config.NewConfigManager(),
-		wsManager:                 wsbuffer.NewManager(),
+		sshManager:    sshmanager.NewSSHManager(),
+		configManager: config.NewConfigManager(),
+		wsManager:     wsbuffer.NewManager(),
 	}
 	app.mcpReporter = newMCPActivityReporter(app)
 	app.configManager.SetProgramDir(getProgramDirectory())
@@ -182,92 +178,13 @@ func (a *App) startup(ctx context.Context) {
 		log.Printf("failed to acquire main liveness lock: %v", err)
 	}
 
-	// ── 启动本地 WebSocket 终端服务器 ─────────────────────────────────
+	// ── 启动本地 WebSocket 终端服务器 ─────────────────────────────
 	// 不经过 Wails IPC，直接走 TCP loopback，延迟极低
-	// 生成随机 token，要求连接时通过 ?token=xxx 携带，防止本机恶意进程注入命令
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		log.Fatalf("生成 WebSocket Token 失败: %v", err)
-	}
-	a.wsToken = hex.EncodeToString(tokenBytes)
-
-	mux := http.NewServeMux()
-	// 仅允许 Wails WebView 的 Origin（防止本机恶意网页通过 DNS rebinding 连接）
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			if origin == "" {
-				return false
-			}
-			// Wails WebView 自定义协议 Origin（不同平台 / Wails 版本表现不一）：
-			//   wails://wails                       —— Windows WebView2（旧版）
-			//   wails://wails.localhost[:port]      —— Linux/macOS WebKit dev 模式实测
-			//                                          （页面 origin=wails://wails.localhost:<vitePort>）
-			//   wails://localhost[:port]            —— 部分环境 WebKit baseURL
-			//   http(s)://wails.localhost[:port]    —— Windows WebView2
-			// dev 模式下 host 后会带 vite/dev 端口。每个 host 用「精确匹配 + 带冒号前缀」，
-			// 避免误匹配 wails.localhost.attacker.com 之类的子域（DNS-rebinding 防护）。
-			if origin == "wails://wails" ||
-				origin == "wails://wails.localhost" ||
-				strings.HasPrefix(origin, "wails://wails.localhost:") ||
-				origin == "wails://localhost" ||
-				strings.HasPrefix(origin, "wails://localhost:") ||
-				origin == "http://wails.localhost" ||
-				strings.HasPrefix(origin, "http://wails.localhost:") ||
-				origin == "https://wails.localhost" ||
-				strings.HasPrefix(origin, "https://wails.localhost:") {
-				return true
-			}
-			return strings.HasPrefix(origin, "http://localhost:") ||
-				strings.HasPrefix(origin, "http://127.0.0.1:") ||
-				strings.HasPrefix(origin, "http://[::1]:")
-		},
-		ReadBufferSize:  4096,
-		WriteBufferSize: 32768,
-	}
-	mux.HandleFunc("/ws/", func(w http.ResponseWriter, r *http.Request) {
-		// 校验 token，拒绝未携带正确 token 的连接
-		if r.URL.Query().Get("token") != a.wsToken {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		sessionId := strings.TrimPrefix(r.URL.Path, "/ws/")
-		if sessionId == "" {
-			http.Error(w, "missing sessionId", http.StatusBadRequest)
-			return
-		}
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		// 注册当前 WebSocket 连接（同 session 重连时自动关闭旧连接），并 flush 注册前缓冲
-		entry := a.wsManager.Register(sessionId, conn)
-		a.wsManager.FlushPending(sessionId)
-		defer a.wsManager.Unregister(sessionId, entry)
-
-		// 读取 WebSocket 消息，直通 SSH stdin
-		for {
-			_, msg, err := conn.ReadMessage()
-			if err != nil {
-				break
-			}
-			a.sshManager.WriteBytes(sessionId, msg)
-		}
-	})
-
-	// 监听随机端口
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err == nil {
-		a.wsPort = listener.Addr().(*net.TCPAddr).Port
-		a.wsListener = listener
-		a.wsServer = &http.Server{Handler: mux}
-		go func() {
-			if err := a.wsServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-				log.Printf("WebSocket server stopped: %v", err)
-			}
-		}()
+	wsServer := wslocal.NewServer(a.wsManager, a.sshManager)
+	if err := wsServer.Start(); err != nil {
+		log.Printf("failed to start local WebSocket server: %v", err)
+	} else {
+		a.wsServer = wsServer
 	}
 
 	// Clean up old executable from a previous auto-update
@@ -310,16 +227,10 @@ func (a *App) shutdown() {
 		if a.sshManager != nil {
 			a.sshManager.DisconnectAll()
 		}
-		// 关闭 WebSocket 监听器，释放端口并停止 goroutine。
+		// 关闭本地 WebSocket 服务器，释放端口。
 		if a.wsServer != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_ = a.wsServer.Shutdown(ctx)
+			a.wsServer.Stop()
 			a.wsServer = nil
-		}
-		if a.wsListener != nil {
-			_ = a.wsListener.Close()
-			a.wsListener = nil
 		}
 		a.releaseMainLivenessLock()
 	})
@@ -338,12 +249,18 @@ func (a *App) DoQuit() {
 
 // GetWsPort 返回本地 WebSocket 服务器端口，前端用于连接终端
 func (a *App) GetWsPort() int {
-	return a.wsPort
+	if a.wsServer == nil {
+		return 0
+	}
+	return a.wsServer.Port()
 }
 
 // GetWsToken 返回 WebSocket 鉴权 token，前端连接时通过 ?token=xxx 携带
 func (a *App) GetWsToken() string {
-	return a.wsToken
+	if a.wsServer == nil {
+		return ""
+	}
+	return a.wsServer.Token()
 }
 
 // WriteWsOutput 将 WebSocket 输出写入给指定 session 的 WS 连接
@@ -1261,7 +1178,6 @@ func (a *App) releaseMainLivenessLock() {
 	a.mainLivenessLockRelease = nil
 }
 
-
 func resolveDownloadDefaultDirectory(template string) string {
 	programDir := getProgramDirectory()
 	trimmed := strings.TrimSpace(template)
@@ -1963,7 +1879,6 @@ func (a *App) InstallRuntimeEnvironment(language string) (runtimeenv.Status, err
 	settings := a.GetRuntimeEnvironmentSettings()
 	return runtimeinstaller.InstallRuntimeEnvironment(getProgramDirectory(), settings, language)
 }
-
 
 func (a *App) GetLiveWorkspaceState() string {
 	if a == nil {

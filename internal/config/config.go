@@ -28,7 +28,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/text/encoding/ianaindex"
 
-	ai "luminssh-go/internal/ai"
+	aitypes "luminssh-go/internal/aitypes"
 	runtimeenv "luminssh-go/module/runtimeenv"
 )
 
@@ -1456,7 +1456,7 @@ func (c *ConfigManager) saveCredentialsFile(creds []Credential) error {
 // ImportConnections 合并导入节点：按 host+port+username 判重，本地已存在则跳过，仅新增。
 // incoming 为待导入的明文节点列表，incomingCreds 为待导入的明文凭据列表。
 // 走 saveConnectionsFile/saveCredentialsFile 自动加密 + 原子写，并触发云同步。
-func (c *ConfigManager) ImportConnections(incoming []Connection, incomingCreds []Credential, incomingProxyNodes ...[]ai.AIProxyNode) (ImportResult, error) {
+func (c *ConfigManager) ImportConnections(incoming []Connection, incomingCreds []Credential, incomingProxyNodes ...[]aitypes.AIProxyNode) (ImportResult, error) {
 	c.mu.Lock()
 	localConns := c.getConnectionsLocked()
 	localCreds := c.getCredentialsLocked()
@@ -1464,7 +1464,7 @@ func (c *ConfigManager) ImportConnections(incoming []Connection, incomingCreds [
 
 	toAdd, result := mergeImport(localConns, incoming)
 	incomingCreds = filterImportCredentialsForConnections(incomingCreds, toAdd)
-	var importProxyNodes []ai.AIProxyNode
+	var importProxyNodes []aitypes.AIProxyNode
 	if len(incomingProxyNodes) > 0 {
 		importProxyNodes = filterImportProxyNodesForConnections(incomingProxyNodes[0], toAdd)
 	}
@@ -1476,7 +1476,7 @@ func (c *ConfigManager) ImportConnections(incoming []Connection, incomingCreds [
 
 	toAddCreds, credIDMap := mergeImportCredentials(localCreds, incomingCreds)
 	var proxyIDMap map[string]string
-	var toAddProxyNodes []ai.AIProxyNode
+	var toAddProxyNodes []aitypes.AIProxyNode
 	if len(importProxyNodes) > 0 {
 		toAddProxyNodes, proxyIDMap = mergeImportProxyNodes(localProxyNodes, importProxyNodes)
 	}
@@ -1508,7 +1508,7 @@ func (c *ConfigManager) ImportConnections(incoming []Connection, incomingCreds [
 	c.mu.Unlock()
 
 	if len(toAddProxyNodes) > 0 {
-		mergedProxyNodes := make([]ai.AIProxyNode, 0, len(localProxyNodes)+len(toAddProxyNodes))
+		mergedProxyNodes := make([]aitypes.AIProxyNode, 0, len(localProxyNodes)+len(toAddProxyNodes))
 		mergedProxyNodes = append(mergedProxyNodes, localProxyNodes...)
 		mergedProxyNodes = append(mergedProxyNodes, toAddProxyNodes...)
 		if err := c.SaveAIProxyNodes(mergedProxyNodes); err != nil {
