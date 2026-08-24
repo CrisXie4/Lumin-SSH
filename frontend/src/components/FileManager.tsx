@@ -188,9 +188,6 @@ interface FileManagerVirtualRow {
 
 interface FileManagerPaneEffectState {
   pendingVisualEffects: Map<string, RowEffectState>
-  pendingAutoRevealRowKeys: string[]
-  suppressUserScrollTrackingUntil: number
-  userHasScrolled: boolean
 }
 
 interface FileManagerPaneViewState {
@@ -273,12 +270,6 @@ interface FileListViewAnchor {
   scrollTop: number
 }
 
-// 面板瞬态删除占位条目
-interface PanePlaceholderEntry extends FileManagerFileItem {
-  __transientPanePath?: string
-  __logicalPath?: string
-}
-
 // loadDir 的选项
 interface LoadDirOptions {
   silent?: boolean
@@ -286,8 +277,6 @@ interface LoadDirOptions {
   staleWhileRevalidate?: boolean
   staleItems?: FileManagerFileItem[]
   preferPathCache?: boolean
-  transitionMode?: string
-  transitionDirection?: string
   preserveWorkspacePathOnSuccess?: boolean
   preserveView?: boolean
   trackDiff?: boolean
@@ -554,7 +543,6 @@ const DOWNLOAD_RENAME_SUFFIX_TIMESTAMP = 'timestamp';
 const DOWNLOAD_RENAME_SUFFIX_RANDOM = 'random';
 const DOWNLOAD_RENAME_SUFFIX_SEQUENCE = 'sequence';
 const UPLOAD_PANEL_CLOSE_ANIMATION_MS = 100;
-const FILE_LIST_SWITCH_ANIMATION_MS = 420;
 const FILE_MANAGER_INTERNAL_DRAG_MIME = 'application/x-lumin-file-manager-items';
 const FILE_MANAGER_NEW_TAB_PATH_MODE_INHERIT_CURRENT = 'inherit_current';
 const FILE_MANAGER_NEW_TAB_PATH_MODE_ROOT = 'root';
@@ -867,9 +855,6 @@ function normalizeFileManagerPaneKey(paneKey: unknown): 'left' | 'right' {
 function createFileManagerPaneEffectState(): FileManagerPaneEffectState {
   return {
     pendingVisualEffects: new Map(),
-    pendingAutoRevealRowKeys: [],
-    suppressUserScrollTrackingUntil: 0,
-    userHasScrolled: false,
   };
 }
 
@@ -1705,83 +1690,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   const [cwdSystemTabHighlight, setCwdSystemTabHighlight] = useState({ tabId: '', token: 0 });
   const cwdSystemTabHighlightTimerRef = useRef(0);
   const loadRequestSeqRef = useRef(0);
-  const [fileListSwitchStage, setFileListSwitchStage] = useState('idle');
-  const [fileListSwitchDirection, setFileListSwitchDirection] = useState('forward');
-  const [fileListSwitchGhostHtml, setFileListSwitchGhostHtml] = useState('');
-  const fileListSwitchTokenRef = useRef(0);
-  const fileListSwitchFrameRef = useRef(0);
-  const fileListSwitchStartedAtRef = useRef(0);
-  const fileListBodyRef = useRef<HTMLDivElement | null>(null);
-  const clearFileListSwitchFrame = useCallback(() => {
-    if (!fileListSwitchFrameRef.current) return;
-    cancelAnimationFrame(fileListSwitchFrameRef.current);
-    fileListSwitchFrameRef.current = 0;
-    fileListSwitchStartedAtRef.current = 0;
-  }, []);
-  const finishFileListSwitchFrame = useCallback((token: number) => {
-    clearFileListSwitchFrame();
-    const step = (timestamp: number) => {
-      if (token !== fileListSwitchTokenRef.current) {
-        fileListSwitchFrameRef.current = 0;
-        fileListSwitchStartedAtRef.current = 0;
-        return;
-      }
-      if (!fileListSwitchStartedAtRef.current) {
-        fileListSwitchStartedAtRef.current = timestamp;
-      }
-      if (timestamp - fileListSwitchStartedAtRef.current >= FILE_LIST_SWITCH_ANIMATION_MS + 24) {
-        setFileListSwitchGhostHtml('');
-        setFileListSwitchStage('idle');
-        fileListSwitchFrameRef.current = 0;
-        fileListSwitchStartedAtRef.current = 0;
-        return;
-      }
-      fileListSwitchFrameRef.current = requestAnimationFrame(step);
-    };
-    fileListSwitchFrameRef.current = requestAnimationFrame(step);
-  }, [clearFileListSwitchFrame]);
-  const beginFileListSwitch = useCallback((direction = 'forward') => {
-    fileListSwitchTokenRef.current += 1;
-    const nextToken = fileListSwitchTokenRef.current;
-    clearFileListSwitchFrame();
-    setFileListSwitchDirection(direction === 'backward' ? 'backward' : 'forward');
-    const nextGhostHtml = currentPathHydratedRef.current ? (fileListBodyRef.current?.innerHTML || '') : '';
-    if (!nextGhostHtml) {
-      setFileListSwitchGhostHtml('');
-      setFileListSwitchStage('idle');
-      return 0;
-    }
-    setFileListSwitchGhostHtml(nextGhostHtml);
-    setFileListSwitchStage('switch-waiting');
-    return nextToken;
-  }, [clearFileListSwitchFrame]);
-  const cancelFileListSwitch = useCallback((token = 0) => {
-    if (token && token !== fileListSwitchTokenRef.current) return;
-    clearFileListSwitchFrame();
-    setFileListSwitchGhostHtml('');
-    setFileListSwitchStage('idle');
-  }, [clearFileListSwitchFrame]);
-  const commitFileListSwitch = useCallback((token: number, applyData: () => void) => {
-    if (typeof applyData !== 'function') return;
-    if (!token || token !== fileListSwitchTokenRef.current) {
-      clearFileListSwitchFrame();
-      setFileListSwitchGhostHtml('');
-      applyData();
-      setFileListSwitchStage('idle');
-      return;
-    }
-    clearFileListSwitchFrame();
-    setFileListSwitchStage('switch-prepare');
-    applyData();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (token !== fileListSwitchTokenRef.current) return;
-        setFileListSwitchStage('switch-entering');
-        finishFileListSwitchFrame(token);
-      });
-    });
-  }, [clearFileListSwitchFrame, finishFileListSwitchFrame]);
-  useEffect(() => () => clearFileListSwitchFrame(), [clearFileListSwitchFrame]);
   useEffect(() => { currentPathRef.current = currentPath; }, [currentPath]);
   useEffect(() => { fileManagerWorkspaceRef.current = fileManagerWorkspace; }, [fileManagerWorkspace]);
   useEffect(() => {
@@ -2378,11 +2286,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     paneEffectStateRef.current[normalizeFileManagerPaneKey(paneKey)]
   ), []);
   const rowEffectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const tombstoneSequenceRef = useRef(0);
   const [activeRowEffects, setActiveRowEffects] = useState<Record<string, RowEffectState>>({});
   const activeRowEffectsRef = useRef<Record<string, RowEffectState>>({});
-  const [paneTransientRemovedPlaceholders, setPaneTransientRemovedPlaceholders] = useState<{ left: PanePlaceholderEntry[]; right: PanePlaceholderEntry[] }>({ left: [], right: [] });
-  const paneTransientRemovedPlaceholdersRef = useRef<{ left: PanePlaceholderEntry[]; right: PanePlaceholderEntry[] }>({ left: [], right: [] });
 
   const captureFileListViewAnchor = useCallback((paneKey = activePaneKey, listElement: HTMLElement | null = null) => {
     const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
@@ -2460,38 +2365,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return false;
   }, [activePaneKey, captureFileListViewAnchor, getPaneViewState]);
 
-  const mergePaneTransientRemovedPlaceholders = useCallback((paneKey: string, placeholders: PanePlaceholderEntry | PanePlaceholderEntry[], panePath: unknown) => {
-    const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
-    const normalizedPanePath = normalizePath(panePath) || '/';
-    const placeholderList = (Array.isArray(placeholders) ? placeholders : [placeholders])
-      .filter(Boolean)
-      .map((entry) => ({
-        ...entry,
-        __transientPanePath: normalizedPanePath,
-        __logicalPath: entry.__logicalPath || (normalizedPanePath === '/' ? `/${entry.name}` : `${normalizedPanePath}/${entry.name}`),
-      }));
-    if (placeholderList.length === 0) {
-      return;
-    }
-    setPaneTransientRemovedPlaceholders((current) => {
-      const currentItems = Array.isArray(current[normalizedPaneKey]) ? current[normalizedPaneKey] : [];
-      const nextItems = [...currentItems];
-      placeholderList.forEach((placeholder) => {
-        const identity = placeholder.__logicalPath || placeholder.__rowKey;
-        const existingIndex = nextItems.findIndex((entry) => (entry.__logicalPath || entry.__rowKey) === identity);
-        if (existingIndex >= 0) {
-          nextItems[existingIndex] = placeholder;
-        } else {
-          nextItems.push(placeholder);
-        }
-      });
-      return {
-        ...current,
-        [normalizedPaneKey]: nextItems,
-      };
-    });
-  }, [normalizePath]);
-
   const confirmCreatedItem = useCallback(async (targetDirPath: unknown, name: unknown, isDirectory: boolean) => {
     const normalizedTargetDirPath = normalizePath(targetDirPath) || '/';
     const trimmedName = String(name || '').trim();
@@ -2519,23 +2392,10 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   const isDeletedPlaceholderItem = useCallback((item: FileManagerFileItem | null) => Boolean(item?.__luminDeletedPlaceholder), []);
 
-  const captureRowHeight = useCallback((rowKey: unknown) => {
-    if (!rowKey || !fileListRef.current) return 36;
-    const rows = Array.from(fileListRef.current.querySelectorAll('[data-file-row-key]'));
-    const row = rows.find((entry) => (entry as HTMLElement).dataset?.fileRowKey === rowKey) as HTMLElement | undefined;
-    return Math.max(28, Math.round(row?.getBoundingClientRect?.().height || row?.offsetHeight || 36));
-  }, []);
-
   const queueRowEffect = useCallback((logicalKey: string, rowKey: string, effect: string, paneKey = activePaneKey) => {
     if (!logicalKey || !rowKey || !effect) return;
     const paneEffectState = getPaneEffectState(paneKey);
     paneEffectState.pendingVisualEffects.set(logicalKey, { logicalKey, rowKey, effect, paneKey: normalizeFileManagerPaneKey(paneKey) });
-    if (effect === 'added') {
-      paneEffectState.pendingAutoRevealRowKeys = [
-        ...paneEffectState.pendingAutoRevealRowKeys.filter((key) => key !== rowKey),
-        rowKey,
-      ];
-    }
   }, [activePaneKey, getPaneEffectState]);
 
   const clearRowEffectTimer = useCallback((rowKey: string) => {
@@ -2557,23 +2417,10 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     });
   }, [clearRowEffectTimer]);
 
-  const finalizeDeletedPlaceholder = useCallback((rowKey: string) => {
-    clearActiveRowEffect(rowKey);
-    setItems((current) => current.filter((entry) => entry.__rowKey !== rowKey));
-  }, [clearActiveRowEffect]);
-
   const startRowEffect = useCallback((entry: RowEffectState) => {
     if (!entry?.rowKey || !entry?.effect) return;
-    const durationMs = entry.effect === 'added' ? 3200 : 3000;
+    const durationMs = 1200;
     const now = Date.now();
-    const existingEffectState = activeRowEffectsRef.current[entry.rowKey];
-    if (existingEffectState?.effect === entry.effect) {
-      const elapsedMs = Math.max(0, now - Number(existingEffectState.startedAt || 0));
-      const existingDurationMs = Number(existingEffectState.durationMs || durationMs);
-      if (elapsedMs < existingDurationMs) {
-        return;
-      }
-    }
     clearRowEffectTimer(entry.rowKey);
     const nextEffectState: RowEffectState = {
       logicalKey: entry.logicalKey,
@@ -2584,28 +2431,15 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       durationMs,
     };
     setActiveRowEffects((current) => {
-      const currentEffectState = current[entry.rowKey];
-      if (currentEffectState?.effect === entry.effect) {
-        const elapsedMs = Math.max(0, now - Number(currentEffectState.startedAt || 0));
-        const currentDurationMs = Number(currentEffectState.durationMs || durationMs);
-        if (elapsedMs < currentDurationMs) {
-          activeRowEffectsRef.current = current;
-          return current;
-        }
-      }
       const next = { ...current, [entry.rowKey]: nextEffectState };
       activeRowEffectsRef.current = next;
       return next;
     });
     const timer = window.setTimeout(() => {
-      if (entry.effect === 'removed') {
-        finalizeDeletedPlaceholder(entry.rowKey);
-      } else {
-        clearActiveRowEffect(entry.rowKey);
-      }
+      clearActiveRowEffect(entry.rowKey);
     }, durationMs);
     rowEffectTimersRef.current.set(entry.rowKey, timer);
-  }, [clearActiveRowEffect, clearRowEffectTimer, finalizeDeletedPlaceholder]);
+  }, [clearActiveRowEffect, clearRowEffectTimer]);
 
   const isFileManagerActuallyVisible = useCallback(() => {
     if (!isActive || document.hidden) return false;
@@ -2616,16 +2450,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const style = window.getComputedStyle(root);
     return style.display !== 'none' && style.visibility !== 'hidden';
   }, [isActive]);
-
-  const isListNearBottom = useCallback((paneKey = activePaneKey, listElement: HTMLElement | null = null) => {
-    const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
-    const list = listElement
-      || (normalizedPaneKey === activePaneKey
-        ? fileListRef.current
-        : (inactivePaneListRefs.current[normalizedPaneKey] || paneScrollerElementsRef.current[normalizedPaneKey]));
-    if (!list) return false;
-    return list.scrollHeight - (list.scrollTop + list.clientHeight) <= 8;
-  }, [activePaneKey]);
 
   const isRowVisibleInViewport = useCallback((rowKey: string, options: { paneKey?: string; paneRows?: FileManagerVirtualRow[]; listElement?: HTMLElement | null } = {}) => {
     if (!rowKey) return false;
@@ -2660,11 +2484,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const paneRows = Array.isArray(options.paneRows)
       ? options.paneRows
       : (paneKey === activePaneKey ? activeVirtualRows : []);
-    const paneEffectState = getPaneEffectState(paneKey);
     const rowIndex = findFileManagerVirtualRowIndex(paneRows, rowKey);
     const virtuosoHandle = paneVirtuosoRefs.current[paneKey] as { scrollToIndex?: (opts: { index: number; align?: string; behavior?: string }) => void } | null | undefined;
     if (rowIndex >= 0 && virtuosoHandle) {
-      paneEffectState.suppressUserScrollTrackingUntil = Date.now() + 800;
       const paneViewState = getPaneViewState(paneKey);
       paneViewState.pendingRestore = null;
       if (virtuosoHandle.scrollToIndex) {
@@ -2696,7 +2518,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           0,
           list.scrollTop + (rowRect.top - viewportTop) - Math.max(12, (viewportHeight - rowRect.height) / 2),
         );
-        paneEffectState.suppressUserScrollTrackingUntil = Date.now() + 400;
         list.scrollTop = targetScrollTop;
         if (paneKey === activePaneKey) {
           captureFileListViewAnchor();
@@ -2705,38 +2526,18 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
     }
     return false;
-  }, [activePaneKey, activeVirtualRows, captureFileListViewAnchor, getPaneEffectState, getPaneViewState]);
+  }, [activePaneKey, activeVirtualRows, captureFileListViewAnchor, getPaneViewState]);
 
   const flushPendingRowEffects = useCallback((paneKey = activePaneKey, paneRows: FileManagerVirtualRow[] = activeVirtualRows, listElement: HTMLElement | null = null) => {
     if (!isFileManagerActuallyVisible()) return;
     const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
     const paneEffectState = getPaneEffectState(normalizedPaneKey);
-    if (paneEffectState.pendingAutoRevealRowKeys.length > 0 && (!paneEffectState.userHasScrolled || isListNearBottom(normalizedPaneKey, listElement))) {
-      const pendingKeys = [...paneEffectState.pendingAutoRevealRowKeys];
-      for (const rowKey of pendingKeys) {
-        if (
-          isRowVisibleInViewport(rowKey, { paneKey: normalizedPaneKey, paneRows, listElement })
-          || revealRowInViewport(rowKey, { paneKey: normalizedPaneKey, paneRows, listElement })
-        ) {
-          paneEffectState.pendingAutoRevealRowKeys = paneEffectState.pendingAutoRevealRowKeys.filter((key) => key !== rowKey);
-          break;
-        }
-      }
-    }
     paneEffectState.pendingVisualEffects.forEach((entry, logicalKey) => {
       if (!isRowVisibleInViewport(entry.rowKey, { paneKey: normalizedPaneKey, paneRows, listElement })) return;
       paneEffectState.pendingVisualEffects.delete(logicalKey);
       startRowEffect(entry);
     });
-  }, [activePaneKey, activeVirtualRows, getPaneEffectState, isFileManagerActuallyVisible, isListNearBottom, isRowVisibleInViewport, revealRowInViewport, startRowEffect]);
-
-  const createDeletedPlaceholder = useCallback((item: FileManagerFileItem | null, logicalPath: unknown, rowHeight = captureRowHeight(logicalPath)): PanePlaceholderEntry => ({
-    ...(item || { name: '', isDirectory: false }),
-    __luminDeletedPlaceholder: true,
-    __logicalPath: String(logicalPath || ''),
-    __rowKey: `__deleted__:${logicalPath}:${Date.now()}:${tombstoneSequenceRef.current++}`,
-    __rowHeight: Math.max(28, rowHeight || 36),
-  }), [captureRowHeight]);
+  }, [activePaneKey, activeVirtualRows, getPaneEffectState, isFileManagerActuallyVisible, isRowVisibleInViewport, startRowEffect]);
 
   const didItemMetadataChange = useCallback((prevItem: FileManagerFileItem, nextItem: FileManagerFileItem) => (
     prevItem?.isDirectory !== nextItem?.isDirectory
@@ -2747,12 +2548,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   ), []);
 
   const buildItemsWithTrackedDiff = useCallback((currentItems: FileManagerFileItem[], nextItems: FileManagerFileItem[], directoryPath: unknown, paneKey = activePaneKey) => {
-    const normalizedPaneKey = normalizeFileManagerPaneKey(paneKey);
     const normalizedNextItems = Array.isArray(nextItems) ? nextItems : [];
-    const currentVisibleItems = currentItems.filter((entry) => !isDeletedPlaceholderItem(entry));
-    const existingPlaceholders = currentItems.filter((entry) => isDeletedPlaceholderItem(entry));
-    const currentByName = new Map(currentVisibleItems.map((entry) => [entry.name, entry]));
-    const nextByName = new Map(normalizedNextItems.map((entry) => [entry.name, entry]));
+    const currentByName = new Map(currentItems.map((entry) => [entry.name, entry]));
 
     normalizedNextItems.forEach((entry) => {
       const logicalPath = directoryPath === '/' ? `/${entry.name}` : `${directoryPath}/${entry.name}`;
@@ -2766,22 +2563,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
     });
 
-    const newDeletedPlaceholders = currentVisibleItems
-      .filter((entry) => !nextByName.has(entry.name))
-      .map((entry) => {
-        const logicalPath = directoryPath === '/' ? `/${entry.name}` : `${directoryPath}/${entry.name}`;
-        const placeholder = createDeletedPlaceholder(entry, logicalPath);
-        queueRowEffect(logicalPath, placeholder.__rowKey || '', 'removed', paneKey);
-        return placeholder;
-      });
-
-    if (normalizedPaneKey !== normalizeFileManagerPaneKey(activePaneKey) && newDeletedPlaceholders.length > 0) {
-      mergePaneTransientRemovedPlaceholders(normalizedPaneKey, newDeletedPlaceholders, directoryPath);
-    }
-
-    const persistedPlaceholders = existingPlaceholders.filter((entry) => !nextByName.has(entry.name));
-    return [...normalizedNextItems, ...persistedPlaceholders, ...newDeletedPlaceholders];
-  }, [activePaneKey, createDeletedPlaceholder, didItemMetadataChange, isDeletedPlaceholderItem, mergePaneTransientRemovedPlaceholders, queueRowEffect]);
+    return normalizedNextItems;
+  }, [activePaneKey, didItemMetadataChange, queueRowEffect]);
 
   useEffect(() => {
     captureFileListViewAnchor();
@@ -2789,24 +2572,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
   }, [activePaneKey, activeVirtualRows, captureFileListViewAnchor, flushPendingRowEffects, items, loading, isActive]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      captureFileListViewAnchor();
-      flushPendingRowEffects(activePaneKey, activeVirtualRows, fileListRef.current);
-    }, 240);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [activePaneKey, activeVirtualRows, captureFileListViewAnchor, flushPendingRowEffects]);
-
-  useEffect(() => {
     return () => {
       rowEffectTimersRef.current.forEach((currentTimer) => window.clearTimeout(currentTimer));
       rowEffectTimersRef.current.clear();
       Object.values(paneEffectStateRef.current).forEach((paneEffectState) => {
         paneEffectState.pendingVisualEffects.clear();
-        paneEffectState.pendingAutoRevealRowKeys = [];
-        paneEffectState.suppressUserScrollTrackingUntil = 0;
-        paneEffectState.userHasScrolled = false;
       });
     };
   }, []);
@@ -2817,9 +2587,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     paneViewState.lastVisibleAnchor = null;
     paneViewState.pendingRestore = null;
     paneEffectState.pendingVisualEffects.clear();
-    paneEffectState.pendingAutoRevealRowKeys = [];
-    paneEffectState.userHasScrolled = false;
-    paneEffectState.suppressUserScrollTrackingUntil = 0;
     rowEffectTimersRef.current.forEach((currentTimer) => window.clearTimeout(currentTimer));
     rowEffectTimersRef.current.clear();
     setActiveRowEffects({});
@@ -2827,26 +2594,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   useEffect(() => {
     activeRowEffectsRef.current = activeRowEffects;
-  }, [activeRowEffects]);
-
-  useEffect(() => {
-    paneTransientRemovedPlaceholdersRef.current = paneTransientRemovedPlaceholders;
-  }, [paneTransientRemovedPlaceholders]);
-
-  useEffect(() => {
-    setPaneTransientRemovedPlaceholders((current) => {
-      const nextState = {
-        left: (Array.isArray(current.left) ? current.left : []).filter((entry) => (entry.__rowKey ? activeRowEffects[entry.__rowKey]?.effect : undefined) === 'removed'),
-        right: (Array.isArray(current.right) ? current.right : []).filter((entry) => (entry.__rowKey ? activeRowEffects[entry.__rowKey]?.effect : undefined) === 'removed'),
-      };
-      if (
-        nextState.left.length === (Array.isArray(current.left) ? current.left.length : 0)
-        && nextState.right.length === (Array.isArray(current.right) ? current.right.length : 0)
-      ) {
-        return current;
-      }
-      return nextState;
-    });
   }, [activeRowEffects]);
 
   const [clipboard, setClipboard] = useState<{ paths: string[]; mode: 'copy' | 'cut'; srcDir: string } | null>(null); // { paths, mode, srcDir }
@@ -3201,18 +2948,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       || (!!cachedPathItems && pathChanged)
       || (!!cachedPathItems && resolvedOptions.preferPathCache === true);
     const staleItems = providedStaleItems || cachedPathItems;
-    // Only animate directory navigation. Tab switches (including cwd-linked tab path jumps) stay instant.
-    const transitionMode = resolvedOptions.transitionMode === 'directory'
-      ? 'directory'
-      : 'none';
-    const transitionDirection = resolvedOptions.transitionDirection === 'backward'
-      ? 'backward'
-      : resolvedOptions.transitionDirection === 'forward'
-        ? 'forward'
-        : (transitionMode === 'directory' && normalizedPath === getParentPath(currentPathRef.current) ? 'backward' : 'forward');
     const preserveWorkspacePathOnSuccess = resolvedOptions.preserveWorkspacePathOnSuccess === true;
-    const shouldAnimateSwitch = transitionMode === 'directory' && !staleWhileRevalidate;
-    const switchToken = shouldAnimateSwitch ? beginFileListSwitch(transitionDirection) : 0;
 
     if (staleWhileRevalidate && staleItems) {
       displayedTabIdRef.current = targetTabId || displayedTabIdRef.current;
@@ -3221,7 +2957,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       setLoading(false);
       setItems(staleItems);
       setCurrentPath(normalizedPath);
-    } else if (pathChanged && !shouldAnimateSwitch) {
+    } else if (pathChanged) {
       // No usable cache: clear previous tab/path content immediately so the old list never flashes.
       displayedTabIdRef.current = targetTabId || displayedTabIdRef.current;
       currentPathHydratedRef.current = true;
@@ -3232,12 +2968,10 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
     const preserveView = resolvedOptions.preserveView ?? (staleWhileRevalidate ? true : samePathRefresh);
     const trackDiff = (resolvedOptions.trackDiff ?? (staleWhileRevalidate ? true : samePathRefresh)) && samePathRefresh;
-    const showLoading = resolvedOptions.showLoading ?? (shouldAnimateSwitch ? false : (staleWhileRevalidate ? false : !(preserveView || trackDiff)));
+    const showLoading = resolvedOptions.showLoading ?? (staleWhileRevalidate ? false : !(preserveView || trackDiff));
 
     if (showLoading) {
       setLoading(true);
-    } else if (shouldAnimateSwitch) {
-      setLoading(false);
     }
     if (preserveView && !trackDiff) {
       queueFileListViewRestore();
@@ -3248,33 +2982,24 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       if (!canApplyResult()) {
         return false;
       }
-      const applyLoadedData = () => {
-        if (trackDiff) {
-          updateItemsPreservingView((current) => buildItemsWithTrackedDiff(current, (data || []) as FileManagerFileItem[], normalizedPath));
-        } else {
-          setItems((data || []) as FileManagerFileItem[]);
-        }
-        displayedTabIdRef.current = targetTabId || displayedTabIdRef.current;
-        currentPathHydratedRef.current = true;
-        currentPathRef.current = normalizedPath;
-        preserveWorkspacePathRef.current = preserveWorkspacePathOnSuccess;
-        setCurrentPath(normalizedPath);
-        if (!preserveView && fileListRef.current) {
-          fileListRef.current.scrollTop = 0;
-        }
-        setLoading(false);
-      };
-
-      if (shouldAnimateSwitch) {
-        commitFileListSwitch(switchToken, applyLoadedData);
+      if (trackDiff) {
+        updateItemsPreservingView((current) => buildItemsWithTrackedDiff(current, (data || []) as FileManagerFileItem[], normalizedPath));
       } else {
-        applyLoadedData();
+        setItems((data || []) as FileManagerFileItem[]);
       }
+      displayedTabIdRef.current = targetTabId || displayedTabIdRef.current;
+      currentPathHydratedRef.current = true;
+      currentPathRef.current = normalizedPath;
+      preserveWorkspacePathRef.current = preserveWorkspacePathOnSuccess;
+      setCurrentPath(normalizedPath);
+      if (!preserveView && fileListRef.current) {
+        fileListRef.current.scrollTop = 0;
+      }
+      setLoading(false);
       return true;
     } catch (err) {
       getPaneViewState(activePaneKey).pendingRestore = null;
       if (!canApplyResult()) return false;
-      cancelFileListSwitch(switchToken);
       setLoading(false);
       if (!resolvedOptions.silent) {
         const rawMsg = String(err);
@@ -3303,11 +3028,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
       return false;
     } finally {
-      if (!shouldAnimateSwitch && mountedRef.current && requestSeq === loadRequestSeqRef.current) {
+      if (mountedRef.current && requestSeq === loadRequestSeqRef.current) {
         setLoading(false);
       }
     }
-  }, [sessionId, addToast, normalizePath, t, queueFileListViewRestore, updateItemsPreservingView, isDeletedPlaceholderItem, didItemMetadataChange, queueRowEffect, createDeletedPlaceholder, beginFileListSwitch, commitFileListSwitch, cancelFileListSwitch, getCachedPathItems]);
+  }, [sessionId, addToast, normalizePath, t, queueFileListViewRestore, updateItemsPreservingView, isDeletedPlaceholderItem, didItemMetadataChange, queueRowEffect, getCachedPathItems]);
 
   const applyAnimatedFileListSnapshot = useCallback((path: unknown, nextItems: FileManagerFileItem[], options: Record<string, unknown> = {}) => {
     const normalizedPath = normalizePath(path) || '/';
@@ -3318,9 +3043,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       || ''
     ).trim();
     const preserveView = options.preserveView === true;
-    // Tab cache restore must be instant — slide animation feels wrong when a background
-    // cwd-linked tab path has already changed while the user was on another tab.
-    cancelFileListSwitch();
     displayedTabIdRef.current = targetTabId || displayedTabIdRef.current;
     currentPathHydratedRef.current = true;
     currentPathRef.current = normalizedPath;
@@ -3330,7 +3052,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (!preserveView && fileListRef.current) {
       fileListRef.current.scrollTop = 0;
     }
-  }, [normalizePath, cancelFileListSwitch]);
+  }, [normalizePath]);
 
   const buildNonRememberedInitialPathCandidates = useCallback(async () => {
     const candidates: string[] = [];
@@ -3525,7 +3247,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       preserveView: false,
       trackDiff: false,
       showLoading: options.showLoading === true,
-      transitionMode: typeof options.transitionMode === 'string' ? options.transitionMode : 'directory',
     });
   }, [activePaneKey, commitFileManagerWorkspace, loadDir, resolveTerminalCwdFollowTarget, syncCurrentTabToWorkspace]);
 
@@ -3731,9 +3452,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     void loadDir(newPath, {
       preserveView: false,
       trackDiff: false,
-      showLoading: false,
-      transitionMode: 'directory',
-      transitionDirection: 'forward',
+      showLoading: true,
     });
   };
 
@@ -4549,20 +4268,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     return Array.from(new Set(keys.map((paneKey) => normalizeFileManagerPaneKey(paneKey))));
   }, [activePaneKey, normalizePath]);
 
-  const queueRowEffectForMatchingPanes = useCallback((directoryPath: unknown, logicalKey: string, rowKey: string, effect: string, placeholderItem: PanePlaceholderEntry | null = null) => {
+  const queueRowEffectForMatchingPanes = useCallback((directoryPath: unknown, logicalKey: string, rowKey: string, effect: string) => {
     const matchingPaneKeys = resolveFileManagerPaneKeysForPath(directoryPath);
     const targetPaneKeys = matchingPaneKeys.length > 0 ? matchingPaneKeys : [activePaneKey];
     targetPaneKeys.forEach((paneKey) => {
       queueRowEffect(logicalKey, rowKey, effect, paneKey);
-      if (
-        effect === 'removed'
-        && placeholderItem
-        && normalizeFileManagerPaneKey(paneKey) !== normalizeFileManagerPaneKey(activePaneKey)
-      ) {
-        mergePaneTransientRemovedPlaceholders(paneKey, placeholderItem, directoryPath);
-      }
     });
-  }, [activePaneKey, mergePaneTransientRemovedPlaceholders, queueRowEffect, resolveFileManagerPaneKeysForPath]);
+  }, [activePaneKey, queueRowEffect, resolveFileManagerPaneKeysForPath]);
 
   const transferFileManagerItems = useCallback(async ({
     paths,
@@ -5111,7 +4823,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (!isDualPane && tabId === activeFileManagerTabIdRef.current) {
       return;
     }
-    cancelFileListSwitch();
     const currentWorkspace = syncCurrentTabToWorkspace({ scrollTop: fileListRef.current?.scrollTop || 0 }) || fileManagerWorkspace;
     const targetTab = currentWorkspace?.tabs?.find((tab) => tab.id === tabId);
     if (!targetTab) {
@@ -5254,14 +4965,13 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
         )),
       }));
     }
-  }, [activePaneKey, applyAnimatedFileListSnapshot, cancelFileListSwitch, commitFileManagerWorkspace, fileManagerLayoutMode, fileManagerWorkspace, getCachedPathItems, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace]);
+  }, [activePaneKey, applyAnimatedFileListSnapshot, commitFileManagerWorkspace, fileManagerLayoutMode, fileManagerWorkspace, getCachedPathItems, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace]);
 
   const activateFileManagerPane = useCallback(async (paneKey: unknown) => {
     const nextPaneKey = paneKey === 'right' ? 'right' : 'left';
     if (nextPaneKey === activePaneKey) {
       return;
     }
-    cancelFileListSwitch();
     const currentWorkspace = syncCurrentTabToWorkspace({ scrollTop: fileListRef.current?.scrollTop || 0 }) || fileManagerWorkspaceRef.current;
     const targetPane = currentWorkspace?.panes?.[nextPaneKey] || {};
     const targetTabId = String(targetPane.tabId || currentWorkspace?.activeTabId || '').trim();
@@ -5335,7 +5045,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       showLoading: false,
       preferPathCache: true,
     });
-  }, [activePaneKey, applyAnimatedFileListSnapshot, cancelFileListSwitch, commitFileManagerWorkspace, getCachedPathItems, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace]);
+  }, [activePaneKey, applyAnimatedFileListSnapshot, commitFileManagerWorkspace, getCachedPathItems, getCachedTabItems, loadDir, normalizePath, syncCurrentTabToWorkspace]);
 
   const resolveNewFileManagerTabPath = useCallback(async () => {
     const mode = getFileManagerNewTabPathMode();
@@ -5534,7 +5244,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
   const handleCloseFileManagerTab = useCallback(async (tabId: string, event: React.MouseEvent | undefined) => {
     event?.stopPropagation();
-    cancelFileListSwitch();
     const currentWorkspace = syncCurrentTabToWorkspace({ scrollTop: fileListRef.current?.scrollTop || 0 }) || fileManagerWorkspace;
     const currentTabs = Array.isArray(currentWorkspace?.tabs) ? currentWorkspace.tabs : [];
     if (currentTabs.length <= 1) {
@@ -5632,7 +5341,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       showLoading: false,
       preferPathCache: true,
     });
-  }, [addToast, applyAnimatedFileListSnapshot, cancelFileListSwitch, commitFileManagerWorkspace, fileManagerWorkspace, getCachedTabItems, loadDir, normalizePath, removeCachedTabItems, syncCurrentTabToWorkspace, t]);
+  }, [addToast, applyAnimatedFileListSnapshot, commitFileManagerWorkspace, fileManagerWorkspace, getCachedTabItems, loadDir, normalizePath, removeCachedTabItems, syncCurrentTabToWorkspace, t]);
 
   // Delete
   const handleDelete = async (item: FileManagerFileItem) => {
@@ -5648,15 +5357,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     try {
       setOperationProgress({ message: `${t('正在删除')} ${item.name}` });
       await AppGo.DeleteItemShell(sessionId, remotePath);
-      const deletedPlaceholder = createDeletedPlaceholder(item, remotePath);
       setSelectedPaths(prev => prev.filter(p => p !== remotePath));
       if (lastClickedPathRef.current === remotePath) {
         lastClickedPathRef.current = null;
       }
-      queueRowEffectForMatchingPanes(currentPathRef.current || currentPath, remotePath, deletedPlaceholder.__rowKey || '', 'removed', deletedPlaceholder);
-      updateItemsPreservingView((prev) => prev.map((entry) => (
-        entry.name === item.name ? deletedPlaceholder : entry
-      )));
+      updateItemsPreservingView((prev) => prev.filter((entry) => entry.name !== item.name));
     } catch (err) {
       addToast?.(`${t('删除失败')}: ${err}`, 'error');
     } finally {
@@ -5680,15 +5385,11 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     try {
       setOperationProgress({ message: `${t('正在删除')} ${item.name}` });
       await AppGo.DeleteItemShell(sessionId, remotePath);
-      const deletedPlaceholder = createDeletedPlaceholder(item, remotePath);
       setSelectedPaths(prev => prev.filter(p => p !== remotePath));
       if (lastClickedPathRef.current === remotePath) {
         lastClickedPathRef.current = null;
       }
-      queueRowEffectForMatchingPanes(currentPathRef.current || currentPath, remotePath, deletedPlaceholder.__rowKey || '', 'removed', deletedPlaceholder);
-      updateItemsPreservingView((prev) => prev.map((entry) => (
-        entry.name === item.name ? deletedPlaceholder : entry
-      )));
+      updateItemsPreservingView((prev) => prev.filter((entry) => entry.name !== item.name));
     } catch (err) {
       addToast?.(`${t('删除失败')}: ${err}`, 'error');
     } finally {
@@ -5703,7 +5404,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (operationInProgressRef.current) return;
     if (selectedPaths.length === 0) return;
     operationInProgressRef.current = true;
-    const dirSet = new Set(items.filter(i => i.isDirectory).map(i => joinPath(currentPath, i.name)));
     const needConfirm = localStorage.getItem('skipFileDeleteConfirm') !== 'true';
     if (needConfirm) {
       const ok = await window.luminDialog?.confirm(`${t('确定删除所选')} (${selectedPaths.length}${t('项')})${t('？此操作不可撤销')}`);
@@ -5728,28 +5428,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       return;
     }
     addToast?.(`${t('已删除')} ${removedPaths.length} ${t('项')}`, 'success');
-    const deletedPlaceholders = new Map(removedPaths.map((path) => {
-      const existingItem = items.find((entry) => joinPath(currentPath, entry.name) === path);
-      const fallbackName = path.split('/').pop() || '';
-      const placeholder = createDeletedPlaceholder(existingItem || {
-        name: fallbackName,
-        isDirectory: dirSet.has(path),
-        size: 0,
-        permission: '',
-        mode: '',
-        modifyTime: Date.now(),
-      }, path);
-      queueRowEffectForMatchingPanes(currentPathRef.current || currentPath, path, placeholder.__rowKey || '', 'removed', placeholder);
-      return [path, placeholder];
-    }));
-    if (lastClickedPathRef.current && removedPaths.includes(lastClickedPathRef.current)) {
+    const removedSet = new Set(removedPaths);
+    if (lastClickedPathRef.current && removedSet.has(lastClickedPathRef.current)) {
       lastClickedPathRef.current = null;
     }
     setSelectedPaths([]);
-    updateItemsPreservingView((prev) => prev.map((entry) => {
-      const logicalPath = joinPath(currentPath, entry.name);
-      return deletedPlaceholders.get(logicalPath) || entry;
-    }));
+    updateItemsPreservingView((prev) => prev.filter((entry) => !removedSet.has(joinPath(currentPath, entry.name))));
     fileListRef.current?.focus();
   };
 
@@ -5794,9 +5478,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       void loadDir(parent, {
         preserveView: false,
         trackDiff: false,
-        showLoading: false,
-        transitionMode: 'directory',
-        transitionDirection: 'backward',
+        showLoading: true,
       });
       return;
     }
@@ -6022,7 +5704,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
           preserveView: false,
           trackDiff: false,
           showLoading: false,
-          transitionMode: 'directory',
         });
       }
     } catch (err) {
@@ -6154,7 +5835,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       }
       Object.values(paneEffectStateRef.current).forEach((paneEffectState) => {
         paneEffectState.pendingVisualEffects.delete(oldPath);
-        paneEffectState.pendingAutoRevealRowKeys = paneEffectState.pendingAutoRevealRowKeys.filter((rowKey) => rowKey !== oldPath);
       });
       clearActiveRowEffect(oldPath);
       queueRowEffectForMatchingPanes(currentPathRef.current || currentPath, newPath, newPath, 'changed');
@@ -6311,19 +5991,32 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     }
   };
 
+  const scrollSyncTimerRef = useRef<number>(0);
+  const syncCurrentTabToWorkspaceRef = useRef(syncCurrentTabToWorkspace);
   const handleFileListScroll = useCallback(() => {
     if (!isActive) return;
-    const paneEffectState = getPaneEffectState(activePaneKey);
     captureFileListViewAnchor();
-    syncCurrentTabToWorkspace({ scrollTop: fileListRef.current?.scrollTop || 0, reason: 'scroll-effect' });
-    if (Date.now() < paneEffectState.suppressUserScrollTrackingUntil) return;
-    paneEffectState.userHasScrolled = true;
-  }, [activePaneKey, captureFileListViewAnchor, getPaneEffectState, isActive, syncCurrentTabToWorkspace]);
+    const currentScrollTop = fileListRef.current?.scrollTop || 0;
+    if (scrollSyncTimerRef.current) {
+      window.clearTimeout(scrollSyncTimerRef.current);
+    }
+    scrollSyncTimerRef.current = window.setTimeout(() => {
+      syncCurrentTabToWorkspace({ scrollTop: currentScrollTop, reason: 'scroll-effect' });
+    }, 150);
+  }, [captureFileListViewAnchor, isActive, syncCurrentTabToWorkspace]);
 
   handleFileListScrollRef.current = handleFileListScroll;
   handleFileListKeyDownRef.current = handleFileListKeyDown;
+  syncCurrentTabToWorkspaceRef.current = syncCurrentTabToWorkspace;
 
   useEffect(() => () => {
+    if (scrollSyncTimerRef.current) {
+      window.clearTimeout(scrollSyncTimerRef.current);
+      scrollSyncTimerRef.current = 0;
+      if (fileListRef.current) {
+        syncCurrentTabToWorkspaceRef.current({ scrollTop: fileListRef.current.scrollTop, reason: 'unmount-flush' });
+      }
+    }
     Object.values(paneScrollerCleanupRef.current).forEach((cleanup) => {
       if (typeof cleanup === 'function') {
         cleanup();
@@ -6618,17 +6311,9 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     const paneSortDir = normalizedPaneKey === activePaneKey
       ? sortDir
       : (paneSnapshot.sortDir === 'desc' ? 'desc' : 'asc');
-    const basePaneItems = normalizedPaneKey === activePaneKey
+    const paneItems = normalizedPaneKey === activePaneKey
       ? items
       : (getCachedTabItems(paneTabId, panePath) || getCachedPathItems(panePath) || []);
-    const transientRemovedPlaceholders = (Array.isArray(paneTransientRemovedPlaceholdersRef.current[normalizedPaneKey])
-      ? paneTransientRemovedPlaceholdersRef.current[normalizedPaneKey]
-      : [])
-      .filter((entry) => (normalizePath(entry?.__transientPanePath) || '/') === (panePath || '/'))
-      .filter((entry) => !basePaneItems.some((item) => item?.name === entry?.name));
-    const paneItems = transientRemovedPlaceholders.length > 0
-      ? [...basePaneItems, ...transientRemovedPlaceholders]
-      : basePaneItems;
     const sortedPaneItems = sortFileManagerItems(paneItems, paneSortField, paneSortDir);
     return {
       key: normalizedPaneKey,
@@ -6647,8 +6332,8 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
       rows: buildFileManagerVirtualRows(sortedPaneItems, panePath || '/'),
     };
   }, [activeFileManagerTab, activePaneKey, currentPath, fileManagerWorkspace, getCachedPathItems, getCachedTabItems, items, normalizePath, selectedPaths, sortDir, sortField, t]);
-  const leftFileManagerPane = useMemo(() => buildFileManagerPaneState('left'), [buildFileManagerPaneState, paneTransientRemovedPlaceholders]);
-  const rightFileManagerPane = useMemo(() => buildFileManagerPaneState('right'), [buildFileManagerPaneState, paneTransientRemovedPlaceholders]);
+  const leftFileManagerPane = useMemo(() => buildFileManagerPaneState('left'), [buildFileManagerPaneState]);
+  const rightFileManagerPane = useMemo(() => buildFileManagerPaneState('right'), [buildFileManagerPaneState]);
   const currentFileManagerPane = activePaneKey === 'right' ? rightFileManagerPane : leftFileManagerPane;
   const activePaneLocatorRows = useMemo(() => (
     Array.isArray(currentFileManagerPane?.rows)
@@ -6934,9 +6619,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
     if (!(element instanceof HTMLElement)) {
       if (options.active === true) {
         fileListRef.current = null;
-        if (options.captureGhost === true) {
-          fileListBodyRef.current = null;
-        }
       } else {
         inactivePaneListRefs.current[normalizedPaneKey] = null;
       }
@@ -6952,9 +6634,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
     if (options.active === true) {
       fileListRef.current = element as HTMLDivElement;
-      if (options.captureGhost === true) {
-        fileListBodyRef.current = element as HTMLDivElement;
-      }
       element.tabIndex = 0;
       const handleScroll = () => handleFileListScrollRef.current?.();
       const handleKeyDown = (event: KeyboardEvent) => handleFileListKeyDownRef.current?.(event as unknown as React.KeyboardEvent<HTMLDivElement>);
@@ -7005,9 +6684,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             void loadDir(parent, {
               preserveView: false,
               trackDiff: false,
-              showLoading: false,
-              transitionMode: 'directory',
-              transitionDirection: 'backward',
+              showLoading: true,
             });
           } : undefined}
           onClick={isInteractive ? (event) => {
@@ -7284,20 +6961,12 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
 
     paneScrollerRefOptionsRef.current[normalizedPaneKey] = {
       active: options.active === true,
-      captureGhost: options.active === true,
       scrollTop: paneState?.scrollTop,
     };
 
     return (
       <div className="file-list-viewport">
-        {options.active === true && fileListSwitchGhostHtml && (
-          <div
-            className={`file-list-body file-list-body-ghost ${fileListSwitchStage !== 'idle' ? `${fileListSwitchStage} is-locked` : ''}`}
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: fileListSwitchGhostHtml }}
-          />
-        )}
-        <div className={`file-list-body${options.active === true ? ` file-list-body-live ${fileListSwitchStage !== 'idle' ? `${fileListSwitchStage} is-locked` : ''}` : ''}`} style={{ height: '100%' }}>
+        <div className="file-list-body" style={{ height: '100%' }}>
           <Virtuoso
             ref={getPaneVirtuosoRefCallback(normalizedPaneKey)}
             style={{ height: '100%' }}
@@ -7310,7 +6979,6 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                 ? fileListRef.current
                 : (inactivePaneListRefs.current[normalizedPaneKey] || paneScrollerElementsRef.current[normalizedPaneKey]);
               if (listElement) {
-                applyPanePendingRestoreIfReady(normalizedPaneKey, listElement);
                 captureFileListViewAnchor(normalizedPaneKey, listElement);
                 if (options.active !== true) {
                   syncFileManagerPaneScrollTop(normalizedPaneKey, listElement);
@@ -7325,9 +6993,17 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
             components={emptyPlaceholderComponent ? { EmptyPlaceholder: emptyPlaceholderComponent } : {}}
           />
         </div>
+        {options.loading === true && (
+          <div className="file-list-loading" role="status" aria-live="polite">
+            <div className="file-list-loading-spinner">
+              <RefreshCw className="spin" size={28} />
+            </div>
+            <div className="file-list-loading-text">{t('加载中...')}</div>
+          </div>
+        )}
       </div>
     );
-  }, [applyPanePendingRestoreIfReady, captureFileListViewAnchor, fileListSwitchGhostHtml, fileListSwitchStage, flushPendingRowEffects, getPaneScrollerRefCallback, getPaneVirtuosoRefCallback, renderFileManagerVirtualRow, syncFileManagerPaneScrollTop, t]);
+  }, [captureFileListViewAnchor, flushPendingRowEffects, getPaneScrollerRefCallback, getPaneVirtuosoRefCallback, renderFileManagerVirtualRow, syncFileManagerPaneScrollTop, t]);
 
   const renderInactiveFileManagerPane = useCallback((paneState: FileManagerPaneStateLike) => {
     const isDropTarget = fileManagerPaneDropTarget === paneState.key;
@@ -7504,9 +7180,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   void loadDir(resolvedDirectoryPath, {
                     preserveView: false,
                     trackDiff: false,
-                    showLoading: false,
-                    transitionMode: 'directory',
-                    transitionDirection: resolvedDirectoryPath === getParentPath(currentPath) ? 'backward' : 'forward',
+                    showLoading: true,
                   });
                 }
               }
@@ -7720,9 +7394,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
                   void loadDir(parent, {
                     preserveView: false,
                     trackDiff: false,
-                    showLoading: false,
-                    transitionMode: 'directory',
-                    transitionDirection: 'backward',
+                    showLoading: true,
                   });
                 }}
               >
@@ -8110,7 +7782,7 @@ export default function FileManager({ sessionId, sessionGroupId = sessionId, add
               <span style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentPath || '/'}</span>
             </div>
           )}
-          <div className={`file-list${fileListSwitchStage !== 'idle' ? ` is-switching is-switch-${fileListSwitchDirection}` : ''}`} style={{ flex: 1, minWidth: 0 }} aria-busy={loading || fileListSwitchStage !== 'idle'}>
+          <div className="file-list" style={{ flex: 1, minWidth: 0 }} aria-busy={loading}>
             {fileListTypeaheadQuery ? (
               <div className="file-list-typeahead-hud">{fileListTypeaheadQuery}</div>
             ) : null}
