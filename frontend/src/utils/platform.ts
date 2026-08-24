@@ -1,5 +1,5 @@
 // 平台检测工具
-const _isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+export const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
 /** 修饰键事件（键盘/鼠标事件共有的 ctrlKey、metaKey 字段） */
 interface ModifierKeyEvent {
@@ -8,11 +8,11 @@ interface ModifierKeyEvent {
 }
 
 /**
- * 获取修饰键状态（macOS 上将 Meta/⌘ 映射为 Ctrl）
+ * 获取修饰键状态（macOS 上将 Meta/⌘ 映射为主快捷键 Ctrl）
  * 用于快捷键检测：const mod = getModKey(e);
  */
 export function getModKey(e: ModifierKeyEvent): boolean {
-  return _isMac ? (e.ctrlKey || e.metaKey) : e.ctrlKey;
+  return isMac ? e.metaKey : e.ctrlKey;
 }
 
 /**
@@ -21,6 +21,29 @@ export function getModKey(e: ModifierKeyEvent): boolean {
  */
 export function formatShortcut(str: string): string {
   if (!str) return str;
-  if (_isMac) return str.replace(/Ctrl/g, '⌘').replace(/Alt/g, '⌥').replace(/Shift/g, '⇧');
+  if (isMac) return str.replace(/Ctrl/g, '⌘').replace(/Alt/g, '⌥').replace(/Shift/g, '⇧');
   return str;
+}
+
+/** 组合键构建事件（键盘事件共有的 key 与修饰键字段） */
+interface ComboKeyEvent extends ModifierKeyEvent {
+  shiftKey: boolean;
+  altKey: boolean;
+  key: string;
+}
+
+/**
+ * 构建组合键字符串（如 "Ctrl+Shift+V"），与快捷键录制/匹配三处共用同一实现，避免漂移。
+ * ctrl 参数决定是否计入 Ctrl 位：主快捷键传 getModKey(e)，物理 Ctrl 语义传 e.ctrlKey。
+ */
+export function buildCombo(e: ComboKeyEvent, ctrl: boolean): string {
+  const keys: string[] = [];
+  if (ctrl) keys.push('Ctrl');
+  if (e.shiftKey) keys.push('Shift');
+  if (e.altKey) keys.push('Alt');
+  let keyName = e.key;
+  if (keyName === ' ') keyName = 'Space';
+  else if (keyName.length === 1) keyName = keyName.toUpperCase();
+  keys.push(keyName);
+  return keys.join('+');
 }

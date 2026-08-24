@@ -481,6 +481,7 @@ export default {
   "终端颜色主题": "Motyw kolorystyczny terminala",
   "选择终端的配色风格，即时生效": "Wybierz styl dopasowania kolorów terminala, który zacznie obowiązywać natychmiast",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Uwaga: na niektóre zachowania klawiszy skrótu wpływają ustawienia powłoki w terminalu.",
+  "注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。": "Uwaga: W systemie macOS ⌘ jest głównym modyfikatorem skrótów; fizyczne kombinacje z Ctrl (np. ⌃C/⌃D) są zawsze wysyłane jako sygnały sterujące terminala.",
   "Alt 打开历史指令": "Otwieraj historię poleceń klawiszem Alt",
   "云端同步": "Synchronizacja w chmurze",
   "同步所有配置，全程 AES-256 高强加密": "Synchronizuj wszystkie konfiguracje z szyfrowaniem AES-256 o wysokiej wytrzymałości w trakcie całego procesu",

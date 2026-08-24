@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t, type I18nKey, type LanguageCode } from '../i18n.ts';
-import { getModKey } from '../utils/platform.ts';
+import { getModKey, buildCombo } from '../utils/platform.ts';
 import logoImg from '../assets/logo.webp';
 import { APP_BUILD_TIME, APP_VERSION } from '../config.ts';
 import { formatUpdateError, useUpdateChecker, type UpdateCheckResult } from '../hooks/useUpdateChecker.ts';
@@ -576,17 +576,10 @@ export default function SettingsModal({
 
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
 
-      const keys = [];
-      if (getModKey(e)) keys.push('Ctrl');
-      if (e.shiftKey) keys.push('Shift');
-      if (e.altKey) keys.push('Alt');
-      
-      let keyName = e.key;
-      if (keyName === ' ') keyName = 'Space';
-      else if (keyName.length === 1) keyName = keyName.toUpperCase();
-      
-      keys.push(keyName);
-      const combined = keys.join('+');
+      // macOS 上主快捷键为 ⌘（getModKey），同时允许物理 ⌃ 录制（两者存为同一 "Ctrl+…"，
+      // 运行时信号类快捷键会同时匹配两种组合键）；否则按 ⌃C 会录成无修饰的 "C"，
+      // 导致普通字母键也被当作快捷键触发
+      const combined = buildCombo(e, e.ctrlKey || getModKey(e));
 
       const updated = { ...shortcuts, [listeningKey]: combined };
       setShortcuts(updated);

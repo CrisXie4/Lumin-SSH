@@ -7,7 +7,7 @@ import { SearchAddon } from '@xterm/addon-search';
 import { Copy, Clipboard, Trash2, CheckSquare, Play, Clock, X, Zap, MessageSquarePlus, ExternalLink, Search, ChevronUp, ChevronDown, CaseSensitive } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
-import { getModKey, formatShortcut } from '../utils/platform.ts';
+import { getModKey, formatShortcut, isMac, buildCombo } from '../utils/platform.ts';
 import { clampMenuPosition } from '../utils/menuPosition.ts';
 import { extractQuickCommandParams, fillQuickCommandParams, normalizeQuickCommandParamHistory, type QuickCommandParamHistory } from '../utils/quickCommandParams.ts';
 import {
@@ -496,6 +496,29 @@ function normalizeTerminalPasteText(text: string) {
     .replace(/\n+$/g, '')
     .replace(/\n/g, '\r')
 }
+
+/**
+ * 读取剪贴板文本：优先走 Wails 原生剪贴板接口，绕开 navigator.clipboard.readText()
+ * 在 macOS WKWebView 下弹出的 "Paste" 提示气泡（issue #263）；非 Wails 运行时
+ * （浏览器 dev）调用绑定会抛错，此时回退 Clipboard API。
+ */
+async function readClipboardText(): Promise<string> {
+  try {
+    const text = await AppGo.ClipboardGetText();
+    if (typeof text === 'string') return text;
+  } catch {
+    // 非 Wails 环境，回退
+  }
+  return navigator.clipboard.readText();
+}
+
+/** 终端控制信号字节（SIGINT/EOF/SIGTSTP/清行），按键热路径复用，避免每次 keydown 分配 */
+const TERMINAL_SIGNAL_BYTES: Record<string, Uint8Array> = Object.freeze({
+  sigint: new Uint8Array([0x03]),     // Ctrl+C (ETX)
+  eof: new Uint8Array([0x04]),        // Ctrl+D (EOT)
+  suspend: new Uint8Array([0x1a]),    // Ctrl+Z (SUB)
+  clearLine: new Uint8Array([0x15]),  // Ctrl+U (NAK)
+});
 
 // 命令栏按钮样式辅助函数
 const btnStyle = (color: string) => ({
@@ -1671,22 +1694,20 @@ export default function Terminal({
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
 
+      // 修饰键策略：macOS 上 ⌘ = UI 动作（复制/粘贴/清屏/查找），物理 ⌃ = 终端控制信号
+      // （SIGINT/EOF 等，与原生终端一致，⌃V 发送 \x16 literal-next 而非粘贴）；
+      // Win/Linux 上两者合一为 Ctrl。信号/清屏/选区粘贴同时匹配两种组合键。
+
       // 1. 获取用户自定义的快捷键配置（从 ref 缓存读取，避免热路径访问 localStorage）
       const customShortcuts: Record<string, string> = shortcutsRef.current || DEFAULT_TERMINAL_SHORTCUTS;
 
-      // 2. 解析当前按下的组合键字符串（如 "Ctrl+C", "Ctrl+Shift+V"）
-      const keys = [];
-      if (getModKey(e))  keys.push('Ctrl');
-      if (e.shiftKey) keys.push('Shift');
-      if (e.altKey)   keys.push('Alt');
+      // 2. 解析当前按下的组合键字符串（macOS 下主快捷键使用 ⌘ Meta，Win/Linux 下使用 Ctrl）
+      const pressedStr = buildCombo(e, getModKey(e));
+      // 3. 基于物理 Ctrl 键的组合键（用于终端控制信号 SIGINT/EOF 等，跨平台始终绑定物理 Ctrl；
+      //    Win/Linux 上与 pressedStr 恒相同，仅 macOS 需要单独构建）
+      const physicalCtrlStr = isMac ? buildCombo(e, e.ctrlKey) : pressedStr;
 
-      let keyName = e.key;
-      if (keyName === ' ')           keyName = 'Space';
-      else if (keyName.length === 1) keyName = keyName.toUpperCase();
-      keys.push(keyName);
-      const pressedStr = keys.join('+');
-
-      // ── 自定义复制键（默认 Ctrl+C）：智能处理 ────────
+      // ── 自定义复制键（默认 ⌘C 或 Ctrl+C）：智能处理 ────────
       if (pressedStr === customShortcuts.copy) {
         const selection = term.getSelection();
         if (selection) {
@@ -1696,12 +1717,12 @@ export default function Terminal({
           return false; // 已复制，阻止 xterm 把按键发给服务器
         }
         // 【关键】如果没有选区，则直接放行 (return true)
-        // 这样如果你用的是 Ctrl+C，它就能变成标准的终端中断符 (\x03) 发给服务器
+        // 这样在 Win/Linux 上按 Ctrl+C 能变成标准的终端中断符 (\x03) 发给服务器
         return true; 
       }
 
       // ── Ctrl+Shift+C：强制系统级复制，作为备用方案 ────────
-      if (e.ctrlKey && e.shiftKey && !e.altKey && e.key === 'C') {
+      if (e.ctrlKey && e.shiftKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         const selection = term.getSelection();
         if (selection) navigator.clipboard.writeText(selection);
@@ -1710,8 +1731,17 @@ export default function Terminal({
 
       // ── 自定义粘贴键 ───────────────────────────
       if (pressedStr === customShortcuts.paste) {
+        // 在 macOS 上按下 ⌘V 且使用默认粘贴配置时，放行给系统原生 paste 事件处理，避免触发 WebKit 异步剪贴板 "Paste" 提示气泡。
+        // 原生路径由 xterm 的 paste 监听器处理：换行归一 + 按需 bracketed paste 包裹（多行粘贴不会逐行自动执行），
+        // 并统一走 term.onData（含 normalizeTerminalPasteText 与本地回显逻辑）。
+        if (isMac && e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === 'v' || e.key === 'V') && customShortcuts.paste === 'Ctrl+V') {
+          return true;
+        }
+
+        // 自定义粘贴组合键无法触发系统原生 paste 事件（只有真实的 ⌘V/Ctrl+V 能），
+        // 改走 Wails 运行时剪贴板读取，macOS 下同样不弹 "Paste" 气泡；浏览器 dev 回退 Clipboard API。
         e.preventDefault();
-        navigator.clipboard.readText().then((text) => {
+        readClipboardText().then((text) => {
           const payload = normalizeTerminalPasteText(text);
           if (payload && wsRef.current?.readyState === WebSocket.OPEN) {
             pendingCmdRef.current += payload.replace(/[\x00-\x1F\x7F]/g, '');
@@ -1725,7 +1755,7 @@ export default function Terminal({
       }
 
       // ── 自定义清屏键 ───────────────────────────
-      if (pressedStr === customShortcuts.clear) {
+      if (pressedStr === customShortcuts.clear || physicalCtrlStr === customShortcuts.clear) {
         e.preventDefault();
         term.clear();
         return false;
@@ -1736,7 +1766,8 @@ export default function Terminal({
         return true;
       }
 
-      // ── 查找终端缓冲区（默认 Ctrl+F） ────────────────
+      // ── 查找终端缓冲区（默认 ⌘F 或 Ctrl+F）。仅匹配主快捷键：物理 ⌃F 在 macOS 上
+      // 保持终端语义（readline 前进一个字符 \x06），不打开查找 ────────────────
       const findShortcut = customShortcuts.find || 'Ctrl+F';
       if (pressedStr === findShortcut) {
         e.preventDefault();
@@ -1752,16 +1783,11 @@ export default function Terminal({
         return false;
       }
 
-      // ── 自定义控制信号（向服务器发送对应的控制字符） ────────────────
-      const signalMap = {
-        sigint: new Uint8Array([0x03]),     // Ctrl+C (ETX)
-        eof: new Uint8Array([0x04]),        // Ctrl+D (EOT)
-        suspend: new Uint8Array([0x1a]),    // Ctrl+Z (SUB)
-        clearLine: new Uint8Array([0x15])   // Ctrl+U (NAK)
-      };
-
-      for (const [key, bytes] of Object.entries(signalMap)) {
-        if (customShortcuts[key] && pressedStr === customShortcuts[key]) {
+      // ── 自定义控制信号（向服务器发送对应的控制字符）。
+      // 同时匹配物理 Ctrl 与主修饰键组合：跨平台物理 Ctrl 始终可用，
+      // macOS 上 ⌘+信号键也生效（保留旧版 ⌘ 映射 Ctrl 的肌肉记忆） ────────────────
+      for (const [key, bytes] of Object.entries(TERMINAL_SIGNAL_BYTES)) {
+        if (customShortcuts[key] && (physicalCtrlStr === customShortcuts[key] || pressedStr === customShortcuts[key])) {
           e.preventDefault();
           if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(bytes);
@@ -1771,7 +1797,7 @@ export default function Terminal({
       }
 
       // 已有动作优先，避免重复绑定时一次按键执行两个动作
-      if (pressedStr === customShortcuts.pasteSelection) {
+      if (pressedStr === customShortcuts.pasteSelection || physicalCtrlStr === customShortcuts.pasteSelection) {
         e.preventDefault();
         void pasteTerminalSelectionToTerminal();
         return false;
@@ -2482,7 +2508,9 @@ export default function Terminal({
   }, []);
 
   const pasteClipboardToTerminal = useCallback(() => {
-    navigator.clipboard.readText().then((text) => {
+    // 走 Wails 运行时读取剪贴板：右键/菜单粘贴没有 keydown 可放行成原生 paste 事件，
+    // macOS 下 navigator.clipboard.readText() 会弹 "Paste" 提示气泡（issue #263）
+    readClipboardText().then((text) => {
       const payload = normalizeTerminalPasteText(text);
       if (payload && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         pendingCmdRef.current += payload.replace(/[\x00-\x1F\x7F]/g, '');
@@ -2759,15 +2787,7 @@ export default function Terminal({
     if (!isActive) return undefined;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      const keys = [];
-      if (getModKey(e)) keys.push('Ctrl');
-      if (e.shiftKey) keys.push('Shift');
-      if (e.altKey) keys.push('Alt');
-      let keyName = e.key;
-      if (keyName === ' ') keyName = 'Space';
-      else if (keyName.length === 1) keyName = keyName.toUpperCase();
-      keys.push(keyName);
-      const pressedStr = keys.join('+');
+      const pressedStr = buildCombo(e, getModKey(e));
       const findShortcut = shortcutsRef.current?.find || 'Ctrl+F';
       if (pressedStr !== findShortcut) return;
       const activeEl = document.activeElement;
@@ -2868,7 +2888,7 @@ export default function Terminal({
           input.focus();
           break;
         case 'paste':
-          navigator.clipboard.readText().then((text) => {
+          readClipboardText().then((text) => {
             const insertText = String(text || '');
             const nextValue = `${value.slice(0, selectionStart)}${insertText}${value.slice(selectionEnd)}`;
             const nextCaret = selectionStart + insertText.length;
@@ -2982,13 +3002,13 @@ export default function Terminal({
   const syncCommandInputHeight = useCallback(() => {
     const element = cmdInputRef.current
     if (!element) return
-    element.style.height = '32px'
+    element.style.height = '36px'
     element.style.overflowY = 'hidden'
     element.scrollTop = 0
     if (!element.value) {
       return
     }
-    const scrollHeight = Math.max(element.scrollHeight, 32)
+    const scrollHeight = Math.max(element.scrollHeight, 36)
     const nextHeight = Math.min(scrollHeight, 132)
     element.style.height = `${nextHeight}px`
     if (scrollHeight > 132) {
@@ -4184,9 +4204,9 @@ export default function Terminal({
               width: '100%',
               fontSize: 12,
               fontFamily: 'var(--font-terminal)',
-              padding: '7px 10px',
-              height: 32,
-              minHeight: 32,
+              padding: '8px 11px',
+              height: 36,
+              minHeight: 36,
               background: 'var(--term-input-bg)',
               color: 'var(--term-input-color)',
               borderColor: cmdInput ? 'var(--border-focus)' : 'var(--term-btn-border)',
@@ -4259,7 +4279,7 @@ export default function Terminal({
             onClick={toggleMultiLineWrap}
             aria-label={multiLineWrapEnabled ? t('函数/变量作用域:命令内部') : t('函数/变量作用域:终端会话')}
             className={`term-btn${multiLineWrapEnabled ? ' active' : ''}`}
-            style={{ padding: 0, width: 32, minWidth: 32, justifyContent: 'center' }}
+            style={{ padding: 0, width: 36, minWidth: 36, height: 36, minHeight: 36, justifyContent: 'center' }}
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700 }}>
               &gt;_

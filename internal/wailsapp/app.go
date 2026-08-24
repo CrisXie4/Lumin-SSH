@@ -385,6 +385,12 @@ func (a *App) GetArch() string {
 	return goruntime.GOARCH
 }
 
+// ClipboardGetText 读取系统剪贴板文本。前端在 WKWebView（macOS）下通过它绕开
+// navigator.clipboard.readText 触发的 WebKit "Paste" 提示气泡（issue #263）。
+func (a *App) ClipboardGetText() (string, error) {
+	return runtime.ClipboardGetText(a.ctx)
+}
+
 // GetConnections returns all saved SSH connections
 func (a *App) GetConnections() []config.Connection {
 	return a.configManager.GetConnections()

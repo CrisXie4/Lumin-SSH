@@ -5162,9 +5162,9 @@ body.theme-light .dashboard-server-editor {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 32px;
-  height: 32px;
-  padding: 0 8px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 9px;
   font-size: 11px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -5188,10 +5188,10 @@ body.theme-light .dashboard-server-editor {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
   border-radius: var(--radius-sm);
   transition: var(--transition-fast);
   flex-shrink: 0;
@@ -5419,8 +5419,8 @@ body.theme-light .dashboard-server-editor {
 
 .term-command-input {
   resize: none;
-  min-height: 28px;
-  max-height: 120px;
+  min-height: 36px;
+  max-height: 132px;
   overflow-x: hidden;
   overflow-y: hidden;
   line-height: 1.4;

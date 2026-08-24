@@ -481,6 +481,7 @@ export default {
   "终端颜色主题": "Tema warna terminal",
   "选择终端的配色风格，即时生效": "Pilih gaya pencocokan warna terminal, yang akan segera diterapkan",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Catatan: Beberapa perilaku tombol pintas dipengaruhi oleh pengaturan Shell di terminal.",
+  "注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。": "Catatan: Di macOS, ⌘ adalah pengubah pintasan utama; kombinasi Ctrl fisik (mis. ⌃C/⌃D) selalu dikirim sebagai sinyal kontrol terminal.",
   "Alt 打开历史指令": "Buka riwayat perintah dengan Alt",
   "云端同步": "Sinkronisasi awan",
   "同步所有配置，全程 AES-256 高强加密": "Sinkronkan semua konfigurasi dengan enkripsi kekuatan tinggi AES-256 selama proses berlangsung",

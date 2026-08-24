@@ -481,6 +481,7 @@ export default {
   "终端颜色主题": "Tema de culoare terminală",
   "选择终端的配色风格，即时生效": "Selectați stilul de potrivire a culorilor pentru terminal, care va intra în vigoare imediat",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Notă: Unele comportamente ale tastelor de comandă rapidă sunt afectate de setările Shell din terminal.",
+  "注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。": "Notă: Pe macOS, ⌘ este modificatorul principal al scurtăturilor; combinațiile cu tasta Ctrl fizică (de ex. ⌃C/⌃D) sunt trimise mereu ca semnale de control ale terminalului.",
   "Alt 打开历史指令": "Deschide istoricul comenzilor cu Alt",
   "云端同步": "Sincronizare cloud",
   "同步所有配置，全程 AES-256 高强加密": "Sincronizați toate configurațiile cu criptarea de înaltă rezistență AES-256 pe tot parcursul procesului",

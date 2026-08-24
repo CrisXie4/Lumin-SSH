@@ -481,6 +481,7 @@ export default {
   "终端颜色主题": "Tema de cores do terminal",
   "选择终端的配色风格，即时生效": "Selecione o estilo de correspondência de cores do terminal, que entrará em vigor imediatamente",
   "注：部分快捷键行为受终端内的 Shell 设置影响。": "Nota: Alguns comportamentos das teclas de atalho são afetados pelas configurações do Shell no terminal.",
+  "注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。": "Observação: no macOS, ⌘ é o modificador principal dos atalhos; as combinações com a tecla Ctrl física (ex.: ⌃C/⌃D) são sempre enviadas como sinais de controle do terminal.",
   "Alt 打开历史指令": "Abrir o histórico de comandos com Alt",
   "云端同步": "Sincronização na nuvem",
   "同步所有配置，全程 AES-256 高强加密": "Sincronize todas as configurações com criptografia AES-256 de alta resistência durante todo o processo",

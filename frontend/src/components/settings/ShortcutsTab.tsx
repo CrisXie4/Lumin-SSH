@@ -2,6 +2,7 @@ import React from 'react';
 import { t as $t, type I18nKey } from '../../i18n.ts';
 import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot, type SettingsDefinitionNode } from './SharedComponents.tsx';
 import { settings } from './settingDefinitions';
+import { formatShortcut, isMac } from '../../utils/platform.ts';
 
 interface ShortcutRowProps {
   definition?: { id?: string };
@@ -32,7 +33,7 @@ function ShortcutRow({ definition, label, keyName, shortcuts, listeningKey, onSe
           transition: 'var(--transition)',
         }}
       >
-        {isListening ? $t('请按下快捷键...') : shortcuts[keyName]}
+        {isListening ? $t('请按下快捷键...') : formatShortcut(shortcuts[keyName])}
       </button>
     </div>
   );
@@ -81,6 +82,9 @@ export default function ShortcutsTab({ shortcuts, listeningKey, onSetListeningKe
           ))}
         </SettingsPanel>
         <p style={{ marginTop: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>{$t('注：部分快捷键行为受终端内的 Shell 设置影响。')}</p>
+        {isMac ? (
+          <p style={{ marginTop: 4, fontSize: 12, color: 'var(--text-tertiary)' }}>{$t('注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。')}</p>
+        ) : null}
       </div>
     </SettingsTabRoot>
   );
