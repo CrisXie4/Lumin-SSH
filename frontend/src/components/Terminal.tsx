@@ -3729,7 +3729,7 @@ export default function Terminal({
       <div style={{
         position: 'absolute',
         inset: 0,
-        backgroundImage: `url(${bgInfo.image || (bgInfo.globalActive ? '' : defaultTermBg)})`,
+        backgroundImage: `url("${bgInfo.image || (bgInfo.globalActive ? '' : defaultTermBg)}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: Number.isFinite(bgInfo.opacity) ? bgInfo.opacity : 0.15,
