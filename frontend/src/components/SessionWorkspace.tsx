@@ -1158,7 +1158,7 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                                         </div>
                                       )}
                                       <div style={{ flex: 1, minHeight: 0 }}>
-                                        <ErrorBoundary label={`终端 ${term.id} 渲染出错`}>
+                                        <ErrorBoundary label={t('终端 {id} 渲染出错', { id: term.id })}>
                                           <Terminal
                                             sessionId={term.id || ''}
                                             serverId={String(s.id ?? '')}
@@ -1177,10 +1177,10 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                                     </div>
                                   );
                                 });
-                              })() : (getEffectiveTerminals(s).map((t) => {
-                                const isTermActive = (contentTab === 'terminal' || s.status !== 'connected') && activeTerminalId === t.id;
+                              })() : (getEffectiveTerminals(s).map((term) => {
+                                const isTermActive = (contentTab === 'terminal' || s.status !== 'connected') && activeTerminalId === term.id;
                                 return (
-                                  <div key={t.id} style={{
+                                  <div key={term.id} style={{
                                     position: 'absolute', inset: 0,
                                     display: 'flex',
                                     visibility: isTermActive ? 'visible' : 'hidden',
@@ -1188,16 +1188,16 @@ export default function SessionWorkspace({ dashboard = {}, session = {}, fileMan
                                     contain: isTermActive ? 'none' : 'strict',
                                     flexDirection: 'column',
                                   }}>
-                                    <ErrorBoundary label={`终端 ${t.id} 渲染出错`}>
+                                    <ErrorBoundary label={t('终端 {id} 渲染出错', { id: term.id })}>
                                       <Terminal
-                                        sessionId={t.id || ''}
+                                        sessionId={term.id || ''}
                                         serverId={String(s.id ?? '')}
                                         historyServerId={String(s.serverId ?? '')}
                                         status={String(s.status ?? '')}
-                                        isActive={activeSessionId === s.id && activeTerminalId === t.id && (contentTab === 'terminal' || fileManagerPosition !== 'tab')}
+                                        isActive={activeSessionId === s.id && activeTerminalId === term.id && (contentTab === 'terminal' || fileManagerPosition !== 'tab')}
                                         serverName={String(s.serverName ?? '')}
                                         connectedSessions={connectedSessions}
-                                        showCommands={showQuickCommands && activeSessionId === s.id && activeTerminalId === t.id}
+                                        showCommands={showQuickCommands && activeSessionId === s.id && activeTerminalId === term.id}
                                         onQuickCommandsOpenChange={handleQuickCommandsOpenChange}
                                         quickCmdsRef={quickCmdsRef}
                                         wsRebuildKey={(s.wsRebuildKey as number) || 0}

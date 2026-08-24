@@ -1,6 +1,7 @@
 import { CheckCircle, Info, X, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Tiptop from './Tiptop.tsx';
+import { t } from '../i18n.ts';
 import type { ToastAction, ToastItem } from '../hooks/useToasts.ts';
 
 const ICON_MAP: Record<string, ReactNode> = {
@@ -16,7 +17,8 @@ interface ToastProps {
   closeLabel?: string;
 }
 
-export default function Toast({ toasts, onClose, onAction, closeLabel = '关闭' }: ToastProps) {
+export default function Toast({ toasts, onClose, onAction, closeLabel }: ToastProps) {
+  const resolvedCloseLabel = closeLabel ?? t('关闭');
   if (toasts.length === 0) return null;
   return (
     <div className="toast-container">
@@ -41,8 +43,8 @@ export default function Toast({ toasts, onClose, onAction, closeLabel = '关闭'
                 ))}
               </div>
             )}
-            <Tiptop text={closeLabel} placement="bottom">
-              <button type="button" className="toast-close" onClick={() => onClose?.(t.id)} aria-label={closeLabel}>
+            <Tiptop text={resolvedCloseLabel} placement="bottom">
+              <button type="button" className="toast-close" onClick={() => onClose?.(t.id)} aria-label={resolvedCloseLabel}>
                 <X size={14} />
               </button>
             </Tiptop>

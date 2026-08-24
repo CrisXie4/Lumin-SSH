@@ -513,7 +513,7 @@ async function readClipboardText(): Promise<string> {
 }
 
 /** 终端控制信号字节（SIGINT/EOF/SIGTSTP/清行），按键热路径复用，避免每次 keydown 分配 */
-const TERMINAL_SIGNAL_BYTES: Record<string, Uint8Array> = Object.freeze({
+const TERMINAL_SIGNAL_BYTES: Record<string, Uint8Array<ArrayBuffer>> = Object.freeze({
   sigint: new Uint8Array([0x03]),     // Ctrl+C (ETX)
   eof: new Uint8Array([0x04]),        // Ctrl+D (EOT)
   suspend: new Uint8Array([0x1a]),    // Ctrl+Z (SUB)
@@ -1365,7 +1365,7 @@ export default function Terminal({
           const icon = owning.collapsed ? '+' : '−';
           if (canFold) {
             const padTop = Math.max(0, (lineH - 14) / 2);
-            const btn = `<button type="button" data-cb-id="${owning.block.id}" title="${owning.collapsed ? '展开' : '收起'}" style="position:absolute;left:0;top:${padTop}px;display:inline-flex;align-items:center;justify-content:center;width:14px;min-width:14px;height:14px;margin:0;padding:0;border:1px solid color-mix(in srgb, ${blockColor} 78%, transparent);border-radius:2px;background:color-mix(in srgb, ${blockColor} 16%, transparent);color:${blockColor};font-size:11px;line-height:1;cursor:pointer;font-family:var(--font-mono);box-sizing:border-box;font-weight:700;z-index:1">${icon}</button>`;
+            const btn = `<button type="button" data-cb-id="${owning.block.id}" title="${owning.collapsed ? t('展开') : t('收起')}" style="position:absolute;left:0;top:${padTop}px;display:inline-flex;align-items:center;justify-content:center;width:14px;min-width:14px;height:14px;margin:0;padding:0;border:1px solid color-mix(in srgb, ${blockColor} 78%, transparent);border-radius:2px;background:color-mix(in srgb, ${blockColor} 16%, transparent);color:${blockColor};font-size:11px;line-height:1;cursor:pointer;font-family:var(--font-mono);box-sizing:border-box;font-weight:700;z-index:1">${icon}</button>`;
             // 多行展开：按钮下接到行底，与下一行整高竖条无缝衔接
             const barBelow = (!owning.collapsed && owning.end > owning.start)
               ? vBar(`${padTop + 14}px`, '0')

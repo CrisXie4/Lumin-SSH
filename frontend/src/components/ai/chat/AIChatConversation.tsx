@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
-import { useTranslation } from '../../../i18n.ts'
+import { useTranslation, t } from '../../../i18n.ts'
 import AIChatAssistantTurn from './AIChatAssistantTurn.tsx'
 import AIChatContextCondenseCard from './AIChatContextCondenseCard.tsx'
 import AIChatReasoningBlock from './AIChatReasoningBlock.tsx'
@@ -26,7 +26,7 @@ function formatSendPerfMetrics(record: unknown) {
     const percent = total > 0 ? ((ms / total) * 100).toFixed(1) : '0.0'
     return `${index + 1}.${stage.label} -> ${ms.toFixed(1)}ms (${percent}%)`
   })
-  lines.push(`总计 -> ${total.toFixed(1)}ms`)
+  lines.push(`${t('总计')} -> ${total.toFixed(1)}ms`)
   return lines.join('\n')
 }
 
@@ -725,7 +725,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
                 <button
                   type="button"
                   onClick={() => handleJumpToUserMessage(index, entry)}
-                  aria-label={navPreview || '图片消息'}
+                  aria-label={navPreview || t('图片消息')}
                   style={{
                     width: 7,
                     height: 7,
@@ -761,7 +761,7 @@ export default function AIChatConversation({ messages = [], sessionId = '', term
                     zIndex: 100,
                   }}>
                     {navTime ? <div style={{ fontSize: 10, opacity: 0.55, marginBottom: 3 }}>{navTime}</div> : null}
-                    {navPreview || '📷 图片消息'}
+                    {navPreview || t('图片消息')}
                   </div>
                 ) : null}
               </div>

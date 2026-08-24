@@ -7342,18 +7342,18 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                   items: [
                     {
                       key: 'close-workspace-tab',
-                      label: '关闭此选项卡',
+                      label: translate('关闭此选项卡'),
                       disabled: !canCloseTab,
                       onSelect: () => closeWorkspaceTab(tab.id),
                     },
                     {
                       key: 'fork-workspace-tab-conversation',
-                      label: '分叉此选项卡任务',
+                      label: translate('分叉此选项卡任务'),
                       disabled: !tabConversationId,
                       children: [
                         {
                           key: 'fork-workspace-tab-conversation-new-tab',
-                          label: '分叉到新标签页',
+                          label: translate('分叉到新标签页'),
                           disabled: !tabConversationId,
                           onSelect: () => {
                             void forkWorkspaceTabConversation(tabConversationId, tab.id, true)
@@ -7361,7 +7361,7 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                         },
                         {
                           key: 'fork-workspace-tab-conversation-current-tab',
-                          label: '分叉到当前标签页',
+                          label: translate('分叉到当前标签页'),
                           disabled: !tabConversationId,
                           onSelect: () => {
                             void forkWorkspaceTabConversation(tabConversationId, tab.id, false)
@@ -7371,7 +7371,7 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
                     },
                     {
                       key: 'delete-workspace-tab-conversation',
-                      label: '删除此选项卡中任务',
+                      label: translate('删除此选项卡中任务'),
                       danger: true,
                       disabled: !tabConversationId,
                       onSelect: () => {

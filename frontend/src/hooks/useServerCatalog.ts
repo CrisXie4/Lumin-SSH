@@ -122,7 +122,7 @@ export default function useServerCatalog({
   }, [addToast, removeRecentConnections, setSelectedServerIds, setServerEditor, setServers, t]);
 
   const handleGroupDelete = useCallback(async (groupName: string, ids: string[]) => {
-    if (await window.luminDialog?.confirm(`${t('确定删除')}「${groupName}」分组的 ${ids.length} ${t('个服务器')}？`)) {
+    if (await window.luminDialog?.confirm(t('确定删除「{group}」分组的 {count} 个服务器？', { group: groupName, count: ids.length }))) {
       await handleBatchDelete(ids);
     }
   }, [handleBatchDelete, t]);

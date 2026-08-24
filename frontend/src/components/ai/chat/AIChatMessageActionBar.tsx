@@ -1,5 +1,5 @@
 import { MessageSquare, User, type LucideIcon } from 'lucide-react'
-import { useTranslation, type I18nKey } from '../../../i18n.ts'
+import { useTranslation, t, type I18nKey } from '../../../i18n.ts'
 import AIChatMessageActions, { type MessageAction } from './AIChatMessageActions.tsx'
 
 const assistantTitleKey = 'AI'
@@ -17,8 +17,8 @@ function TitleIcon({ Icon, onClick, clickTitle }: TitleIconProps) {
   return (
     <button
       type="button"
-      title={clickTitle}
-      aria-label={clickTitle}
+      title={clickTitle ? t(clickTitle as I18nKey) : undefined}
+      aria-label={clickTitle ? t(clickTitle as I18nKey) : undefined}
       onClick={(event) => {
         event.stopPropagation()
         onClick()

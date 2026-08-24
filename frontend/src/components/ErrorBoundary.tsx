@@ -1,4 +1,5 @@
 import React from 'react';
+import { t, type I18nKey } from '../i18n.ts';
 
 interface ErrorBoundaryProps {
   children?: React.ReactNode;
@@ -36,10 +37,10 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
           fontFamily: 'system-ui, sans-serif', fontSize: 13,
         }}>
           <div style={{ marginBottom: 8, fontWeight: 600 }}>
-            {label || '组件渲染出错'}
+            {label || t('组件渲染出错')}
           </div>
           <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12, textAlign: 'center', maxWidth: 400 }}>
-            {this.state.error?.message || '未知错误'}
+            {this.state.error?.message || t('未知错误')}
           </div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
@@ -48,7 +49,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
               background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 12,
             }}
           >
-            重试
+            {t('重试')}
           </button>
         </div>
       );

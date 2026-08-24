@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ChangeEvent, type FormEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { Eye, EyeOff, Plus, X, Monitor, Key, FolderOpen, SquarePen, KeyRound, Globe } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
-import { useTranslation } from '../i18n.ts';
+import { useTranslation, type I18nKey } from '../i18n.ts';
 import { TERMINAL_ENCODING_GROUPS } from '../constants/terminalEncodings.ts';
 import SearchableGroupedSelect from './SearchableGroupedSelect.tsx';
 import { getAIGlobalSettings } from './ai/aiGlobalSettingsBridge.ts';
@@ -626,7 +626,7 @@ export default function AddServerModal({ server, onSave, onSaveAndConnect, onClo
                   id="server-terminal-encoding"
                   value={form.terminalEncoding || 'utf-8'}
                   onChange={(nextValue) => setForm((f) => ({ ...f, terminalEncoding: nextValue }))}
-                  groups={TERMINAL_ENCODING_GROUPS}
+                  groups={TERMINAL_ENCODING_GROUPS.map((group) => ({ ...group, label: t(group.label as I18nKey) }))}
                   placeholder={t('终端字符编码')}
                   searchPlaceholder={t('输入关键字过滤字符编码')}
                   emptyText={t('未找到匹配的字符编码')}
