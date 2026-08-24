@@ -38,6 +38,10 @@ import { openGlobalContextMenu } from '../utils/contextMenu.ts'
 import assistantThinkingActiveImg from '../assets/assistant-thinking-active.webm'
 import Tiptop from './Tiptop.tsx'
 import { createAIConversationGroup, loadAIConversationOrganizer, saveAIConversationOrganizer, type AIConversationOrganizerState } from '../utils/aiConversationOrganizer.ts'
+import { compressTerminalOutputForPrompt } from './ai/aiTerminalScreen.ts'
+import { buildAIHistoryDisplayTimeParts, buildAIConversationSummarySubtaskContinuePrompt, formatMessageTime, getAIHistoryRelativeTimeToneStyle } from './ai/aiTimeFormat.ts'
+import { upsertConversationSummary, type ConversationSummary } from './ai/aiConversationSummary.ts'
+import { getTemporaryAIConversationSummary, listTemporaryAIConversations as listInMemoryTemporaryAIConversations, removeTemporaryAIConversation, seedTemporaryAIConversations, upsertTemporaryAIConversation, TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT } from './ai/aiTemporaryConversations.ts'
 
 // ============================================================
 // AIPanel 类型契约（props 见 AIPanelProps；内部数据模型见下）
@@ -164,57 +168,6 @@ interface AIRequestMessage {
   cacheObjects: unknown
 }
 
-interface ConversationSummary {
-  id: string
-  title: string
-  createdAt: number
-  updatedAt: number
-  status?: string
-  toolProtocol?: string
-  messageCount: number
-  promptCacheBypassTimestamp?: string
-  parentConversationId?: string
-  rootConversationId?: string
-  relationType?: string
-  relationSource?: string
-  parentTitleSnapshot?: string
-  archived: boolean
-  transient?: boolean
-  messages?: unknown[]
-}
-
-const temporaryAIConversations = new Map<string, ConversationSummary>()
-const TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT = 'lumin:ai-temporary-conversations-changed'
-
-function listTemporaryAIConversations() {
-  return Array.from(temporaryAIConversations.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-}
-
-function notifyTemporaryAIConversationsChanged() {
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT))
-}
-
-function upsertTemporaryAIConversation(snapshot: AIConversationSnapshot) {
-  const normalized = {
-    ...snapshot,
-    transient: true,
-    updatedAt: typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : Date.now(),
-    messageCount: typeof snapshot.messageCount === 'number' ? snapshot.messageCount : Array.isArray(snapshot.messages) ? snapshot.messages.length : 0,
-  }
-  temporaryAIConversations.set(normalized.id, {
-    ...upsertConversationSummary([], normalized)[0],
-    transient: true,
-  })
-  notifyTemporaryAIConversationsChanged()
-  return normalized
-}
-
-function removeTemporaryAIConversation(conversationId: string) {
-  const removed = temporaryAIConversations.delete(conversationId)
-  if (removed) notifyTemporaryAIConversationsChanged()
-  return removed
-}
-
 interface DisplayConversationItem extends ConversationSummary {
   depth: number
   parentDisplayTitle: string
@@ -303,412 +256,9 @@ interface McpInfoState {
   tools: unknown[]
 }
 
-// 终端屏幕模拟（ANSI 归一化）
-type TerminalScreenLine = string[]
-type TerminalCursorState = { row: number; col: number }
-
-
 function getAIBridge() {
   return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App || null
 }
-
-function formatMessageTime() {
-  return new Date().toLocaleTimeString(getLanguage() || 'zh-CN', { hour: '2-digit', minute: '2-digit' })
-}
-
-function padAIHistoryDateTimePart(value: unknown) {
-  return String(value).padStart(2, '0')
-}
-
-function formatAIHistoryDateTime(value: unknown) {
-  const numericValue = Number(value)
-  const date = Number.isFinite(numericValue) && numericValue > 0
-    ? new Date(numericValue)
-    : new Date(String(value || ''))
-  if (Number.isNaN(date.getTime())) {
-    return String(value || '')
-  }
-  return `${date.getFullYear()}-${padAIHistoryDateTimePart(date.getMonth() + 1)}-${padAIHistoryDateTimePart(date.getDate())} ${padAIHistoryDateTimePart(date.getHours())}:${padAIHistoryDateTimePart(date.getMinutes())}:${padAIHistoryDateTimePart(date.getSeconds())}`
-}
-
-function formatAIHistoryRelativeTime(value: unknown, language: unknown) {
-  const numericValue = Number(value)
-  if (!Number.isFinite(numericValue) || numericValue <= 0) {
-    return ''
-  }
-  const diffMs = numericValue - Date.now()
-  const absDiffMs = Math.abs(diffMs)
-  if (absDiffMs < 60 * 1000) {
-    return translate('刚刚')
-  }
-  const divisions = [
-    { unit: 'year', ms: 1000 * 60 * 60 * 24 * 365 },
-    { unit: 'month', ms: 1000 * 60 * 60 * 24 * 30 },
-    { unit: 'week', ms: 1000 * 60 * 60 * 24 * 7 },
-    { unit: 'day', ms: 1000 * 60 * 60 * 24 },
-    { unit: 'hour', ms: 1000 * 60 * 60 },
-    { unit: 'minute', ms: 1000 * 60 },
-  ]
-  for (const division of divisions) {
-    if (absDiffMs >= division.ms) {
-      const unitValue = Math.round(diffMs / division.ms)
-      return new Intl.RelativeTimeFormat(String(language || 'zh-CN'), { numeric: 'always' }).format(unitValue, division.unit as Intl.RelativeTimeFormatUnit)
-    }
-  }
-  return translate('刚刚')
-}
-
-function buildAIHistoryDisplayTimeParts(value: unknown, language: unknown) {
-  const absoluteText = formatAIHistoryDateTime(value)
-  const relativeText = formatAIHistoryRelativeTime(value, language)
-  return {
-    absoluteText,
-    relativeText,
-  }
-}
-
-function buildAIConversationSummarySubtaskContinuePrompt(summaryText: unknown, language: unknown) {
-  const trimmedSummaryText = typeof summaryText === 'string' ? summaryText.trim() : ''
-  if (!trimmedSummaryText) {
-    return ''
-  }
-  const normalizedLanguage = String(language || '').toLowerCase()
-  const handoffInstruction = normalizedLanguage.startsWith('zh')
-    ? '您是本次新的对接工程师,以上是交接文档!请继续工作,可能需要您先检查当前的基线工作进度确保交接内容属实'
-    : 'You are the new handoff engineer for this task. The content above is the handoff document. Please continue the work, and you may need to first verify the current baseline progress to ensure the handoff is accurate.'
-  return `${trimmedSummaryText}\n\n${handoffInstruction}`
-}
-
-function getAIHistoryRelativeTimeToneStyle(value: unknown) {
-  const numericValue = Number(value)
-  if (!Number.isFinite(numericValue) || numericValue <= 0) {
-    return { color: 'var(--text-tertiary)', opacity: 0.5 }
-  }
-  const diffMs = Math.abs(Date.now() - numericValue)
-  const minuteMs = 60 * 1000
-  const hourMs = 60 * minuteMs
-  if (diffMs <= 5 * minuteMs) {
-    return { color: 'var(--success)', opacity: 1 }
-  }
-  if (diffMs <= 10 * minuteMs) {
-    return { color: 'var(--success)', opacity: 0.9 }
-  }
-  if (diffMs <= 30 * minuteMs) {
-    return { color: 'var(--accent)', opacity: 1 }
-  }
-  if (diffMs <= hourMs) {
-    return { color: 'var(--accent)', opacity: 0.9 }
-  }
-  if (diffMs <= 3 * hourMs) {
-    return { color: 'var(--text-secondary)', opacity: 1 }
-  }
-  if (diffMs <= 6 * hourMs) {
-    return { color: 'var(--text-secondary)', opacity: 0.9 }
-  }
-  if (diffMs <= 12 * hourMs) {
-    return { color: 'var(--text-tertiary)', opacity: 0.8 }
-  }
-  if (diffMs <= 24 * hourMs) {
-    return { color: 'var(--text-tertiary)', opacity: 0.7 }
-  }
-  return { color: 'var(--text-tertiary)', opacity: 0.5 }
-}
-
-function splitTerminalOutputLinesKeepNewline(content: unknown) {
-  if (!content) {
-    return []
-  }
-  const matches = String(content).match(/[^\n]*\n|[^\n]+/g)
-  return Array.isArray(matches) ? matches : []
-}
-
-function truncateTerminalOutputForPrompt(content: unknown, lineLimit: unknown, characterLimit: unknown) {
-  const normalizedContent = String(content || '')
-  const normalizedLineLimit = Number.isFinite(Number(lineLimit)) ? Math.trunc(Number(lineLimit)) : 0
-  const normalizedCharacterLimit = Number.isFinite(Number(characterLimit)) ? Math.trunc(Number(characterLimit)) : 0
-  if (normalizedLineLimit <= 0 && normalizedCharacterLimit <= 0) {
-    return normalizedContent
-  }
-  if (normalizedCharacterLimit > 0) {
-    const runes = Array.from(normalizedContent)
-    if (runes.length > normalizedCharacterLimit) {
-      const beforeLimit = Math.floor(normalizedCharacterLimit / 5)
-      const afterLimit = normalizedCharacterLimit - beforeLimit
-      const startSection = runes.slice(0, beforeLimit).join('')
-      const endSection = runes.slice(runes.length - afterLimit).join('')
-      const omittedChars = runes.length - normalizedCharacterLimit
-      return `${startSection}\n[...${omittedChars} characters omitted...]\n${endSection}`
-    }
-  }
-  if (normalizedLineLimit <= 0) {
-    return normalizedContent
-  }
-  const lines = splitTerminalOutputLinesKeepNewline(normalizedContent)
-  const totalLines = lines.length
-  if (totalLines <= normalizedLineLimit) {
-    return normalizedContent
-  }
-  const beforeLimit = Math.floor(normalizedLineLimit / 5)
-  const afterLimit = normalizedLineLimit - beforeLimit
-  const startSection = lines.slice(0, beforeLimit).join('')
-  const endSection = lines.slice(totalLines - afterLimit).join('')
-  const omittedLines = totalLines - normalizedLineLimit
-  return `${startSection}\n[...${omittedLines} lines omitted...]\n\n${endSection}`
-}
-
-function applyTerminalOutputRunLengthEncoding(content: unknown) {
-  if (!content) {
-    return content
-  }
-  const lines = splitTerminalOutputLinesKeepNewline(content)
-  if (lines.length === 0) {
-    return content
-  }
-  let result = ''
-  let prevLine = lines[0]
-  let repeatCount = 0
-  const flush = () => {
-    if (repeatCount > 0) {
-      const compressionDesc = `<previous line repeated ${repeatCount} additional times>\n`
-      if (compressionDesc.length < prevLine.length * (repeatCount + 1)) {
-        result += prevLine
-        result += compressionDesc
-      } else {
-        for (let index = 0; index <= repeatCount; index += 1) {
-          result += prevLine
-        }
-      }
-      repeatCount = 0
-      return
-    }
-    result += prevLine
-  }
-  for (let index = 1; index < lines.length; index += 1) {
-    const currentLine = lines[index]
-    if (currentLine === prevLine) {
-      repeatCount += 1
-      continue
-    }
-    flush()
-    prevLine = currentLine
-  }
-  flush()
-  return result
-}
-
-function ensureTerminalScreenRow(lines: TerminalScreenLine[], row: number) {
-  while (lines.length <= row) {
-    lines.push([])
-  }
-}
-
-function trimTerminalScreenRightSpaces(line: TerminalScreenLine) {
-  let end = line.length
-  while (end > 0 && line[end - 1] === ' ') {
-    end -= 1
-  }
-  return end === line.length ? line : line.slice(0, end)
-}
-
-function writeTerminalScreenChar(lines: TerminalScreenLine[], state: TerminalCursorState, char: string) {
-  ensureTerminalScreenRow(lines, state.row)
-  const line = lines[state.row]
-  while (line.length < state.col) {
-    line.push(' ')
-  }
-  if (state.col === line.length) {
-    line.push(char)
-  } else {
-    line[state.col] = char
-  }
-  state.col += 1
-}
-
-function moveTerminalScreenCursor(lines: TerminalScreenLine[], state: TerminalCursorState, rowDelta: number, colDelta: number) {
-  state.row += rowDelta
-  if (state.row < 0) {
-    state.row = 0
-  }
-  ensureTerminalScreenRow(lines, state.row)
-  state.col += colDelta
-  if (state.col < 0) {
-    state.col = 0
-  }
-}
-
-function eraseTerminalScreenLine(lines: TerminalScreenLine[], state: TerminalCursorState, mode: number) {
-  ensureTerminalScreenRow(lines, state.row)
-  const line = lines[state.row]
-  if (mode === 1) {
-    const limit = Math.min(state.col, line.length)
-    for (let index = 0; index < limit; index += 1) {
-      line[index] = ' '
-    }
-    lines[state.row] = trimTerminalScreenRightSpaces(line)
-    return
-  }
-  if (mode === 2) {
-    lines[state.row] = []
-    state.col = 0
-    return
-  }
-  if (state.col < line.length) {
-    lines[state.row] = line.slice(0, state.col)
-  }
-}
-
-function parseTerminalCSIParams(raw: unknown) {
-  if (!raw) {
-    return []
-  }
-  return String(raw).split(';').map((part) => {
-    const value = Number.parseInt(String(part || '').trim(), 10)
-    return Number.isFinite(value) ? value : 0
-  })
-}
-
-function terminalCSIParamValue(params: unknown, index: number, fallback: number) {
-  if (!Array.isArray(params) || index < 0 || index >= params.length) {
-    return fallback
-  }
-  return params[index] > 0 ? params[index] : fallback
-}
-
-function processTerminalOutputANSISequence(source: string, startIndex: number, lines: TerminalScreenLine[], state: TerminalCursorState) {
-  if (startIndex + 1 >= source.length) {
-    return 1
-  }
-  const nextChar = source[startIndex + 1]
-  if (nextChar === '[') {
-    let endIndex = startIndex + 2
-    while (endIndex < source.length) {
-      const code = source.charCodeAt(endIndex)
-      if (code >= 0x40 && code <= 0x7e) {
-        let rawParams = source.slice(startIndex + 2, endIndex)
-        if (rawParams.startsWith('?') || rawParams.startsWith('>') || rawParams.startsWith('!')) {
-          rawParams = rawParams.slice(1)
-        }
-        const params = parseTerminalCSIParams(rawParams)
-        const finalChar = source[endIndex]
-        if (finalChar === 'A') {
-          moveTerminalScreenCursor(lines, state, -terminalCSIParamValue(params, 0, 1), 0)
-        } else if (finalChar === 'B') {
-          moveTerminalScreenCursor(lines, state, terminalCSIParamValue(params, 0, 1), 0)
-        } else if (finalChar === 'C') {
-          moveTerminalScreenCursor(lines, state, 0, terminalCSIParamValue(params, 0, 1))
-        } else if (finalChar === 'D') {
-          moveTerminalScreenCursor(lines, state, 0, -terminalCSIParamValue(params, 0, 1))
-        } else if (finalChar === 'G') {
-          state.col = Math.max(0, terminalCSIParamValue(params, 0, 1) - 1)
-          ensureTerminalScreenRow(lines, state.row)
-        } else if (finalChar === 'H' || finalChar === 'f') {
-          state.row = Math.max(0, terminalCSIParamValue(params, 0, 1) - 1)
-          state.col = Math.max(0, terminalCSIParamValue(params, 1, 1) - 1)
-          ensureTerminalScreenRow(lines, state.row)
-        } else if (finalChar === 'J') {
-          const mode = terminalCSIParamValue(params, 0, 0)
-          if (mode === 2 || mode === 3) {
-            lines.splice(0, lines.length, [])
-            state.row = 0
-            state.col = 0
-          }
-        } else if (finalChar === 'K') {
-          eraseTerminalScreenLine(lines, state, terminalCSIParamValue(params, 0, 0))
-        }
-        return endIndex - startIndex + 1
-      }
-      endIndex += 1
-    }
-    return source.length - startIndex
-  }
-  if (nextChar === ']') {
-    let endIndex = startIndex + 2
-    while (endIndex < source.length) {
-      if (source.charCodeAt(endIndex) === 0x07) {
-        return endIndex - startIndex + 1
-      }
-      if (source.charCodeAt(endIndex) === 0x1b && source[endIndex + 1] === '\\') {
-        return endIndex - startIndex + 2
-      }
-      endIndex += 1
-    }
-    return source.length - startIndex
-  }
-  return 2
-}
-
-function normalizeTerminalOutputScreen(input: unknown) {
-  const source = String(input || '')
-  if (!source) {
-    return ''
-  }
-  const lines = [[]]
-  const state = { row: 0, col: 0 }
-  for (let index = 0; index < source.length;) {
-    const char = source[index]
-    if (char === '\r') {
-      state.col = 0
-      index += 1
-      continue
-    }
-    if (char === '\n') {
-      state.row += 1
-      state.col = 0
-      ensureTerminalScreenRow(lines, state.row)
-      index += 1
-      continue
-    }
-    if (char === '\b') {
-      if (state.col > 0) {
-        state.col -= 1
-      }
-      index += 1
-      continue
-    }
-    if (char === '\t') {
-      let tabWidth = 4 - (state.col % 4)
-      if (tabWidth <= 0) {
-        tabWidth = 4
-      }
-      for (let step = 0; step < tabWidth; step += 1) {
-        writeTerminalScreenChar(lines, state, ' ')
-      }
-      index += 1
-      continue
-    }
-    if (source.charCodeAt(index) === 0x1b) {
-      const consumed = processTerminalOutputANSISequence(source, index, lines, state)
-      index += consumed > 0 ? consumed : 1
-      continue
-    }
-    const codePoint = source.codePointAt(index) ?? -1
-    if (!Number.isFinite(codePoint)) {
-      index += 1
-      continue
-    }
-    if ((codePoint >= 0 && codePoint < 0x20) || codePoint === 0x7f) {
-      index += codePoint > 0xffff ? 2 : 1
-      continue
-    }
-    const printable = String.fromCodePoint(codePoint)
-    writeTerminalScreenChar(lines, state, printable)
-    index += printable.length
-  }
-  let lastNonEmpty = lines.length - 1
-  while (lastNonEmpty > 0 && trimTerminalScreenRightSpaces(lines[lastNonEmpty]).length === 0) {
-    lastNonEmpty -= 1
-  }
-  return lines
-    .slice(0, lastNonEmpty + 1)
-    .map((line) => trimTerminalScreenRightSpaces(line).join(''))
-    .join('\n')
-}
-
-function compressTerminalOutputForPrompt(input: unknown, lineLimit: unknown, characterLimit: unknown) {
-  const processed = normalizeTerminalOutputScreen(input)
-  return truncateTerminalOutputForPrompt(applyTerminalOutputRunLengthEncoding(processed), lineLimit, characterLimit)
-}
-
 const AI_COLLABORATION_CONTINUE_PREFIX = '[Continue]'
 const AI_COLLABORATION_DONE_PREFIX = '[Done]'
 const AI_COLLABORATION_COMPRESSION_PREFIX = '[Compression]'
@@ -1079,49 +629,6 @@ function parseAICollaborationStreamBuffer(value: unknown) {
     decision: '',
     bodyText: '',
   }
-}
-
-function upsertConversationSummary(list: unknown, snapshot: AIConversationSnapshot): ConversationSummary[] {
-  const nextSummary = {
-    id: snapshot.id,
-    title: snapshot.title,
-    createdAt: snapshot.createdAt,
-    updatedAt: snapshot.updatedAt,
-    status: snapshot.status,
-    toolProtocol: snapshot.toolProtocol,
-    messageCount: typeof snapshot.messageCount === 'number'
-      ? snapshot.messageCount
-      : Array.isArray(snapshot.messages) ? snapshot.messages.length : 0,
-    promptCacheBypassTimestamp: snapshot.promptCacheBypassTimestamp || '',
-    parentConversationId: typeof snapshot.parentConversationId === 'string' ? snapshot.parentConversationId : '',
-    rootConversationId: typeof snapshot.rootConversationId === 'string' ? snapshot.rootConversationId : '',
-    relationType: typeof snapshot.relationType === 'string' ? snapshot.relationType : '',
-    relationSource: typeof snapshot.relationSource === 'string' ? snapshot.relationSource : '',
-    parentTitleSnapshot: typeof snapshot.parentTitleSnapshot === 'string' ? snapshot.parentTitleSnapshot : '',
-    archived: snapshot.archived === true,
-    transient: snapshot.transient === true,
-  }
-
-  const nextList = Array.isArray(list) ? [...list] : []
-  const existingIndex = nextList.findIndex((item) => item.id === nextSummary.id)
-
-  if (existingIndex >= 0) {
-    nextList[existingIndex] = {
-      ...nextList[existingIndex],
-      ...nextSummary,
-    }
-  } else {
-    nextList.unshift(nextSummary)
-  }
-
-  nextList.sort((left, right) => {
-    if (left.updatedAt !== right.updatedAt) {
-      return right.updatedAt - left.updatedAt
-    }
-    return String(right.id).localeCompare(String(left.id))
-  })
-
-  return nextList
 }
 
 function buildAIConversationDisplayList(list: unknown): DisplayConversationItem[] {
@@ -1592,21 +1099,21 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
         return
       }
       const temporarySummaries = await listTemporaryAIConversationsFromDisk().catch(() => [])
-      temporarySummaries.forEach((summary) => temporaryAIConversations.set(summary.id, { ...summary, transient: true }))
+      seedTemporaryAIConversations(temporarySummaries)
       setConversationList([...temporarySummaries.map((summary) => ({ ...summary, transient: true })), ...(Array.isArray(conversations) ? conversations : [])])
     } catch {
       if (!panelMountedRef.current) {
         return
       }
       const temporarySummaries = await listTemporaryAIConversationsFromDisk().catch(() => [])
-      temporarySummaries.forEach((summary) => temporaryAIConversations.set(summary.id, { ...summary, transient: true }))
+      seedTemporaryAIConversations(temporarySummaries)
       setConversationList(temporarySummaries.map((summary) => ({ ...summary, transient: true })))
     }
   }, [refreshMCPOutputCompressionSettings, refreshMCPServerInfo])
 
   useEffect(() => {
     const syncTemporaryConversations = () => {
-      setConversationList((current) => [...listTemporaryAIConversations(), ...current.filter((item) => item.transient !== true)])
+      setConversationList((current) => [...listInMemoryTemporaryAIConversations(), ...current.filter((item) => item.transient !== true)])
     }
     window.addEventListener(TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT, syncTemporaryConversations)
     return () => window.removeEventListener(TEMPORARY_AI_CONVERSATIONS_CHANGED_EVENT, syncTemporaryConversations)
@@ -3807,7 +3314,7 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
     if (!normalizedConversationId) {
       return
     }
-    const temporarySummary = temporaryAIConversations.get(normalizedConversationId)
+    const temporarySummary = getTemporaryAIConversationSummary(normalizedConversationId)
     if (!temporarySummary && delegateToWorkspace && onOpenConversationRequested) {
       await onOpenConversationRequested(conversationId)
       return
@@ -4089,7 +3596,7 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
       return
     }
     const refreshedConversations = await listAIConversations().catch(() => [])
-    setConversationList([...listTemporaryAIConversations(), ...(Array.isArray(refreshedConversations) ? refreshedConversations : [])])
+    setConversationList([...listInMemoryTemporaryAIConversations(), ...(Array.isArray(refreshedConversations) ? refreshedConversations : [])])
     const currentActiveConversationId = typeof terminalPanelsRef.current?.[panelInstanceKey]?.activeConversationId === 'string'
       ? terminalPanelsRef.current[panelInstanceKey].activeConversationId.trim()
       : ''
@@ -4103,7 +3610,7 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
   }, [])
 
   const handleMakeConversationPermanent = useCallback(async (conversationId: string) => {
-    const temporarySummary = temporaryAIConversations.get(conversationId)
+    const temporarySummary = getTemporaryAIConversationSummary(conversationId)
     if (!temporarySummary) return
     let createdConversationId = ''
     try {
@@ -4253,7 +3760,7 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
   const refreshConversationList = useCallback(async () => {
     const conversations = await listAIConversations().catch(() => [])
     const temporarySummaries = await listTemporaryAIConversationsFromDisk().catch(() => [])
-    temporarySummaries.forEach((summary) => temporaryAIConversations.set(summary.id, { ...summary, transient: true }))
+    seedTemporaryAIConversations(temporarySummaries)
     setConversationList([...temporarySummaries.map((summary) => ({ ...summary, transient: true })), ...(Array.isArray(conversations) ? conversations : [])])
   }, [])
 
@@ -4274,7 +3781,7 @@ function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId 
     const ids = Array.from(selectedConversationIds)
     await Promise.all(ids.map(async (conversationId) => {
       try {
-        const temporarySummary = temporaryAIConversations.get(conversationId)
+    const temporarySummary = getTemporaryAIConversationSummary(conversationId)
         if (temporarySummary) {
           const temporarySnapshot = await getTemporaryAIConversation(conversationId)
           const saved = await saveTemporaryAIConversation({ ...temporarySnapshot, archived, updatedAt: Date.now() })
