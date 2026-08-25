@@ -12,11 +12,32 @@ export interface SwitchProps {
   onChange?: () => void;
   disabled?: boolean;
   size?: SwitchSize;
+  /** 嵌套在外层 button 内时用：渲染为非交互 span，避免 button 嵌套 button */
+  indicator?: boolean;
   'aria-label'?: string;
 }
 
-export function Switch({ checked, onChange, disabled = false, size = 'md', ...rest }: SwitchProps) {
+export function Switch({ checked, onChange, disabled = false, size = 'md', indicator = false, ...rest }: SwitchProps) {
   const s = SIZE[size];
+  if (indicator) {
+    return (
+      <span
+        role="switch"
+        aria-checked={checked}
+        className={cn(
+          'rounded-full border border-line flex items-center justify-start transition-colors duration-100 shrink-0',
+          s.track,
+          checked ? 'justify-end bg-accent' : 'bg-line',
+        )}
+        {...rest}
+      >
+        <span
+          className={cn('rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-100', s.knob)}
+          style={{ transform: checked ? `translateX(${s.travel}px)` : undefined }}
+        />
+      </span>
+    );
+  }
   return (
     <button
       type="button"

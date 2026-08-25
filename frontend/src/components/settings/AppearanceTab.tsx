@@ -246,7 +246,7 @@ export default function AppearanceTab({
                 )}
               >
                 <span className="text-sm font-semibold">{$t('快捷入口')}</span>
-                <Switch checked={showThemeQuickEntry} size="sm" onChange={onToggleThemeQuickEntry} />
+                <Switch indicator checked={showThemeQuickEntry} size="sm" />
               </button>
               <div className="flex bg-raised rounded-xl p-1 border border-line">
                 <Button size="sm" variant={themeMode === 'light' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'light'} onClick={() => onThemeChange('light')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Sun size={14} />{$t('浅色')}</Button>

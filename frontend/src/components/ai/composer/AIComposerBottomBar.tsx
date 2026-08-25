@@ -105,7 +105,7 @@ export function AIComposerBottomBar({
                 : 'border-line bg-transparent text-secondary cursor-pointer',
             )}>
             <span>{t('助理协同')}</span>
-            <Switch checked={alwaysAllowAssistantCollaboration} size="sm" />
+            <Switch indicator checked={alwaysAllowAssistantCollaboration} size="sm" />
           </button>
         </Tiptop>
         <Tiptop text={t('开启后对话仅在本次软件运行期间保留')}>
@@ -124,7 +124,7 @@ export function AIComposerBottomBar({
                 : 'border-line bg-transparent text-secondary cursor-pointer',
             )}>
             <span>{t('临时会话')}</span>
-            <Switch checked={temporarySessionEnabled} size="sm" />
+            <Switch indicator checked={temporarySessionEnabled} size="sm" />
           </button>
         </Tiptop>
       </div>
