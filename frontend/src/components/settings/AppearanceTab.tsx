@@ -1,17 +1,16 @@
-import React, { useMemo } from 'react';
-import { t as $t, type I18nKey } from '../../i18n.ts';
-import { Sun, Monitor, Moon, Trash2, Copy } from 'lucide-react';
-import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch, type SettingsDefinitionNode } from './SharedComponents';
+import React from 'react';
+import { t as $t } from '../../i18n.ts';
+import { Sun, Monitor, Moon } from 'lucide-react';
+import { cn } from '../../utils/cn.ts';
+import { Button } from '../ui';
+import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch } from './SharedComponents';
 import { settings } from './settingDefinitions';
 import KeywordRulesPanel from './KeywordRulesPanel.tsx';
 import { type KeywordRule } from '../../utils/terminalKeywordHighlight.ts';
-import type { ThemePackage, ThemePackagePreview } from '../../utils/theme.ts';
-
-/** 程序字体条目 */
-interface ProgramFont {
-  fileName: string;
-  displayName?: string;
-}
+import type { ThemePackage } from '../../utils/theme.ts';
+import FontManagerPanel, { type ProgramFont } from './appearance/FontManagerPanel';
+import BackgroundPanel from './appearance/BackgroundPanel';
+import ThemePackagePalette from './appearance/ThemePackagePalette';
 
 /** 主题包设置（SettingsModal 传入的宽松形状） */
 interface ThemePackageSettings {
@@ -132,47 +131,9 @@ export default function AppearanceTab({
   globalIconOpacity, onGlobalIconOpacityChange,
   rememberWindowSize, onToggleRememberWindowSize, onResetWindowSize,
 }: AppearanceTabProps) {
-  const fontMap = new Map((Array.isArray(programFonts) ? programFonts : []).map((font) => [font.fileName, font]));
-  const filteredFonts = (Array.isArray(programFonts) ? programFonts : []).filter((font) => {
-    const query = String(programFontSearchQuery || '').trim().toLowerCase();
-    if (!query) {
-      return true;
-    }
-    return String(font.displayName || '').toLowerCase().includes(query) || String(font.fileName || '').toLowerCase().includes(query);
-  });
-  const fontAssignments = programFontAssignments || { uiFileName: '', terminalFileName: '', aiFileName: '' };
   // settingDefinitions.ts 已类型化，直接使用 settings 注册表
   const settingsData = settings;
   const appearanceSettings = settingsData.appearance;
-  const fontTargets = [
-    {
-      key: 'ui',
-      title: $t('界面文本'),
-      description: $t('作用于应用界面中的普通文本'),
-      defaultText: 'Inter / Segoe UI / sans-serif',
-      fileName: fontAssignments.uiFileName || '',
-    },
-    {
-      key: 'terminal',
-      title: $t('终端输出'),
-      description: $t('只作用于终端输出区域，不影响界面控件'),
-      defaultText: 'JetBrains Mono / Fira Code / monospace',
-      fileName: fontAssignments.terminalFileName || '',
-    },
-    {
-      key: 'ai',
-      title: $t('AI面板'),
-      description: $t('作用于 AI 面板普通文本与输入区，代码块保持默认等宽字体'),
-      defaultText: 'Inter / Segoe UI / sans-serif',
-      fileName: fontAssignments.aiFileName || '',
-    },
-  ];
-
-  const fontTargetDefinitions: Record<string, SettingsDefinitionNode | undefined> = {
-    ui: appearanceSettings.fields.uiFont,
-    terminal: appearanceSettings.fields.terminalFont,
-    ai: appearanceSettings.fields.aiFont,
-  };
   const normalizedThemePackages = Array.isArray(themePackages) ? themePackages : [];
   const lightThemePackages = normalizedThemePackages.filter((themePackage) => themePackage?.modeHint === 'light');
   const darkThemePackages = normalizedThemePackages.filter((themePackage) => themePackage?.modeHint !== 'light');
@@ -181,152 +142,30 @@ export default function AppearanceTab({
     <SettingsTabRoot>
       <div>
         <SettingsSectionTitle definition={appearanceSettings.sections.terminal} />
-        <SettingsPanel style={{ padding: 12, border: '1px solid var(--border-subtle)' }}>
-          <div data-settings-field-id={appearanceSettings.fields.fontManager.id} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{$t('字体管理器')}</div>
-                <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('从字体目录拖拽字体到右侧区域，为界面文本、终端输出和 AI 面板分别分配字体')}</div>
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={onAddProgramFonts} disabled={programFontImporting} style={{ fontSize: 12, borderRadius: 'var(--radius-sm)' }}>
-                {programFontImporting ? $t('导入中...') : $t('添加字体')}
-              </button>
-            </div>
-            <div className="settings-font-manager-grid">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '0 8px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-raised)', color: 'var(--text-secondary)', fontSize: 11 }}>
-                    {$t('来源：字体目录')}
-                  </span>
-                  <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{filteredFonts.length} {$t('个字体')}</span>
-                </div>
-                <input
-                  id="appearance-font-search"
-                  name="appearance-font-search"
-                  autoComplete="off"
-                  className="input"
-                  value={programFontSearchQuery}
-                  onChange={(event) => onProgramFontSearchQueryChange(event.target.value)}
-                  placeholder={$t('搜索字体文件名')}
-                  style={{ minHeight: 30, fontSize: 12 }}
-                />
-                <div style={{ minHeight: 292, maxHeight: 292, overflowY: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--surface-base)', padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {filteredFonts.length === 0 ? (
-                    <div style={{ display: 'flex', flex: 1, minHeight: 120, alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.7 }}>
-                      {Array.isArray(programFonts) && programFonts.length > 0 ? $t('没有匹配的字体文件') : $t('字体目录中还没有字体，请先添加字体文件')}
-                    </div>
-                  ) : filteredFonts.map((font) => (
-                    <div
-                      key={font.fileName}
-                      draggable={true}
-                      onDragStart={(event) => onProgramFontDragStart(event, font.fileName)}
-                      onDragEnd={onProgramFontDragEnd}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        padding: '10px 12px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface-overlay)',
-                        cursor: 'grab',
-                        userSelect: 'none',
-                      }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{font.displayName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{font.fileName}</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-icon"
-                        aria-label={$t('删除字体')}
-                        title={$t('删除字体')}
-                        disabled={!!programFontDeleting}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          onDeleteProgramFont?.(font.fileName);
-                        }}
-                        onMouseDown={(event) => event.stopPropagation()}
-                        style={{ flexShrink: 0, color: 'var(--danger)', opacity: programFontDeleting ? 0.5 : 1 }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, alignSelf: 'stretch' }}>
-                {fontTargets.map((target) => {
-                  const assignedFont = target.fileName ? fontMap.get(target.fileName) : null;
-                  const isHighlighted = activeProgramFontDropTarget === target.key;
-                  return (
-                    <div
-                      key={target.key}
-                      data-settings-field-id={fontTargetDefinitions[target.key]?.id}
-                      onDragEnter={() => onProgramFontDragEnter(target.key)}
-                      onDragLeave={() => onProgramFontDragLeave(target.key)}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = 'copy';
-                        onProgramFontDragEnter(target.key);
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const nextFileName = event.dataTransfer.getData('text/plain');
-                        onProgramFontDrop(target.key, nextFileName);
-                      }}
-                      style={{
-                        borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${isHighlighted ? 'var(--accent)' : 'var(--border)'}`,
-                        background: isHighlighted ? 'rgba(var(--accent-rgb), 0.08)' : 'var(--surface-base)',
-                        boxShadow: isHighlighted ? '0 0 0 1px rgba(var(--accent-rgb), 0.18) inset' : 'none',
-                        padding: 12,
-                        minHeight: 84,
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        transition: 'var(--transition-fast)',
-                        minWidth: 0,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{target.title}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5, wordBreak: 'break-word' }}>{target.description}</div>
-                        </div>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => onProgramFontReset(target.key)}
-                          disabled={!target.fileName}
-                          style={{ fontSize: 12, borderRadius: 'var(--radius-sm)', flexShrink: 0 }}
-                        >
-                          {$t('恢复默认')}
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 22, padding: '0 8px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface-overlay)', color: 'var(--text-primary)', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
-                          {assignedFont ? assignedFont.displayName : $t('默认')}
-                        </span>
-                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
-                          {assignedFont ? assignedFont.fileName : target.defaultText}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        <SettingsPanel className="p-3 border-line-subtle">
+          <FontManagerPanel
+            programFonts={programFonts}
+            programFontSearchQuery={programFontSearchQuery}
+            onProgramFontSearchQueryChange={onProgramFontSearchQueryChange}
+            onAddProgramFonts={onAddProgramFonts}
+            programFontImporting={programFontImporting}
+            programFontDeleting={programFontDeleting}
+            onDeleteProgramFont={onDeleteProgramFont}
+            programFontAssignments={programFontAssignments}
+            onProgramFontDragStart={onProgramFontDragStart}
+            onProgramFontDragEnd={onProgramFontDragEnd}
+            onProgramFontDragEnter={onProgramFontDragEnter}
+            onProgramFontDragLeave={onProgramFontDragLeave}
+            onProgramFontDrop={onProgramFontDrop}
+            onProgramFontReset={onProgramFontReset}
+            activeProgramFontDropTarget={activeProgramFontDropTarget}
+          />
           <SettingsDivider margin="12px 0 8px" />
           <SettingRow
             definition={appearanceSettings.fields.terminalFontSize}
             description={$t('调节终端的字符显示大小')}
             action={(
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="flex items-center gap-3">
                 <input
                   id="appearance-terminal-font-size"
                   name="appearance-terminal-font-size"
@@ -337,9 +176,9 @@ export default function AppearanceTab({
                   step="1"
                   value={terminalFontSize}
                   onChange={onTerminalFontSizeChange}
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 />
-                <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: 'var(--text-primary)' }}>{terminalFontSize}px</span>
+                <span className="text-base w-8 text-right text-primary">{terminalFontSize}px</span>
               </div>
             )}
           />
@@ -387,81 +226,57 @@ export default function AppearanceTab({
       <div>
         <SettingsSectionTitle definition={appearanceSettings.sections.theme} />
         <SettingsPanel>
-          <div data-settings-field-id={appearanceSettings.fields.theme.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div data-settings-field-id={appearanceSettings.fields.theme.id} className="flex justify-between items-center gap-3 flex-wrap">
             <div>
-              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('主题')}</div>
-              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('浅色、深色和系统模式分别决定当前应用哪一套主题包')}</div>
+              <div className="text-base text-primary">{$t('主题')}</div>
+              <div className="text-xs text-tertiary">{$t('浅色、深色和系统模式分别决定当前应用哪一套主题包')}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div className="flex items-center gap-3 flex-wrap justify-end">
               <button
                 type="button"
                 onClick={onToggleThemeQuickEntry}
                 aria-pressed={showThemeQuickEntry}
                 aria-label={$t('快捷入口')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  minHeight: 34,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: `1px solid ${showThemeQuickEntry ? 'rgba(var(--accent-rgb), 0.28)' : 'var(--border)'}`,
-                  background: showThemeQuickEntry ? 'rgba(var(--accent-rgb), 0.1)' : 'var(--surface-raised)',
-                  color: showThemeQuickEntry ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  whiteSpace: 'nowrap',
-                  transition: 'var(--transition-fast)',
-                  boxShadow: showThemeQuickEntry ? '0 0 0 1px rgba(var(--accent-rgb), 0.12) inset' : 'none',
-                }}
+                className={cn(
+                  'inline-flex items-center gap-2.5 min-h-[34px] px-3 rounded-full cursor-pointer select-none whitespace-nowrap transition-colors duration-[80ms] border',
+                  showThemeQuickEntry
+                    ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)] text-primary shadow-[inset_0_0_0_1px_rgba(var(--accent-rgb),0.12)]'
+                    : 'border-line bg-raised text-secondary',
+                )}
               >
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{$t('快捷入口')}</span>
+                <span className="text-sm font-semibold">{$t('快捷入口')}</span>
                 <span
                   aria-hidden="true"
-                  style={{
-                    width: 36,
-                    height: 20,
-                    borderRadius: 999,
-                    background: showThemeQuickEntry ? 'var(--accent)' : 'var(--surface-hover)',
-                    border: '1px solid var(--border)',
-                    position: 'relative',
-                    transition: 'var(--transition-fast)',
-                  }}
+                  className={cn(
+                    'w-9 h-5 rounded-full relative transition-colors duration-[80ms] border border-line',
+                    showThemeQuickEntry ? 'bg-accent' : 'bg-hover',
+                  )}
                 >
                   <span
-                    style={{
-                      position: 'absolute',
-                      top: 1,
-                      left: showThemeQuickEntry ? 17 : 1,
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      background: '#fff',
-                      boxShadow: 'var(--shadow-xs)',
-                      transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    }}
+                    className="absolute top-px w-4 h-4 rounded-full bg-white shadow-xs transition-[left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    style={{ left: showThemeQuickEntry ? 17 : 1 }}
                   />
                 </span>
               </button>
-              <div style={{ display: 'flex', background: 'var(--surface-raised)', borderRadius: 'var(--radius-xl)', padding: 4, border: '1px solid var(--border)' }}>
-                <button className={`btn btn-sm ${themeMode === 'light' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onThemeChange('light')} style={{ borderRadius: 'var(--radius-xl)', background: themeMode === 'light' ? 'var(--surface-sunken)' : 'transparent', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Sun size={14} />{$t('浅色')}</button>
-                <button className={`btn btn-sm ${themeMode === 'system' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onThemeChange('system')} style={{ borderRadius: 'var(--radius-xl)', background: themeMode === 'system' ? 'var(--surface-sunken)' : 'transparent', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Monitor size={14} />{$t('系统')}</button>
-                <button className={`btn btn-sm ${themeMode === 'dark' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onThemeChange('dark')} style={{ borderRadius: 'var(--radius-xl)', background: themeMode === 'dark' ? 'var(--surface-sunken)' : 'transparent', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Moon size={14} />{$t('深色')}</button>
+              <div className="flex bg-raised rounded-xl p-1 border border-line">
+                <Button size="sm" variant={themeMode === 'light' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'light'} onClick={() => onThemeChange('light')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Sun size={14} />{$t('浅色')}</Button>
+                <Button size="sm" variant={themeMode === 'system' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'system'} onClick={() => onThemeChange('system')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Monitor size={14} />{$t('系统')}</Button>
+                <Button size="sm" variant={themeMode === 'dark' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'dark'} onClick={() => onThemeChange('dark')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Moon size={14} />{$t('深色')}</Button>
               </div>
             </div>
           </div>
 
           <SettingsDivider />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-secondary btn-sm" onClick={onReloadThemePackages} disabled={themePackageBusy}>{$t('重新扫描')}</button>
-              <button className="btn btn-secondary btn-sm" onClick={onOpenThemePackagesDirectory} disabled={themePackageBusy}>{$t('打开目录')}</button>
-              <button className="btn btn-secondary btn-sm" onClick={onImportThemePackages} disabled={themePackageBusy}>{$t('导入JSON')}</button>
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3.5">
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" onClick={onReloadThemePackages} disabled={themePackageBusy}>{$t('重新扫描')}</Button>
+              <Button size="sm" onClick={onOpenThemePackagesDirectory} disabled={themePackageBusy}>{$t('打开目录')}</Button>
+              <Button size="sm" onClick={onImportThemePackages} disabled={themePackageBusy}>{$t('导入JSON')}</Button>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={onTuneActiveThemeWithAI} disabled={themePackageBusy}>{$t('AI调色')}</button>
+            <Button size="sm" onClick={onTuneActiveThemeWithAI} disabled={themePackageBusy}>{$t('AI调色')}</Button>
           </div>
 
-          <div className="settings-theme-palette-grid">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 items-start">
             <ThemePackagePalette
               definition={appearanceSettings.fields.lightThemePackage}
               title={$t('浅色主题包')}
@@ -492,9 +307,9 @@ export default function AppearanceTab({
           <SettingRow
             definition={appearanceSettings.fields.monitorPanel}
             action={(
-              <div style={{ display: 'flex', background: 'var(--surface-raised)', borderRadius: 'var(--radius-xl)', padding: 4, border: '1px solid var(--border)' }}>
-                <button className={`btn btn-sm ${probePanelPosition === 'left' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onProbePanelPositionChange('left')} style={{ borderRadius: 'var(--radius-xl)', background: probePanelPosition === 'left' ? 'var(--surface-sunken)' : 'transparent' }}>{$t('左侧')}</button>
-                <button className={`btn btn-sm ${probePanelPosition === 'right' ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => onProbePanelPositionChange('right')} style={{ borderRadius: 'var(--radius-xl)', background: probePanelPosition === 'right' ? 'var(--surface-sunken)' : 'transparent' }}>{$t('右侧')}</button>
+              <div className="flex bg-raised rounded-xl p-1 border border-line">
+                <Button size="sm" variant={probePanelPosition === 'left' ? 'secondary' : 'ghost'} aria-pressed={probePanelPosition === 'left'} onClick={() => onProbePanelPositionChange('left')} className="rounded-xl aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line">{$t('左侧')}</Button>
+                <Button size="sm" variant={probePanelPosition === 'right' ? 'secondary' : 'ghost'} aria-pressed={probePanelPosition === 'right'} onClick={() => onProbePanelPositionChange('right')} className="rounded-xl aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line">{$t('右侧')}</Button>
               </div>
             )}
           />
@@ -515,76 +330,19 @@ export default function AppearanceTab({
       <div>
         <SettingsSectionTitle definition={appearanceSettings.sections.background} />
         <SettingsPanel>
-          {/* 背景类型切换：全局 / 终端 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('全局背景图')}</div>
-              <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{$t('设置全局背景后不可设置终端壁纸')}</div>
-            </div>
-            <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', flexShrink: 0 }}>
-              {(['global', 'terminal'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => onBgTargetModeChange(mode)}
-                  style={{
-                    padding: '4px 12px',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    border: 'none',
-                    background: bgTargetMode === mode ? 'var(--accent)' : 'transparent',
-                    color: bgTargetMode === mode ? '#fff' : 'var(--text-secondary)',
-                  }}
-                >
-                  {mode === 'global' ? $t('全局背景图') : $t('终端背景')}
-                </button>
-              ))}
-            </div>
-          </div>
-          <SettingsDivider />
-          {/* 上传 / 恢复（作用于当前选中的类型） */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-            {(bgTargetMode === 'global' ? globalBgImage : termBgImage) && (
-              <button className="btn btn-ghost btn-sm" onClick={onBgReset}>{$t('恢复默认')}</button>
-            )}
-            <label htmlFor="appearance-bg-upload" className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', fontSize: 12, borderRadius: 'var(--radius-sm)' }}>
-              {$t('上传图片')}
-              <input id="appearance-bg-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={onBgUpload} />
-            </label>
-          </div>
-          <SettingsDivider />
-          {/* 可见度（随类型切换范围与标签） */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>
-              {bgTargetMode === 'global' ? $t('全局背景可见度') : $t('壁纸可见度')}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <input
-                type="range"
-                min="0"
-                max={bgTargetMode === 'global' ? 0.5 : 1}
-                step={bgTargetMode === 'global' ? 0.02 : 0.05}
-                value={bgTargetMode === 'global' ? globalBgOpacity : termBgOpacity}
-                onChange={onBgOpacityChange}
-              />
-              <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: 'var(--text-primary)' }}>
-                {Math.round((bgTargetMode === 'global' ? globalBgOpacity : termBgOpacity) * 100)}%
-              </span>
-            </div>
-          </div>
-          {/* 图标透明度仅全局模式有效 */}
-          {bgTargetMode === 'global' && (
-            <>
-              <SettingsDivider />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('图标透明度')}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <input type="range" min="0.4" max="1" step="0.05" value={globalIconOpacity} onChange={onGlobalIconOpacityChange} />
-                  <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: 'var(--text-primary)' }}>{Math.round(globalIconOpacity * 100)}%</span>
-                </div>
-              </div>
-            </>
-          )}
+          <BackgroundPanel
+            termBgImage={termBgImage}
+            globalBgImage={globalBgImage}
+            bgTargetMode={bgTargetMode}
+            onBgTargetModeChange={onBgTargetModeChange}
+            onBgUpload={onBgUpload}
+            onBgReset={onBgReset}
+            termBgOpacity={termBgOpacity}
+            globalBgOpacity={globalBgOpacity}
+            onBgOpacityChange={onBgOpacityChange}
+            globalIconOpacity={globalIconOpacity}
+            onGlobalIconOpacityChange={onGlobalIconOpacityChange}
+          />
         </SettingsPanel>
       </div>
 
@@ -600,143 +358,10 @@ export default function AppearanceTab({
           <SettingRow
             definition={appearanceSettings.fields.resetWindowSize}
             description={$t('下次启动时恢复上次调整的窗口尺寸')}
-            action={<button className="btn btn-secondary btn-sm" onClick={onResetWindowSize} style={{ fontSize: 12, borderRadius: 'var(--radius-sm)' }}>{$t('恢复默认大小')}</button>}
+            action={<Button size="sm" className="text-sm" onClick={onResetWindowSize}>{$t('恢复默认大小')}</Button>}
           />
         </SettingsPanel>
       </div>
     </SettingsTabRoot>
-  );
-}
-
-interface ThemePackagePaletteProps {
-  definition?: SettingsDefinitionNode;
-  title: string;
-  description: string;
-  packages: ThemePackage[];
-  selectedThemePackageId?: string;
-  onSelectThemePackage: (id: string) => void;
-  onDeleteThemePackage?: (themePackage: ThemePackage) => void;
-  onCopyThemePackageToMode?: (themePackage: ThemePackage, targetMode: string) => void;
-  copyTargetMode: string;
-  themePackageBusy: boolean;
-}
-
-function ThemePackagePalette({
-  definition,
-  title,
-  description,
-  packages,
-  selectedThemePackageId,
-  onSelectThemePackage,
-  onDeleteThemePackage,
-  onCopyThemePackageToMode,
-  copyTargetMode,
-  themePackageBusy,
-}: ThemePackagePaletteProps) {
-  const normalizedPackages = Array.isArray(packages) ? packages : [];
-  const palettePackages = useMemo(() => normalizedPackages.map((themePackage) => ({
-    ...themePackage,
-    preview: themePackage?.preview || ({} as ThemePackagePreview),
-  })), [normalizedPackages]);
-  const copyLabel = copyTargetMode === 'light' ? $t('复制到浅色') : $t('复制到深色');
-
-  return (
-    <div data-settings-field-id={definition?.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{title}</div>
-        <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{description}</div>
-      </div>
-      {palettePackages.length === 0 ? (
-        <div style={{ padding: 12, borderRadius: 'var(--radius-md)', border: '1px dashed var(--border)', color: 'var(--text-tertiary)', fontSize: 12 }}>
-          {$t('当前没有可用的主题包')}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {palettePackages.map((themePackage) => {
-            const isActive = selectedThemePackageId === themePackage.id;
-            const canDelete = themePackage.source === 'user';
-            return (
-              <div
-                key={themePackage.id}
-                onClick={() => onSelectThemePackage(themePackage.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
-                  background: isActive ? 'rgba(var(--accent-rgb), 0.08)' : 'var(--surface-base)',
-                  boxShadow: isActive ? '0 0 0 1px rgba(var(--accent-rgb), 0.18) inset' : 'none',
-                  cursor: 'pointer',
-                  minWidth: 0,
-                  transition: 'var(--transition-fast)',
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: isActive ? 'var(--accent)' : 'var(--text-tertiary)',
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: isActive ? 700 : 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {/* themePackage.name 为动态显示名（内置主题为 i18n 键），t() 内部有兜底 */}
-                    {$t(themePackage.name as I18nKey)}
-                  </div>
-                  {themePackage.description ? (
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {/* 同 name：动态描述，t() 内部有兜底 */}
-                      {$t(themePackage.description as I18nKey)}
-                    </div>
-                  ) : null}
-                </div>
-                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, border: '1px solid var(--border)', color: 'var(--text-tertiary)', flexShrink: 0 }}>
-                  {themePackage.source === 'builtin' ? $t('内置') : $t('用户')}
-                </span>
-                {copyTargetMode ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    aria-label={copyLabel}
-                    title={copyLabel}
-                    disabled={themePackageBusy}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onCopyThemePackageToMode?.(themePackage, copyTargetMode);
-                    }}
-                    style={{ width: 24, height: 24, color: 'var(--text-secondary)', flexShrink: 0 }}
-                  >
-                    <Copy size={12} />
-                  </button>
-                ) : null}
-                {canDelete ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    aria-label={$t('删除主题包')}
-                    title={$t('删除主题包')}
-                    disabled={themePackageBusy}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onDeleteThemePackage?.(themePackage);
-                    }}
-                    style={{ width: 24, height: 24, color: 'var(--danger)', flexShrink: 0 }}
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }

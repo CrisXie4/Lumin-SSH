@@ -23,7 +23,7 @@ function TitleIcon({ Icon, onClick, clickTitle }: TitleIconProps) {
         event.stopPropagation()
         onClick()
       }}
-      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', lineHeight: 1 }}
+      className="inline-flex cursor-pointer items-center justify-center border-none bg-transparent p-0 leading-[1] text-inherit"
     >
       <Icon size={13} />
     </button>
@@ -42,13 +42,13 @@ interface MessageActionBarProps {
 
 function UserMessageActionBar({ t, title, time, actions, onTitleIconClick, titleIconClickTitle, leadingContent = null }: MessageActionBarProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, fontSize: 11, color: 'var(--text-tertiary)', flexWrap: 'wrap' }}>
+    <div className="flex flex-wrap items-center justify-end gap-2.5 text-xs text-tertiary">
       {leadingContent}
       <AIChatMessageActions actions={actions} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+      <div className="flex items-center justify-end gap-1.5">
         <span>{time}</span>
         {/* title 为动态文案（可能不在翻译表），t() 内部有兜底 */}
-        <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{t(title as I18nKey)}</span>
+        <span className="font-bold text-accent">{t(title as I18nKey)}</span>
         <TitleIcon Icon={User} onClick={onTitleIconClick} clickTitle={titleIconClickTitle} />
       </div>
     </div>
@@ -61,9 +61,9 @@ interface AssistantMessageActionBarProps extends MessageActionBarProps {
 
 function AssistantMessageActionBar({ t, title, time, actions, status, onTitleIconClick, titleIconClickTitle }: AssistantMessageActionBarProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 10, fontSize: 11, color: 'var(--text-tertiary)', flexWrap: 'wrap' }}>
+    <div className="flex flex-wrap items-center justify-start gap-2.5 text-xs text-tertiary">
       <TitleIcon Icon={MessageSquare} onClick={onTitleIconClick} clickTitle={titleIconClickTitle} />
-      <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>{/* 同 title：动态文案，t() 内部有兜底 */}{t(title as I18nKey)}</span>
+      <span className="font-bold text-secondary">{/* 同 title：动态文案，t() 内部有兜底 */}{t(title as I18nKey)}</span>
       <span>{time}</span>
       <AIChatMessageActions actions={actions} />
       {status}

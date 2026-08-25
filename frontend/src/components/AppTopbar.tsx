@@ -3,6 +3,7 @@ import { House, Minus, Square, X, Bot, Settings, RefreshCw, Rocket, Sun, Moon, C
 import Tiptop from './Tiptop.tsx';
 import { WindowMinimise } from '../../wailsjs/runtime/runtime.js';
 import { Z } from '../constants/zIndex.ts';
+import { cn } from '../utils/cn.ts';
 import type { SessionAuthPrompt, SshChannelUsage } from '../hooks/useSessionConnections.ts';
 import type { SessionLike } from '../utils/sessionWorkspace.ts';
 
@@ -86,44 +87,25 @@ export default function AppTopbar({
       >
         <div className="topbar-content">
           <div className="topbar-logo" onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); setShowSettings(false); }}>
-            <div
-              style={{
-                width: 20,
-                height: 20,
-                position: 'relative',
-                borderRadius: 'var(--radius-xs)',
-                overflow: 'hidden',
-                flexShrink: 0,
-              }}
-            >
+            <div className="relative w-5 h-5 rounded-xs overflow-hidden shrink-0">
               <img
                 src={logoImg}
                 alt="Lumin SSH"
+                className="absolute inset-0 w-full h-full object-cover [transition:opacity_0.6s_ease,transform_0.7s_cubic-bezier(0.22,1,0.36,1),filter_0.6s_ease]"
                 style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
                   opacity: showTopbarRefreshedLogo ? 0 : 1,
                   transform: showTopbarRefreshedLogo ? 'scale(0.9) rotate(-8deg)' : 'scale(1) rotate(0deg)',
                   filter: showTopbarRefreshedLogo ? 'blur(8px)' : 'blur(0px)',
-                  transition: 'opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.6s ease',
                 }}
               />
               <img
                 src={topbarLogoTransitionImg}
                 alt="Lumin Theme Logo"
+                className="absolute inset-0 w-full h-full object-cover [transition:opacity_0.6s_ease,transform_0.7s_cubic-bezier(0.22,1,0.36,1),filter_0.6s_ease]"
                 style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
                   opacity: showTopbarRefreshedLogo ? 1 : 0,
                   transform: showTopbarRefreshedLogo ? 'scale(1) rotate(0deg)' : 'scale(1.12) rotate(8deg)',
                   filter: showTopbarRefreshedLogo ? 'blur(0px)' : 'blur(10px)',
-                  transition: 'opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.6s ease',
                 }}
               />
             </div>
@@ -134,10 +116,9 @@ export default function AppTopbar({
             <div className="tab-bar">
               <Tiptop text={t('返回主页')} placement="bottom">
                 <button
-                  className="btn btn-ghost btn-sm no-drag"
+                  className="btn btn-ghost btn-sm no-drag shrink-0"
                   onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); }}
                   aria-label={t('返回主页')}
-                  style={{ flexShrink: 0 }}
                 >
                   <House size={14} />
                 </button>
@@ -185,51 +166,40 @@ export default function AppTopbar({
                             text={(
                               <>
                                 <div>{t('服务器连接通道占用')}</div>
-                                <div style={{ marginTop: 2, opacity: 0.82, fontSize: 11 }}>{t('终端 {count} 个', { count: usage.terminals })}</div>
-                                <div style={{ opacity: 0.82, fontSize: 11 }}>{t('共享文件通道 {count} 个', { count: usage.sharedSftp })}</div>
-                                <div style={{ opacity: 0.82, fontSize: 11 }}>{t('上传通道 {count} 个', { count: usage.uploadPool })}</div>
-                                <div style={{ marginTop: 2, fontSize: 11 }}>{t('合计 {total} / 上限 {max}', { total: usage.total, max: maxSessions })}</div>
-                                <div style={{ marginTop: 2, opacity: 0.7, fontSize: 11 }}>{t('接近服务器通道上限后将无法建立新的终端或传输')}</div>
+                                <div className="mt-0.5 opacity-[0.82] text-xs">{t('终端 {count} 个', { count: usage.terminals })}</div>
+                                <div className="opacity-[0.82] text-xs">{t('共享文件通道 {count} 个', { count: usage.sharedSftp })}</div>
+                                <div className="opacity-[0.82] text-xs">{t('上传通道 {count} 个', { count: usage.uploadPool })}</div>
+                                <div className="mt-0.5 text-xs">{t('合计 {total} / 上限 {max}', { total: usage.total, max: maxSessions })}</div>
+                                <div className="mt-0.5 opacity-70 text-xs">{t('接近服务器通道上限后将无法建立新的终端或传输')}</div>
                               </>
                             )}
                           >
                             <span
-                              className="no-drag"
-                              style={{
-                                minWidth: 15,
-                                height: 15,
-                                padding: '0 4px',
-                                borderRadius: 999,
-                                fontSize: 10,
-                                fontWeight: 700,
-                                lineHeight: '15px',
-                                textAlign: 'center',
-                                flexShrink: 0,
-                                cursor: 'default',
-                                background: nearLimit ? 'var(--warning-dim)' : 'var(--surface-sunken)',
-                                color: nearLimit ? 'var(--warning)' : 'var(--text-tertiary)',
-                                border: `1px solid ${nearLimit ? 'var(--warning)' : 'var(--border)'}`,
-                              }}
+                              className={cn(
+                                'no-drag min-w-[15px] h-[15px] px-1 rounded-full text-[10px] font-bold leading-[15px] text-center shrink-0 cursor-default border',
+                                nearLimit
+                                  ? 'bg-warning-dim text-warning border-warning'
+                                  : 'bg-sunken text-tertiary border-line',
+                              )}
                             >
                               {usage.total}
                             </span>
                           </Tiptop>
                         );
                       })()}
-                      <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span className="max-w-[120px] truncate">
                         {s.serverName}
                       </span>
                       {(s.status === 'closed' || s.status === 'error') && (
                         <Tiptop text={t('重新连接')} placement="bottom">
                           <span
-                            className="tab-reconnect no-drag"
+                            className="tab-reconnect no-drag cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               reconnectSession(s);
                             }}
                             onDoubleClick={(e) => e.stopPropagation()}
                             aria-label={t('重新连接')}
-                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                           >
                             <RefreshCw size={12} />
                           </span>
@@ -273,73 +243,37 @@ export default function AppTopbar({
               </div>
             </div>
           )}
-          {sessions.length === 0 && <div style={{ flex: 1 }}></div>}
+          {sessions.length === 0 && <div className="flex-1" />}
 
           <div className="window-controls">
             {showThemeQuickEntry && !activeAIDevilMode && (
               <Tiptop text={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')} placement="bottom">
                 <button
                   type="button"
-                  className="btn btn-ghost no-drag"
+                  className={cn(
+                    'no-drag relative w-[52px] h-7 p-[3px] rounded-full border border-line inline-flex items-center justify-between overflow-hidden shrink-0',
+                    '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.04)]',
+                    resolvedQuickThemeMode === 'light' ? 'bg-[rgba(250,204,21,0.12)]' : 'bg-[rgba(99,102,241,0.16)]',
+                  )}
                   onClick={handleQuickThemeToggle}
                   aria-label={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')}
-                  style={{
-                    position: 'relative',
-                    width: 52,
-                    height: 28,
-                    padding: 3,
-                    borderRadius: 999,
-                    border: '1px solid var(--border)',
-                    background: resolvedQuickThemeMode === 'light' ? 'rgba(250, 204, 21, 0.12)' : 'rgba(99, 102, 241, 0.16)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 0,
-                    overflow: 'hidden',
-                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
-                  }}
                 >
                   <span
                     aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      top: 3,
-                      left: resolvedQuickThemeMode === 'light' ? 3 : 27,
-                      width: 22,
-                      height: 22,
-                      borderRadius: '50%',
-                      background: 'var(--surface-overlay)',
-                      boxShadow: 'var(--shadow-sm)',
-                      transition: 'left 0.2s ease',
-                    }}
+                    className="absolute top-[3px] w-[22px] h-[22px] rounded-full bg-overlay shadow-sm [transition:left_0.2s_ease]"
+                    style={{ left: resolvedQuickThemeMode === 'light' ? 3 : 27 }}
                   />
                   <span
                     aria-hidden="true"
-                    style={{
-                      position: 'relative',
-                      zIndex: 1,
-                      width: 16,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: resolvedQuickThemeMode === 'light' ? '#f59e0b' : 'var(--text-tertiary)',
-                      transition: 'color 0.2s ease',
-                    }}
+                    className="relative w-4 inline-flex items-center justify-center [transition:color_0.2s_ease]"
+                    style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'light' ? '#f59e0b' : 'var(--text-tertiary)' }}
                   >
                     <Sun size={13} />
                   </span>
                   <span
                     aria-hidden="true"
-                    style={{
-                      position: 'relative',
-                      zIndex: 1,
-                      width: 16,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: resolvedQuickThemeMode === 'dark' ? '#a78bfa' : 'var(--text-tertiary)',
-                      transition: 'color 0.2s ease',
-                    }}
+                    className="relative w-4 inline-flex items-center justify-center [transition:color_0.2s_ease]"
+                    style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'dark' ? '#a78bfa' : 'var(--text-tertiary)' }}
                   >
                     <Moon size={13} />
                   </span>
@@ -360,16 +294,13 @@ export default function AppTopbar({
             )}
             {startupUpdateInfo && (
               <Tiptop text={`${t('发现新版本')} ${startupUpdateInfo.version}`} placement="bottom">
-                <div className="update-entry no-drag" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <div className="update-entry no-drag relative flex items-center">
                   <div
-                    className={`update-bubble${showUpdateBubble ? ' visible' : ''}`}
+                    className={`update-bubble${showUpdateBubble ? ' visible' : ''} top-[calc(100%+10px)] -right-1 pointer-events-none`}
                     style={{
                       position: 'absolute',
-                      top: 'calc(100% + 10px)',
-                      right: -4,
                       opacity: showUpdateBubble ? 1 : 0,
                       transform: `translateY(${showUpdateBubble ? '0' : '-8px'}) scale(${showUpdateBubble ? '1' : '0.94'})`,
-                      pointerEvents: 'none',
                       zIndex: Z.POPOVER,
                     }}
                   >
@@ -381,7 +312,7 @@ export default function AppTopbar({
                     </div>
                   </div>
                   <button
-                    className={`btn btn-ghost btn-icon no-drag update-entry-button${isUpdateModalVisible ? ' active' : ''}`}
+                    className={`btn btn-ghost btn-icon no-drag update-entry-button overflow-visible${isUpdateModalVisible ? ' active' : ''}`}
                     onClick={() => {
                       setShowUpdateBubble(false);
                       setIsUpdateModalVisible(true);
@@ -389,24 +320,10 @@ export default function AppTopbar({
                     aria-label={`${t('发现新版本')} ${startupUpdateInfo.version}`}
                     style={{
                       color: isUpdateModalVisible ? 'var(--accent)' : 'var(--text-secondary)',
-                      position: 'relative',
-                      overflow: 'visible',
                     }}
                   >
                     <Rocket size={16} />
-                    <span
-                      className="update-entry-badge"
-                      style={{
-                        position: 'absolute',
-                        top: 6,
-                        right: 6,
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: 'var(--danger)',
-                        boxShadow: '0 0 0 2px var(--surface-base)',
-                      }}
-                    />
+                    <span className="update-entry-badge absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger shadow-[0_0_0_2px_var(--surface-base)]" />
                   </button>
                 </div>
               </Tiptop>

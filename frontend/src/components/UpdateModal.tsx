@@ -1,5 +1,6 @@
 import { Z } from '../constants/zIndex';
 import { Rocket } from 'lucide-react';
+import { Button } from './ui';
 
 interface UpdateInfo {
   version: string;
@@ -18,54 +19,41 @@ export default function UpdateModal({ visible, updateInfo, downloadProgress, t, 
   if (!visible || !updateInfo) return null;
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 24, right: 24, zIndex: Z.MODAL,
-      width: 340, background: 'var(--surface-raised)',
-      border: '1px solid var(--border)',
-      boxShadow: 'var(--shadow-md)',
-      borderRadius: 10, padding: '16px 20px',
-      animation: 'slideUp 0.18s ease'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <div style={{ fontSize: 28, lineHeight: 1, color: 'var(--text-secondary)' }}><Rocket size={28} /></div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-            {t('发现新版本')} <span style={{ color: 'var(--success)', fontSize: 13, background: 'var(--success-dim)', padding: '2px 6px', borderRadius: 6 }}>{updateInfo.version}</span>
+    <div
+      className="fixed bottom-6 right-6 w-[340px] bg-raised border border-line rounded-lg shadow-md py-4 px-5 animate-[slideUp_0.18s_ease]"
+      style={{ zIndex: Z.MODAL }}
+    >
+      <div className="flex items-start gap-[14px]">
+        <div className="text-[28px] leading-none text-secondary"><Rocket size={28} /></div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-lg font-semibold text-primary mb-1">
+            {t('发现新版本')} <span className="text-success text-base bg-success-dim py-[2px] px-[6px] rounded-md">{updateInfo.version}</span>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 16 }}>
+          <div className="text-base text-secondary leading-normal mb-4">
             {t('为了给您提供更极致的体验，建议您立即升级。')}
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button
-              style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s' }}
-              onClick={onClose}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--surface-hover)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
-              disabled={downloadProgress >= 0}
-            >
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={onClose} disabled={downloadProgress >= 0}>
               {t('稍等')}
-            </button>
-            <button
-              style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--success)', border: 'none', color: '#fff', cursor: 'pointer', position: 'relative', overflow: 'hidden', transition: 'all 0.2s' }}
-              onClick={onUpdate}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--success-hover, #059669)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--success)'}
-              disabled={downloadProgress >= 0}
-            >
+            </Button>
+            <Button variant="success" className="relative overflow-hidden font-semibold" onClick={onUpdate} disabled={downloadProgress >= 0}>
               {downloadProgress >= 0 && (
-                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${downloadProgress}%`, background: 'rgba(0,0,0,0.2)', transition: 'width 0.2s ease-out' }} />
+                <div
+                  className="absolute left-0 top-0 bottom-0 bg-black/20 transition-[width] duration-200 ease-out"
+                  style={{ width: `${downloadProgress}%` }}
+                />
               )}
-              <span style={{ position: 'relative', zIndex: Z.CONTENT, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="relative flex items-center gap-1.5" style={{ zIndex: Z.CONTENT }}>
                 {downloadProgress >= 0 ? (
                   <>
-                    <svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                    <svg className="animate-[spin_1s_linear_infinite]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                     {Math.round(downloadProgress)}%
                   </>
                 ) : (
                   t('立即更新')
                 )}
               </span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

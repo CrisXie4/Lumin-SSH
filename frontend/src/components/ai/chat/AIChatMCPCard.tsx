@@ -41,39 +41,29 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
   }, [hasSubsequentAssistantMessage, response])
 
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div style={{ width: '100%', display: 'grid', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 12 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+    <div className="grid gap-2">
+      <div className="grid w-full gap-1.5">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
             <Server size={14} color="var(--text-secondary)" />
-            <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{serverName}</span>
-            {toolName ? <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{toolName}</span> : null}
+            <span className="font-bold text-primary">{serverName}</span>
+            {toolName ? <span className="font-mono text-xs text-tertiary">{toolName}</span> : null}
           </span>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div className="inline-flex shrink-0 items-center gap-2">
             {response ? (
-              <span style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid color-mix(in srgb, var(--success) 30%, var(--border))', background: 'color-mix(in srgb, var(--success) 8%, var(--surface-overlay))', color: 'var(--success)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <span className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[color-mix(in_srgb,var(--success)_8%,var(--surface-overlay))] px-2 py-0.5 text-xs font-semibold text-success">
                 {t('completed')}
               </span>
             ) : null}
             {resultTokenEstimateDisplay ? (
-              <div style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid color-mix(in srgb, var(--accent) 24%, var(--border))', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface-overlay))', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+              <div className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
                 {resultTokenEstimateDisplay}
               </div>
             ) : null}
             <button
               type="button"
               onClick={() => setIsRequestExpanded((previous) => !previous)}
-              style={{
-                width: 24,
-                height: 24,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 0,
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-              }}>
+              className="inline-flex h-6 w-6 cursor-pointer items-center justify-center border-none bg-transparent p-0">
               <ChevronDown
                 size={14}
                 color="var(--text-tertiary)"
@@ -86,34 +76,23 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
           </div>
         </div>
         {isRequestExpanded ? (
-          <div style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-overlay)', overflow: 'hidden' }}>
-            <div style={{ padding: '12px', display: 'grid', gap: 10 }}>
-              <div style={{ display: 'grid', gap: 6 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{t('arguments')}</div>
-                <pre style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}>{args}</pre>
+          <div className="w-full overflow-hidden rounded-xl border border-line bg-overlay">
+            <div className="grid gap-2.5 p-3">
+              <div className="grid gap-1.5">
+                <div className="text-xs uppercase tracking-[0.4px] text-tertiary">{t('arguments')}</div>
+                <pre className="m-0 max-h-[260px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg border border-line bg-canvas px-3 py-2.5 font-mono text-sm leading-[1.65] text-secondary [word-break:break-word]">{args}</pre>
               </div>
             </div>
           </div>
         ) : null}
         {response ? (
-          <div style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-overlay)', overflow: 'hidden' }}>
+          <div className="w-full overflow-hidden rounded-xl border border-line bg-overlay">
             <button
               type="button"
               onClick={() => setIsResponseExpanded((previous) => !previous)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10,
-                padding: '10px 12px',
-                border: 'none',
-                background: 'var(--surface-raised)',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{t('response')}</span>
+              className="flex w-full cursor-pointer items-center justify-between gap-2.5 border-none bg-raised px-3 py-2.5 text-left">
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs uppercase tracking-[0.4px] text-tertiary">{t('response')}</span>
               </span>
               <ChevronDown
                 size={14}
@@ -125,8 +104,8 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
               />
             </button>
             {isResponseExpanded ? (
-              <div style={{ padding: '12px', display: 'grid', gap: 10 }}>
-                <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-base)', color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}>{response}</div>
+              <div className="grid gap-2.5 p-3">
+                <div className="max-h-[320px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg border border-line-subtle bg-canvas px-3 py-2.5 text-base leading-[1.65] text-primary [word-break:break-word]">{response}</div>
               </div>
             ) : null}
           </div>

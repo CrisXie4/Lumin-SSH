@@ -1,6 +1,5 @@
 import { Monitor, Radio, Loader2 } from 'lucide-react';
 import { Z } from '../constants/zIndex';
-import { getThemeComponentTheme } from '../utils/theme.ts';
 import type { ConnectingServer } from '../hooks/useSessionConnections.ts';
 
 interface ConnectingCardProps {
@@ -11,7 +10,6 @@ interface ConnectingCardProps {
 
 export default function ConnectingCard({ connectingServer, t, onCancel }: ConnectingCardProps) {
   if (!connectingServer) return null;
-  const C = getThemeComponentTheme('connectingCard');
   const server = connectingServer.server;
   const host = server.host;
   const port = server.port || 22;
@@ -19,40 +17,27 @@ export default function ConnectingCard({ connectingServer, t, onCancel }: Connec
   const message = connectingServer.message || t('正在建立 SSH 连接，请稍候...');
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: Z.FULLSCREEN_OVERLAY,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: C.overlayBg,
-    }}>
-      <div style={{
-        width: 380, borderRadius: 16, overflow: 'hidden',
-        background: C.popupBg,
-        border: '1px solid ' + C.btnBorder,
-        boxShadow: C.contextShadow,
-        padding: '20px 24px 22px',
-      }}>
+    <div
+      className="absolute inset-0 flex items-center justify-center bg-black/[0.42]"
+      style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
+    >
+      <div className="w-[380px] rounded-[16px] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">
         {/* 标题行：图标 + 名称 + 按钮 */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 18 }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-            background: 'rgba(var(--danger-rgb), 0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}><Monitor size={22} style={{ color: '#fff' }} /></div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.inputColor, marginBottom: 3 }}>
+        <div className="flex items-start gap-3.5 mb-[18px]">
+          <div className="w-[42px] h-[42px] rounded-[10px] shrink-0 bg-[rgba(var(--danger-rgb),0.85)] flex items-center justify-center">
+            <Monitor size={22} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-lg font-bold text-primary mb-[3px]">
               {server.name || server.host}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--success)', fontFamily: 'monospace' }}>
+            <div className="text-sm text-success font-mono">
               {t('SSH')} {host}:{port || 22}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <div className="flex gap-2 shrink-0">
             <button
-              style={{
-                padding: '5px 14px', fontSize: 12, borderRadius: 8, cursor: 'pointer',
-                background: C.buttonBg, border: '1px solid ' + C.btnBorder,
-                color: C.buttonTextColor,
-              }}
+              className="px-3.5 py-[5px] text-sm rounded-lg cursor-pointer bg-sunken hover:bg-hover border border-line text-secondary transition-colors duration-100"
               onClick={onCancel}
             >
               {t('取消')}
@@ -61,33 +46,31 @@ export default function ConnectingCard({ connectingServer, t, onCancel }: Connec
         </div>
 
         {/* 双进度条 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
-          <div style={{ flex: 1, height: 4, borderRadius: 4, background: C.separator, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 4,
-              background: 'var(--success)',
-              animation: 'ssh-progress-indeterminate 1.4s ease-in-out infinite',
-            }} />
+        <div className="flex items-center gap-2.5 mb-3.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-success shrink-0" />
+          <div className="flex-1 h-1 rounded-sm bg-[var(--border-subtle)] overflow-hidden">
+            <div
+              className="h-full rounded-sm bg-success"
+              style={{ animation: 'ssh-progress-indeterminate 1.4s ease-in-out infinite' }}
+            />
           </div>
-          <div style={{ flexShrink: 0, fontSize: 14, color: 'var(--success)' }}><Radio size={14} /></div>
-          <div style={{ flex: 1, height: 4, borderRadius: 4, background: C.separator, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 4,
-              background: 'var(--success)',
-              animation: 'ssh-progress-indeterminate 1.4s ease-in-out 0.4s infinite',
-            }} />
+          <div className="shrink-0 text-md text-success"><Radio size={14} /></div>
+          <div className="flex-1 h-1 rounded-sm bg-[var(--border-subtle)] overflow-hidden">
+            <div
+              className="h-full rounded-sm bg-success"
+              style={{ animation: 'ssh-progress-indeterminate 1.4s ease-in-out 0.4s infinite' }}
+            />
           </div>
-          <div style={{ flex: 0, fontSize: 14, color: C.mutedColor }}><Loader2 size={14} style={{ animation: 'spin 1.2s linear infinite' }} /></div>
+          <div className="flex-none text-md text-muted"><Loader2 size={14} style={{ animation: 'spin 1.2s linear infinite' }} /></div>
         </div>
 
         {/* 提示文字 */}
-        <div style={{ fontSize: 12, color: isPostAuthSlow ? 'var(--warning)' : C.statusBarColor, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
-          <span style={{ animation: 'spin 1.5s linear infinite', display: 'inline-flex', alignItems: 'center', marginTop: 2 }}><Loader2 size={14} /></span>
+        <div className={`text-sm flex items-start gap-1.5 leading-normal ${isPostAuthSlow ? 'text-warning' : 'text-secondary'}`}>
+          <span className="inline-flex items-center mt-0.5" style={{ animation: 'spin 1.5s linear infinite' }}><Loader2 size={14} /></span>
           <span>
             {message}
             {isPostAuthSlow && (
-              <span style={{ display: 'block', color: C.mutedColor, marginTop: 4 }}>
+              <span className="block text-muted mt-1">
                 {t('仍在继续等待，总等待时间达到 30 秒后会自动断开。')}
               </span>
             )}

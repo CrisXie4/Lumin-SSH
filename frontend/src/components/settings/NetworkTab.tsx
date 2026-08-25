@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { t as $t } from '../../i18n.ts';
 import { Lightbulb } from 'lucide-react';
-import { ToggleSwitch, RadioOption, SettingRow, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, type SettingsDefinitionNode } from './SharedComponents';
+import { cn } from '../../utils/cn.ts';
+import { Button } from '../ui';
+import { ToggleSwitch, RadioOption, SettingRow, SettingsPanel, SettingsSectionTitle, SettingsTabRoot } from './SharedComponents';
 import { settings } from './settingDefinitions';
 import { getAIGlobalSettings, saveAIGlobalSettings } from '../ai/aiGlobalSettingsBridge.ts';
 import { getProxyNodes, saveProxyNodes, normalizeProxyNode } from './proxyNodesBridge.ts';
@@ -200,7 +202,7 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
     <SettingsTabRoot>
       <div>
         <SettingsSectionTitle definition={settingsData.sections.latency} />
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>{$t('开启或关闭对主页所有服务器的网络可用性及延迟自动探测。')}</div>
+        <div className="text-sm text-secondary mb-2.5">{$t('开启或关闭对主页所有服务器的网络可用性及延迟自动探测。')}</div>
         <SettingsPanel>
           <SettingRow
             definition={settingsData.fields.pingEnabled}
@@ -208,18 +210,18 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
             action={<ToggleSwitch checked={pingEnabled} onChange={onTogglePingEnabled} />}
           />
         </SettingsPanel>
-        <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(245, 158, 11, 0.08)', borderRadius: 8, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, border: '1px solid rgba(245, 158, 11, 0.28)' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', marginRight: 4 }}><Lightbulb size={14} /></span>{' '}
-          <strong style={{ color: 'var(--text-secondary)' }}>{$t('安全说明：')}</strong>
+        <div className="mt-2.5 px-3.5 py-2.5 bg-[rgba(245,158,11,0.08)] rounded-lg text-sm text-tertiary leading-[1.7] border border-[rgba(245,158,11,0.28)]">
+          <span className="inline-flex items-center align-middle mr-1"><Lightbulb size={14} /></span>{' '}
+          <strong className="text-secondary">{$t('安全说明：')}</strong>
           {$t('延迟检测会在主页对列表中的服务器周期性探测 SSH 端口，仅做连通/延迟判断，不会使用密码或密钥登录。智能检测默认 2 秒刷新，直连只做 TCP；疑似 TUN/代理时约每 30 秒才做一次 Banner 确认以防假在线。选择「SSH Banner RTT」时会自动将间隔调整为至少 15 秒。若环境有登录失败告警策略，可关闭检测、增大间隔，或在纯内网使用 TCP Dial。')}
         </div>
       </div>
       <div>
         <SettingsSectionTitle definition={settingsData.sections.mode} />
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>{$t('选择延迟检测的探测方式，不同方式适用于不同网络环境。')}</div>
-        <SettingsPanel data-settings-field-id={settingsData.fields.detectionMode.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="text-sm text-secondary mb-2.5">{$t('选择延迟检测的探测方式，不同方式适用于不同网络环境。')}</div>
+        <SettingsPanel data-settings-field-id={settingsData.fields.detectionMode.id} className="flex flex-col gap-2">
           {[
-            { id: 'auto', label: <><span style={{ fontSize: 10, background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4, fontWeight: 700, marginRight: 6 }}>{$t('推荐')}</span>{$t('智能检测')}</>, desc: $t('直连用 TCP 测延迟；检测到代理/TUN 时低频 Banner 确认可达性，避免 Clash 等环境下不可达主机显示 0 毫秒在线') },
+            { id: 'auto', label: <><span className="text-[10px] bg-accent-dim border border-accent-border text-accent px-1.5 py-px rounded-sm font-bold mr-1.5">{$t('推荐')}</span>{$t('智能检测')}</>, desc: $t('直连用 TCP 测延迟；检测到代理/TUN 时低频 Banner 确认可达性，避免 Clash 等环境下不可达主机显示 0 毫秒在线') },
             { id: 'banner', label: $t('SSH Banner RTT'), desc: $t('所有连接都读取 SSH 握手响应测速，准确反映真实可达性，能穿透 TUN/代理；选择后会自动将延迟检测间隔调整为至少 15 秒') },
             { id: 'tcp', label: $t('TCP Dial'), desc: $t('仅检测 TCP 端口连通性，速度最快，但在 TUN/代理下可能把不可达服务器误判为在线') },
           ].map((opt) => (
@@ -233,40 +235,32 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
             />
           ))}
         </SettingsPanel>
-        <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--surface-overlay)', borderRadius: 8, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, border: '1px solid var(--border-light)' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', marginRight: 4 }}><Lightbulb size={14} /></span> <strong style={{ color: 'var(--text-secondary)' }}>{$t('提示：')}</strong>{$t('使用 TUN 模式代理（Clash/V2Ray 等）时建议选「智能检测」：可识别不可达主机且不会每 2 秒半开 SSH。纯局域网或未开代理时智能检测会优先 TCP Dial；若你强制选择 Banner，间隔会自动不低于 15 秒。')}
+        <div className="mt-2.5 px-3.5 py-2.5 bg-overlay rounded-lg text-sm text-tertiary leading-[1.7] border border-line-light">
+          <span className="inline-flex items-center align-middle mr-1"><Lightbulb size={14} /></span> <strong className="text-secondary">{$t('提示：')}</strong>{$t('使用 TUN 模式代理（Clash/V2Ray 等）时建议选「智能检测」：可识别不可达主机且不会每 2 秒半开 SSH。纯局域网或未开代理时智能检测会优先 TCP Dial；若你强制选择 Banner，间隔会自动不低于 15 秒。')}
         </div>
       </div>
       <div>
         <SettingsSectionTitle definition={settingsData.sections.refresh} />
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>{$t('设置探针数据和延迟测试的自动刷新间隔。延迟检测默认 2 秒（适合 TCP/智能模式）；选择 Banner 时自动不低于 15 秒。')}</div>
-        <SettingsPanel style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div data-settings-field-id={settingsData.fields.probeInterval.id} style={{ display: 'flex', flexDirection: isMobileLayout ? 'column' : 'row', alignItems: isMobileLayout ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobileLayout ? 10 : 0 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{$t('探针刷新间隔')}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: isMobileLayout ? 'flex-start' : 'flex-end' }}>
+        <div className="text-sm text-secondary mb-2.5">{$t('设置探针数据和延迟测试的自动刷新间隔。延迟检测默认 2 秒（适合 TCP/智能模式）；选择 Banner 时自动不低于 15 秒。')}</div>
+        <SettingsPanel className="flex flex-col gap-2.5">
+          <div data-settings-field-id={settingsData.fields.probeInterval.id} className={cn('flex justify-between', isMobileLayout ? 'flex-col items-stretch gap-2.5' : 'flex-row items-center')}>
+            <span className="text-base text-secondary">{$t('探针刷新间隔')}</span>
+            <div className={cn('flex items-center gap-2 flex-wrap', isMobileLayout ? 'justify-start' : 'justify-end')}>
               {[1, 3, 5, 10, 30].map((s) => (
                 <button
                   key={s}
                   onClick={() => onProbeIntervalChange(s)}
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: '1px solid',
-                    borderColor: probeInterval === s ? 'var(--success)' : 'var(--border)',
-                    background: probeInterval === s ? 'rgba(34,197,94,0.1)' : 'var(--surface-sunken)',
-                    color: probeInterval === s ? 'var(--success)' : 'var(--text-secondary)',
-                    transition: 'all 0.15s',
-                  }}
+                  className={cn(
+                    'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-150 border cursor-pointer',
+                    probeInterval === s ? 'border-success bg-[rgba(34,197,94,0.1)] text-success' : 'border-line bg-sunken text-secondary',
+                  )}
                 >{s}s</button>
               ))}
             </div>
           </div>
-          <div data-settings-field-id={settingsData.fields.pingInterval.id} style={{ display: 'flex', flexDirection: isMobileLayout ? 'column' : 'row', alignItems: isMobileLayout ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobileLayout ? 10 : 0 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{$t('延迟检测间隔')}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: isMobileLayout ? 'flex-start' : 'flex-end' }}>
+          <div data-settings-field-id={settingsData.fields.pingInterval.id} className={cn('flex justify-between', isMobileLayout ? 'flex-col items-stretch gap-2.5' : 'flex-row items-center')}>
+            <span className="text-base text-secondary">{$t('延迟检测间隔')}</span>
+            <div className={cn('flex items-center gap-2 flex-wrap', isMobileLayout ? 'justify-start' : 'justify-end')}>
               {[2, 5, 10, 15, 30].map((s) => {
                 const disabled = pingMode === 'banner' && s < 15;
                 return (
@@ -275,26 +269,21 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
                     onClick={() => !disabled && onPingIntervalChange(s)}
                     disabled={disabled}
                     title={disabled ? $t('Banner 模式下间隔不能低于 15 秒') : undefined}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: disabled ? 'not-allowed' : 'pointer',
-                      border: '1px solid',
-                      borderColor: pingInterval === s ? 'var(--success)' : 'var(--border)',
-                      background: pingInterval === s ? 'rgba(34,197,94,0.1)' : 'var(--surface-sunken)',
-                      color: disabled ? 'var(--text-tertiary)' : (pingInterval === s ? 'var(--success)' : 'var(--text-secondary)'),
-                      opacity: disabled ? 0.45 : 1,
-                      transition: 'all 0.15s',
-                    }}
+                    className={cn(
+                      'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-150 border',
+                      disabled
+                        ? 'opacity-45 cursor-not-allowed border-line bg-sunken text-tertiary'
+                        : (pingInterval === s
+                          ? 'border-success bg-[rgba(34,197,94,0.1)] text-success'
+                          : 'border-line bg-sunken text-secondary cursor-pointer'),
+                    )}
                   >{s}s</button>
                 );
               })}
             </div>
           </div>
           {pingMode === 'banner' ? (
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+            <div className="text-sm text-tertiary leading-[1.6]">
               {$t('当前为 Banner 模式：延迟检测间隔已限制为至少 15 秒，以降低安全设备将半开 SSH 记为登录失败的概率。')}
             </div>
           ) : null}
@@ -302,20 +291,20 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
       </div>
       <div>
         <SettingsSectionTitle definition={settingsData.sections.proxy} />
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>{$t('添加并管理本地代理节点，可供 AI 请求与服务器 SSH/SFTP 连接复用。')}</div>
-        <div data-settings-field-id={settingsData.fields.proxyNodes.id} style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : 'minmax(0, 1.1fr) minmax(320px, 0.9fr)', gap: 14, alignItems: 'start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+        <div className="text-sm text-secondary mb-2.5">{$t('添加并管理本地代理节点，可供 AI 请求与服务器 SSH/SFTP 连接复用。')}</div>
+        <div data-settings-field-id={settingsData.fields.proxyNodes.id} className={cn('grid gap-3.5 items-start', isMobileLayout ? 'grid-cols-1' : 'grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]')}>
+          <div className="flex flex-col gap-2 min-w-0">
             {proxyNodes.length === 0 ? (
-              <div style={{ padding: '16px 14px', background: 'var(--surface-overlay)', borderRadius: 10, border: '1px dashed var(--border)', color: 'var(--text-tertiary)', lineHeight: 1.7 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>{$t('暂无代理节点')}</div>
-                <div style={{ fontSize: 12 }}>{$t('创建第一个代理节点后会显示在这里。')}</div>
+              <div className="px-3.5 py-4 bg-overlay rounded-lg border border-dashed border-line text-tertiary leading-[1.7]">
+                <div className="text-base font-semibold text-secondary mb-1">{$t('暂无代理节点')}</div>
+                <div className="text-sm">{$t('创建第一个代理节点后会显示在这里。')}</div>
               </div>
             ) : proxyNodes.map((node) => (
-              <div key={String(node?.id)} style={{ padding: 12, background: 'var(--surface-overlay)', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-                <div style={{ display: 'flex', flexDirection: isMobileLayout ? 'column' : 'row', alignItems: isMobileLayout ? 'stretch' : 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: isMobileLayout ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', overflowWrap: 'anywhere' }}>{String(node?.name || $t('未命名节点'))}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, whiteSpace: isMobileLayout ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', overflowWrap: 'anywhere', lineHeight: 1.6 }}>
+              <div key={String(node?.id)} className="p-3 bg-overlay rounded-lg border border-line flex flex-col gap-2 min-w-0">
+                <div className={cn('flex justify-between gap-2.5', isMobileLayout ? 'flex-col items-stretch' : 'flex-row items-center')}>
+                  <div className="min-w-0">
+                    <div className={cn('text-base font-bold text-primary overflow-hidden text-ellipsis [overflow-wrap:anywhere]', isMobileLayout ? 'whitespace-normal' : 'whitespace-nowrap')}>{String(node?.name || $t('未命名节点'))}</div>
+                    <div className={cn('text-xs text-tertiary mt-0.5 overflow-hidden text-ellipsis [overflow-wrap:anywhere] leading-[1.6]', isMobileLayout ? 'whitespace-normal' : 'whitespace-nowrap')}>
                       {[
                         node?.type === 'http' ? $t('HTTP 代理') : $t('SOCKS5 代理'),
                         `${String(node?.host)}:${String(node?.port)}`,
@@ -324,48 +313,48 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
                       ].join(' · ')}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: isMobileLayout ? 'flex-start' : 'flex-end' }}>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleProxyEdit(node)}>{$t('编辑')}</button>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleProxyDelete(String(node?.id))} style={{ color: 'var(--danger)' }}>{$t('删除')}</button>
+                  <div className={cn('flex gap-2 shrink-0 flex-wrap', isMobileLayout ? 'justify-start' : 'justify-end')}>
+                    <Button size="sm" onClick={() => handleProxyEdit(node)}>{$t('编辑')}</Button>
+                    <Button size="sm" className="text-danger hover:text-danger" onClick={() => handleProxyDelete(String(node?.id))}>{$t('删除')}</Button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <SettingsPanel style={{ padding: 12 }}>
-            <form onSubmit={handleProxySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{editingProxyId ? $t('编辑') : $t('添加')}</div>
-              <div className="form-group" data-settings-field-id={settingsData.fields.proxyName.id} style={{ margin: 0 }}>
+          <SettingsPanel className="p-3">
+            <form onSubmit={handleProxySubmit} className="flex flex-col gap-2.5 min-w-0">
+              <div className="text-base font-bold text-primary">{editingProxyId ? $t('编辑') : $t('添加')}</div>
+              <div className="form-group" data-settings-field-id={settingsData.fields.proxyName.id}>
                 <label className="form-label" htmlFor="network-proxy-name">{$t('代理名称（备注）')}</label>
                 <input id="network-proxy-name" name="network-proxy-name" autoComplete="off" className="input" value={proxyForm.name} onChange={setProxyField('name')} placeholder={$t('代理名称（备注）')} />
-                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-tertiary)' }}>{$t('仅用于区分代理节点，不参与连接逻辑')}</div>
+                <div className="mt-1.5 text-xs text-tertiary">{$t('仅用于区分代理节点，不参与连接逻辑')}</div>
               </div>
-              <div className="form-group" data-settings-field-id={settingsData.fields.proxyType.id} style={{ margin: 0 }}>
+              <div className="form-group" data-settings-field-id={settingsData.fields.proxyType.id}>
                 <label className="form-label" htmlFor="network-proxy-type">{$t('协议类型')}</label>
                 <select id="network-proxy-type" name="network-proxy-type" className="select" value={proxyForm.type} onChange={setProxyField('type')}>
                   <option value="socks5">{$t('SOCKS5 代理')}</option>
                   <option value="http">{$t('HTTP 代理')}</option>
                 </select>
               </div>
-              <div className="form-group" data-settings-field-id={settingsData.fields.proxyHost.id} style={{ margin: 0 }}>
+              <div className="form-group" data-settings-field-id={settingsData.fields.proxyHost.id}>
                 <label className="form-label" htmlFor="network-proxy-host">{$t('主机地址')}</label>
                 <input id="network-proxy-host" name="network-proxy-host" autoComplete="off" className="input" value={proxyForm.host} onChange={setProxyField('host')} placeholder="127.0.0.1" />
               </div>
-              <div className="form-group" data-settings-field-id={settingsData.fields.proxyPort.id} style={{ margin: 0 }}>
+              <div className="form-group" data-settings-field-id={settingsData.fields.proxyPort.id}>
                 <label className="form-label" htmlFor="network-proxy-port">{$t('端口')}</label>
                 <input id="network-proxy-port" name="network-proxy-port" autoComplete="off" className="input" type="number" min={1} max={65535} value={proxyForm.port} onChange={setProxyField('port')} placeholder="1080" />
               </div>
-              <div className="form-group" data-settings-field-id={settingsData.fields.proxyUsername.id} style={{ margin: 0 }}>
+              <div className="form-group" data-settings-field-id={settingsData.fields.proxyUsername.id}>
                 <label className="form-label" htmlFor="network-proxy-username">{$t('用户名')}</label>
                 <input id="network-proxy-username" name="network-proxy-username" autoComplete="off" className="input" value={proxyForm.username} onChange={setProxyField('username')} placeholder={$t('用户名')} />
               </div>
-              <div className="form-group" data-settings-field-id={settingsData.fields.proxyPassword.id} style={{ margin: 0 }}>
+              <div className="form-group" data-settings-field-id={settingsData.fields.proxyPassword.id}>
                 <label className="form-label" htmlFor="network-proxy-password">{$t('密码')}</label>
                 <input id="network-proxy-password" name="network-proxy-password" autoComplete="off" className="input" type="password" value={proxyForm.password} onChange={setProxyField('password')} placeholder={$t('密码')} />
               </div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 2, flexWrap: 'wrap' }}>
-                {editingProxyId ? <button type="button" className="btn btn-secondary" onClick={resetProxyForm}>{$t('取消编辑')}</button> : null}
-                <button type="submit" className="btn btn-primary">{editingProxyId ? $t('保存配置') : $t('添加')}</button>
+              <div className="flex gap-2.5 justify-end mt-0.5 flex-wrap">
+                {editingProxyId ? <Button onClick={resetProxyForm}>{$t('取消编辑')}</Button> : null}
+                <Button type="submit" variant="primary">{editingProxyId ? $t('保存配置') : $t('添加')}</Button>
               </div>
             </form>
           </SettingsPanel>

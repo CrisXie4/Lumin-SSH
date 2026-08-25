@@ -1,6 +1,7 @@
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import type { Dispatch, SetStateAction } from 'react';
 import { Z } from '../constants/zIndex.ts';
+import { Button } from './ui';
 
 /** 同步失败状态（源头在 useSessionConnections 中为 unknown，此处先本地定义，待后续收窄） */
 export interface SyncFailureState {
@@ -43,17 +44,20 @@ export default function SyncFailureToast({ syncFailed, setSyncFailed, setSetting
     }
   };
   return (
-    <div className="sync-failed-toast" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: Z.TOAST, width: 400, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface-raised)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg, var(--shadow-md))', borderRadius: 10, padding: '16px 20px', animation: 'slideUp 0.18s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <div style={{ fontSize: 28, lineHeight: 1, color: 'var(--warning)', flexShrink: 0 }} aria-hidden>⚠</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{t('云端同步失败')}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 6 }}>{syncFailed.category === 'trust' ? t('服务器身份信息已变化，请前往“设置 → 同步与云”核对后恢复同步。') : t('数据未能上传到云端，本地数据不受影响。')}</div>
-          <div style={{ fontSize: 12, color: 'var(--danger)', background: 'rgba(var(--danger-rgb), 0.10)', border: '1px solid rgba(var(--danger-rgb), 0.22)', padding: '6px 10px', borderRadius: 8, marginBottom: 14, wordBreak: 'break-all', lineHeight: 1.5 }}>{String(syncFailed.error ?? '')}</div>
-          <div className="sync-failed-toast-actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secondary sync-failed-btn-ignore" onClick={() => setSyncFailed(null)}>{t('忽略')}</button>
-            {canRecreateRemoteDir && <button type="button" className="btn btn-secondary sync-failed-btn-ignore" title={t('在云端重建同步目录后再次同步')} onClick={() => runRetry(true)}>{t('重新创建并重试')}</button>}
-            <button type="button" className="btn btn-primary sync-failed-btn-retry" onClick={() => runRetry(false)}>{syncFailed.category === 'trust' ? t('前往同步与云') : t('重试')}</button>
+    <div
+      className="fixed bottom-6 right-6 w-[400px] max-w-[calc(100vw_-_32px)] bg-raised border border-line rounded-lg shadow-lg py-4 px-5 animate-[slideUp_0.18s_ease]"
+      style={{ zIndex: Z.TOAST }}
+    >
+      <div className="flex items-start gap-[14px]">
+        <div className="text-[28px] leading-none text-warning shrink-0" aria-hidden>⚠</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-lg font-semibold text-primary mb-1">{t('云端同步失败')}</div>
+          <div className="text-base text-secondary leading-normal mb-[6px]">{syncFailed.category === 'trust' ? t('服务器身份信息已变化，请前往“设置 → 同步与云”核对后恢复同步。') : t('数据未能上传到云端，本地数据不受影响。')}</div>
+          <div className="text-sm text-danger leading-normal break-all bg-[rgba(var(--danger-rgb),0.10)] border border-[rgba(var(--danger-rgb),0.22)] rounded-lg py-[6px] px-2.5 mb-[14px]">{String(syncFailed.error ?? '')}</div>
+          <div className="flex justify-end flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setSyncFailed(null)}>{t('忽略')}</Button>
+            {canRecreateRemoteDir && <Button variant="secondary" title={t('在云端重建同步目录后再次同步')} onClick={() => runRetry(true)}>{t('重新创建并重试')}</Button>}
+            <Button variant="primary" onClick={() => runRetry(false)}>{syncFailed.category === 'trust' ? t('前往同步与云') : t('重试')}</Button>
           </div>
         </div>
       </div>

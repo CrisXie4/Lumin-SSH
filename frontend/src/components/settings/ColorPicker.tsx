@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { t as $t } from '../../i18n.ts';
+import { Z } from '../../constants/zIndex';
 
 /**
  * 轻量色盘 Popover 组件
@@ -53,6 +54,8 @@ interface ColorPickerProps {
   onClose?: () => void;
   terminalBg?: string;
 }
+
+const SLIDER_TRACK_CLASS = 'w-full h-3 rounded-md cursor-pointer appearance-none outline-none';
 
 export default function ColorPicker({ value, onChange, onClose, terminalBg }: ColorPickerProps) {
   const [hsl, setHsl] = useState<HslColor>(() => hexToHsl(value));
@@ -112,104 +115,72 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }: Co
     });
   }, [onChange]);
 
-  const sliderTrack: React.CSSProperties = {
-    width: '100%',
-    height: 12,
-    borderRadius: 6,
-    cursor: 'pointer',
-    WebkitAppearance: 'none',
-    appearance: 'none',
-    outline: 'none',
-  };
-
   return (
     <div
       ref={popoverRef}
-      style={{
-        position: 'absolute',
-        zIndex: 9999,
-        top: '100%',
-        left: 0,
-        marginTop: 6,
-        background: 'var(--surface-overlay)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-        padding: 14,
-        width: 240,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-      }}
+      className="absolute top-full left-0 mt-1.5 bg-overlay border border-line rounded-md p-3.5 w-60 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+      style={{ zIndex: Z.SETTINGS }}
     >
       {/* 预览色块 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 6,
-          background: currentHex,
-          border: '1px solid var(--border)',
-          flexShrink: 0,
-        }} />
+      <div className="flex items-center gap-2.5 mb-3">
+        <div
+          className="w-8 h-8 rounded-md border border-line shrink-0"
+          style={{ background: currentHex }}
+        />
         <input
           id="color-picker-hex"
           name="color-picker-hex"
           autoComplete="off"
           value={hexInput}
           onChange={handleHexInput}
-          style={{
-            flex: 1,
-            background: 'var(--surface-sunken)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '5px 8px',
-            fontSize: 12,
-            color: 'var(--text-primary)',
-            fontFamily: 'monospace',
-          }}
+          className="flex-1 bg-sunken border border-line rounded-md px-2 py-[5px] text-sm text-primary font-mono"
           spellCheck={false}
         />
       </div>
 
       {/* 色相滑块 */}
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('色相')}</div>
+      <div className="mb-2.5">
+        <div className="text-xs text-tertiary mb-1">{$t('色相')}</div>
         <input
           id="color-picker-hue"
           name="color-picker-hue"
           autoComplete="off"
           type="range" min="0" max="360" value={hsl.h}
           onChange={handleHueChange}
+          className={SLIDER_TRACK_CLASS}
           style={{
-            ...sliderTrack,
             background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)',
           }}
         />
       </div>
 
       {/* 饱和度滑块 */}
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('饱和度')}</div>
+      <div className="mb-2.5">
+        <div className="text-xs text-tertiary mb-1">{$t('饱和度')}</div>
         <input
           id="color-picker-saturation"
           name="color-picker-saturation"
           autoComplete="off"
           type="range" min="0" max="100" value={hsl.s}
           onChange={handleSatChange}
+          className={SLIDER_TRACK_CLASS}
           style={{
-            ...sliderTrack,
             background: `linear-gradient(to right, ${hslToHex(hsl.h, 0, hsl.l)}, ${hslToHex(hsl.h, 100, hsl.l)})`,
           }}
         />
       </div>
 
       {/* 明度滑块 */}
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('明度')}</div>
+      <div className="mb-3">
+        <div className="text-xs text-tertiary mb-1">{$t('明度')}</div>
         <input
           id="color-picker-lightness"
           name="color-picker-lightness"
           autoComplete="off"
           type="range" min="0" max="100" value={hsl.l}
           onChange={handleLightChange}
+          className={SLIDER_TRACK_CLASS}
           style={{
-            ...sliderTrack,
             background: `linear-gradient(to right, #000, ${hslToHex(hsl.h, hsl.s, 50)}, #fff)`,
           }}
         />
@@ -217,16 +188,13 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }: Co
 
       {/* 终端背景色参考条 */}
       {terminalBg && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{$t('终端背景参考')}</div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: terminalBg,
-            borderRadius: 6,
-            padding: '6px 10px',
-            border: '1px solid var(--border)',
-          }}>
-            <span style={{ color: currentHex, fontSize: 12, fontWeight: 700, fontFamily: 'monospace' }}>
+        <div className="mb-2.5">
+          <div className="text-xs text-tertiary mb-1">{$t('终端背景参考')}</div>
+          <div
+            className="flex items-center gap-2 rounded-md px-2.5 py-1.5 border border-line"
+            style={{ background: terminalBg }}
+          >
+            <span className="text-sm font-bold font-mono" style={{ color: currentHex }}>
               Error Warning Info
             </span>
           </div>
@@ -234,18 +202,10 @@ export default function ColorPicker({ value, onChange, onClose, terminalBg }: Co
       )}
 
       {/* 确认按钮 */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div className="flex justify-end">
         <button
           onClick={onClose}
-          style={{
-            padding: '4px 14px',
-            fontSize: 12,
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-raised)',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-          }}
+          className="px-3.5 py-1 text-sm rounded-md border border-line bg-raised text-primary cursor-pointer"
         >
           {$t('确定')}
         </button>

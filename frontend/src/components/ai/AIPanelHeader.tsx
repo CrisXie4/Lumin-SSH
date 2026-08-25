@@ -67,7 +67,7 @@ export default function AIPanelHeader({
   conversationSearchActive = false,
   onCondenseContext,
   onCondenseContextFullSummary,
-  fullSummaryCondenseAvailable = false,
+  fullSummaryCondenseAvailable: _fullSummaryCondenseAvailable = false,
 }: AIPanelHeaderProps) {
   const { t } = useTranslation()
   const [condenseActionsVisible, setCondenseActionsVisible] = useState(false)
@@ -128,9 +128,11 @@ export default function AIPanelHeader({
   }
 
   return (
-    <div style={{ height: 54, padding: '0 14px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)', flexShrink: 0, ...(isDevilMode ? { backgroundImage: 'linear-gradient(180deg, rgba(255, 0, 38, 0.08) 0%, transparent 100%)', boxShadow: 'inset 0 -1px 0 rgba(255, 64, 64, 0.12), inset 0 0 28px rgba(255, 0, 38, 0.08)' } : {}) }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 0.2 }}>{t('AI')}</div>
+    <div
+      className="h-[54px] px-3.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5 border-b border-line bg-raised shrink-0"
+      style={isDevilMode ? { backgroundImage: 'linear-gradient(180deg, rgba(255, 0, 38, 0.08) 0%, transparent 100%)', boxShadow: 'inset 0 -1px 0 rgba(255, 64, 64, 0.12), inset 0 0 28px rgba(255, 0, 38, 0.08)' } : undefined}>
+      <div className="flex items-center gap-1 min-w-0">
+        <div className="text-md font-bold text-primary tracking-[0.2px]">{t('AI')}</div>
         {showModeToggle ? (
           <Tiptop
             text={modeToggleLabel}
@@ -140,28 +142,17 @@ export default function AIPanelHeader({
               type="button"
               aria-label={modeToggleLabel}
               onClick={onToggleMode}
-              style={{
-                padding: 0,
-                margin: 0,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                lineHeight: 1,
-              }}
+              className="p-0 m-0 inline-flex items-center justify-center bg-transparent border-none text-secondary cursor-pointer leading-none"
             >
-              <span style={{ fontSize: 15, lineHeight: 1 }}>{isDevilMode ? '😈' : '😇'}</span>
+              <span className="text-lg leading-none">{isDevilMode ? '😈' : '😇'}</span>
             </button>
           </Tiptop>
         ) : null}
       </div>
       {showContextTokens ? (
-        <div style={{ justifySelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
+        <div className="justify-self-center inline-flex items-center gap-1.5 min-w-0 max-w-full">
           <div
-            style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+            className="relative inline-flex items-center"
             onMouseEnter={showCondenseActions}
             onMouseLeave={hideCondenseActionsWithDelay}
             onFocus={showCondenseActions}
@@ -177,48 +168,18 @@ export default function AIPanelHeader({
                 aria-label={condenseButtonTooltip}
                 disabled={!canOpenCondenseActions}
                 onClick={handleCondenseButtonClick}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 'fit-content',
-                  minWidth: 0,
-                  maxWidth: '100%',
-                  height: 28,
-                  padding: '0 10px',
-                  borderRadius: 999,
-                  border: `1px solid ${isCondensingContext ? 'var(--accent-border)' : 'var(--border)'}`,
-                  background: isCondensingContext ? 'var(--accent-dim)' : 'transparent',
-                  color: isCondensingContext ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  opacity: canOpenCondenseActions || isCondensingContext ? 1 : 0.6,
-                  transition: 'var(--transition)',
-                  whiteSpace: 'nowrap',
-                  lineHeight: 1,
-                  fontVariantNumeric: 'tabular-nums',
-                }}
+                className={`inline-flex items-center justify-center w-fit min-w-0 max-w-full h-7 px-2.5 rounded-full border text-sm font-bold transition-colors duration-100 whitespace-nowrap leading-none tabular-nums ${
+                  isCondensingContext
+                    ? 'border-accent-border bg-accent-dim text-accent'
+                    : 'border-line bg-transparent text-secondary'
+                } ${canOpenCondenseActions || isCondensingContext ? '' : 'opacity-60'}`}
               >
                 {contextTokenLabel}
               </button>
             </Tiptop>
             {condenseActionsVisible && canOpenCondenseActions ? (
               <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 2px)',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  display: 'grid',
-                  gap: 6,
-                  minWidth: 156,
-                  padding: 8,
-                  borderRadius: 12,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-raised)',
-                  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.18)',
-                  zIndex: 20,
-                }}
+                className="absolute top-[calc(100%+2px)] left-1/2 -translate-x-1/2 grid gap-1.5 min-w-[156px] p-2 rounded-xl border border-line bg-raised shadow-[0_12px_28px_rgba(0,0,0,0.18)] z-20"
                 onMouseEnter={showCondenseActions}
                 onMouseLeave={hideCondenseActionsWithDelay}
               >
@@ -226,20 +187,9 @@ export default function AIPanelHeader({
                   type="button"
                   onClick={handleTriggerQuickCondense}
                   disabled={!canQuickCondenseContext}
-                  style={{
-                    height: 30,
-                    padding: '0 10px',
-                    borderRadius: 999,
-                    border: '1px solid var(--accent-border)',
-                    background: 'var(--accent-dim)',
-                    color: 'var(--accent)',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                    cursor: canQuickCondenseContext ? 'pointer' : 'not-allowed',
-                    opacity: canQuickCondenseContext ? 1 : 0.45,
-                    transition: 'var(--transition)',
-                  }}
+                  className={`h-[30px] px-2.5 rounded-full border border-accent-border bg-accent-dim text-accent text-sm font-bold whitespace-nowrap transition-colors duration-100 ${
+                    canQuickCondenseContext ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
+                  }`}
                 >
                   {t('快速智能压缩')}
                 </button>
@@ -247,20 +197,9 @@ export default function AIPanelHeader({
                   type="button"
                   onClick={handleTriggerFullSummaryCondense}
                   disabled={!canSummaryCondenseContext}
-                  style={{
-                    height: 30,
-                    padding: '0 10px',
-                    borderRadius: 999,
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    color: 'var(--text-secondary)',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                    cursor: canSummaryCondenseContext ? 'pointer' : 'not-allowed',
-                    opacity: canSummaryCondenseContext ? 1 : 0.45,
-                    transition: 'var(--transition)',
-                  }}
+                  className={`h-[30px] px-2.5 rounded-full border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap transition-colors duration-100 ${
+                    canSummaryCondenseContext ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
+                  }`}
                 >
                   {t('全量摘要压缩')}
                 </button>
@@ -270,27 +209,7 @@ export default function AIPanelHeader({
           <Tiptop text={t('当前对话节点数')} placement="top">
             <span
               aria-label={t('当前对话节点数')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                width: 'fit-content',
-                minWidth: 0,
-                height: 28,
-                padding: '0 10px',
-                borderRadius: 999,
-                border: '1px solid var(--border)',
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                fontSize: 12,
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-                lineHeight: 1,
-                fontVariantNumeric: 'tabular-nums',
-                cursor: 'default',
-                userSelect: 'none',
-              }}
+              className="inline-flex items-center justify-center gap-1 w-fit min-w-0 h-7 px-2.5 rounded-full border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap leading-none tabular-nums cursor-default select-none"
             >
               <MessagesSquare size={12} />
               <span>{normalizedApiMessageCount}</span>
@@ -300,7 +219,7 @@ export default function AIPanelHeader({
       ) : (
         <div />
       )}
-      <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="justify-self-end flex items-center gap-1.5">
         <IconActionButton title={t('返回主页')} onClick={onGoHome}>
           <House size={16} />
         </IconActionButton>

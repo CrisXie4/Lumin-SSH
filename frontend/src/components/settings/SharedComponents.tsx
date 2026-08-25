@@ -1,21 +1,12 @@
 import React from 'react';
 import { t as $t, type I18nKey } from '../../i18n.ts';
+import { cn } from '../../utils/cn.ts';
 
 const SETTINGS_TAB_GAP = 14;
 
-const SETTINGS_SECTION_TITLE_STYLE = {
-  fontSize: 13,
-  color: 'var(--text-primary)',
-  marginBottom: 6,
-  fontWeight: 600,
-};
+const SETTINGS_SECTION_TITLE_CLASS = 'text-base text-primary mb-1.5 font-semibold';
 
-const SETTINGS_PANEL_STYLE = {
-  background: 'var(--surface-overlay)',
-  padding: 10,
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--border)',
-};
+const SETTINGS_PANEL_CLASS = 'flex flex-col gap-1 bg-overlay p-2.5 rounded-md border border-line';
 
 /** 设置定义节点（来自 settingDefinitions.ts 的数据结构，字段按需取用） */
 export interface SettingsDefinitionNode {
@@ -39,10 +30,10 @@ interface SettingsTabRootProps {
 }
 
 export function SettingsTabRoot({ children, gap = SETTINGS_TAB_GAP, style = {} }: SettingsTabRootProps) {
-  return <div style={{ display: 'flex', flexDirection: 'column', gap, ...style }}>{children}</div>;
+  return <div className="flex flex-col" style={{ gap, ...style }}>{children}</div>;
 }
 
-interface SettingsSectionProps {
+export interface SettingsSectionProps {
   definition?: SettingsDefinitionNode;
   children?: React.ReactNode;
   style?: React.CSSProperties;
@@ -56,15 +47,15 @@ interface SettingsSectionTitleProps {
 }
 
 export function SettingsSectionTitle({ children, definition, style = {} }: SettingsSectionTitleProps) {
-  return <h3 data-settings-section-id={definition?.id} style={{ ...SETTINGS_SECTION_TITLE_STYLE, ...style }}>{definition?.titleKey ? $t(definition.titleKey) : children}</h3>;
+  return <h3 data-settings-section-id={definition?.id} className={SETTINGS_SECTION_TITLE_CLASS} style={style}>{definition?.titleKey ? $t(definition.titleKey) : children}</h3>;
 }
 
 interface SettingsPanelProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
 }
 
-export function SettingsPanel({ children, style = {}, ...rest }: SettingsPanelProps) {
-  return <div {...rest} className="form-group" style={{ ...SETTINGS_PANEL_STYLE, ...style }}>{children}</div>;
+export function SettingsPanel({ children, style = {}, className, ...rest }: SettingsPanelProps) {
+  return <div {...rest} className={cn(SETTINGS_PANEL_CLASS, className)} style={style}>{children}</div>;
 }
 
 export interface SettingsFieldProps {
@@ -82,10 +73,14 @@ export function SettingsField({ definition, title, description, action, children
   const resolvedTitle = title ?? (definition?.titleKey ? $t(definition.titleKey) : title);
   const resolvedDescription = description ?? (definition?.descriptionKey ? $t(definition.descriptionKey) : description);
   return (
-    <div data-settings-field-id={definition?.id} style={{ ...style, ...(children ? { display: 'flex', flexDirection: 'column', gap: 8 } : { display: 'flex', justifyContent: 'space-between', alignItems, gap, flexWrap: 'wrap' }) }}>
-      <div style={{ minWidth: 0, ...(children ? {} : { flex: '1 1 180px' }) }}>
-        {resolvedTitle ? <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{resolvedTitle}</div> : null}
-        {resolvedDescription ? <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{resolvedDescription}</div> : null}
+    <div
+      data-settings-field-id={definition?.id}
+      className={cn('flex', children ? 'flex-col gap-2' : 'justify-between flex-wrap')}
+      style={children ? style : { alignItems, gap, ...style }}
+    >
+      <div className={cn('min-w-0', !children && '[flex:1_1_180px]')}>
+        {resolvedTitle ? <div className="text-primary text-base">{resolvedTitle}</div> : null}
+        {resolvedDescription ? <div className="text-tertiary text-xs">{resolvedDescription}</div> : null}
       </div>
       {children ? <div>{children}</div> : action}
     </div>
@@ -101,7 +96,7 @@ interface SettingsDividerProps {
 }
 
 export function SettingsDivider({ margin = '5px 0' }: SettingsDividerProps) {
-  return <div className="divider" style={{ margin, borderTop: '1px solid var(--border)' }} />;
+  return <div className="border-t border-line" style={{ margin }} />;
 }
 
 interface ToggleSwitchProps {
@@ -113,30 +108,14 @@ export function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
   return (
     <div
       onClick={onChange}
-      style={{
-        width: 38,
-        height: 22,
-        background: checked ? 'var(--success)' : 'var(--surface-hover)',
-        borderRadius: 11,
-        position: 'relative',
-        cursor: 'pointer',
-        transition: 'background 0.2s ease',
-        border: '1px solid var(--border)',
-        flexShrink: 0,
-      }}
+      className={cn(
+        'relative w-[38px] h-[22px] rounded-full cursor-pointer transition-colors duration-200 border border-line shrink-0',
+        checked ? 'bg-success' : 'bg-hover',
+      )}
     >
       <div
-        style={{
-          position: 'absolute',
-          left: checked ? 18 : 2,
-          top: 1,
-          width: 18,
-          height: 18,
-          background: '#fff',
-          borderRadius: '50%',
-          transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: 'var(--shadow-xs)',
-        }}
+        className="absolute top-px w-[18px] h-[18px] bg-white rounded-full shadow-xs transition-[left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        style={{ left: checked ? 18 : 2 }}
       ></div>
     </div>
   );
@@ -155,19 +134,16 @@ export function RadioOption({ selected, label, description, onClick, definition 
     <div
       data-settings-field-id={definition?.id}
       onClick={onClick}
-      style={{
-        padding: '8px 10px',
-        borderRadius: 'var(--radius-md)',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-        background: selected ? 'var(--accent-dim)' : 'var(--surface-overlay)',
-        border: `1px solid ${selected ? 'var(--accent-border)' : 'var(--border)'}`,
-        boxShadow: selected ? '0 0 0 1px var(--accent-border) inset' : 'none',
-      }}
+      className={cn(
+        'px-2.5 py-2 rounded-md cursor-pointer transition-all duration-150 border',
+        selected
+          ? 'bg-accent-dim border-accent-border shadow-[inset_0_0_0_1px_var(--accent-border)]'
+          : 'bg-overlay border-line',
+      )}
     >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: selected ? 'var(--text-primary)' : 'var(--text-secondary)', marginBottom: 2 }}>{label}</div>
-        {description ? <div style={{ fontSize: 11, color: 'var(--text-tertiary)', overflowWrap: 'break-word' }}>{description}</div> : null}
+      <div className="min-w-0">
+        <div className={cn('text-base font-semibold mb-0.5', selected ? 'text-primary' : 'text-secondary')}>{label}</div>
+        {description ? <div className="text-xs text-tertiary [overflow-wrap:break-word]">{description}</div> : null}
       </div>
     </div>
   );
@@ -185,13 +161,12 @@ export function AboutLink({ icon, title, url, definition }: AboutLinkProps) {
     <div
       data-settings-field-id={definition?.id}
       onClick={() => window.runtime?.BrowserOpenURL?.(url)}
-      className="about-list-item"
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '16px 12px', minHeight: 96, borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center' }}
+      className="flex flex-col items-center justify-center gap-2.5 px-3 py-4 min-h-24 rounded-md cursor-pointer transition-all duration-200 text-center border border-line hover:border-accent-border hover:bg-sunken"
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, color: 'var(--text-secondary)' }}>
+      <div className="flex items-center justify-center w-10 h-10 text-secondary">
         {icon}
       </div>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{title}</span>
+      <span className="text-sm font-semibold text-secondary leading-[1.4]">{title}</span>
     </div>
   );
 }

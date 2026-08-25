@@ -1,56 +1,14 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
 import AIChatMarkdown from './AIChatMarkdown.tsx'
 
-const streamingCursorKeyframes = `
-@keyframes ai-chat-stream-cursor-beam {
-  0%, 100% {
-    opacity: 0.55;
-    transform: scaleY(0.82) translateY(1px);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleY(1) translateY(0);
-  }
-}
-
-@keyframes ai-chat-stream-char-enter {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.94);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-`
-
-const assistantBodyMaxHeight = 420
-
 function StreamingCursor() {
   return (
     <span
       aria-hidden="true"
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 8,
-        height: '1.5em',
-        marginLeft: 4,
-        verticalAlign: 'text-bottom',
-      }}
+      className="relative ml-1 inline-flex h-[1.5em] w-2 items-center justify-center align-text-bottom"
     >
       <span
-        style={{
-          position: 'absolute',
-          inset: '10% 34%',
-          borderRadius: 999,
-          background: 'rgba(var(--accent-rgb), 0.92)',
-          boxShadow: '0 0 10px rgba(var(--accent-rgb), 0.28)',
-          animation: 'ai-chat-stream-cursor-beam 0.9s ease-in-out infinite',
-        }}
+        className="absolute inset-[10%_34%] animate-[ai-chat-stream-cursor-beam_0.9s_ease-in-out_infinite] rounded-full bg-[rgba(var(--accent-rgb),0.92)] shadow-[0_0_10px_rgba(var(--accent-rgb),0.28)]"
       />
     </span>
   )
@@ -149,7 +107,7 @@ export default function AIChatAssistantBodyPane({ text, isStreaming = false }: A
   }
 
   return (
-    <div style={{ minWidth: 0, color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7 }}>
+    <div className="min-w-0 text-base leading-[1.7] text-primary">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -164,27 +122,13 @@ export default function AIChatAssistantBodyPane({ text, isStreaming = false }: A
         }}
         onPointerDownCapture={handlePointerDownCapture}
         onKeyDownCapture={handleKeyDownCapture}
-        style={{
-          minWidth: 0,
-          maxHeight: assistantBodyMaxHeight,
-          overflowY: 'auto',
-          overflowAnchor: 'none',
-          overscrollBehavior: 'contain',
-          paddingRight: 4,
-          scrollbarGutter: 'stable both-edges',
-        }}
+        className="min-w-0 max-h-[420px] overflow-y-auto overscroll-contain pr-1 [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
       >
-        {isStreaming ? <style>{streamingCursorKeyframes}</style> : null}
         <div
           ref={contentRef}
-          style={isStreaming
-            ? {
-                minWidth: 0,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                minHeight: '1.6em',
-              }
-            : { minWidth: 0 }}
+          className={isStreaming
+            ? 'min-h-[1.6em] min-w-0 whitespace-pre-wrap [word-break:break-word]'
+            : 'min-w-0'}
         >
           {isStreaming ? (
             <>

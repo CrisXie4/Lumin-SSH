@@ -19,31 +19,11 @@ function ToggleSwitch({ checked, onChange, disabled = false }: ToggleSwitchProps
       onClick={onChange}
       disabled={disabled}
       aria-pressed={checked}
-      style={{
-        width: 42,
-        height: 24,
-        borderRadius: 999,
-        border: '1px solid var(--border)',
-        background: disabled ? 'var(--surface-hover)' : checked ? 'var(--success)' : 'var(--surface-hover)',
-        padding: 2,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: checked ? 'flex-end' : 'flex-start',
-        transition: 'var(--transition)',
-        flexShrink: 0,
-        opacity: disabled ? 0.6 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
+      className={`w-[42px] h-6 rounded-full border border-line p-0.5 flex items-center transition-colors duration-100 shrink-0 ${checked ? 'justify-end' : 'justify-start'} ${
+        disabled ? 'bg-hover opacity-60 cursor-not-allowed' : (checked ? 'bg-success cursor-pointer' : 'bg-hover cursor-pointer')
+      }`}
     >
-      <span
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          background: '#fff',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
-        }}
-      />
+      <span className="w-[18px] h-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
     </button>
   )
 }
@@ -135,19 +115,19 @@ export default function MCPServersView({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      <div style={{ display: 'grid', gap: 4 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{t('MCP服务器')}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>{t('这里直接配置完整的 MCP Json 文件；内置服务器只读，外置服务器可通过下方完整配置统一维护。')}</div>
+    <div className="grid gap-3.5">
+      <div className="grid gap-1">
+        <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('MCP服务器')}</div>
+        <div className="text-sm text-tertiary leading-[1.6]">{t('这里直接配置完整的 MCP Json 文件；内置服务器只读，外置服务器可通过下方完整配置统一维护。')}</div>
         {globalConfigPath ? (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5, wordBreak: 'break-all' }}>
-            {t('外置配置文件')}: <span style={{ fontFamily: 'var(--font-mono)' }}>{globalConfigPath}</span>
+          <div className="text-xs text-muted leading-[1.5] break-all">
+            {t('外置配置文件')}: <span className="font-mono">{globalConfigPath}</span>
           </div>
         ) : null}
       </div>
 
-      <div style={{ display: 'grid', gap: 8, padding: 14, borderRadius: 12, background: 'var(--surface-base)', border: '1px solid var(--border)' }}>
-        <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('完整MCP Json配置')}</div>
+      <div className="grid gap-2 p-3.5 rounded-xl bg-canvas border border-line">
+        <div className="text-primary text-base font-bold">{t('完整MCP Json配置')}</div>
         <textarea
           id="mcp-servers-config"
           name="mcp-servers-config"
@@ -160,61 +140,22 @@ export default function MCPServersView({
           }}
           rows={14}
           spellCheck={false}
-          style={{
-            width: '100%',
-            resize: 'vertical',
-            minHeight: 260,
-            padding: '12px',
-            borderRadius: 10,
-            border: `1px solid ${errorText ? 'rgba(var(--danger-rgb), 0.38)' : 'var(--border)'}`,
-            background: 'var(--surface-overlay)',
-            color: 'var(--text-primary)',
-            fontSize: 12,
-            lineHeight: 1.65,
-            fontFamily: 'var(--font-mono)',
-            outline: 'none',
-            whiteSpace: 'pre',
-          }}
+          className={`w-full resize-y min-h-[260px] p-3 rounded-lg bg-overlay text-primary text-sm leading-[1.65] font-mono outline-none whitespace-pre ${errorText ? 'border border-[rgba(var(--danger-rgb),0.38)]' : 'border border-line'}`}
         />
         {errorText ? (
-          <div
-            style={{
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid rgba(var(--danger-rgb), 0.28)',
-              background: 'rgba(var(--danger-rgb), 0.08)',
-              color: 'var(--danger)',
-              fontSize: 12,
-              lineHeight: 1.65,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            <span style={{ fontWeight: 700 }}>{t('错误')}：</span>
+          <div className="py-2.5 px-3 rounded-lg border border-[rgba(var(--danger-rgb),0.28)] bg-[rgba(var(--danger-rgb),0.08)] text-danger text-sm leading-[1.65] whitespace-pre-wrap break-words">
+            <span className="font-bold">{t('错误')}：</span>
             <span>{errorText}</span>
           </div>
         ) : null}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+        <div className="flex justify-end gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => void handleReload()}
             disabled={saving || reloading}
-            style={{
-              height: 36,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              padding: '0 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: saving || reloading ? 'not-allowed' : 'pointer',
-              opacity: saving || reloading ? 0.7 : 1,
-            }}
+            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-line bg-transparent text-secondary text-base font-bold transition-colors duration-100 ${
+              saving || reloading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+            }`}
           >
             <RotateCcw size={14} />
             <span>{reloading ? t('刷新中...') : t('刷新')}</span>
@@ -223,22 +164,9 @@ export default function MCPServersView({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || reloading}
-            style={{
-              height: 36,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              padding: '0 14px',
-              borderRadius: 10,
-              border: '1px solid var(--accent-border)',
-              background: 'rgba(var(--accent-rgb), 0.12)',
-              color: 'var(--accent)',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: saving || reloading ? 'not-allowed' : 'pointer',
-              opacity: saving || reloading ? 0.7 : 1,
-            }}
+            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.12)] text-accent text-base font-bold transition-colors duration-100 ${
+              saving || reloading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+            }`}
           >
             <Save size={14} />
             <span>{saving ? t('保存中...') : t('保存MCP Json配置')}</span>
@@ -246,9 +174,9 @@ export default function MCPServersView({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 10 }}>
+      <div className="grid gap-2.5">
         {sortedServers.length === 0 ? (
-          <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-base)', color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.7 }}>
+          <div className="p-4 rounded-xl border border-line bg-canvas text-tertiary text-base leading-[1.7]">
             {t('当前还没有可用的 MCP 服务器。')}
           </div>
         ) : sortedServers.map((server) => {
@@ -256,39 +184,34 @@ export default function MCPServersView({
           const canManage = server.source === 'global'
           const timeoutValue = Number.isFinite(Number(server.timeout)) ? Number(server.timeout) : 0
           return (
-            <div key={`${server.source}-${server.name}`} style={{ padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-base)', display: 'grid', gap: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 0, display: 'grid', gap: 6, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 700 }}>{server.name}</span>
-                    <span style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border)', background: isEmbedded ? 'rgba(var(--success-rgb), 0.08)' : 'rgba(var(--accent-rgb), 0.08)', color: isEmbedded ? 'var(--success)' : 'var(--accent)', fontSize: 11, fontWeight: 700 }}>
+            <div key={`${server.source}-${server.name}`} className="p-3.5 rounded-xl border border-line bg-canvas grid gap-3">
+              <div className="flex justify-between gap-3 items-start flex-wrap">
+                <div className="min-w-0 grid gap-1.5 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-primary text-md font-bold">{server.name}</span>
+                    <span className={`px-2 py-0.5 rounded-full border border-line text-xs font-bold ${isEmbedded ? 'bg-[rgba(var(--success-rgb),0.08)] text-success' : 'bg-[rgba(var(--accent-rgb),0.08)] text-accent'}`}>
                       {isEmbedded ? t('内置') : t('外置')}
                     </span>
-                    <span style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border)', background: server.status === 'connected' ? 'rgba(var(--success-rgb), 0.08)' : server.status === 'connecting' ? 'rgba(var(--warning-rgb), 0.08)' : 'rgba(var(--danger-rgb), 0.08)', color: server.status === 'connected' ? 'var(--success)' : server.status === 'connecting' ? 'var(--warning)' : 'var(--danger)', fontSize: 11, fontWeight: 700 }}>
-                      {t(server.status === 'connected' ? '已连接' : server.status === 'connecting' ? '连接中...' : '已断开')}
+                    <span className={`px-2 py-0.5 rounded-full border border-line text-xs font-bold ${
+                      server.status === 'connected'
+                        ? 'bg-[rgba(var(--success-rgb),0.08)] text-success'
+                        : (server.status === 'connecting'
+                          ? 'bg-[rgba(var(--warning-rgb),0.08)] text-warning'
+                          : 'bg-[rgba(var(--danger-rgb),0.08)] text-danger')
+                    }`}>
+                      {t(server.status === 'connected' ? '已连接' : (server.status === 'connecting' ? '连接中...' : '已断开'))}
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6, maxHeight: 160, overflowY: 'auto', overflowX: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingRight: 4 }}>
+                  <div className="text-sm text-tertiary leading-[1.6] max-h-40 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words pr-1">
                     {server.error ? server.error : server.instructions || t('暂无说明')}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div className="flex items-center gap-2 flex-wrap">
                   <Tiptop text={t('重启MCP服务器')}>
                     <button
                       type="button"
                       onClick={() => void onRestartServer?.(server.name, server.source)}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        background: 'transparent',
-                        color: 'var(--text-secondary)',
-                        cursor: 'pointer',
-                      }}
+                      className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-line bg-transparent text-secondary cursor-pointer"
                     >
                       <RotateCcw size={14} />
                     </button>
@@ -299,18 +222,7 @@ export default function MCPServersView({
                         <button
                           type="button"
                           onClick={() => void onToggleServerDisabledForPrompts?.(server.name, server.source, !server.disabledForPrompts)}
-                          style={{
-                            width: 32,
-                            height: 32,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: 8,
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: server.disabledForPrompts ? 'var(--accent)' : 'var(--text-secondary)',
-                            cursor: 'pointer',
-                          }}
+                          className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border border-line bg-transparent cursor-pointer ${server.disabledForPrompts ? 'text-accent' : 'text-secondary'}`}
                         >
                           {server.disabledForPrompts ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
@@ -319,18 +231,7 @@ export default function MCPServersView({
                       <button
                         type="button"
                         onClick={() => void onDeleteServer?.(server.name)}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 8,
-                          border: '1px solid rgba(var(--danger-rgb), 0.28)',
-                          background: 'rgba(var(--danger-rgb), 0.08)',
-                          color: 'var(--danger)',
-                          cursor: 'pointer',
-                        }}
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-[rgba(var(--danger-rgb),0.28)] bg-[rgba(var(--danger-rgb),0.08)] text-danger cursor-pointer"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -339,9 +240,9 @@ export default function MCPServersView({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('超时时间(秒)')}</span>
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-sm font-bold text-primary">{t('超时时间(秒)')}</span>
                   {canManage ? (
                     <input
                       id="mcp-servers-timeout"
@@ -353,45 +254,35 @@ export default function MCPServersView({
                       value={String(timeoutValue)}
                       onChange={(event) => void onUpdateServerTimeout?.(server.name, server.source, parseInt(event.target.value || '0', 10) || 0)}
                       onMouseLeave={handleInputDragSelectAll}
-                      style={{
-                        width: 92,
-                        height: 32,
-                        padding: '0 10px',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface-overlay)',
-                        color: 'var(--text-primary)',
-                        fontSize: 12,
-                        outline: 'none',
-                      }}
+                      className="w-[92px] h-8 px-2.5 rounded-lg border border-line bg-overlay text-primary text-sm outline-none"
                     />
                   ) : (
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{String(timeoutValue)}</span>
+                    <span className="text-sm text-secondary font-mono">{String(timeoutValue)}</span>
                   )}
                 </div>
 
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('工具列表')}</div>
+                <div className="grid gap-1.5">
+                  <div className="text-sm font-bold text-primary">{t('工具列表')}</div>
                   {server.tools.length === 0 ? (
-                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('暂无工具信息')}</div>
+                    <div className="text-sm text-tertiary">{t('暂无工具信息')}</div>
                   ) : (
-                    <div style={{ display: 'grid', gap: 6 }}>
+                    <div className="grid gap-1.5">
                       {server.tools.map((tool) => (
-                        <div key={`${server.name}-${tool.name}`} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-overlay)', display: 'grid', gap: 4 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{tool.name}</span>
+                        <div key={`${server.name}-${tool.name}`} className="px-3 py-2.5 rounded-lg border border-line-subtle bg-overlay grid gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-primary font-mono">{tool.name}</span>
                             {tool.alwaysAllow ? (
-                              <span style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid rgba(var(--success-rgb), 0.28)', background: 'rgba(var(--success-rgb), 0.08)', color: 'var(--success)', fontSize: 11, fontWeight: 700 }}>
+                              <span className="px-2 py-0.5 rounded-full border border-[rgba(var(--success-rgb),0.28)] bg-[rgba(var(--success-rgb),0.08)] text-success text-xs font-bold">
                                 {t('始终允许')}
                               </span>
                             ) : null}
                             {!tool.enabledForPrompt ? (
-                              <span style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid rgba(var(--warning-rgb), 0.28)', background: 'rgba(var(--warning-rgb), 0.08)', color: 'var(--warning)', fontSize: 11, fontWeight: 700 }}>
+                              <span className="px-2 py-0.5 rounded-full border border-[rgba(var(--warning-rgb),0.28)] bg-[rgba(var(--warning-rgb),0.08)] text-warning text-xs font-bold">
                                 {t('不进提示词')}
                               </span>
                             ) : null}
                           </div>
-                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.65, maxHeight: 120, overflowY: 'auto', overflowX: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingRight: 4 }}>
+                          <div className="text-sm text-secondary leading-[1.65] max-h-[120px] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words pr-1">
                             {tool.description || t('暂无说明')}
                           </div>
                         </div>
@@ -401,11 +292,11 @@ export default function MCPServersView({
                 </div>
 
                 {server.errorHistory && server.errorHistory.length > 0 ? (
-                  <div style={{ display: 'grid', gap: 6 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('日志')}</div>
-                    <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-overlay)', display: 'grid', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                  <div className="grid gap-1.5">
+                    <div className="text-sm font-bold text-primary">{t('日志')}</div>
+                    <div className="px-3 py-2.5 rounded-lg border border-line-subtle bg-overlay grid gap-1.5 max-h-[180px] overflow-y-auto">
                       {[...server.errorHistory].slice().reverse().map((entry, index) => (
-                        <div key={`${server.name}-${entry.timestamp}-${index}`} style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        <div key={`${server.name}-${entry.timestamp}-${index}`} className="text-sm text-secondary leading-[1.65] whitespace-pre-wrap break-words">
                           {entry.message}
                         </div>
                       ))}

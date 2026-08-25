@@ -1,4 +1,4 @@
-import { Check, Pencil, Plus, X, type LucideIcon } from 'lucide-react'
+import { Check, Pencil, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '../../i18n.ts'
 
@@ -54,25 +54,14 @@ function IconButton({ title, onClick, children, danger = false }: IconButtonProp
         event.stopPropagation()
         onClick?.()
       }}
-      style={{
-        width: 24,
-        height: 24,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 6,
-        border: '1px solid var(--border)',
-        background: 'var(--surface-base)',
-        color: danger ? 'var(--danger)' : 'var(--text-secondary)',
-        transition: 'var(--transition)',
-        cursor: 'pointer',
-        flexShrink: 0,
-        padding: 0,
-      }}>
+      className={`inline-flex items-center justify-center w-6 h-6 rounded-md border border-line bg-canvas transition-colors duration-100 cursor-pointer shrink-0 p-0 ${danger ? 'text-danger' : 'text-secondary'}`}>
       {children}
     </button>
   )
 }
+
+const PANEL_SHELL_CLASS = 'border border-line rounded-lg bg-overlay shadow-xl overflow-hidden overflow-x-hidden box-border'
+const SECTION_HINT_CLASS = 'text-xs text-tertiary leading-[1.5]'
 
 export interface AICollaborationPromptDropdownProps {
   open?: boolean
@@ -231,41 +220,34 @@ export default function AICollaborationPromptDropdown({
   return (
     <div
       ref={panelRef}
+      className={`fixed ${PANEL_SHELL_CLASS}`}
       style={{
-        position: 'fixed',
         ...(panelBounds ? { left: panelBounds.left } : { left: triggerRect.left }),
         bottom: window.innerHeight - triggerRect.top + 8,
         width: panelBounds?.width ?? 320,
         maxWidth: panelBounds?.width ? `${panelBounds.width}px` : 'min(320px, calc(100vw - 32px))',
-        border: '1px solid var(--border)',
-        borderRadius: 10,
-        background: 'var(--surface-overlay)',
-        boxShadow: 'var(--shadow-xl)',
-        overflow: 'hidden',
-        overflowX: 'hidden',
-        boxSizing: 'border-box',
         zIndex: 10000,
       }}>
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'grid', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('助理协同')}</div>
+      <div className="px-3 py-2.5 border-b border-line-subtle grid gap-2">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="text-sm font-bold text-primary">{t('助理协同')}</div>
           <IconButton title={t('关闭')} onClick={() => onOpenChange?.(false)}>
             <X size={12} />
           </IconButton>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+        <div className={SECTION_HINT_CLASS}>
           {t('开启后,主助手想要问你问题或想要结束或完成任务时,将先由助理协助为您做出进一步的决定.')}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+        <div className={SECTION_HINT_CLASS}>
           {t('你可以在下面写几句要求,告诉助理替你协助时要注意什么.')}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+        <div className={SECTION_HINT_CLASS}>
           {scopeIsTask ? t('下面的要求只对当前这个任务生效') : t('下面的要求会作为以后新建任务的默认值')}
         </div>
       </div>
-      <div style={{ padding: 12, display: 'grid', gap: 10, overflowX: 'hidden' }}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 }}>{t('你的要求')}</div>
+      <div className="p-3 grid gap-2.5 overflow-x-hidden">
+        <div className="grid gap-1.5">
+          <div className="text-primary text-sm font-semibold">{t('你的要求')}</div>
           <textarea
             id="ai-collab-extra-prompt"
             name="ai-collab-extra-prompt"
@@ -273,32 +255,18 @@ export default function AICollaborationPromptDropdown({
             onChange={(event) => onExtraPromptChange?.(event.target.value)}
             placeholder={t('例如: 能自己判断的就别问我,遇到删文件这种事一定要先问我')}
             spellCheck={false}
-            style={{
-              width: '100%',
-              minHeight: 84,
-              resize: 'vertical',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-sunken)',
-              color: 'var(--text-primary)',
-              padding: '8px 10px',
-              boxSizing: 'border-box',
-              outline: 'none',
-              fontSize: 12,
-              lineHeight: 1.5,
-              fontFamily: 'inherit',
-            }}
+            className="w-full min-h-[84px] resize-y rounded-lg border border-line bg-sunken text-primary px-2.5 py-2 box-border outline-none text-sm leading-[1.5] [font-family:inherit]"
           />
         </div>
-        <div style={{ padding: 12, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-base)', display: 'grid', gap: 10, overflowX: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}>{t('常用要求')}</div>
+        <div className="p-3 rounded-lg border border-line bg-canvas grid gap-2.5 overflow-x-hidden">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="text-primary text-sm font-bold">{t('常用要求')}</div>
             <IconButton title={t('新增一条')} onClick={handleStartCreate}>
               <Plus size={12} />
             </IconButton>
           </div>
           {isEditing ? (
-            <div style={{ display: 'grid', gap: 8 }}>
+            <div className="grid gap-2">
               <input
                 id="ai-collab-draft-title"
                 name="ai-collab-draft-title"
@@ -306,18 +274,7 @@ export default function AICollaborationPromptDropdown({
                 value={draftTitle}
                 onChange={(event) => setDraftTitle(event.target.value)}
                 placeholder={t('起个短名字,留空就用下面的内容')}
-                style={{
-                  width: '100%',
-                  height: 32,
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-sunken)',
-                  color: 'var(--text-primary)',
-                  padding: '0 10px',
-                  boxSizing: 'border-box',
-                  outline: 'none',
-                  fontSize: 12,
-                }}
+                className="w-full h-8 rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none text-sm"
               />
               <textarea
                 id="ai-collab-draft-text"
@@ -326,103 +283,45 @@ export default function AICollaborationPromptDropdown({
                 onChange={(event) => setDraftText(event.target.value)}
                 placeholder={t('这条要求的具体内容')}
                 spellCheck={false}
-                style={{
-                  width: '100%',
-                  minHeight: 64,
-                  resize: 'vertical',
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-sunken)',
-                  color: 'var(--text-primary)',
-                  padding: '8px 10px',
-                  boxSizing: 'border-box',
-                  outline: 'none',
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  fontFamily: 'inherit',
-                }}
+                className="w-full min-h-16 resize-y rounded-lg border border-line bg-sunken text-primary px-2.5 py-2 box-border outline-none text-sm leading-[1.5] [font-family:inherit]"
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleSubmitEdit}
                   disabled={!draftText.trim()}
-                  style={{
-                    flex: 1,
-                    height: 30,
-                    borderRadius: 8,
-                    border: '1px solid var(--accent-border)',
-                    background: 'rgba(var(--accent-rgb), 0.14)',
-                    color: 'var(--accent)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    transition: 'var(--transition)',
-                    opacity: draftText.trim() ? 1 : 0.45,
-                    cursor: draftText.trim() ? 'pointer' : 'not-allowed',
-                  }}>
+                  className={`flex-1 h-[30px] rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent text-sm font-semibold transition-colors duration-100 ${
+                    draftText.trim() ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
+                  }`}>
                   {t('保存')}
                 </button>
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  style={{
-                    flex: 1,
-                    height: 30,
-                    borderRadius: 8,
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    color: 'var(--text-secondary)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    transition: 'var(--transition)',
-                    cursor: 'pointer',
-                  }}>
+                  className="flex-1 h-[30px] rounded-lg border border-line bg-transparent text-secondary text-sm font-semibold transition-colors duration-100 cursor-pointer">
                   {t('取消')}
                 </button>
               </div>
             </div>
           ) : null}
           {normalizedPresets.length === 0 && !isEditing ? (
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+            <div className={SECTION_HINT_CLASS}>
               {t('还没有保存过要求,点右上角加号新建一条')}
             </div>
           ) : null}
           {normalizedPresets.length > 0 ? (
-            <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="grid gap-1.5 max-h-[200px] overflow-y-auto overflow-x-hidden">
               {normalizedPresets.map((preset) => (
                 <div
                   key={preset.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    minWidth: 0,
-                    padding: '6px 8px',
-                    borderRadius: 8,
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--surface-sunken)',
-                  }}>
+                  className="flex items-center gap-2 min-w-0 px-2 py-1.5 rounded-lg border border-line-subtle bg-sunken">
                   <button
                     type="button"
                     onClick={() => handleApplyPreset(preset)}
                     title={preset.text}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'var(--text-primary)',
-                      fontSize: 12,
-                      fontWeight: 500,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      padding: 0,
-                    }}>
+                    className="flex-1 min-w-0 inline-flex items-center gap-1.5 border-none bg-transparent text-primary text-sm font-medium text-left cursor-pointer p-0">
                     <Check size={12} color="var(--accent)" />
-                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preset.title}</span>
+                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{preset.title}</span>
                   </button>
                   <IconButton title={t('编辑')} onClick={() => handleStartEdit(preset)}>
                     <Pencil size={11} />

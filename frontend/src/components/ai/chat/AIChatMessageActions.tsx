@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Clipboard, RefreshCw, SquarePen, Trash2, type LucideIcon } from 'lucide-react'
 import { t, type I18nKey } from '../../../i18n.ts'
+import { cn } from '../../../utils/cn.ts'
 
 interface ActionSpec {
   icon: LucideIcon
@@ -32,7 +33,7 @@ export default function AIChatMessageActions({ actions = [], style }: AIChatMess
   const [copied, setCopied] = useState(false)
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...style }}>
+    <div style={style} className="flex items-center gap-1.5">
       {actions.map((action) => {
         const normalizedAction = typeof action === 'string'
           ? { key: action, ...actionMap[action] }
@@ -66,20 +67,11 @@ export default function AIChatMessageActions({ actions = [], style }: AIChatMess
                 window.setTimeout(() => setCopied(false), 1200)
               }
             }}
-            style={{
-              width: 26,
-              height: 26,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 7,
-              color: isCopied ? 'var(--success)' : 'var(--text-muted)',
-              background: 'transparent',
-              border: '1px solid transparent',
-              transition: 'var(--transition)',
-              cursor: isDisabled ? 'not-allowed' : 'pointer',
-              opacity: isDisabled ? 0.45 : 1,
-            }}
+            className={cn(
+              'inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-transparent bg-transparent [transition:var(--transition)]',
+              isCopied ? 'text-success' : 'text-muted',
+              isDisabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer',
+            )}
           >
             <Icon size={14} />
           </button>

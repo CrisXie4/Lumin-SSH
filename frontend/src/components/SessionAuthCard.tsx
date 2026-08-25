@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ShieldAlert, ShieldQuestion, KeyRound, Eye, EyeOff, Clipboard, type LucideIcon } from 'lucide-react';
 import { Z } from '../constants/zIndex';
-import { getThemeComponentTheme } from '../utils/theme.ts';
 import type { SessionAuthPrompt } from '../hooks/useSessionConnections.ts';
 
 interface AuthButton {
@@ -21,7 +20,6 @@ interface SessionAuthCardProps {
 // 与 ConnectingCard 同一挂载点、同一配色，每个会话各自渲染一张，
 // 因此批量连接时 N 个会话会得到 N 张卡片，互不干扰。
 export default function SessionAuthCard({ prompt, isActive, t, onResolve }: SessionAuthCardProps) {
-  const C = getThemeComponentTheme('connectingCard');
   const isPassword = prompt.kind === 'password';
   const [value, setValue] = useState('');
   const [checked, setChecked] = useState(false);
@@ -129,55 +127,32 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
     } catch {}
   };
 
-  const Icon: LucideIcon = isPassword ? KeyRound : prompt.danger ? ShieldAlert : ShieldQuestion;
-  const iconBg = isPassword || !prompt.danger
-    ? 'rgba(var(--warning-rgb), 0.85)'
-    : 'rgba(var(--danger-rgb), 0.85)';
+  const Icon: LucideIcon = isPassword ? KeyRound : (prompt.danger ? ShieldAlert : ShieldQuestion);
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: Z.FULLSCREEN_OVERLAY,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: C.overlayBg,
-    }}>
-      <div style={{
-        width: 440, maxWidth: 'calc(100% - 32px)', borderRadius: 16, overflow: 'hidden',
-        background: C.popupBg,
-        border: '1px solid ' + C.btnBorder,
-        boxShadow: C.contextShadow,
-        padding: '20px 24px 22px',
-      }}>
+    <div
+      className="absolute inset-0 flex items-center justify-center bg-black/[0.42]"
+      style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
+    >
+      <div className="w-[440px] max-w-[calc(100%-32px)] rounded-[16px] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">
         {/* 标题行 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-            background: iconBg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}><Icon size={22} style={{ color: '#fff' }} /></div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.inputColor, minWidth: 0 }}>
+        <div className="flex items-center gap-3.5 mb-4">
+          <div className={`w-[42px] h-[42px] rounded-[10px] shrink-0 flex items-center justify-center ${isPassword || !prompt.danger ? 'bg-[rgba(var(--warning-rgb),0.85)]' : 'bg-[rgba(var(--danger-rgb),0.85)]'}`}>
+            <Icon size={22} className="text-white" />
+          </div>
+          <div className="text-lg font-bold text-primary min-w-0">
             {prompt.title}
           </div>
         </div>
 
         {/* 正文（含指纹 / 错误详情） */}
-        <div style={{
-          fontSize: 12.5,
-          color: C.statusBarColor,
-          lineHeight: 1.65,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          overflowWrap: 'anywhere',
-          userSelect: 'text',
-          maxHeight: '38vh',
-          overflowY: 'auto',
-          marginBottom: 18,
-        }}>
+        <div className="text-[12.5px] text-secondary leading-[1.65] whitespace-pre-wrap break-words [overflow-wrap:anywhere] select-text max-h-[38vh] overflow-y-auto mb-[18px]">
           {prompt.message}
         </div>
 
         {isPassword && (
           <>
-            <div style={{ position: 'relative', marginBottom: prompt.checkboxLabel ? 12 : 18 }}>
+            <div className={`relative ${prompt.checkboxLabel ? 'mb-3' : 'mb-[18px]'}`}>
               <input
                 ref={inputRef}
                 id="session-auth-password"
@@ -195,29 +170,18 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? t('隐藏密码') : t('显示密码')}
                 title={showPassword ? t('隐藏密码') : t('显示密码')}
-                style={{
-                  position: 'absolute', right: 38, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', color: C.mutedColor, cursor: 'pointer',
-                  padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
-                }}
+                className="absolute right-[38px] top-1/2 -translate-y-1/2 bg-transparent border-0 text-muted cursor-pointer p-1 flex items-center rounded-sm"
               >{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
               <button
                 type="button"
                 onClick={pasteFromClipboard}
                 aria-label={t('粘贴')}
                 title={t('粘贴')}
-                style={{
-                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', color: C.mutedColor, cursor: 'pointer',
-                  padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
-                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-0 text-muted cursor-pointer p-1 flex items-center rounded-sm"
               ><Clipboard size={16} /></button>
             </div>
             {prompt.checkboxLabel && (
-              <label htmlFor="session-auth-remember" style={{
-                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18,
-                fontSize: 12.5, color: C.statusBarColor, cursor: 'pointer',
-              }}>
+              <label htmlFor="session-auth-remember" className="flex items-center gap-2 mb-[18px] text-[12.5px] text-secondary cursor-pointer">
                 <input
                   id="session-auth-remember"
                   name="session-auth-remember"
@@ -233,7 +197,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
         )}
 
         {/* 操作按钮 */}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           {buttons.map((btn, i) => {
             const disabled = btn.value === 'ok' && !canSubmit;
             return (
@@ -243,17 +207,13 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                 disabled={disabled}
                 onClick={() => submit(btn.value)}
                 onMouseEnter={() => setFocusIdx(i)}
-                style={{
-                  flex: 1, padding: '9px 0', fontSize: 12.5, borderRadius: 8,
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  opacity: disabled ? 0.5 : 1,
-                  background: btn.primary ? 'var(--accent)' : C.buttonBg,
-                  border: '1px solid ' + (btn.primary ? 'var(--accent)' : C.btnBorder),
-                  color: btn.primary ? '#fff' : C.buttonTextColor,
-                  outline: focusIdx === i ? '2px solid var(--accent)' : 'none',
-                  outlineOffset: 2,
-                  whiteSpace: 'nowrap',
-                }}
+                className={`flex-1 py-[9px] text-[12.5px] rounded-lg whitespace-nowrap ${
+                  btn.primary
+                    ? 'bg-accent text-white border border-accent'
+                    : 'bg-sunken hover:bg-hover text-secondary border border-line'
+                } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${
+                  focusIdx === i ? 'outline-2 outline-offset-2 outline-accent' : 'outline-none'
+                }`}
               >
                 {btn.label}
               </button>

@@ -1,4 +1,5 @@
 import AIChatMessageActionBar from './AIChatMessageActionBar.tsx'
+import { cn } from '../../../utils/cn.ts'
 
 const userTitleKey = '用户'
 
@@ -59,11 +60,10 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
   const handleCopyPerfMetrics = perfMetricsText
     ? () => navigator.clipboard.writeText(perfMetricsText).catch(() => {})
     : undefined
-  const editingCardStyle = isEditingTarget
-    ? {
-        animation: 'ai-chat-message-breathe-border 2.2s ease-in-out infinite',
-      }
-    : null
+  // 原编辑态呼吸边框动画 ai-chat-message-breathe-border（keyframes 已上收全局样式表）
+  const editingCardClass = isEditingTarget
+    ? 'animate-[ai-chat-message-breathe-border_2.2s_ease-in-out_infinite] [will-change:background-color,border-color,box-shadow]'
+    : 'will-change-auto'
 
   const renderActionBar = () => (
     <AIChatMessageActionBar
@@ -78,7 +78,7 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
   )
 
   const renderImages = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
       {images.map((image, index) => (
         <a
           key={`${messageId}-image-${index}`}
@@ -86,22 +86,11 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
           target="_blank"
           rel="noreferrer"
           onClick={(event) => openExternalLink(event, image)}
-          style={{
-            display: 'block',
-            borderRadius: 12,
-            overflow: 'hidden',
-            border: '1px solid var(--border)',
-            background: 'var(--surface-base)',
-          }}>
+          className="block overflow-hidden rounded-xl border border-line bg-canvas">
           <img
             src={image}
             alt=""
-            style={{
-              width: '100%',
-              height: 120,
-              objectFit: 'cover',
-              display: 'block',
-            }}
+            className="block h-[120px] w-full object-cover"
           />
         </a>
       ))}
@@ -116,23 +105,9 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
       <div
         title={requestModelTitle || requestModelLabel}
         aria-label={requestModelTitle || requestModelLabel}
-        style={{
-          minWidth: 0,
-          maxWidth: '52%',
-          height: 24,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '0 8px',
-          borderRadius: 999,
-          border: '1px solid rgba(var(--accent-rgb), 0.16)',
-          background: 'rgba(var(--accent-rgb), 0.08)',
-          color: 'var(--accent)',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}
+        className="inline-flex h-6 min-w-0 max-w-[52%] items-center gap-1.5 box-border overflow-hidden rounded-full border border-[rgba(var(--accent-rgb),0.16)] bg-[rgba(var(--accent-rgb),0.08)] px-2 text-accent"
       >
-        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 600 }}>
+        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold">
           {requestModelLabel}
         </span>
       </div>
@@ -141,20 +116,20 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
 
   if (messageActionBarAtBottom) {
     return (
-      <div style={{ display: 'flex', width: '100%' }}>
-        <div style={{ width: '100%', display: 'grid', gap: 0 }}>
-          <div style={{ width: '100%', display: 'grid', gap: 0, borderRadius: 12, background: 'var(--surface-overlay)', border: '1px solid var(--border)', boxShadow: 'inset 0 1px 0 var(--border-light)', overflow: 'hidden', transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease', willChange: isEditingTarget ? 'background-color, border-color, box-shadow' : 'auto', ...(editingCardStyle || {}) }}>
+      <div className="flex w-full">
+        <div className="grid w-full gap-0">
+          <div className={cn('grid w-full gap-0 overflow-hidden rounded-xl border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease]', editingCardClass)}>
             {hasContent ? (
-              <div style={{ padding: '10px 12px', display: 'grid', gap: hasText && hasImages ? 8 : 0 }}>
+              <div className={cn('grid px-3 py-2.5', hasText && hasImages ? 'gap-2' : 'gap-0')}>
                 {hasText ? (
-                  <div style={{ color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                  <div className="whitespace-pre-wrap text-base leading-[1.6] text-primary [word-break:break-word] [overflow-wrap:anywhere]">
                     {text}
                   </div>
                 ) : null}
                 {hasImages ? renderImages() : null}
               </div>
             ) : null}
-            <div style={{ borderTop: hasContent ? '1px solid var(--border-subtle)' : 'none', padding: '0 12px' }}>
+            <div className={cn('px-3', hasContent && 'border-t border-t-line-subtle')}>
               {renderActionBar()}
             </div>
           </div>
@@ -164,13 +139,13 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%' }}>
-      <div style={{ width: '100%', display: 'grid', gap: 6 }}>
+    <div className="flex w-full">
+      <div className="grid w-full gap-1.5">
         <div>
           {renderActionBar()}
         </div>
         {hasText ? (
-          <div style={{ padding: '10px 12px', borderRadius: 12, background: 'var(--surface-overlay)', border: '1px solid var(--border)', boxShadow: 'inset 0 1px 0 var(--border-light)', color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease', willChange: isEditingTarget ? 'background-color, border-color, box-shadow' : 'auto', ...(editingCardStyle || {}) }}>
+          <div className={cn('whitespace-pre-wrap rounded-xl border border-line bg-overlay px-3 py-2.5 text-base leading-[1.6] text-primary shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease] [word-break:break-word] [overflow-wrap:anywhere]', editingCardClass)}>
             {text}
           </div>
         ) : null}

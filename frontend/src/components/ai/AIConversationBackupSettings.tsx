@@ -88,26 +88,12 @@ function ActionButton({ icon: Icon, label, onClick, disabled = false }: ActionBu
       type="button"
       onClick={onClick}
       disabled={disabled}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        height: 34,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        padding: '0 12px',
-        borderRadius: 8,
-        border: '1px solid var(--border)',
-        background: disabled ? 'var(--surface-hover)' : 'var(--surface-raised)',
-        color: disabled ? 'var(--text-muted)' : 'var(--text-primary)',
-        fontSize: 12,
-        fontWeight: 700,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
+      className={`flex-1 min-w-0 h-[34px] inline-flex items-center justify-center gap-1.5 px-3 rounded-lg border border-line text-sm font-bold ${
+        disabled ? 'bg-hover text-muted cursor-not-allowed' : 'bg-raised text-primary cursor-pointer'
+      }`}
     >
       <Icon size={14} />
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{label}</span>
     </button>
   )
 }
@@ -123,29 +109,9 @@ function ToggleSwitchControl({ checked, onChange }: ToggleSwitchControlProps) {
       type="button"
       onClick={() => onChange?.()}
       aria-pressed={checked}
-      style={{
-        width: 42,
-        height: 24,
-        borderRadius: 999,
-        border: '1px solid var(--border)',
-        background: checked ? 'var(--success)' : 'var(--surface-hover)',
-        padding: 2,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: checked ? 'flex-end' : 'flex-start',
-        transition: 'var(--transition)',
-        flexShrink: 0,
-      }}
+      className={`w-[42px] h-6 rounded-full border border-line p-0.5 flex items-center transition-colors duration-100 shrink-0 ${checked ? 'justify-end bg-success' : 'justify-start bg-hover'}`}
     >
-      <span
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          background: '#fff',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
-        }}
-      />
+      <span className="w-[18px] h-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
     </button>
   )
 }
@@ -274,10 +240,10 @@ export default function AIConversationBackupSettings({
   }
 
   const autoBackupControl = (
-    <div style={{ background: 'var(--surface-base)', padding: 14, borderRadius: 12, border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{t('自动备份对话')}</div>
-        <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6 }}>{t('关闭后不再创建新备份，已有备份仍可查看和恢复。')}</div>
+    <div className="bg-canvas p-3.5 rounded-xl border border-line flex justify-between items-center gap-4">
+      <div className="min-w-0">
+        <div className="text-primary text-base font-bold">{t('自动备份对话')}</div>
+        <div className="text-tertiary text-sm leading-[1.6]">{t('关闭后不再创建新备份，已有备份仍可查看和恢复。')}</div>
       </div>
       <ToggleSwitchControl checked={autoBackupEnabled} onChange={onToggleAutoBackup} />
     </div>
@@ -286,46 +252,32 @@ export default function AIConversationBackupSettings({
   if (selectedBackup) {
     const title = `${t('自动备份')} / ${formatBackupIdTime(selectedBackup.id, lang)}`
     return (
-      <div style={{ display: 'grid', gap: 12, minHeight: 0 }}>
-        <div style={{ display: 'grid', gap: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{t('自动备份')}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{t('查看和恢复当前对话的自动备份记录。')}</div>
+      <div className="grid gap-3 min-h-0">
+        <div className="grid gap-1">
+          <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('自动备份')}</div>
+          <div className="text-sm text-tertiary leading-[1.5]">{t('查看和恢复当前对话的自动备份记录。')}</div>
         </div>
         {autoBackupControl}
-        <div style={{ display: 'grid', gap: 12, minHeight: 0 }}>
-          <div style={{ display: 'grid', gap: 4 }}>
+        <div className="grid gap-3 min-h-0">
+          <div className="grid gap-1">
             <button
               type="button"
               onClick={() => setSelectedBackup(null)}
-              style={{
-                width: 'fit-content',
-                height: 30,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '0 10px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--surface-base)',
-                color: 'var(--text-primary)',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
+              className="w-fit h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-lg border border-line bg-canvas text-primary text-sm font-bold cursor-pointer"
             >
               <ChevronLeft size={14} />
               <span>{t('返回')}</span>
             </button>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{title}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{historyEntries.length} {t('消息')}</div>
+            <div className="text-[18px] font-bold text-primary leading-[1.3]">{title}</div>
+            <div className="text-sm text-tertiary leading-[1.5]">{historyEntries.length} {t('消息')}</div>
           </div>
-          <div style={{ display: 'grid', gap: 12, minHeight: 0 }}>
+          <div className="grid gap-3 min-h-0">
             {historyLoading ? (
-              <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-base)', color: 'var(--text-tertiary)', fontSize: 13 }}>
+              <div className="p-4 rounded-xl border border-line bg-canvas text-tertiary text-base">
                 {t('加载中...')}
               </div>
-            ) : historyEntries.length === 0 ? (
-              <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-base)', color: 'var(--text-tertiary)', fontSize: 13 }}>
+            ) : (historyEntries.length === 0 ? (
+              <div className="p-4 rounded-xl border border-line bg-canvas text-tertiary text-base">
                 {t('暂无消息')}
               </div>
             ) : (
@@ -335,58 +287,25 @@ export default function AIConversationBackupSettings({
                 return (
                   <div
                     key={`${entry.messageId || index}-${index}`}
-                    style={{
-                      width: '100%',
-                      minWidth: 0,
-                      display: 'grid',
-                      gap: 10,
-                      padding: '14px 16px',
-                      borderRadius: 12,
-                      border: `1px solid ${role === 'user' ? 'rgba(var(--accent-rgb), 0.35)' : 'var(--border)'}`,
-                      background: role === 'user' ? 'rgba(var(--accent-rgb), 0.10)' : 'var(--surface-base)',
-                    }}
+                    className={`w-full min-w-0 grid gap-2.5 px-4 py-3.5 rounded-xl border ${role === 'user' ? 'border-[rgba(var(--accent-rgb),0.35)] bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          minHeight: 22,
-                          padding: '0 8px',
-                          borderRadius: 999,
-                          background: 'var(--surface-raised)',
-                          color: 'var(--text-primary)',
-                          fontSize: 11,
-                          fontWeight: 700,
-                        }}
-                      >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
                         {role === 'user' ? t('用户') : t('AI')}
                       </span>
                       {entry.ts && entry.ts > 0 ? (
-                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                        <span className="text-xs text-tertiary whitespace-nowrap">
                           {formatDateTime(entry.ts, lang)}
                         </span>
                       ) : null}
                     </div>
-                    <div
-                      style={{
-                        maxHeight: '20vh',
-                        overflowY: 'auto',
-                        overflowX: 'hidden',
-                        padding: '10px 12px',
-                        borderRadius: 10,
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        color: 'var(--text-primary)',
-                        fontSize: 13,
-                        lineHeight: 1.6,
-                      }}
-                    >
+                    <div className="max-h-[20vh] overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] text-primary text-base leading-[1.6]">
                       <AIChatMarkdown text={markdown || t('暂无消息')} />
                     </div>
                   </div>
                 )
               })
-            )}
+            ))}
           </div>
         </div>
       </div>
@@ -394,111 +313,53 @@ export default function AIConversationBackupSettings({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 12, minHeight: 0 }}>
-      <div style={{ display: 'grid', gap: 4 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{t('自动备份')}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{t('查看和恢复当前对话的自动备份记录。')}</div>
+    <div className="grid gap-3 min-h-0">
+      <div className="grid gap-1">
+        <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('自动备份')}</div>
+        <div className="text-sm text-tertiary leading-[1.5]">{t('查看和恢复当前对话的自动备份记录。')}</div>
       </div>
       {autoBackupControl}
-      <div style={{ display: 'grid', gap: 12, minHeight: 0 }}>
+      <div className="grid gap-3 min-h-0">
         {!isLoaded && backups.length === 0 ? (
-          <div
-            style={{
-              minHeight: 160,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-base)',
-              color: 'var(--text-tertiary)',
-              fontSize: 13,
-            }}
-          >
+          <div className="min-h-40 flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas text-tertiary text-base">
             <History size={18} />
             <span>{isRefreshing ? t('刷新中...') : t('加载备份列表中...')}</span>
           </div>
-        ) : backups.length === 0 ? (
-          <div
-            style={{
-              minHeight: 160,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-base)',
-              color: 'var(--text-tertiary)',
-              fontSize: 13,
-            }}
-          >
-            <History size={22} style={{ opacity: 0.35 }} />
+        ) : (backups.length === 0 ? (
+          <div className="min-h-40 flex flex-col items-center justify-center gap-2 rounded-xl border border-line bg-canvas text-tertiary text-base">
+            <History size={22} className="opacity-35" />
             <span>{t('暂无自动备份')}</span>
           </div>
         ) : (
           backups.map((backup) => (
             <div
               key={backup.id}
-              style={{
-                padding: 14,
-                borderRadius: 12,
-                background: 'var(--surface-base)',
-                border: '1px solid var(--border)',
-                display: 'grid',
-                gap: 12,
-              }}
+              className="p-3.5 rounded-xl bg-canvas border border-line grid gap-3"
             >
-              <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      minHeight: 22,
-                      padding: '0 8px',
-                      borderRadius: 999,
-                      background: 'var(--surface-raised)',
-                      color: 'var(--text-primary)',
-                      fontSize: 11,
-                      fontWeight: 700,
-                    }}
-                  >
+              <div className="grid gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
                     {backup.messageRole === 'user' ? t('用户') : t('AI')}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                  <span className="text-xs text-tertiary whitespace-nowrap">
                     {backup.ts > 0 ? formatDateTime(backup.ts, lang) : formatBackupIdTime(backup.id, lang)}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  <span className="text-xs text-muted whitespace-nowrap">
                     {relativeTimeMap.get(backup.id)}
                   </span>
                 </div>
-                <div
-                  style={{
-                    maxHeight: 176,
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    background: 'var(--surface-overlay)',
-                    color: 'var(--text-primary)',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                  }}
-                >
+                <div className="max-h-44 overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-lg bg-overlay text-primary text-base leading-[1.6]">
                   <AIChatMarkdown text={backup.message || t('暂无消息')} />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="flex gap-2">
                 <ActionButton icon={RotateCcw} label={t('恢复')} onClick={() => void handleRestore(backup.id)} disabled={requestInFlight} />
                 <ActionButton icon={Trash2} label={t('删除')} onClick={() => void handleDelete(backup.id)} disabled={requestInFlight} />
                 <ActionButton icon={MessagesSquare} label={t('对话历史')} onClick={() => void handleOpenHistory(backup)} />
               </div>
             </div>
           ))
-        )}
+        ))}
       </div>
     </div>
   )

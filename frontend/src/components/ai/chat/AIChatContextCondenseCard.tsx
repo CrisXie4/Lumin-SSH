@@ -54,36 +54,25 @@ export default function AIChatContextCondenseCard({ message }: AIChatContextCond
   const title = isDerivedSubtask ? t('已创建摘要子任务') : t('上下文已智能压缩')
 
   return (
-    <div
-      style={{
-        width: '100%',
-        display: 'grid',
-        gap: 10,
-        padding: '12px 14px',
-        borderRadius: 12,
-        border: '1px solid var(--border)',
-        background: 'var(--surface-overlay)',
-        boxSizing: 'border-box',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+    <div className="grid w-full gap-2.5 rounded-xl border border-line bg-overlay px-3.5 py-3">
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="inline-flex min-w-0 items-center gap-2">
           <Scissors size={14} color="var(--accent)" />
-          <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}>{title}</span>
+          <span className="text-base font-bold text-primary">{title}</span>
         </div>
         {hasTokenMetrics ? (
-          <span style={{ flexShrink: 0, color: 'var(--accent)', fontSize: 12, fontWeight: 700 }}>
+          <span className="shrink-0 text-sm font-bold text-accent">
             {formatTokenValue(prevTokens)} → {formatTokenValue(newTokens)}
           </span>
         ) : null}
       </div>
       {sourceText ? (
-        <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <div className="whitespace-pre-wrap text-sm leading-[1.5] [word-break:break-word] text-secondary">
           {sourceText}
         </div>
       ) : null}
       {summary ? (
-        <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <div className="whitespace-pre-wrap text-sm leading-[1.7] [word-break:break-word] text-secondary">
           {summary}
         </div>
       ) : null}

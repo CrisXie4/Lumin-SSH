@@ -1,0 +1,98 @@
+import { useEffect, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import { t } from '../../i18n.ts';
+import { Z } from '../../constants/zIndex.ts';
+
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
+
+const SIZE_CLASS: Record<ModalSize, string> = {
+  sm: 'max-w-[420px]',
+  md: 'max-w-[560px]',
+  lg: 'max-w-[800px]',
+  xl: 'max-w-[1100px]',
+};
+
+export interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title?: ReactNode;
+  icon?: ReactNode;
+  footer?: ReactNode;
+  size?: ModalSize;
+  zIndex?: number;
+  closeOnOverlay?: boolean;
+  closeOnEscape?: boolean;
+  hideClose?: boolean;
+  panelClassName?: string;
+  bodyClassName?: string;
+  children: ReactNode;
+}
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  icon,
+  footer,
+  size = 'md',
+  zIndex = Z.MODAL,
+  closeOnOverlay = true,
+  closeOnEscape = true,
+  hideClose = false,
+  panelClassName = '',
+  bodyClassName = '',
+  children,
+}: ModalProps) {
+  useEffect(() => {
+    if (!open || !closeOnEscape) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open, closeOnEscape, onClose]);
+
+  if (!open) return null;
+
+  const hasHeader = title != null || !hideClose;
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease]"
+      style={{ zIndex }}
+      onMouseDown={(e) => {
+        if (closeOnOverlay && e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={`relative w-full max-h-[90vh] overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] ${SIZE_CLASS[size]} ${panelClassName}`}
+      >
+        {hasHeader && (
+          <div className="flex items-center justify-between gap-2 px-5 pt-4">
+            <div className="flex items-center gap-2 min-w-0 text-md font-semibold text-primary [&>svg]:shrink-0">
+              {icon}
+              {title}
+            </div>
+            {!hideClose && (
+              <button
+                type="button"
+                aria-label={t('关闭')}
+                onClick={onClose}
+                className="shrink-0 inline-flex items-center justify-center w-[26px] h-[26px] rounded-sm border border-transparent bg-transparent text-secondary cursor-pointer outline-none transition-colors duration-100 hover:bg-hover hover:text-primary"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        )}
+        <div className={`flex flex-col gap-3 px-5 py-4 ${bodyClassName}`}>{children}</div>
+        {footer != null && (
+          <div className="flex justify-end gap-2 px-5 pt-3 pb-4 border-t border-line">{footer}</div>
+        )}
+      </div>
+    </div>
+  );
+}

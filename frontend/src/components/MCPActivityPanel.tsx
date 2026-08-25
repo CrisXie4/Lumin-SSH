@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { EventsOn } from '../../wailsjs/runtime/runtime.js'
 import { Activity } from 'lucide-react'
 import { useTranslation, type I18nKey } from '../i18n.js'
+import { Z } from '../constants/zIndex.ts'
+import { Button } from './ui'
 
 export interface MCPActivityEvent {
   requestId: string
@@ -106,26 +108,8 @@ export function MCPActivityFloatingToggle({ visible, offset, onClick, onPointerD
       onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick}
       title={t('拖动按钮移动，双击复位')}
-      style={{
-        position: 'fixed',
-        bottom: '16px',
-        right: '16px',
-        width: '40px',
-        height: '40px',
-        borderRadius: '50%',
-        border: '1px solid rgba(255,255,255,0.12)',
-        background: 'var(--lumin-bg-tertiary, #1a2335)',
-        color: 'var(--lumin-text-secondary, #8892b0)',
-        cursor: 'grab',
-        zIndex: 9998,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-        transform: `translate(${offset.x}px, ${offset.y}px)`,
-        userSelect: 'none',
-        touchAction: 'none',
-      }}
+      className="fixed bottom-4 right-4 w-10 h-10 rounded-full border border-[rgba(255,255,255,0.12)] bg-overlay text-secondary cursor-grab flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.4)] select-none [touch-action:none]"
+      style={{ zIndex: Z.SETTINGS, transform: `translate(${offset.x}px, ${offset.y}px)` }}
     >
       <Activity size={17} strokeWidth={2} />
     </button>
@@ -190,60 +174,31 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
     .filter((card) => card.events.length > 0)
 
   return (
-    <div style={{
-      height,
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--lumin-bg-secondary, #0e1420)',
-      borderRadius: '8px',
-      overflow: 'hidden',
-      border: '1px solid var(--lumin-border, rgba(255,255,255,0.08))',
-    }}>
+    <div
+      className="flex flex-col bg-raised rounded-lg overflow-hidden border border-line-subtle"
+      style={{ height }}
+    >
       {/* Header（可拖动弹窗的把手） */}
       <div
         onPointerDown={onHeaderPointerDown}
         onDoubleClick={onHeaderDoubleClick}
         title={onHeaderPointerDown ? t('拖动标题栏移动，双击复位') : undefined}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '10px 14px',
-          borderBottom: '1px solid var(--lumin-border, rgba(255,255,255,0.08))',
-          flexShrink: 0,
-          cursor: onHeaderPointerDown ? 'grab' : 'default',
-          userSelect: 'none',
-          touchAction: 'none',
-        }}
+        className={`flex items-center gap-2 px-3.5 py-2.5 border-b border-line-subtle shrink-0 select-none [touch-action:none] ${onHeaderPointerDown ? 'cursor-grab' : 'cursor-default'}`}
       >
-        <Activity size={14} strokeWidth={2.2} style={{ color: '#5b9cf6', flexShrink: 0 }} />
-        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--lumin-text-primary, #e0e6f0)' }}>
+        <Activity size={14} strokeWidth={2.2} className="text-accent shrink-0" />
+        <span className="text-md font-semibold text-primary">
           {t('MCP 活动')}
         </span>
-        <span style={{
-          fontSize: '11px',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          background: 'rgba(91,156,246,0.15)',
-          color: '#5b9cf6',
-        }}>
+        <span className="text-xs px-1.5 py-[2px] rounded-sm bg-accent-dim text-accent">
           {cards.length}
         </span>
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         {onClose && (
           <button
             onClick={onClose}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--lumin-text-secondary, #8892b0)',
-              cursor: 'pointer',
-              fontSize: '16px',
-              padding: '2px 6px',
-              borderRadius: '4px',
-            }}
+            className="bg-transparent border-none text-secondary cursor-pointer text-[16px] px-1.5 py-[2px] rounded-sm hover:bg-hover hover:text-primary transition-colors duration-100"
             title={t('关闭')}
           >
             ✕
@@ -255,19 +210,10 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '8px',
-        }}
+        className="flex-1 overflow-y-auto p-2"
       >
         {cards.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px 20px',
-            color: 'var(--lumin-text-tertiary, #5a6580)',
-            fontSize: '13px',
-          }}>
+          <div className="text-center px-5 py-10 text-tertiary text-base">
             {t('外部 MCP（如 Claude Code）的操作会显示在这里')}
           </div>
         ) : (
@@ -279,82 +225,52 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
             const needsApproval = latest.status === 'approval_required' && !card.resolved
 
             return (
-              <div key={first.requestId} style={{
-                marginBottom: '8px',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                background: 'var(--lumin-bg-tertiary, #131a2a)',
-                border: needsApproval
-                  ? `1px solid ${color}`
-                  : '1px solid var(--lumin-border, rgba(255,255,255,0.06))',
-              }}>
+              <div
+                key={first.requestId}
+                className={`mb-2 px-3 py-2.5 rounded-lg bg-overlay border ${needsApproval ? '' : 'border-line-subtle'}`}
+                style={needsApproval ? { borderColor: color } : undefined}
+              >
                 {/* Card header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: `${clientColor}22`,
-                    color: clientColor,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-[2px] rounded-sm uppercase tracking-[0.5px]"
+                    style={{ background: `${clientColor}22`, color: clientColor }}
+                  >
                     {first.clientName || 'unknown'}
                   </span>
-                  <span style={{
-                    fontSize: '11px',
-                    color: 'var(--lumin-text-secondary, #8892b0)',
-                  }}>
+                  <span className="text-xs text-secondary">
                     {first.serverName || '—'}
                   </span>
-                  <span style={{
-                    fontSize: '10px',
-                    color: 'var(--lumin-text-tertiary, #5a6580)',
-                  }}>
+                  <span className="text-[10px] text-tertiary">
                     {first.tool}
                   </span>
-                  <div style={{ flex: 1 }} />
-                  <span style={{ fontSize: '10px', color: 'var(--lumin-text-tertiary, #5a6580)' }}>
+                  <div className="flex-1" />
+                  <span className="text-[10px] text-tertiary">
                     {formatTime(latest.timestamp)}
                   </span>
                 </div>
 
                 {/* Command display */}
                 {first.command && (
-                  <div style={{
-                    fontSize: '11px',
-                    fontFamily: 'var(--lumin-font-mono, "Cascadia Code", "Fira Code", monospace)',
-                    color: 'var(--lumin-text-secondary, #aab2d1)',
-                    background: 'rgba(0,0,0,0.25)',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    marginBottom: '4px',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                  }}>
+                  <div className="text-xs font-mono text-secondary bg-black/25 px-2 py-1 rounded-sm mb-1 whitespace-pre-wrap break-all">
                     {first.cwd ? `$ cd ${first.cwd}\n` : ''}$ {first.command}
                   </div>
                 )}
 
                 {/* Purpose */}
                 {first.purpose && (
-                  <div style={{ fontSize: '11px', color: 'var(--lumin-text-tertiary, #6a7590)', marginBottom: '4px' }}>
+                  <div className="text-xs text-tertiary mb-1">
                     {first.purpose}
                   </div>
                 )}
 
                 {/* Status badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{
                     background: color,
-                    flexShrink: 0,
                     animation: (latest.status === 'running' || latest.status === 'queued') ? 'pulse 1.5s ease-in-out infinite' : 'none',
                   }} />
-                  <span style={{ fontSize: '11px', color, fontWeight: 500 }}>
+                  <span className="text-xs font-medium" style={{ color }}>
                     {t((statusLabels[latest.status] || latest.status) as I18nKey)}
                     {latest.exitCode != null ? ` (exit ${latest.exitCode})` : ''}
                   </span>
@@ -362,27 +278,11 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
 
                 {/* Output preview */}
                 {latest.output && latest.output.trim() && (
-                  <details style={{ marginTop: '6px' }}>
-                    <summary style={{
-                      fontSize: '10px',
-                      color: 'var(--lumin-text-tertiary, #6a7590)',
-                      cursor: 'pointer',
-                    }}>
+                  <details className="mt-1.5">
+                    <summary className="text-[10px] text-tertiary cursor-pointer">
                       {t('输出预览')}
                     </summary>
-                    <pre style={{
-                      fontSize: '10px',
-                      fontFamily: 'var(--lumin-font-mono, monospace)',
-                      color: 'var(--lumin-text-secondary, #aab2d1)',
-                      background: 'rgba(0,0,0,0.3)',
-                      padding: '6px 8px',
-                      borderRadius: '4px',
-                      marginTop: '4px',
-                      maxHeight: '200px',
-                      overflow: 'auto',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
-                    }}>
+                    <pre className="text-[10px] font-mono text-secondary bg-black/30 px-2 py-1.5 rounded-sm mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all">
                       {latest.output}
                     </pre>
                   </details>
@@ -390,47 +290,31 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
 
                 {/* Approval buttons */}
                 {needsApproval && (
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                    <button
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      block
                       onClick={() => {
                         resolveApproval(first.requestId, true)
                         card.resolved = true
                         flushState()
                       }}
-                      style={{
-                        flex: 1,
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        border: 'none',
-                        borderRadius: '6px',
-                        background: '#4caf72',
-                        color: '#fff',
-                        cursor: 'pointer',
-                      }}
                     >
                       {t('批准')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      block
                       onClick={() => {
                         resolveApproval(first.requestId, false)
                         card.resolved = true
                         flushState()
                       }}
-                      style={{
-                        flex: 1,
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        border: 'none',
-                        borderRadius: '6px',
-                        background: '#ef5350',
-                        color: '#fff',
-                        cursor: 'pointer',
-                      }}
                     >
                       {t('拒绝')}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

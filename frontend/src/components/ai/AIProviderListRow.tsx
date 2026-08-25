@@ -25,21 +25,9 @@ function IconButton({ title, active = false, disabled = false, onClick, children
           }
           onClick?.();
         }}
-        style={{
-          width: 28,
-          height: 28,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 0,
-          border: '1px solid transparent',
-          background: active ? 'rgba(var(--accent-rgb), 0.10)' : 'transparent',
-          color: active ? 'var(--accent)' : 'var(--text-muted)',
-          transition: 'var(--transition)',
-          flexShrink: 0,
-          opacity: disabled ? 0.45 : 1,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-        }}
+        className={`w-7 h-7 inline-flex items-center justify-center rounded-none border border-transparent shrink-0 transition-colors duration-100 ${
+          active ? 'bg-[rgba(var(--accent-rgb),0.10)] text-accent' : 'bg-transparent text-muted'
+        } ${disabled ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         {children}
       </button>
@@ -77,38 +65,23 @@ export default function AIProviderListRow({ item, active = false, builtin = fals
           onSelect?.()
         }
       }}
-      style={{
-        width: '100%',
-        minHeight: 46,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        padding: '8px 10px',
-        border: 'none',
-        borderBottom: '1px solid var(--border-subtle)',
-        background: active ? 'rgba(var(--accent-rgb), 0.10)' : 'transparent',
-        color: 'var(--text-primary)',
-        textAlign: 'left',
-        transition: 'var(--transition)',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        cursor: 'pointer',
-      }}
+      className={`w-full min-h-[46px] flex items-center justify-between gap-3 py-2 px-2.5 border-b border-line-subtle text-left box-border overflow-hidden cursor-pointer transition-colors duration-100 ${
+        active ? 'bg-[rgba(var(--accent-rgb),0.10)]' : 'bg-transparent'
+      }`}
     >
-      <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
-        <span style={{ flexShrink: 0, fontSize: 13, fontWeight: active ? 800 : 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+      <div className="min-w-0 flex-1 flex items-baseline gap-1.5 overflow-hidden">
+        <span className={`shrink-0 text-base text-primary whitespace-nowrap ${active ? 'font-extrabold' : 'font-bold'}`}>
           {item.name}
         </span>
         {secondaryLabel ? (
-          <span style={{ minWidth: 0, flex: 1, fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span className="min-w-0 flex-1 text-xs text-tertiary whitespace-nowrap overflow-hidden text-ellipsis">
             {secondaryLabel}
           </span>
         ) : null}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-        {active ? <Check size={13} color="var(--accent)" /> : <div style={{ width: 13 }} />}
+      <div className="flex items-center gap-1 shrink-0">
+        {active ? <Check size={13} color="var(--accent)" /> : <div className="w-[13px]" />}
         {!builtin ? (
           <IconButton title={item.pinned ? t('取消置顶') : t('置顶')} active={item.pinned} onClick={onTogglePin}>
             <Pin size={13} />

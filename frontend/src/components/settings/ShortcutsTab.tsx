@@ -1,6 +1,7 @@
-import React from 'react';
-import { t as $t, type I18nKey } from '../../i18n.ts';
-import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot, type SettingsDefinitionNode } from './SharedComponents.tsx';
+import { t as $t } from '../../i18n.ts';
+import { cn } from '../../utils/cn.ts';
+import { Button } from '../ui';
+import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot } from './SharedComponents.tsx';
 import { settings } from './settingDefinitions';
 import { formatShortcut, isMac } from '../../utils/platform.ts';
 
@@ -17,21 +18,14 @@ interface ShortcutRowProps {
 function ShortcutRow({ definition, label, keyName, shortcuts, listeningKey, onSetListening, withBorder }: ShortcutRowProps) {
   const isListening = listeningKey === keyName;
   return (
-    <div data-settings-field-id={definition?.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', ...(withBorder ? { borderBottom: '1px solid var(--border)' } : {}) }}>
-      <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{label}</span>
+    <div data-settings-field-id={definition?.id} className={cn('flex justify-between items-center px-3 py-2.5', withBorder && 'border-b border-line')}>
+      <span className="text-secondary text-base">{label}</span>
       <button
         onClick={() => onSetListening(keyName)}
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
-          color: isListening ? 'var(--success)' : 'var(--text-tertiary)',
-          background: 'var(--surface-raised)',
-          padding: '4px 10px',
-          borderRadius: 6,
-          cursor: 'pointer',
-          border: isListening ? '1px solid var(--success)' : '1px solid var(--border)',
-          transition: 'var(--transition)',
-        }}
+        className={cn(
+          'font-mono text-sm px-2.5 py-1 rounded-md cursor-pointer bg-raised transition-colors duration-[120ms] border',
+          isListening ? 'text-success border-success' : 'text-tertiary border-line',
+        )}
       >
         {isListening ? $t('请按下快捷键...') : formatShortcut(shortcuts[keyName])}
       </button>
@@ -54,20 +48,19 @@ export default function ShortcutsTab({ shortcuts, listeningKey, onSetListeningKe
   return (
     <SettingsTabRoot>
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+        <div className="flex items-center justify-between gap-3 mb-1.5">
           <SettingsSectionTitle definition={sectionNode} style={{ marginBottom: 0 }} />
           {resetNode ? (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
+            <Button
+              size="sm"
               data-settings-field-id={resetNode.id}
               onClick={onResetShortcuts}
             >
               {resetNode.titleKey ? $t(resetNode.titleKey) : ''}
-            </button>
+            </Button>
           ) : null}
         </div>
-        <SettingsPanel style={{ padding: 0 }}>
+        <SettingsPanel className="p-0">
           {shortcutNodes.map((node, index) => (
             <ShortcutRow
               key={node.id}
@@ -81,9 +74,9 @@ export default function ShortcutsTab({ shortcuts, listeningKey, onSetListeningKe
             />
           ))}
         </SettingsPanel>
-        <p style={{ marginTop: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>{$t('注：部分快捷键行为受终端内的 Shell 设置影响。')}</p>
+        <p className="mt-2.5 text-sm text-tertiary">{$t('注：部分快捷键行为受终端内的 Shell 设置影响。')}</p>
         {isMac ? (
-          <p style={{ marginTop: 4, fontSize: 12, color: 'var(--text-tertiary)' }}>{$t('注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。')}</p>
+          <p className="mt-1 text-sm text-tertiary">{$t('注：macOS 上 ⌘ 为主快捷键，物理 ⌃C/⌃D 等组合始终作为终端控制信号发送。')}</p>
         ) : null}
       </div>
     </SettingsTabRoot>

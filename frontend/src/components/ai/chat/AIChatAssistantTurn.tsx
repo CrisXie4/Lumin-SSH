@@ -4,6 +4,7 @@ import AIChatErrorBlock from './AIChatErrorBlock.tsx'
 import AIChatReasoningBlock from './AIChatReasoningBlock.tsx'
 import AIChatRequestStatusRow from './AIChatRequestStatusRow.tsx'
 import AIChatToolSessionPane, { type AIChatToolSessionItem } from './AIChatToolSessionPane.tsx'
+import { cn } from '../../../utils/cn.ts'
 
 const assistantTitleKey = 'AI'
 
@@ -78,22 +79,22 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
   )
 
   return (
-    <div style={{ display: 'grid', gap: messageActionBarAtBottom ? 0 : 6, width: '100%' }}>
-      <div style={{ display: messageActionBarAtBottom ? 'none' : 'block' }}>
+    <div className={cn('grid w-full', messageActionBarAtBottom ? 'gap-0' : 'gap-1.5')}>
+      <div className={messageActionBarAtBottom ? 'hidden' : 'block'}>
         {renderActionBar(true)}
       </div>
-      <div style={{ width: '100%', display: 'grid', gap: 0, padding: messageActionBarAtBottom ? '10px 12px 0' : '10px 12px', borderRadius: 12, background: 'var(--surface-overlay)', border: '1px solid var(--border)', boxShadow: 'inset 0 1px 0 var(--border-light)' }}>
+      <div className={cn(
+        'grid w-full gap-0 rounded-xl border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)]',
+        messageActionBarAtBottom ? 'px-3 pt-2.5' : 'px-3 py-2.5',
+      )}>
         {hasError ? <AIChatErrorBlock text={assistantErrorText} /> : null}
         {hasReasoning ? (
           <div
-            style={{
-              display: 'grid',
-              gap: 8,
-              paddingTop: hasSectionBeforeReasoning ? 10 : 0,
-              borderTop: hasSectionBeforeReasoning ? '1px solid var(--border-subtle)' : 'none',
-              paddingBottom: hasBody || hasTools ? 10 : 0,
-              borderBottom: hasBody || hasTools ? '1px solid var(--border-subtle)' : 'none',
-            }}
+            className={cn(
+              'grid gap-2',
+              hasSectionBeforeReasoning && 'border-t border-t-line-subtle pt-2.5',
+              (hasBody || hasTools) && 'border-b border-b-line-subtle pb-2.5',
+            )}
           >
             {reasoning.map((item, index) => (
               <AIChatReasoningBlock
@@ -107,16 +108,19 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
           </div>
         ) : null}
         {hasBody ? (
-          <div style={{ paddingTop: hasSectionBeforeBody && !hasReasoning ? 10 : 0, borderTop: hasSectionBeforeBody && !hasReasoning ? '1px solid var(--border-subtle)' : 'none' }}>
+          <div className={cn(hasSectionBeforeBody && !hasReasoning && 'border-t border-t-line-subtle pt-2.5')}>
             <AIChatAssistantBodyPane text={assistantText} isStreaming={Boolean(assistant?.streaming)} />
           </div>
         ) : null}
         {hasTools ? (
-          <div style={{ paddingTop: hasSectionBeforeTools ? 10 : 0, borderTop: hasSectionBeforeTools ? '1px solid var(--border-subtle)' : 'none' }}>
+          <div className={cn(hasSectionBeforeTools && 'border-t border-t-line-subtle pt-2.5')}>
             <AIChatToolSessionPane items={tools} isLastAssistantTurn={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onSendUserMessage={onSendUserMessage} onPreviewRestore={onPreviewRestore} onPreviewDiffFetch={onPreviewDiffFetch} onApplyRestore={onApplyRestore} followupInteractionLocked={followupInteractionLocked} />
           </div>
         ) : null}
-        <div style={{ display: messageActionBarAtBottom ? 'block' : 'none', padding: messageActionBarAtBottom ? '0 12px' : 0, margin: messageActionBarAtBottom ? '0 -12px' : 0, borderTop: hasSectionBeforeActionBar ? '1px solid var(--border-subtle)' : 'none' }}>
+        <div className={cn(
+          hasSectionBeforeActionBar && 'border-t border-t-line-subtle',
+          messageActionBarAtBottom ? '-mx-3 block px-3' : 'hidden',
+        )}>
           {renderActionBar(true)}
         </div>
       </div>

@@ -14,24 +14,12 @@ export default function AIChatErrorBlock({ text = '' }: AIChatErrorBlockProps) {
   }
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 8,
-        width: 'calc(100% + 24px)',
-        margin: '-10px -12px 0',
-        padding: '10px 12px',
-        borderRadius: '12px 12px 0 0',
-        border: '1px solid color-mix(in srgb, var(--danger) 26%, var(--border))',
-        background: 'linear-gradient(180deg, color-mix(in srgb, var(--danger) 12%, var(--surface-overlay)), color-mix(in srgb, var(--danger) 5%, var(--surface-overlay)))',
-        boxSizing: 'border-box',
-      }}
-    >
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>
+    <div className="-mt-2.5 -mx-3 grid gap-2 box-border w-[calc(100%+24px)] rounded-t-xl border border-[color-mix(in_srgb,var(--danger)_26%,var(--border))] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--danger)_12%,var(--surface-overlay)),color-mix(in_srgb,var(--danger)_5%,var(--surface-overlay)))] px-3 py-2.5">
+      <div className="inline-flex items-center gap-2 text-sm font-bold text-danger">
         <AlertTriangle size={14} />
         <span>{t('错误')}</span>
       </div>
-      <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      <div className="whitespace-pre-wrap text-sm leading-[1.7] [word-break:break-word] text-secondary">
         {content}
       </div>
     </div>

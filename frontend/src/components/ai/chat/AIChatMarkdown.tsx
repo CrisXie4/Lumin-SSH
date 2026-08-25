@@ -102,8 +102,8 @@ const CODE_URL_RE = /\bhttps?:\/\/[^\s]+/g
 
 function renderCodeChildren(children: ReactNode): ReactNode {
   const text = typeof children === 'string' ? children
-    : Array.isArray(children) ? children.map((c) => (typeof c === 'string' ? c : '')).join('')
-    : ''
+    : (Array.isArray(children) ? children.map((c) => (typeof c === 'string' ? c : '')).join('')
+    : '')
   if (!text) return children
   CODE_URL_RE.lastIndex = 0
   const parts: ReactNode[] = []
@@ -117,7 +117,7 @@ function renderCodeChildren(children: ReactNode): ReactNode {
       parts.push(
         <a key={`code-url-${match.index}`} href={cleaned} target="_blank" rel="noreferrer"
           onClick={(event) => openExternalLink(event, cleaned)}
-          style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+          className="text-accent underline">
           {cleaned}
         </a>
       )
@@ -166,66 +166,46 @@ async function copyTextToClipboard(text: string) {
   } catch {}
 }
 
+function MarkdownCode({ children }: { children?: React.ReactNode }) {
+  const isBlock = useContext(PreContext)
+  const content = renderCodeChildren(children)
+  if (!isBlock) {
+    return (
+      <code
+        className="rounded-md bg-[rgba(var(--accent-rgb),0.08)] px-1.5 py-0.5 font-mono text-sm text-primary"
+      >
+        {content}
+      </code>
+    )
+  }
+  return (
+    <code className="font-mono text-sm">
+      {content}
+    </code>
+  )
+}
+
 const markdownComponents: Components = {
-  p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{children}</p>,
-  ul: ({ children }) => <ul style={{ margin: '0 0 10px', paddingLeft: 20 }}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ margin: '0 0 10px', paddingLeft: 20 }}>{children}</ol>,
-  li: ({ children }) => <li style={{ margin: '2px 0', lineHeight: 1.7 }}>{children}</li>,
+  p: ({ children }) => <p className="m-0 whitespace-pre-wrap leading-[1.7]">{children}</p>,
+  ul: ({ children }) => <ul className="mb-2.5 pl-5">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2.5 pl-5">{children}</ol>,
+  li: ({ children }) => <li className="my-0.5 leading-[1.7]">{children}</li>,
   a: ({ href, children }) => (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
       onClick={(event) => openExternalLink(event, href)}
-      style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+      className="text-accent underline"
     >
       {children}
     </a>
   ),
-  code: ({ children }) => {
-    const isBlock = useContext(PreContext)
-    const content = renderCodeChildren(children)
-    if (!isBlock) {
-      return (
-        <code
-          style={{
-            padding: '2px 6px',
-            borderRadius: 6,
-            background: 'rgba(var(--accent-rgb), 0.08)',
-            color: 'var(--text-primary)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 12,
-          }}
-        >
-          {content}
-        </code>
-      )
-    }
-    return (
-      <code
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
-        }}
-      >
-        {content}
-      </code>
-    )
-  },
+  code: MarkdownCode,
   pre: ({ children }) => (
     <PreContext.Provider value={true}>
       <pre
-        style={{
-          margin: '0 0 12px',
-          padding: '12px',
-          borderRadius: 10,
-          border: '1px solid var(--border)',
-          background: 'var(--surface-base)',
-          color: 'var(--text-primary)',
-          overflowX: 'auto',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
+        className="mb-3 overflow-x-auto whitespace-pre-wrap rounded-lg border border-line bg-canvas p-3 text-primary [word-break:break-word]"
       >
         {children}
       </pre>
@@ -233,31 +213,26 @@ const markdownComponents: Components = {
   ),
   blockquote: ({ children }) => (
     <blockquote
-      style={{
-        margin: '0 0 12px',
-        padding: '4px 0 4px 12px',
-        borderLeft: '3px solid rgba(var(--accent-rgb), 0.4)',
-        color: 'var(--text-secondary)',
-      }}
+      className="mb-3 border-l-[3px] border-l-[rgba(var(--accent-rgb),0.4)] pb-1 pl-3 pt-1 text-secondary"
     >
       {children}
     </blockquote>
   ),
-  h1: ({ children }) => <h1 style={{ margin: '0 0 12px', fontSize: 22, lineHeight: 1.35 }}>{children}</h1>,
-  h2: ({ children }) => <h2 style={{ margin: '0 0 10px', fontSize: 18, lineHeight: 1.4 }}>{children}</h2>,
-  h3: ({ children }) => <h3 style={{ margin: '0 0 8px', fontSize: 16, lineHeight: 1.45 }}>{children}</h3>,
+  h1: ({ children }) => <h1 className="mb-3 text-3xl leading-[1.35]">{children}</h1>,
+  h2: ({ children }) => <h2 className="mb-2.5 text-[18px] leading-[1.4]">{children}</h2>,
+  h3: ({ children }) => <h3 className="mb-2 text-[16px] leading-[1.45]">{children}</h3>,
   table: ({ children }) => (
-    <div style={{ overflowX: 'auto', margin: '0 0 12px' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>{children}</table>
+    <div className="mb-3 overflow-x-auto">
+      <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),
   th: ({ children }) => (
-    <th style={{ border: '1px solid var(--border)', padding: '8px 10px', textAlign: 'left', background: 'var(--surface-base)' }}>
+    <th className="border border-line bg-canvas px-2.5 py-2 text-left">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td style={{ border: '1px solid var(--border)', padding: '8px 10px', verticalAlign: 'top' }}>
+    <td className="border border-line px-2.5 py-2 align-top">
       {children}
     </td>
   ),
@@ -316,7 +291,7 @@ export default function AIChatMarkdown({ text, enableQuoteContextMenu = false }:
     <div
       ref={containerRef}
       onContextMenu={handleContextMenu}
-      style={{ minWidth: 0, color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7, wordBreak: 'break-word', position: 'relative' }}>
+      className="relative min-w-0 text-base leading-[1.7] [word-break:break-word] text-primary">
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkCleanAutolinks]} rehypePlugins={[rehypeSanitize]} components={markdownComponents}>
         {text || ''}
       </ReactMarkdown>

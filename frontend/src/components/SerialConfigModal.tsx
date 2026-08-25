@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Cpu } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { useTranslation } from '../i18n.ts';
+import { Button } from './ui';
 
 /** 串口连接配置（与 App.ConnectSerial 的参数对应） */
 export interface SerialFormConfig {
@@ -65,9 +66,9 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
             <Cpu size={16} />
             <span>{t('串口终端配置')}</span>
           </h3>
-          <button type="button" className="btn btn-ghost btn-icon" onClick={onClose} aria-label={t('关闭')}>
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label={t('关闭')}>
             <X size={16} />
-          </button>
+          </Button>
         </div>
 
         <form onSubmit={handleConnect}>
@@ -75,8 +76,8 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
             <div className="form-group">
               <label className="form-label" htmlFor="serial-config-port">{t('串口设备')}</label>
               {loading ? (
-                <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{t('正在检索串口设备...')}</div>
-              ) : ports.length === 0 ? (
+                <div className="text-sm text-tertiary">{t('正在检索串口设备...')}</div>
+              ) : (ports.length === 0 ? (
                 <div>
                   <input
                     id="serial-config-port"
@@ -88,7 +89,7 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
                     onChange={(e) => setForm({ ...form, port: e.target.value })}
                     required
                   />
-                  <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4 }}>
+                  <div className="text-xs text-warning mt-1">
                     {t('未检测到可用串口，您可以手动输入路径/设备名')}
                   </div>
                 </div>
@@ -96,10 +97,9 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
                 <select
                   id="serial-config-port"
                   name="serial-config-port"
-                  className="select"
+                  className="select w-full"
                   value={form.port}
                   onChange={(e) => setForm({ ...form, port: e.target.value })}
-                  style={{ width: '100%' }}
                   required
                 >
                   {ports.map((p) => (
@@ -108,7 +108,7 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
                     </option>
                   ))}
                 </select>
-              )}
+              ))}
             </div>
 
             <div className="form-group">
@@ -116,10 +116,9 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
               <select
                 id="serial-config-baud-rate"
                 name="serial-config-baud-rate"
-                className="select"
+                className="select w-full"
                 value={form.baudRate}
                 onChange={(e) => setForm({ ...form, baudRate: parseInt(e.target.value) })}
-                style={{ width: '100%' }}
               >
                 {[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map((b) => (
                   <option key={b} value={b}>
@@ -129,16 +128,15 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="grid grid-cols-2 gap-3">
               <div className="form-group">
                 <label className="form-label" htmlFor="serial-config-data-bits">{t('数据位')}</label>
                 <select
                   id="serial-config-data-bits"
                   name="serial-config-data-bits"
-                  className="select"
+                  className="select w-full"
                   value={form.dataBits}
                   onChange={(e) => setForm({ ...form, dataBits: parseInt(e.target.value) })}
-                  style={{ width: '100%' }}
                 >
                   {[8, 7, 6, 5].map((d) => (
                     <option key={d} value={d}>
@@ -153,10 +151,9 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
                 <select
                   id="serial-config-stop-bits"
                   name="serial-config-stop-bits"
-                  className="select"
+                  className="select w-full"
                   value={form.stopBits}
                   onChange={(e) => setForm({ ...form, stopBits: parseFloat(e.target.value) })}
-                  style={{ width: '100%' }}
                 >
                   <option value="1">1</option>
                   <option value="1.5">1.5</option>
@@ -170,10 +167,9 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
               <select
                 id="serial-config-parity"
                 name="serial-config-parity"
-                className="select"
+                className="select w-full"
                 value={form.parity}
                 onChange={(e) => setForm({ ...form, parity: e.target.value })}
-                style={{ width: '100%' }}
               >
                 <option value="none">{t('无校验')}</option>
                 <option value="odd">{t('奇校验')}</option>
@@ -185,12 +181,12 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={onClose}>
               {t('取消')}
-            </button>
-            <button type="submit" className="btn btn-primary">
+            </Button>
+            <Button type="submit" variant="primary">
               {t('连接')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

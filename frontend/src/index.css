@@ -3,6 +3,86 @@
    中性蓝灰色调 · 克制密度优先 · 深/浅双模式
    ============================================================ */
 
+/* ── Tailwind v4 ─────────────────────────────────────────────
+   只引入 theme 与 utilities、不引入 preflight：本文件下方数千行
+   存量样式自带 reset，重复 reset 会造成全站回归。
+   约定：未分层的存量样式优先级高于 utilities 层。迁移组件时必须
+   移除旧 class，不要用工具类去和旧 class 争夺同名属性。
+   ──────────────────────────────────────────────────────────── */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* 浅色主题变体：默认深色，body.theme-light 时启用 light: 前缀 */
+@custom-variant light (&:where(body.theme-light, body.theme-light *));
+
+/* ── Tailwind 语义色映射（引用既有 token，深浅色切换自动生效）──
+   注意：颜色名不得与字号刻度同名（xs/sm/base/md/lg…），
+   否则 text-base 会同时生成「字号 13px」和「颜色 surface-base」
+   两条规则导致文字隐身。应用底色因此命名为 canvas 而不是 base。 */
+@theme inline {
+  /* 表面层级 */
+  --color-canvas: var(--surface-base);
+  --color-raised: var(--surface-raised);
+  --color-overlay: var(--surface-overlay);
+  --color-sunken: var(--surface-sunken);
+  --color-hover: var(--surface-hover);
+  --color-active: var(--surface-active);
+
+  /* 边框 */
+  --color-line: var(--border);
+  --color-line-light: var(--border-light);
+  --color-line-subtle: var(--border-subtle);
+  --color-focus: var(--border-focus);
+
+  /* 文本 */
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-tertiary: var(--text-tertiary);
+  --color-muted: var(--text-muted);
+
+  /* 强调 / 语义 */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-border: var(--accent-border);
+  --color-success: var(--success);
+  --color-success-dim: var(--success-dim);
+  --color-danger: var(--danger);
+  --color-danger-dim: var(--danger-dim);
+  --color-warning: var(--warning);
+  --color-warning-dim: var(--warning-dim);
+  --color-info: var(--info);
+  --color-info-dim: var(--info-dim);
+}
+
+/* ── Tailwind 静态刻度：对齐设计 token（字号/圆角/阴影/字体）── */
+@theme {
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-2xl: 20px;
+  --text-3xl: 22px;
+
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.38);
+  --shadow-xl: 0 12px 28px rgba(0, 0, 0, 0.44);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
 /* 字体随安装包提供，纯内网与联网环境保持相同字形和布局。 */
 @font-face {
   font-family: 'Inter';
@@ -368,43 +448,53 @@ body.theme-light {
   color: transparent;
 }
 
-/* ── Reset ──────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Reset（base 层）──────────────────────────────────────────
+   元素级 reset 放入 base 层：utilities 可正常覆盖（否则未分层规则
+   永远压过工具类）；存量 class 规则仍未分层，优先级不受影响。 */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body, #root {
-  height: 100%;
-  overflow: hidden;
-  background: transparent;
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-size: var(--text-base);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button { cursor: pointer; border: none; background: none; font-family: inherit; font-size: inherit; color: inherit; }
+  input, textarea, select { font-family: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* ── 键盘焦点环（仅键盘导航时显示） ──────────────────────── */
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+  button:focus:not(:focus-visible),
+  a:focus:not(:focus-visible),
+  input:focus:not(:focus-visible),
+  select:focus:not(:focus-visible),
+  textarea:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* ── 滚动条 ──────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  button svg,
+  [role='button'] svg,
+  .codicon {
+    opacity: var(--app-icon-opacity, 1);
+  }
 }
-
-button { cursor: pointer; border: none; background: none; font-family: inherit; font-size: inherit; color: inherit; }
-input, textarea, select { font-family: inherit; }
-a { color: var(--accent); text-decoration: none; }
-
-/* ── 键盘焦点环（仅键盘导航时显示） ──────────────────────────── */
-:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
-}
-button:focus:not(:focus-visible),
-a:focus:not(:focus-visible),
-input:focus:not(:focus-visible),
-select:focus:not(:focus-visible),
-textarea:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* ── 滚动条 ─────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 /* ── 主布局 ─────────────────────────────────────────────────── */
 .app-layout {
@@ -423,12 +513,6 @@ textarea:focus:not(:focus-visible) {
 /* 全局背景图层由 utils/globalAppearance.ts 动态创建
    （#global-wallpaper-layer，fixed + z-index:10000 + 内联样式），
    不再使用 CSS 变量 + ::after 伪元素方案 */
-
-button svg,
-[role='button'] svg,
-.codicon {
-  opacity: var(--app-icon-opacity, 1);
-}
 
 /* ── 顶栏 ───────────────────────────────────────────────────── */
 .topbar {
@@ -833,15 +917,6 @@ input::-ms-clear {
 
 /* ── 模态框 ─────────────────────────────────────────────────── */
 
-/* 关于页链接卡片 — 需要可见边框与背景区分 */
-.about-list-item {
-  border: 1px solid var(--border);
-}
-.about-list-item:hover {
-  border-color: var(--accent-border);
-  background: var(--surface-sunken) !important;
-}
-
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -868,7 +943,6 @@ input::-ms-clear {
 .modal-sm { max-width: 420px; }
 .modal-md { max-width: 560px; }
 .modal-lg { max-width: 800px; }
-.modal-xl { max-width: 1100px; }
 
 .modal-header {
   padding: var(--space-4) var(--space-5) 0;
@@ -3161,6 +3235,74 @@ body.theme-light .batch-operation-bar {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; } }
 
+/* ── AI 模块动画（自组件内 <style> 注入上收，名称保持不变） ── */
+@keyframes ai-provider-balance-delta-float {
+  0% { opacity: 0; transform: translateY(8px) scale(0.92); }
+  18% { opacity: 1; transform: translateY(0) scale(1); }
+  72% { opacity: 1; transform: translateY(-10px) scale(1); }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.98); }
+}
+
+@keyframes ai-chat-read-file-path-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes ai-followup-slide-next {
+  0% { opacity: 0; transform: translateX(18px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes ai-followup-slide-prev {
+  0% { opacity: 0; transform: translateX(-18px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ai-chat-stream-cursor-beam {
+  0%, 100% { opacity: 0.55; transform: scaleY(0.82) translateY(1px); }
+  50% { opacity: 1; transform: scaleY(1) translateY(0); }
+}
+@keyframes ai-chat-stream-char-enter {
+  0% { opacity: 0; transform: translateY(8px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ai-chat-message-flash {
+  0%, 100% { background: rgba(var(--accent-rgb), 0.06); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12); }
+  50% { background: rgba(var(--accent-rgb), 0.22); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.42), 0 0 24px rgba(var(--accent-rgb), 0.24); }
+}
+@keyframes ai-chat-msg-enter-left {
+  from { opacity: 0; transform: translateX(-88px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes ai-chat-msg-enter-right {
+  from { opacity: 0; transform: translateX(88px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes ai-chat-message-breathe-border {
+  0%, 100% {
+    background: rgba(var(--accent-rgb), 0.04);
+    border-color: rgba(var(--accent-rgb), 0.14);
+    box-shadow: inset 0 1px 0 var(--border-light), inset 0 0 0 1px rgba(var(--accent-rgb), 0.08), inset 0 0 10px rgba(var(--accent-rgb), 0.04);
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: rgba(var(--accent-rgb), 0.82);
+    box-shadow: inset 0 1px 0 rgba(var(--accent-rgb), 0.28), inset 0 0 0 1px rgba(var(--accent-rgb), 0.44), inset 0 0 24px rgba(var(--accent-rgb), 0.16);
+    filter: brightness(1.14) saturate(1.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ai-chat-msg-enter-left {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes ai-chat-msg-enter-right {
+    from { opacity: 0; transform: translateX(6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+}
+
 @keyframes fileItemAddedPulse {
   0% {
     opacity: 0.62;
@@ -3986,130 +4128,7 @@ body.theme-light .editor-mode-banner {
   }
 }
 
-/* ── Toast 通知 ─────────────────────────────────────────────── */
-.toast-container {
-  position: fixed;
-  top: calc(var(--topbar-h) + var(--space-3));
-  right: var(--space-5);
-  z-index: 20003; /* Z.TOAST */
-  display: flex;
-  flex-direction: column;
-  pointer-events: none;
-}
-.toast-shell {
-  overflow: visible;
-  max-height: 220px;
-  margin-bottom: var(--space-2);
-  opacity: 1;
-  transform-origin: top right;
-  transition: max-height 1.08s cubic-bezier(0.18, 1, 0.22, 1), margin-bottom 0.88s cubic-bezier(0.18, 1, 0.22, 1), opacity 0.6s ease, transform 1s cubic-bezier(0.18, 1, 0.22, 1);
-}
-.toast-shell:last-child {
-  margin-bottom: 0;
-}
-.toast-shell-closing {
-  max-height: 0;
-  margin-bottom: 0;
-  opacity: 0;
-  transform: translate3d(42px, -18px, 0) scale(0.78);
-}
-.toast {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-base);
-  box-shadow: var(--shadow-md);
-  animation: slideUp 0.2s ease;
-  min-width: 240px;
-  max-width: 360px;
-  pointer-events: auto;
-  transform-origin: top right;
-  will-change: transform, opacity, filter, clip-path;
-}
-.toast-closing {
-  overflow: hidden;
-  animation: toastOutro 1.08s cubic-bezier(0.12, 0.86, 0.16, 1) forwards;
-}
-.toast-closing::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background:
-    linear-gradient(115deg, rgba(255, 255, 255, 0.12), transparent 24%, transparent 72%, rgba(255, 255, 255, 0.08)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 52%);
-  opacity: 0.9;
-  pointer-events: none;
-  animation: toastFlashOutro 1.08s ease-out forwards;
-}
-.toast-closing::after {
-  content: "";
-  position: absolute;
-  inset: auto -18% -42% 22%;
-  height: 70%;
-  border-radius: 999px;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.22), transparent 68%);
-  opacity: 0.32;
-  filter: blur(18px);
-  pointer-events: none;
-  animation: toastTrailOutro 1.08s cubic-bezier(0.16, 0.84, 0.2, 1) forwards;
-}
-.toast-closing .toast-icon {
-  transform-origin: center;
-  animation: toastIconOutro 1.08s cubic-bezier(0.18, 0.88, 0.2, 1) forwards;
-}
-.toast-closing .toast-message {
-  animation: toastMessageOutro 1.08s cubic-bezier(0.18, 0.88, 0.2, 1) forwards;
-}
-.toast-content {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  flex: 1;
-  min-width: 0;
-}
-.toast-icon {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-.toast-message {
-  flex: 1;
-  min-width: 0;
-  word-break: break-word;
-}
-.toast-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: var(--radius-full);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-  transition: var(--transition-fast);
-}
-.toast-close:hover {
-  background: var(--surface-hover);
-  border-color: var(--border);
-  color: var(--text-primary);
-}
-.toast-success { background: var(--surface-overlay); border: 1px solid var(--success); border-left: 4px solid var(--success); color: var(--text-primary); }
-.toast-success .toast-icon { color: var(--success); }
-.toast-error { background: var(--surface-overlay); border: 1px solid var(--danger); border-left: 4px solid var(--danger); color: var(--text-primary); }
-.toast-error .toast-icon { color: var(--danger); }
-.toast-warning { background: var(--surface-overlay); border: 1px solid var(--warning); border-left: 4px solid var(--warning); color: var(--text-primary); }
-.toast-warning .toast-icon { color: var(--warning); }
-.toast-info { background: var(--surface-overlay); border: 1px solid var(--accent); border-left: 4px solid var(--accent); color: var(--text-primary); }
-.toast-info .toast-icon { color: var(--accent); }
+/* ── Toast 通知（类规则已迁移至 Toast.tsx 工具类；下方 keyframes 保留供 animate-[...] 引用）── */
 
 @keyframes toastOutro {
   0% {

@@ -60,54 +60,25 @@ interface SlashCommandListItemProps {
 
 function SlashCommandListItem({ command, onEdit, onDelete }: SlashCommandListItemProps) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gap: 4,
-        padding: '14px 16px',
-        borderBottom: '1px solid var(--border-subtle)',
-        minWidth: 0,
-      }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, overflow: 'hidden' }}>
-        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{command.name}</div>
-        <div style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <div className="grid gap-1 px-4 py-3.5 border-b border-line-subtle min-w-0">
+      <div className="flex items-center justify-between gap-2.5 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold text-primary">{command.name}</div>
+        <div className="shrink-0 inline-flex items-center gap-1.5">
           <button
             type="button"
             onClick={onEdit}
-            style={{
-              width: 28,
-              height: 28,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 8,
-              border: '1px solid transparent',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}>
+            className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-transparent bg-transparent text-secondary cursor-pointer">
             <Pencil size={14} />
           </button>
           <button
             type="button"
             onClick={onDelete}
-            style={{
-              width: 28,
-              height: 28,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 8,
-              border: '1px solid transparent',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}>
+            className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-transparent bg-transparent text-secondary cursor-pointer">
             <Trash2 size={14} />
           </button>
         </div>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{summarizePrompt(command.prompt)}</div>
+      <div className="text-sm text-secondary leading-[1.6]">{summarizePrompt(command.prompt)}</div>
     </div>
   )
 }
@@ -193,37 +164,24 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
   }
 
   return (
-    <div style={{ display: 'grid', gap: 0 }}>
-      <div style={{ display: 'grid', gap: 4 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{t('斜杠命令')}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+    <div className="grid gap-0">
+      <div className="grid gap-1">
+        <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('斜杠命令')}</div>
+        <div className="text-sm text-tertiary leading-[1.6]">
           {t('输入框与用户消息只显示')} <code>{t('斜杠命令占位符')}</code>{t('真正发送给 AI 时,会在后台注入命令完整提示词内容.')}
         </div>
       </div>
-      <div style={{ display: 'grid', gap: 0 }}>
+      <div className="grid gap-0">
         <button
           type="button"
           onClick={handleAddCommand}
-          style={{
-            width: '100%',
-            height: 44,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-base)',
-            color: 'var(--text-primary)',
-            fontSize: 15,
-            fontWeight: 700,
-          }}>
+          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas text-primary text-lg font-bold cursor-pointer">
           <Plus size={16} />
           <span>{t('新增命令')}</span>
         </button>
-        <div style={{ borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-base)', overflow: 'hidden' }}>
+        <div className="rounded-xl border border-line bg-canvas overflow-hidden">
           {draftCommands.length === 0 ? (
-            <div style={{ padding: 16, color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.7 }}>
+            <div className="p-4 text-tertiary text-base leading-[1.7]">
               {t('当前还没有斜杠命令.新增后即可在输入框中通过')} <code>{t('斜杠命令占位符')}</code> {t('进行选择.')}
             </div>
           ) : (
@@ -239,12 +197,12 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
         </div>
       </div>
       {editingCommand ? (
-        <div style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: 12, minHeight: 420, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-base)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+        <div className="grid grid-rows-[auto_auto_1fr_auto] gap-3 min-h-[420px] p-3.5 rounded-xl border border-line bg-canvas">
+          <div className="text-base font-bold text-primary">
             {`${t('编辑')} /${normalizeSlashCommandName(editingCommand.name) || t('未命名命令')}`}
           </div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }} htmlFor="ai-slash-command-name">{t('命令名')}</label>
+          <div className="grid gap-1.5">
+            <label className="text-secondary text-sm font-semibold" htmlFor="ai-slash-command-name">{t('命令名')}</label>
             <input
               id="ai-slash-command-name"
               name="ai-slash-command-name"
@@ -254,70 +212,36 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
               onChange={(event) => handlePatchEditingCommand({ name: event.target.value })}
               onMouseLeave={handleInputDragSelectAll}
               placeholder={t('例如 summarize')}
-              style={{
-                width: '100%',
-                height: 36,
-                padding: '0 12px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--surface-overlay)',
-                color: 'var(--text-primary)',
-                fontSize: 13,
-                outline: 'none',
-              }}
+              className="w-full h-9 px-3 rounded-lg border border-line bg-overlay text-primary text-base outline-none"
             />
-            <div style={{ color: 'var(--text-tertiary)', fontSize: 11, lineHeight: 1.5 }}>
+            <div className="text-tertiary text-xs leading-[1.5]">
               {t('仅允许字母,数字,点,下划线和中横线.输入时显示为')} <code>{t('斜杠命令占位符')}</code>{sentenceEnd}
             </div>
           </div>
-          <div style={{ display: 'grid', gap: 6, minHeight: 0 }}>
-            <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }} htmlFor="slash-command-prompt">{t('提示词内容')}</label>
+          <div className="grid gap-1.5 min-h-0">
+            <label className="text-secondary text-sm font-semibold" htmlFor="slash-command-prompt">{t('提示词内容')}</label>
             <textarea
               id="slash-command-prompt"
               name="slash-command-prompt"
               value={editingCommand.prompt}
               onChange={(event) => handlePatchEditingCommand({ prompt: event.target.value })}
               placeholder={t('填写实际注入给 AI 的提示词内容')}
-              style={{
-                width: '100%',
-                minHeight: 0,
-                height: '100%',
-                resize: 'none',
-                padding: '12px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--surface-overlay)',
-                color: 'var(--text-primary)',
-                fontSize: 13,
-                lineHeight: 1.6,
-                outline: 'none',
-                whiteSpace: 'pre-wrap',
-              }}
+              className="w-full min-h-0 h-full resize-none p-3 rounded-lg border border-line bg-overlay text-primary text-base leading-[1.6] outline-none whitespace-pre-wrap"
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ color: 'var(--text-tertiary)', fontSize: 11, lineHeight: 1.5 }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-tertiary text-xs leading-[1.5]">
               {t('保存时会忽略名称非法,名称重复或提示词为空的条目.')}
             </div>
             <button
               type="button"
               onClick={() => void handleSaveCommands()}
               disabled={!hasPendingChanges}
-              style={{
-                height: 36,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                padding: '0 14px',
-                borderRadius: 10,
-                border: '1px solid var(--accent-border)',
-                background: hasPendingChanges ? 'rgba(var(--accent-rgb), 0.12)' : 'var(--surface-overlay)',
-                color: hasPendingChanges ? 'var(--accent)' : 'var(--text-muted)',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: hasPendingChanges ? 'pointer' : 'not-allowed',
-              }}>
+              className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-accent-border text-base font-bold transition-colors duration-100 ${
+                hasPendingChanges
+                  ? 'bg-[rgba(var(--accent-rgb),0.12)] text-accent cursor-pointer'
+                  : 'bg-overlay text-muted cursor-not-allowed'
+              }`}>
               <Save size={14} />
               <span>{t('保存修改')}</span>
             </button>

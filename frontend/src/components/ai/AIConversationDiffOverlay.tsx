@@ -96,7 +96,7 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t, maxHeight = 340 
   const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff), [normalizedRawDiff])
   if (loading) {
     return (
-      <div style={{ minHeight: maxHeight, padding: '12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+      <div className="border border-line-subtle rounded-lg bg-canvas text-secondary text-sm flex items-center justify-center gap-2" style={{ minHeight: maxHeight, padding: 12 }}>
         <LoaderCircle size={14} className="spin" />
         <span>{t('加载中...')}</span>
       </div>
@@ -104,28 +104,20 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t, maxHeight = 340 
   }
   if (!normalizedRawDiff) {
     return (
-      <div style={{ minHeight: maxHeight, padding: '12px', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+      <div className="border border-line-subtle rounded-lg bg-canvas text-secondary text-sm flex items-center justify-center text-center" style={{ minHeight: maxHeight, padding: 12 }}>
         {t('暂无可预览差异')}
       </div>
     )
   }
   return (
-    <div style={{ minHeight: maxHeight, border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-base)', overflow: 'hidden' }}>
-      <div style={{ maxHeight, overflow: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: '18px' }}>
+    <div className="border border-line-subtle rounded-lg bg-canvas overflow-hidden" style={{ minHeight: maxHeight }}>
+      <div className="overflow-auto font-mono text-xs leading-[18px]" style={{ maxHeight }}>
         {rows.map((row, index) => {
           if (row.type === 'hidden') {
             return (
               <div
                 key={row.key}
-                style={{
-                  padding: '6px 12px',
-                  borderTop: '1px solid var(--border-subtle)',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  color: 'var(--text-tertiary)',
-                  background: 'rgba(var(--accent-rgb), 0.04)',
-                  textAlign: 'center',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
+                className="py-1.5 px-3 border-y border-line-subtle text-tertiary bg-[rgba(var(--accent-rgb),0.04)] text-center tabular-nums">
                 {`··· ${row.count} ···`}
               </div>
             )
@@ -134,33 +126,14 @@ function CompactDiffPreview({ rawDiff = '', loading = false, t, maxHeight = 340 
           return (
             <div
               key={row.key}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '40px minmax(0, 1fr)',
-                minWidth: 0,
-                background: palette.background,
-                borderTop: index === 0 ? 'none' : '1px solid rgba(255,255,255,0.02)',
-              }}>
-              <div
-                style={{
-                  padding: '0 8px 0 10px',
-                  color: 'var(--text-tertiary)',
-                  textAlign: 'right',
-                  borderRight: '1px solid var(--border-subtle)',
-                  userSelect: 'none',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
+              className={`grid grid-cols-[40px_minmax(0,1fr)] min-w-0 ${index === 0 ? '' : 'border-t [border-top-color:rgba(255,255,255,0.02)]'}`}
+              style={{ background: palette.background }}>
+              <div className="pl-2.5 pr-2 text-tertiary text-right border-r border-line-subtle select-none tabular-nums">
                 {index + 1}
               </div>
               <div
-                style={{
-                  padding: '0 10px',
-                  color: palette.color,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'anywhere',
-                  minWidth: 0,
-                }}>
+                className="px-2.5 whitespace-pre-wrap break-words [overflow-wrap:anywhere] min-w-0"
+                style={{ color: palette.color }}>
                 {row.text || ' '}
               </div>
             </div>
@@ -229,9 +202,9 @@ export default function AIConversationDiffOverlay({
       : null
     const copyContent = typeof item?.copyContent === 'string' && item.copyContent.trim()
       ? item.copyContent.trim()
-      : typeof review?.rawDiff === 'string' && review.rawDiff.trim()
+      : (typeof review?.rawDiff === 'string' && review.rawDiff.trim()
         ? review.rawDiff.trim()
-        : ''
+        : '')
     if (!itemId || !copyContent) {
       return
     }
@@ -264,58 +237,16 @@ export default function AIConversationDiffOverlay({
   }
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 40,
-        display: 'flex',
-        alignItems: 'stretch',
-        justifyContent: 'center',
-        padding: 6,
-        background: 'rgba(0, 0, 0, 0.18)',
-        backdropFilter: 'blur(4px)',
-      }}>
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'grid',
-          gridTemplateRows: '64px minmax(0, 1fr)',
-          borderRadius: 16,
-          border: '1px solid var(--border)',
-          background: 'var(--surface-overlay)',
-          boxShadow: 'var(--shadow-xl)',
-          overflow: 'hidden',
-        }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: '0 18px',
-            borderBottom: '1px solid var(--border)',
-            background: 'var(--surface-raised)',
-          }}>
-          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-                background: 'rgba(var(--accent-rgb), 0.14)',
-                color: 'var(--accent)',
-                flexShrink: 0,
-              }}>
+    <div className="absolute inset-0 z-40 flex items-stretch justify-center p-1.5 bg-black/[0.18] backdrop-blur-[4px]">
+      <div className="w-full h-full grid grid-rows-[64px_minmax(0,1fr)] rounded-[16px] border border-line bg-overlay shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-[18px] border-b border-line bg-raised">
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="w-[34px] h-[34px] inline-flex items-center justify-center rounded-lg bg-[rgba(var(--accent-rgb),0.14)] text-accent shrink-0">
               <Columns2 size={18} />
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{t('当前对话文件变更')}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div className="min-w-0">
+              <div className="text-[16px] font-extrabold text-primary">{t('当前对话文件变更')}</div>
+              <div className="text-sm text-tertiary whitespace-nowrap overflow-hidden text-ellipsis">
                 {sessionLabel ? t('会话 · {label}', { label: sessionLabel }) : t('当前对话文件变更')}
               </div>
             </div>
@@ -324,32 +255,11 @@ export default function AIConversationDiffOverlay({
             type="button"
             onClick={onClose}
             aria-label={t('关闭')}
-            style={{
-              width: 34,
-              height: 34,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              transition: 'var(--transition)',
-            }}>
+            className="w-[34px] h-[34px] inline-flex items-center justify-center rounded-lg border border-line bg-transparent text-secondary cursor-pointer transition-colors duration-100">
             <X size={16} />
           </button>
         </div>
-        <div
-          style={{
-            minHeight: 0,
-            overflow: 'auto',
-            padding: 14,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
-            gap: 14,
-            alignContent: 'start',
-          }}>
+        <div className="min-h-0 overflow-auto p-3.5 grid grid-cols-[repeat(auto-fill,minmax(420px,1fr))] gap-3.5 content-start">
           {normalizedItems.map((item) => {
             const isActive = activeItem?.id === item.id
             const isCopied = copiedItemId === item.id
@@ -366,101 +276,58 @@ export default function AIConversationDiffOverlay({
               : false
             const itemCopyCharacterCount = typeof item.copyContent === 'string' && item.copyContent.trim()
               ? item.copyContent.trim().length
-              : currentRawDiff.trim()
+              : (currentRawDiff.trim()
                 ? currentRawDiff.trim().length
-                : 0
+                : 0)
             return (
               <div
                 key={item.id}
-                style={{
-                  width: '100%',
-                  minHeight: 520,
-                  padding: 14,
-                  borderRadius: 14,
-                  border: isActive ? '1px solid var(--accent-border)' : '1px solid var(--border)',
-                  background: isActive ? 'rgba(var(--accent-rgb), 0.10)' : 'var(--surface-base)',
-                  color: 'inherit',
-                  display: 'grid',
-                  gridTemplateRows: 'auto auto 1fr',
-                  gap: 12,
-                  minWidth: 0,
-                }}>
+                className={`w-full min-h-[520px] p-3.5 rounded-[14px] text-inherit grid grid-rows-[auto_auto_1fr] gap-3 min-w-0 ${
+                  isActive
+                    ? 'border border-accent-border bg-[rgba(var(--accent-rgb),0.10)]'
+                    : 'border border-line bg-canvas'
+                }`}>
                 <button
                   type="button"
                   onClick={() => onSelectItem?.(item)}
-                  style={{
-                    width: '100%',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'inherit',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'grid',
-                    gap: 8,
-                    padding: 0,
-                    minWidth: 0,
-                  }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  className="w-full border-none bg-transparent text-inherit text-left cursor-pointer grid gap-2 p-0 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 9,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: isActive ? 'rgba(var(--accent-rgb), 0.18)' : 'rgba(255,255,255,0.06)',
-                        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                        flexShrink: 0,
-                      }}>
+                      className={`w-7 h-7 rounded-lg inline-flex items-center justify-center shrink-0 ${
+                        isActive
+                          ? 'bg-[rgba(var(--accent-rgb),0.18)] text-accent'
+                          : 'bg-[rgba(255,255,255,0.06)] text-secondary'
+                      }`}>
                       <FileText size={15} />
                     </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', wordBreak: 'break-all', overflowWrap: 'anywhere', lineHeight: 1.45 }}>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-base font-bold text-primary whitespace-normal overflow-visible [text-overflow:clip] break-all [overflow-wrap:anywhere] leading-[1.45]">
                         {item.order}. {itemTitle}
                       </div>
                     </div>
                   </div>
                   {itemSummary ? (
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                    <div className="text-sm text-secondary leading-[1.55]">
                       {itemSummary}
                     </div>
                   ) : null}
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                  <div
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      border: '1px solid rgba(var(--accent-rgb), 0.20)',
-                      background: 'rgba(var(--accent-rgb), 0.06)',
-                      color: 'var(--text-tertiary)',
-                      fontSize: 11,
-                      fontWeight: 700,
-                    }}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="py-1 px-2 rounded-full border border-[rgba(var(--accent-rgb),0.20)] bg-[rgba(var(--accent-rgb),0.06)] text-tertiary text-xs font-bold">
                     {/* status 为 AI 返回动态文案（可能不在翻译表），t() 内部有兜底 */}
                     {item.toolName || (item.status ? t(item.status as I18nKey) : t('已完成'))}
                   </div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <div className="inline-flex items-center gap-1.5 flex-wrap justify-end">
                     {itemCopyCharacterCount > 0 ? (
                       <Tiptop text={isCopied ? t('已复制') : t('复制完整 diff/内容')} style={{ display: 'inline-flex' }}>
                         <button
                           type="button"
                           onClick={() => handleCopyItemContent(item)}
-                          style={{
-                            height: 24,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            padding: '0 8px',
-                            borderRadius: 999,
-                            border: isCopied ? '1px solid rgba(var(--success-rgb), 0.28)' : '1px solid rgba(var(--accent-rgb), 0.24)',
-                            background: isCopied ? 'rgba(var(--success-rgb), 0.10)' : 'rgba(var(--accent-rgb), 0.08)',
-                            color: isCopied ? 'var(--success)' : 'var(--text-secondary)',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}>
+                          className={`h-6 inline-flex items-center gap-[5px] px-2 rounded-full text-xs font-bold cursor-pointer ${
+                            isCopied
+                              ? 'border border-[rgba(var(--success-rgb),0.28)] bg-[rgba(var(--success-rgb),0.10)] text-success'
+                              : 'border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-secondary'
+                          }`}>
                           <FileText size={11} color={isCopied ? 'currentColor' : 'var(--accent)'} />
                           <span>{isCopied ? t('已复制') : String(itemCopyCharacterCount)}</span>
                         </button>
@@ -480,20 +347,11 @@ export default function AIConversationDiffOverlay({
                           onContextMenu={isRestored ? undefined : (event) => {
                             void handleApplyItemRestore(event, item)
                           }}
-                          style={{
-                            height: 24,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            padding: '0 8px',
-                            borderRadius: 999,
-                            border: isRestored || isApplied ? '1px solid rgba(var(--success-rgb), 0.28)' : '1px solid rgba(var(--accent-rgb), 0.24)',
-                            background: isRestored || isApplied ? 'rgba(var(--success-rgb), 0.10)' : 'rgba(var(--accent-rgb), 0.08)',
-                            color: isRestored || isApplied ? 'var(--success)' : 'var(--text-secondary)',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: isRestored ? 'default' : 'pointer',
-                          }}>
+                          className={`h-6 inline-flex items-center gap-[5px] px-2 rounded-full text-xs font-bold ${
+                            isRestored || isApplied
+                              ? 'border border-[rgba(var(--success-rgb),0.28)] bg-[rgba(var(--success-rgb),0.10)] text-success'
+                              : 'border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-secondary'
+                          } ${isRestored ? 'cursor-default' : 'cursor-pointer'}`}>
                           <RotateCcw size={11} color={isRestored || isApplied ? 'currentColor' : 'var(--accent)'} />
                           <span>{isRestored ? t('已还原') : (isApplied ? t('已应用') : t('应用'))}</span>
                         </button>

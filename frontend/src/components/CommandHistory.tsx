@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { useTranslation } from '../i18n.ts';
+import { Button, EmptyState } from './ui';
 import { ScrollText, Keyboard, Clipboard, Trash2, Rocket } from 'lucide-react';
 
 /** 历史指令条目 */
@@ -279,9 +280,9 @@ export default function CommandHistory({ sessionId, historyServerId, terminalId,
           <ScrollText size={16} /> {t('历史指令')}
         </h3>
         {history.length > 0 && (
-          <button className="btn btn-ghost btn-sm" onClick={clear}>
+          <Button variant="ghost" size="sm" onClick={clear}>
             {t('清空列表')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -309,15 +310,18 @@ export default function CommandHistory({ sessionId, historyServerId, terminalId,
 
       {/* 空状态 / 列表 */}
       {filteredHistory.length === 0 ? (
-        <div className="empty-state" style={{ marginTop: '10vh' }}>
-          <div style={{ fontSize: 48, opacity: 0.3 }}><Keyboard size={48} /></div>
-          <p style={{ marginTop: 16, color: 'var(--text-secondary)', fontSize: 15, fontWeight: 500 }}>
+        <EmptyState
+          className="mt-[10vh]"
+          icon={<Keyboard size={48} />}
+          text={<span className="text-lg font-medium text-secondary">
             {searchQuery ? t('未找到匹配的命令') : t('您还没有执行过任何命令')}
-          </p>
-          <span style={{ fontSize: 13, color: 'var(--text-tertiary)', maxWidth: 300, textAlign: 'center', lineHeight: 1.6, marginTop: 8 }}>
-            {searchQuery ? t('尝试其他搜索词') : t('在此服务器中执行过的命令会自动留存，方便您浏览与重复运行。')}
-          </span>
-        </div>
+          </span>}
+          action={
+            <span className="max-w-[300px] leading-[1.6] text-base text-tertiary">
+              {searchQuery ? t('尝试其他搜索词') : t('在此服务器中执行过的命令会自动留存，方便您浏览与重复运行。')}
+            </span>
+          }
+        />
       ) : (
         <div className="history-list">
           {filteredHistory.map((item) => (
@@ -332,15 +336,15 @@ export default function CommandHistory({ sessionId, historyServerId, terminalId,
               </div>
 
               <div className="history-actions">
-                <button className="btn btn-sm" onClick={() => copy(item.command)}>
+                <Button variant="secondary" size="sm" onClick={() => copy(item.command)}>
                   <Clipboard size={12} /> {t('复制')}
-                </button>
-                <button className="btn btn-danger btn-sm" onClick={() => deleteItem(item.id)}>
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => deleteItem(item.id)}>
                   <Trash2 size={12} /> {t('删除')}
-                </button>
-                <button className="btn btn-primary btn-sm" onClick={() => exec(item.command)}>
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => exec(item.command)}>
                   <Rocket size={13} /> {t('再次运行')}
-                </button>
+                </Button>
               </div>
             </div>
           ))}

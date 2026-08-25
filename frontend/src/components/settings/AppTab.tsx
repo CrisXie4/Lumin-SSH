@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import * as AppGo from '../../../wailsjs/go/wailsapp/App.js';
+import { useEffect, useState } from 'react';
 import { t as $t } from '../../i18n.ts';
 import {
   APP_GITHUB_ANDROID_RELEASES_URL,
@@ -12,134 +11,10 @@ import logoImg from '../../assets/logo.webp';
 import logoLightImg from '../../assets/logo_q.webp';
 import logoDarkImg from '../../assets/logo_s.webp';
 import { Z } from '../../constants/zIndex';
-import { AboutLink, type SettingsDefinitionNode } from './SharedComponents';
+import { cn } from '../../utils/cn.ts';
+import { AboutLink } from './SharedComponents';
 import { settings } from './settingDefinitions';
-
-const CONTRIBUTORS_CACHE_TTL = 10 * 60 * 1000;
-const CONTRIBUTORS_API_URL = 'https://lumin.callmy.vip/api/';
-
-/** 贡献者条目（normalizeContributors 归一化后） */
-interface Contributor {
-  login: string;
-  avatar: string;
-  total: number;
-  additions: number;
-  deletions: number;
-  profileUrl: string;
-}
-
-let contributorsCache: { data: Contributor[] | null; expiresAt: number } = {
-  data: null,
-  expiresAt: 0,
-};
-
-function getFreshContributorsCache(): Contributor[] | null {
-  if (Array.isArray(contributorsCache.data) && contributorsCache.data.length > 0 && Date.now() < contributorsCache.expiresAt) {
-    return contributorsCache.data;
-  }
-  return null;
-}
-
-function getResolvedThemeMode(): 'light' | 'dark' {
-  const savedTheme = localStorage.getItem('themeMode') || 'dark';
-  if (savedTheme === 'system') {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  }
-  return savedTheme === 'light' ? 'light' : 'dark';
-}
-
-function resolveContributorAvatar(value: unknown): string {
-  const rawValue = typeof value === 'string' ? value.trim() : '';
-  if (!rawValue) {
-    return '';
-  }
-  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(rawValue)) {
-    return rawValue;
-  }
-  try {
-    const parsed = new URL(rawValue);
-    parsed.searchParams.delete('s');
-    parsed.searchParams.delete('v');
-    return parsed.toString();
-  } catch {
-    return rawValue;
-  }
-}
-
-function normalizeContributors(payload: unknown): Contributor[] {
-  if (!Array.isArray(payload)) {
-    return [];
-  }
-  return (payload as Array<Record<string, unknown>>)
-    .map((item) => {
-      const author = item?.author && typeof item.author === 'object' ? item.author as Record<string, unknown> : item;
-      const login = typeof author?.login === 'string' ? author.login.trim() : '';
-      const avatar = resolveContributorAvatar(
-        typeof author?.avatar === 'string'
-          ? author.avatar
-          : (typeof item?.avatar === 'string' ? item.avatar : '')
-      );
-      const path = typeof author?.path === 'string' ? author.path.trim() : '';
-      const total = Number(item?.total) || 0;
-      const weeks = Array.isArray(item?.weeks) ? item.weeks as Array<Record<string, unknown>> : (Array.isArray(item?.weeeks) ? item.weeeks as Array<Record<string, unknown>> : []);
-      const additions = weeks.reduce((sum, week) => sum + (Number(week?.a) || 0), 0);
-      const deletions = weeks.reduce((sum, week) => sum + (Number(week?.d) || 0), 0);
-      if (!login || !avatar || !path || total <= 0) {
-        return null;
-      }
-      const profileUrl = path.startsWith('http')
-        ? path
-        : `https://github.com${path.startsWith('/') ? path : `/${path}`}`;
-      return {
-        login,
-        avatar,
-        total,
-        additions,
-        deletions,
-        profileUrl,
-      };
-    })
-    .filter((item): item is Contributor => item !== null)
-    .sort((left, right) => right.total - left.total);
-}
-
-async function fetchContributorsFromApi(): Promise<unknown> {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 10000);
-  try {
-    const response = await fetch(`${CONTRIBUTORS_API_URL}github/contributors?repoUrl=${encodeURIComponent(APP_GITHUB_REPO_URL)}`, {
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return await response.json();
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-async function loadContributors(): Promise<Contributor[]> {
-  const cached = getFreshContributorsCache();
-  if (cached) {
-    return cached;
-  }
-  let payload: unknown = null;
-  try {
-    payload = await fetchContributorsFromApi();
-  } catch {
-    payload = await AppGo.GetGitHubContributors();
-  }
-  const data = normalizeContributors(payload);
-  if (data.length > 0) {
-    contributorsCache.data = data;
-    contributorsCache.expiresAt = Date.now() + CONTRIBUTORS_CACHE_TTL;
-  } else {
-    contributorsCache.data = null;
-    contributorsCache.expiresAt = 0;
-  }
-  return data;
-}
+import { getFreshContributorsCache, getResolvedThemeMode, loadContributors, type Contributor } from './appTabContributors';
 
 export interface AppTabProps {
   CURRENT_VERSION: string;
@@ -222,73 +97,47 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
     };
   }, []);
 
+  const LOGO_IMG_TRANSITION = 'opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.6s ease';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 'none', padding: '16px 24px', gap: 32 }}>
+    <div className="flex flex-col w-full max-w-none px-6 py-4 gap-8">
       {/* 顶部布局：图标与标题 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-        <div
-          style={{
-            width: 96,
-            height: 96,
-            position: 'relative',
-            borderRadius: 24,
-            overflow: 'hidden',
-            boxShadow: 'var(--shadow-sm)',
-            border: '1px solid var(--border-light)',
-            background: 'var(--surface-overlay)',
-            flexShrink: 0,
-          }}
-        >
+      <div className="flex items-center gap-6">
+        <div className="relative w-24 h-24 rounded-3xl overflow-hidden shadow-sm border border-line-light bg-overlay shrink-0">
           <img
             src={logoImg}
             alt="Lumin"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
               opacity: showRefreshedLogo ? 0 : 1,
               transform: showRefreshedLogo ? 'scale(0.9) rotate(-8deg)' : 'scale(1) rotate(0deg)',
               filter: showRefreshedLogo ? 'blur(8px)' : 'blur(0px)',
-              transition: 'opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.6s ease',
+              transition: LOGO_IMG_TRANSITION,
             }}
           />
           <img
             src={logoTransitionImg}
             alt="Lumin Refresh"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
               opacity: showRefreshedLogo ? 1 : 0,
               transform: showRefreshedLogo ? 'scale(1) rotate(0deg)' : 'scale(1.12) rotate(8deg)',
               filter: showRefreshedLogo ? 'blur(0px)' : 'blur(10px)',
-              transition: 'opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.6s ease',
+              transition: LOGO_IMG_TRANSITION,
             }}
           />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{
-            fontSize: 32,
-            fontWeight: 800,
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.5px',
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 8
-          }}>
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[32px] font-extrabold text-primary tracking-[-0.5px] flex items-baseline gap-2">
             Lumin
-            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-tertiary)', letterSpacing: '0' }}>by WuMing</span>
+            <span className="text-md font-medium text-tertiary tracking-normal">by WuMing</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-md text-secondary font-mono">
               {CURRENT_VERSION}
             </span>
             {BUILD_TIME && (
-              <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+              <span className="text-sm text-tertiary font-mono">
                 {BUILD_TIME}
               </span>
             )}
@@ -296,27 +145,12 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
               data-settings-field-id={appSettings.fields.checkUpdate.id}
               onClick={onCheckUpdate}
               disabled={checkingUpdate}
-              style={{
-                marginLeft: 4,
-                background: 'var(--surface-overlay)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                padding: '6px 14px',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: checkingUpdate ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'all 0.2s',
-                opacity: checkingUpdate ? 0.7 : 1,
-                flexShrink: 0
-              }}
-              onMouseEnter={(e) => { if(!checkingUpdate) { e.currentTarget.style.background = 'var(--surface-sunken)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
-              onMouseLeave={(e) => { if(!checkingUpdate) { e.currentTarget.style.background = 'var(--surface-overlay)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+              className={cn(
+                'ml-1 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium shrink-0 border border-line bg-overlay text-secondary transition-all duration-200',
+                checkingUpdate ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-sunken',
+              )}
             >
-              <svg className={checkingUpdate ? 'spin' : ''} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+              <svg className={checkingUpdate ? 'animate-[spin_1s_linear_infinite]' : ''} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
               {checkingUpdate
                  ? $t('检查中...')
                  : $t('检查更新')}
@@ -324,31 +158,20 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
             {(updateInfo?.hasUpdate || downloadProgress >= 0) && (
               <span
                 onClick={onApplyUpdate}
-                style={{
-                  background: downloadProgress >= 0 ? 'var(--accent-dim)' : 'rgba(var(--success-rgb), 0.12)',
-                  color: downloadProgress >= 0 ? 'var(--accent)' : 'var(--success)',
-                  borderRadius: 12,
-                  padding: '2px 8px',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: downloadProgress >= 0 ? 'default' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  boxShadow: 'none',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  minWidth: 80,
-                  justifyContent: 'center'
-                }}
+                className={cn(
+                  'relative flex items-center justify-center gap-1 min-w-20 rounded-xl px-2 py-0.5 text-sm font-semibold shadow-none overflow-hidden',
+                  downloadProgress >= 0
+                    ? 'bg-accent-dim text-accent cursor-default'
+                    : 'bg-[rgba(var(--success-rgb),0.12)] text-success cursor-pointer',
+                )}
               >
                 {downloadProgress >= 0 && (
-                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, background: 'rgba(var(--accent-rgb), 0.22)', width: `${downloadProgress}%`, transition: 'width 0.2s ease-out' }}></div>
+                  <div className="absolute left-0 top-0 bottom-0 bg-[rgba(var(--accent-rgb),0.22)] transition-[width] duration-200 ease-out" style={{ width: `${downloadProgress}%` }}></div>
                 )}
-                <span style={{ position: 'relative', zIndex: Z.CONTENT, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span className="relative flex items-center gap-1" style={{ zIndex: Z.CONTENT }}>
                   {downloadProgress >= 0 ? (
                     <>
-                      <svg className="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                      <svg className="animate-[spin_1s_linear_infinite]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
                       {Math.round(downloadProgress)}%
                     </>
                   ) : (
@@ -364,7 +187,7 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12, marginTop: 12 }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-3 mt-3">
         <AboutLink
           definition={appSettings.fields.feedback}
           icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 15L15 15"></path><path d="M12 12L12 18"></path></svg>}
@@ -391,79 +214,52 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
         />
       </div>
 
-      <div data-settings-field-id={appSettings.fields.crossPlatform.id} style={{
-        marginTop: 4,
-        padding: '14px 16px',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border)',
-        background: 'var(--surface-overlay)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+      <div data-settings-field-id={appSettings.fields.crossPlatform.id} className="mt-1 px-4 py-3.5 rounded-md border border-line bg-overlay flex flex-col gap-2">
+        <div className="text-base font-semibold text-primary">
           {$t('跨端说明')}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+        <div className="text-sm text-secondary leading-[1.55]">
           {$t('本产品为桌面端。Android 客户端独立仓库、分开发版，数据可通过云同步互通。')}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>
+        <div className="text-sm text-tertiary leading-[1.55]">
           {$t('本 Release 仅 Desktop，Android 端见 Lumin-SSH-Android')}
           {' · '}
           {$t('许可见仓库 LICENSE')}
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
+        <div className="flex gap-2.5 flex-wrap mt-0.5">
           <button
             type="button"
             onClick={() => window.runtime?.BrowserOpenURL?.(APP_GITHUB_ANDROID_REPO_URL)}
-            style={{
-              background: 'var(--surface-base)',
-              color: 'var(--accent)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '6px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            className="rounded-lg px-3 py-1.5 text-sm font-semibold cursor-pointer border border-line bg-canvas text-accent"
           >
             {$t('打开 Android 仓库')}
           </button>
           <button
             type="button"
             onClick={() => window.runtime?.BrowserOpenURL?.(APP_GITHUB_ANDROID_RELEASES_URL)}
-            style={{
-              background: 'var(--surface-base)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '6px 12px',
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium cursor-pointer border border-line bg-canvas text-secondary"
           >
             {$t('Android 发行版')}
           </button>
         </div>
       </div>
 
-      <div data-settings-field-id={appSettings.fields.contributors.id} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+      <div data-settings-field-id={appSettings.fields.contributors.id} className="flex flex-col gap-4 mt-2">
+        <div className="text-[18px] font-bold text-primary">
           {$t('特别鸣谢')}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, padding: 18, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', background: 'var(--surface-base)', alignContent: 'start', maxHeight: 'min(420px, 48vh)', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3.5 p-[18px] rounded-lg border border-line bg-canvas content-start max-h-[min(420px,48vh)] overflow-y-auto overflow-x-hidden">
           {contributorsLoading
             ? Array.from({ length: 4 }).map((_, index) => (
                 <div
                   key={`contributor-skeleton-${index}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 'var(--radius-md)', background: 'var(--surface-overlay)', border: '1px solid var(--border)' }}
+                  className="flex items-center gap-3.5 px-[18px] py-4 rounded-md bg-overlay border border-line"
                 >
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--surface-hover)', flexShrink: 0 }}></div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, flex: 1 }}>
-                    <div style={{ width: 116, height: 16, borderRadius: 999, background: 'var(--surface-hover)' }}></div>
-                    <div style={{ width: 68, height: 12, borderRadius: 999, background: 'var(--surface-hover)' }}></div>
-                    <div style={{ width: 138, height: 14, borderRadius: 999, background: 'var(--surface-hover)' }}></div>
+                  <div className="w-16 h-16 rounded-full bg-hover shrink-0"></div>
+                  <div className="flex flex-col gap-2 min-w-0 flex-1">
+                    <div className="w-[116px] h-4 rounded-full bg-hover"></div>
+                    <div className="w-[68px] h-3 rounded-full bg-hover"></div>
+                    <div className="w-[138px] h-3.5 rounded-full bg-hover"></div>
                   </div>
                 </div>
               ))
@@ -471,20 +267,19 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
                 <div
                   key={item.login}
                   onClick={() => window.runtime?.BrowserOpenURL?.(item.profileUrl)}
-                  className="about-list-item"
-                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.2s', background: 'var(--surface-overlay)', border: '1px solid var(--border)', textAlign: 'left' }}
+                  className="flex items-center gap-3.5 px-[18px] py-4 rounded-md cursor-pointer transition-all duration-200 text-left bg-overlay border border-line hover:border-accent-border hover:bg-sunken"
                 >
                   <img
                     src={item.avatar}
                     alt={item.login}
                     loading="lazy"
-                    style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-xs)', flexShrink: 0 }}
+                    className="w-16 h-16 rounded-full object-cover border border-line-light shadow-xs shrink-0"
                   />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                  <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                    <div className="text-[16px] font-bold text-primary leading-[1.3] break-words">
                       {item.login}
                     </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                    <div className="inline-flex items-center gap-1.5 text-base text-tertiary font-mono">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="3"></circle>
                         <line x1="3" y1="12" x2="9" y2="12"></line>
@@ -492,9 +287,9 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
                       </svg>
                       {item.total}
                     </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
-                      <span style={{ color: 'var(--success)', fontWeight: 600 }}>+{item.additions.toLocaleString()} ++</span>
-                      <span style={{ color: 'var(--danger)', fontWeight: 600 }}>-{item.deletions.toLocaleString()} --</span>
+                    <div className="inline-flex items-center gap-3 flex-wrap text-sm font-mono">
+                      <span className="text-success font-semibold">+{item.additions.toLocaleString()} ++</span>
+                      <span className="text-danger font-semibold">-{item.deletions.toLocaleString()} --</span>
                     </div>
                   </div>
                 </div>

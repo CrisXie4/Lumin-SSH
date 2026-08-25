@@ -91,32 +91,21 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
   }
 
   return (
-    <div style={{ display: 'grid', gap: 0, width: '100%' }}>
+    <div className="grid w-full gap-0">
       <button
         type="button"
         onClick={handleToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          marginBottom: 0,
-          padding: 0,
-          border: 'none',
-          background: 'transparent',
-          cursor: 'pointer',
-          textAlign: 'left',
-        }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        className="mb-0 flex cursor-pointer items-center justify-between gap-2.5 border-none bg-transparent p-0 text-left">
+        <span className="inline-flex items-center gap-2">
           <Lightbulb size={14} color="var(--text-secondary)" />
-          <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 12 }}>{t('思考链')}</span>
-          {displayDurationLabel ? <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{displayDurationLabel}</span> : null}
+          <span className="text-sm font-bold text-primary">{t('思考链')}</span>
+          {displayDurationLabel ? <span className="text-xs text-tertiary">{displayDurationLabel}</span> : null}
         </span>
         <ChevronUp
           size={14}
           color="var(--text-tertiary)"
+          className="opacity-[0.88]"
           style={{
-            opacity: 0.88,
             transform: isCollapsed ? 'rotate(180deg) scale(0.9)' : 'rotate(0deg) scale(1)',
             transition: 'transform 2666ms cubic-bezier(0.12,0,0.08,1), opacity 240ms ease',
           }}
@@ -125,37 +114,21 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
       {(content?.trim()?.length ?? 0) > 0 ? (
         <div
           style={{
-            overflow: 'hidden',
-            willChange: 'max-height, opacity, transform, clip-path',
             opacity: isCollapsed ? 0 : 1,
             transform: isCollapsed ? 'translateY(-24px) scale(0.955)' : 'translateY(0) scale(1)',
             maxHeight: isCollapsed ? 0 : reasoningBodyMaxHeight + 8,
             clipPath: isCollapsed ? 'inset(0 0 100% 0)' : 'inset(0 0 0% 0)',
-            transitionProperty: 'max-height, opacity, transform, clip-path',
-            transitionDuration: '2666ms',
-            transitionTimingFunction: 'cubic-bezier(0.12, 0, 0.08, 1)',
-          }}>
+          }}
+          className="overflow-hidden ease-[cubic-bezier(0.12,0,0.08,1)] duration-[2666ms] [transition-property:max-height,opacity,transform,clip-path] [will-change:max-height,opacity,transform,clip-path]">
           <div
             ref={scrollRef}
-            style={{
-              maxHeight: reasoningBodyMaxHeight,
-              overflowY: 'auto',
-              overscrollBehavior: 'contain',
-              paddingRight: 4,
-              scrollbarGutter: 'stable both-edges',
-            }}>
+            className="max-h-[360px] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable_both-edges]">
             <div
               ref={contentRef}
               style={{
-                padding: '2px 0 2px 14px',
-                borderLeft: '1px solid var(--border-subtle)',
-                color: 'var(--text-secondary)',
-                fontSize: 12,
-                lineHeight: 1.7,
-                wordBreak: 'break-word',
                 transform: isCollapsed ? 'translateX(-12px)' : 'translateX(0)',
-                transition: 'transform 2666ms cubic-bezier(0.12, 0, 0.08, 1)',
-              }}>
+              }}
+              className="border-l border-line-subtle py-0.5 pl-3.5 text-sm leading-[1.7] text-secondary [transition:transform_2666ms_cubic-bezier(0.12,0,0.08,1)] [word-break:break-word]">
               <AIChatMarkdown text={content} />
             </div>
           </div>

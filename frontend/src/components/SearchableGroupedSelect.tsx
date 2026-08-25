@@ -1,5 +1,7 @@
 import { Check, Search, ChevronDown } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { cn } from '../utils/cn.ts';
+import { Z } from '../constants/zIndex.ts';
 
 interface SelectOption {
   value: string;
@@ -116,7 +118,7 @@ export default function SearchableGroupedSelect({
   const selectedLabel = selectedOption ? getOptionLabel(selectedOption) : (value || placeholder);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    <div ref={containerRef} className="relative">
       <button
         id={id}
         type="button"
@@ -127,56 +129,28 @@ export default function SearchableGroupedSelect({
           }
           setOpen((prev) => !prev);
         }}
-        style={{
-          width: '100%',
-          minHeight: 36,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          padding: '8px 12px',
-          borderRadius: 8,
-          border: `1px solid ${open ? 'var(--accent-border, var(--accent))' : 'var(--border)'}`,
-          background: open ? 'rgba(var(--accent-rgb), 0.08)' : 'var(--surface-base)',
-          color: 'var(--text-primary)',
-          boxSizing: 'border-box',
-          textAlign: 'left',
-          opacity: disabled ? 0.7 : 1,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: 'var(--transition)',
-        }}
+        className={cn(
+          'w-full min-h-9 flex items-center justify-between gap-2.5 py-2 px-3 rounded-lg border text-left box-border [transition:var(--transition)] text-primary',
+          open ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.08)]' : 'border-line bg-canvas',
+          disabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer',
+        )}
       >
-        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span className="min-w-0 truncate">
           {selectedLabel || placeholder}
         </span>
         <ChevronDown
           size={16}
-          style={{
-            flexShrink: 0,
-            color: 'var(--text-tertiary)',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'var(--transition)',
-          }}
+          className={cn('shrink-0 text-tertiary [transition:var(--transition)]', open ? 'rotate-180' : 'rotate-0')}
         />
       </button>
 
       {open ? (
         <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
-            right: 0,
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-overlay)',
-            boxShadow: 'var(--shadow-xl)',
-            overflow: 'hidden',
-            zIndex: 120,
-          }}
+          className="absolute top-[calc(100%+6px)] left-0 right-0 rounded-lg border border-line bg-overlay shadow-xl overflow-hidden"
+          style={{ zIndex: Z.POPUP }}
         >
-          <div style={{ position: 'relative', padding: 8, borderBottom: '1px solid var(--border-subtle, var(--border))' }}>
-            <Search size={14} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+          <div className="relative p-2 border-b border-line-subtle">
+            <Search size={14} className="absolute left-[18px] top-1/2 -translate-y-1/2 text-tertiary" />
             <input
               id={searchInputId}
               name="searchable-select-search"
@@ -185,62 +159,23 @@ export default function SearchableGroupedSelect({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={searchPlaceholder}
-              style={{
-                width: '100%',
-                height: 34,
-                padding: '0 10px 0 32px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--surface-sunken)',
-                color: 'var(--text-primary)',
-                boxSizing: 'border-box',
-                outline: 'none',
-              }}
+              className="w-full h-[34px] pt-0 pb-0 pl-8 pr-2.5 rounded-lg border border-line bg-sunken text-primary box-border outline-none"
             />
           </div>
 
-          <div style={{ maxHeight: 260, overflowY: 'auto', padding: 4 }}>
+          <div className="max-h-[260px] overflow-y-auto p-1">
             {filteredGroups.length > 0 ? (
               filteredGroups.map((group) => (
-                <div key={group.label} style={{ display: 'grid', gap: 6, paddingTop: 6 }}>
+                <div key={group.label} className="grid gap-1.5 pt-1.5">
                   <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      border: '1px solid var(--border-subtle, var(--border))',
-                      background: 'var(--surface-sunken)',
-                      boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02)',
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                    }}
+                    className="flex items-center gap-2 py-2 px-2.5 rounded-lg border border-line-subtle bg-sunken shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] pointer-events-none select-none"
                   >
-                    <span
-                      style={{
-                        width: 3,
-                        height: 14,
-                        borderRadius: 999,
-                        background: 'var(--accent)',
-                        flexShrink: 0,
-                        opacity: 0.9,
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        letterSpacing: '0.04em',
-                        color: 'var(--text-tertiary)',
-                        textTransform: 'uppercase',
-                        lineHeight: 1.2,
-                      }}
-                    >
+                    <span className="w-[3px] h-3.5 rounded-full bg-accent shrink-0 opacity-90" />
+                    <span className="text-xs font-extrabold tracking-[0.04em] text-tertiary uppercase leading-[1.2]">
                       {group.label}
                     </span>
                   </div>
-                  <div style={{ display: 'grid', gap: 2, paddingLeft: 4 }}>
+                  <div className="grid gap-0.5 pl-1">
                     {group.options.map((item) => {
                       const active = item.value === value;
                       return (
@@ -251,23 +186,12 @@ export default function SearchableGroupedSelect({
                             onChange?.(item.value);
                             setOpen(false);
                           }}
-                          style={{
-                            minHeight: 32,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                            padding: '0 10px',
-                            border: 'none',
-                            borderRadius: 8,
-                            background: active ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
-                            color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            fontSize: 13,
-                            textAlign: 'left',
-                            transition: 'var(--transition)',
-                          }}
+                          className={cn(
+                            'min-h-8 flex items-center justify-between gap-3 px-2.5 border-none rounded-lg text-left text-base cursor-pointer [transition:var(--transition)]',
+                            active ? 'bg-[rgba(var(--accent-rgb),0.14)] text-primary' : 'bg-transparent text-secondary',
+                          )}
                         >
-                          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span className="min-w-0 truncate">
                             {getOptionLabel(item)}
                           </span>
                           {active ? <Check size={13} color="var(--accent)" /> : null}
@@ -278,7 +202,7 @@ export default function SearchableGroupedSelect({
                 </div>
               ))
             ) : (
-              <div style={{ padding: '14px 10px', textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+              <div className="py-3.5 px-2.5 text-center text-sm text-tertiary">
                 {emptyText}
               </div>
             )}

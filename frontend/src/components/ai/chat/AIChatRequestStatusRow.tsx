@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { t as translate } from '../../../i18n.ts'
+import { cn } from '../../../utils/cn.ts'
 
 function stripStreamingCursor(text: string) {
   const content = typeof text === 'string' ? text.trim() : ''
@@ -215,22 +216,14 @@ export default function AIChatRequestStatusRow({ assistant, reasoning = [] }: AI
 
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '2px 8px',
-        borderRadius: 999,
-        border: isLive ? '1px solid var(--accent-border)' : '1px solid var(--border-subtle)',
-        background: isLive ? 'var(--accent-dim)' : 'var(--surface-overlay)',
-        fontSize: 11,
-        fontWeight: 700,
-        whiteSpace: 'nowrap',
-        boxShadow: isLive ? '0 0 14px rgba(var(--accent-rgb), 0.12)' : 'none',
-        transition: 'var(--transition)',
-      }}>
+      className={cn(
+        'inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold [transition:var(--transition)]',
+        isLive
+          ? 'border-accent-border bg-accent-dim shadow-[0_0_14px_rgba(var(--accent-rgb),0.12)]'
+          : 'border-line-subtle bg-overlay shadow-none',
+      )}>
       {metricItems.map((item) => (
-        <span key={item.key} style={{ color: item.color, transition: 'color 180ms ease' }}>{item.label}</span>
+        <span key={item.key} style={{ color: item.color }} className="[transition:color_180ms_ease]">{item.label}</span>
       ))}
     </span>
   )

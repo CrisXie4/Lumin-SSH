@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, CircleOff, Package } from 'lucide-react'
 import { t as $t } from '../../i18n.ts'
 import { DEFAULT_RUNTIME_ENVIRONMENT_STATUS, getRuntimeEnvironmentStatus, installRuntimeEnvironment } from './runtimeEnvironmentBridge.ts'
-import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot, type SettingsDefinitionNode } from './SharedComponents.tsx'
+import { cn } from '../../utils/cn.ts'
+import { Button } from '../ui'
+import { SettingsPanel, SettingsSectionTitle, SettingsTabRoot } from './SharedComponents.tsx'
 import { settings } from './settingDefinitions'
 
 export default function RuntimeEnvironmentTab() {
@@ -63,35 +65,35 @@ export default function RuntimeEnvironmentTab() {
     <SettingsTabRoot>
       <div>
         <SettingsSectionTitle definition={sectionNode} />
-        <div style={{ color: 'var(--text-tertiary)', fontSize: 12, marginBottom: 10 }}>{$t('管理应用运行所需的二进制工具与运行时依赖。')}</div>
-        <SettingsPanel style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div data-settings-field-id={uvNode.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div className="text-tertiary text-sm mb-2.5">{$t('管理应用运行所需的二进制工具与运行时依赖。')}</div>
+        <SettingsPanel className="flex flex-col gap-3.5">
+          <div data-settings-field-id={uvNode.id} className="flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-[14px] bg-[rgba(16,185,129,0.12)] text-accent flex items-center justify-center shrink-0">
               <Package size={24} />
             </div>
-            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ color: 'var(--text-primary)', fontSize: 26, fontWeight: 700, lineHeight: 1 }}>uv</div>
-                <div style={{ padding: '2px 10px', borderRadius: 999, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 }}>{$t('内置')}</div>
-                <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, color: ready ? 'var(--accent)' : 'var(--text-secondary)', fontSize: 12 }}>
+            <div className="min-w-0 flex flex-col gap-2 flex-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="text-primary text-[26px] font-bold leading-none">uv</div>
+                <div className="px-2.5 py-0.5 rounded-full border border-line text-secondary text-sm">{$t('内置')}</div>
+                <div className={cn('ml-auto inline-flex items-center gap-1.5 text-sm', ready ? 'text-accent' : 'text-secondary')}>
                   {ready ? <CheckCircle2 size={16} /> : <CircleOff size={16} />}
                   <span>{ready ? $t('已就绪') : $t('未就绪')}</span>
                 </div>
                 {!ready ? (
-                  <button type="button" className="btn btn-secondary" onClick={handleInstall} disabled={installing} style={{ height: 30, padding: '0 14px' }}>
+                  <Button onClick={handleInstall} disabled={installing} className="h-[30px] px-3.5">
                     {installing ? $t('安装中...') : $t('安装')}
-                  </button>
+                  </Button>
                 ) : null}
               </div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
+              <div className="text-secondary text-base leading-[1.6]">
                 {$t('用于 MCP 服务与依赖安装的 Python 包管理工具。')}
               </div>
             </div>
           </div>
           {ready ? (
-            <div data-settings-field-id={uvBinaryNode.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ color: 'var(--text-primary)', fontSize: 13 }}>{$t('uv 可执行文件')}</div>
-              <input id="runtime-env-uv-binary" name="runtime-env-uv-binary" autoComplete="off" className="input" type="text" value={runtimeEnvironmentStatus.binaryPath || ''} readOnly style={{ width: '100%' }} />
+            <div data-settings-field-id={uvBinaryNode.id} className="flex flex-col gap-2">
+              <div className="text-primary text-base">{$t('uv 可执行文件')}</div>
+              <input id="runtime-env-uv-binary" name="runtime-env-uv-binary" autoComplete="off" className="input w-full" type="text" value={runtimeEnvironmentStatus.binaryPath || ''} readOnly />
             </div>
           ) : null}
         </SettingsPanel>

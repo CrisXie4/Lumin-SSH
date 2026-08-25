@@ -73,9 +73,9 @@ function assessSensitiveCommandRisk(command: string): { severity: 'danger' | 'wa
   }, [])
   const severity = matches.some((match) => match.severity === 'danger')
     ? 'danger'
-    : matches.some((match) => match.severity === 'warning')
+    : (matches.some((match) => match.severity === 'warning')
       ? 'warning'
-      : null
+      : null)
   return { severity, matches }
 }
 
@@ -97,6 +97,7 @@ function getRiskBadgePalette(severity: 'danger' | 'warning' | null) {
   return null
 }
 
+// 风险高亮片段为动态着色（依赖匹配结果），保留内联样式
 function getRiskHighlightStyle(severity: 'danger' | 'warning'): React.CSSProperties {
   if (severity === 'danger') {
     return {
@@ -137,6 +138,7 @@ function renderCommandWithRiskHighlights(command: string, matches: CommandRiskMa
   return segments
 }
 
+// 读写命令卡片配色随 isMutating 动态切换，保留内联样式注入
 function getCommandMutationPalette(isMutating: boolean) {
   if (isMutating) {
     return {
@@ -254,6 +256,7 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
   const highlightedCommand = useMemo(() => renderCommandWithRiskHighlights(normalizedCommand, riskState.matches), [normalizedCommand, riskState.matches])
   const isMutating = extra?.isMutating === true
   const mutationPalette = useMemo(() => getCommandMutationPalette(isMutating), [isMutating])
+  // 状态徽标配色随后端状态动态切换，保留内联注入
   const statusPalette = useMemo(() => {
     switch (normalizedStatus) {
       case '待审阅':
@@ -315,27 +318,27 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
   }, [expanded, hasDisplayOutput, scrollOutputToBottom, stopOutputScroll])
 
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 12 }}>
-        <div style={{ minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <div className="inline-flex min-w-0 items-center gap-1.5">
           <TerminalSquare size={14} color="var(--text-secondary)" />
-          <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{t('执行命令')}</span>
+          <span className="font-bold text-primary">{t('执行命令')}</span>
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div className="inline-flex shrink-0 items-center gap-2">
           {riskBadgePalette ? (
-            <div style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'uppercase', ...riskBadgePalette }}>
+            <div style={riskBadgePalette} className="rounded-full px-2 py-0.5 text-xs font-bold uppercase whitespace-nowrap">
               {/* severity 在 riskBadgePalette 非空时必为 danger/warning，此处断言 */}
               {t((riskState.severity || '') as I18nKey)}
             </div>
           ) : null}
-          <div style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4, border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }}>
+          <div style={{ border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold">
             {statusPalette.tone === 'success' ? <Check size={11} color="currentColor" strokeWidth={2.5} /> : null}
             {statusPalette.tone === 'danger' ? <X size={11} color="currentColor" strokeWidth={2.5} /> : null}
             {/* status 为后端返回的动态文案（可能不在翻译表），t() 内部有兜底 */}
             <span>{t(normalizedStatus as I18nKey)}</span>
           </div>
           {resultTokenEstimateDisplay ? (
-            <div style={{ padding: '2px 8px', borderRadius: 999, border: '1px solid color-mix(in srgb, var(--accent) 24%, var(--border))', background: 'color-mix(in srgb, var(--accent) 8%, var(--surface-overlay))', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+            <div className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
               {resultTokenEstimateDisplay}
             </div>
           ) : null}
@@ -343,16 +346,7 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
             <button
               type="button"
               onClick={() => setIsExpanded((previous) => !previous)}
-              style={{
-                width: 24,
-                height: 24,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-              }}>
+              className="inline-flex h-6 w-6 cursor-pointer items-center justify-center border-none bg-transparent">
               <ChevronDown
                 size={14}
                 color="var(--text-tertiary)"
@@ -365,33 +359,33 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
           ) : null}
         </div>
       </div>
-      <div style={{ width: '100%', border: mutationPalette.cardBorder, borderRadius: 8, background: mutationPalette.cardBackground, boxShadow: mutationPalette.cardBoxShadow, overflow: 'hidden' }}>
-        <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)', background: mutationPalette.headerBackground }}>
-          <div style={{ minWidth: 0, display: 'grid', gap: 5 }}>
-            <div style={{ minWidth: 0, fontSize: 12, color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'break-word' }}>
-              <span style={{ display: 'inline-block', marginRight: 6, padding: '1px 6px', borderRadius: 4, border: mutationPalette.metaBadgeBorder, background: mutationPalette.metaBadgeBackground, color: mutationPalette.metaBadgeColor, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', verticalAlign: 'baseline' }}>
+      <div style={{ border: mutationPalette.cardBorder, background: mutationPalette.cardBackground, boxShadow: mutationPalette.cardBoxShadow }} className="w-full overflow-hidden rounded-lg">
+        <div style={{ background: mutationPalette.headerBackground }} className="border-b border-b-line-subtle px-2.5 py-2">
+          <div className="grid min-w-0 gap-[5px]">
+            <div className="min-w-0 text-sm font-semibold leading-[1.5] text-primary [word-break:break-word]">
+              <span style={{ border: mutationPalette.metaBadgeBorder, background: mutationPalette.metaBadgeBackground, color: mutationPalette.metaBadgeColor }} className="mr-1.5 inline-block whitespace-nowrap rounded-sm border px-1.5 py-px align-baseline text-xs font-semibold">
                 {commandModeLabel}
               </span>
               {targetLabel ? (
-                <span style={{ display: 'inline-block', marginRight: 6, padding: '1px 6px', borderRadius: 4, border: '1px solid var(--border-subtle)', background: 'rgba(var(--accent-rgb), 0.08)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', verticalAlign: 'baseline' }}>
+                <span className="mr-1.5 inline-block whitespace-nowrap rounded-sm border border-line-subtle bg-[rgba(var(--accent-rgb),0.08)] px-1.5 py-px align-baseline text-xs font-medium text-secondary">
                   {targetLabel}
                 </span>
               ) : null}
               {purpose}
             </div>
             {targetCwd ? (
-              <div style={{ minWidth: 0, padding: '0 0 0 10px', borderLeft: '3px solid var(--accent)', borderTop: '1px solid rgba(var(--accent-rgb), 0.08)' }}>
-                <div style={{ color: 'rgba(var(--accent-rgb), 0.92)', fontSize: 13, fontWeight: 700, lineHeight: 1.6, fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+              <div className="min-w-0 border-l-[3px] border-l-accent border-t border-t-[rgba(var(--accent-rgb),0.08)] pl-2.5">
+                <div className="break-all font-mono text-base font-bold leading-[1.6] text-accent">
                   {targetCwd}
                 </div>
               </div>
             ) : null}
           </div>
         </div>
-        <div style={{ padding: '12px 12px 10px', display: 'grid', gap: 10 }}>
-          <pre style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: riskState.severity === 'danger' ? '1px solid rgba(var(--danger-rgb), 0.24)' : riskState.severity === 'warning' ? '1px solid rgba(var(--warning-rgb), 0.24)' : mutationPalette.commandBorder, background: riskState.severity ? 'var(--surface-base)' : mutationPalette.commandBackground, color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}>{highlightedCommand}</pre>
+        <div className="grid gap-2.5 px-3 pb-2.5 pt-3">
+          <pre style={{ border: riskState.severity === 'danger' ? '1px solid rgba(var(--danger-rgb), 0.24)' : (riskState.severity === 'warning' ? '1px solid rgba(var(--warning-rgb), 0.24)' : mutationPalette.commandBorder), background: riskState.severity ? 'var(--surface-base)' : mutationPalette.commandBackground }} className="m-0 max-h-[260px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg px-3 py-2.5 font-mono text-sm leading-[1.65] text-primary [word-break:break-word]">{highlightedCommand}</pre>
           {expanded && displayOutput ? (
-            <pre ref={outputContainerRef} style={{ margin: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', background: 'var(--surface-base)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.65, fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 320, overflowY: 'auto', overflowX: 'auto', overscrollBehavior: 'contain' }}><span ref={outputContentRef} style={{ display: 'block' }}>{t(displayOutput as I18nKey)}</span></pre>
+            <pre ref={outputContainerRef} className="m-0 max-h-[320px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg border border-line-subtle bg-canvas px-3 py-2.5 font-mono text-sm leading-[1.65] text-secondary [word-break:break-word]"><span ref={outputContentRef} style={{ display: 'block' }}>{t(displayOutput as I18nKey)}</span></pre>
           ) : null}
         </div>
       </div>

@@ -15,18 +15,11 @@ export default function IconActionButton({ title, active = false, onClick, child
         type="button"
         aria-label={title}
         onClick={onClick}
-        style={{
-          width: 30,
-          height: 30,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 8,
-          color: active ? 'var(--accent)' : 'var(--text-secondary)',
-          background: active ? 'var(--accent-dim)' : 'transparent',
-          border: `1px solid ${active ? 'var(--accent-border)' : 'transparent'}`,
-          transition: 'var(--transition)',
-        }}
+        className={`inline-flex items-center justify-center w-[30px] h-[30px] rounded-lg border cursor-pointer transition-colors duration-100 ${
+          active
+            ? 'text-accent bg-accent-dim border-accent-border'
+            : 'text-secondary bg-transparent border-transparent'
+        }`}
       >
         {children}
       </button>

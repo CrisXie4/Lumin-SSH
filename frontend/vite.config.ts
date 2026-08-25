@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { build } from 'esbuild';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -83,7 +84,7 @@ export default defineConfig({
   define: {
     __APP_BUILD_TIME__: JSON.stringify(buildTime),
   },
-  plugins: [react(), monacoDevWorkersPlugin()],
+  plugins: [react(), tailwindcss(), monacoDevWorkersPlugin()],
   server: {
     port: 5173,
     host: '127.0.0.1',

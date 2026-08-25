@@ -3,6 +3,7 @@ import AIChatCompletionCard from './AIChatCompletionCard.tsx'
 import AIChatFollowUpCard from './AIChatFollowUpCard.tsx'
 import AIChatMCPCard from './AIChatMCPCard.tsx'
 import AIChatToolCard from './AIChatToolCard.tsx'
+import { cn } from '../../../utils/cn.ts'
 
 /** 会话工具条目（来自 .tsx 父级；kind 区分卡片类型，各卡片按需取用字段） */
 export interface AIChatToolSessionItem {
@@ -56,7 +57,7 @@ function renderToolItem(item: AIChatToolSessionItem, options: AIChatToolSessionO
       return <AIChatMCPCard key={item.id} serverName={item.serverName} toolName={item.toolName} args={item.args} response={item.response} extra={item.extra} isLast={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} />
     case 'followup':
       return (
-        <div key={item.id} style={{ pointerEvents: followupInteractionLocked ? 'none' : 'auto', opacity: followupInteractionLocked ? 0.6 : 1 }}>
+        <div key={item.id} className={cn(followupInteractionLocked ? 'pointer-events-none opacity-60' : 'pointer-events-auto opacity-100')}>
           <AIChatFollowUpCard question={item.question} questions={item.questions || []} suggestions={item.suggestions || []} requestId={item.requestId} onSelectSuggestion={onSendUserMessage as (payload: unknown) => unknown} />
         </div>
       )
@@ -71,7 +72,7 @@ export default function AIChatToolSessionPane({ items = [], isLastAssistantTurn 
   }
 
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div className="grid gap-2.5">
       {items.map((item) => renderToolItem(item, { isLastAssistantTurn, hasSubsequentAssistantMessage, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked }))}
     </div>
   )
