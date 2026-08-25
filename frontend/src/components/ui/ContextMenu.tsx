@@ -125,16 +125,19 @@ export function MenuPanel({
   minWidth = 160,
   className = '',
   style,
+  onContextMenu,
 }: {
   children: ReactNode;
   minWidth?: number;
   className?: string;
   style?: React.CSSProperties;
+  onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
 }) {
   return (
     <div
       className={`bg-overlay border border-line rounded-md shadow-md py-1 overflow-y-auto ${className}`}
       style={{ minWidth, ...style }}
+      onContextMenu={onContextMenu}
     >
       {children}
     </div>
@@ -199,6 +202,11 @@ export function ContextMenu({ x, y, items, onClose, zIndex = Z.MENU, minWidth }:
         minWidth={minWidth}
         className="fixed animate-[fadeIn_0.08s_ease]"
         style={{ zIndex, left: pos.left, top: pos.top }}
+        onContextMenu={(e) => {
+          // 菜单面板内部右键：吞掉事件，避免冒泡到外层容器再弹出别的菜单
+          e.preventDefault();
+          e.stopPropagation();
+        }}
       >
         <div ref={panelRef}>
           <MenuList items={items} onClose={onClose} />

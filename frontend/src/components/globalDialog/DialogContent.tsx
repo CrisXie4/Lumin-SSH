@@ -72,6 +72,19 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
     }
   }, [current.id, current.type]);
 
+  // 选中态与真实焦点保持一致：指示圈只有一个来源，避免两个按钮各挂一圈
+  useEffect(() => {
+    if (!active || current.type !== 'confirm' && current.type !== 'choice') return undefined;
+    const selector = current.type === 'choice'
+      ? `[data-dialog-choice="${typeof focusAction === 'number' ? focusAction : 0}"]`
+      : `[data-dialog-action="${focusAction}"]`;
+    const frame = window.requestAnimationFrame(() => {
+      const el = dialogRef.current?.querySelector(selector) as HTMLElement | null;
+      el?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusAction, active, current.type]);
+
   const submitPrompt = async () => {
     if (submitting) return;
     if (typeof current.validate === 'function') {
@@ -324,10 +337,14 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
               variant={btn.primary ? 'primary' : 'secondary'}
               onClick={() => onChoice(btn.value, checked)}
               onMouseEnter={() => setFocusAction(i)}
+              onFocus={() => setFocusAction(i)}
               className={cn(
                 'flex-1 py-2.5 justify-center whitespace-nowrap',
-                focusAction === i && 'outline outline-2 outline-offset-2 outline-accent',
+                'focus-visible:ring-0',
               )}
+              // 内联样式绕开 Button BASE 里 outline-none 的样式表顺序冲突；
+              // transition:none 消除聚焦瞬间 outline-color 的过渡残影
+              style={focusAction === i ? { outline: '3px solid var(--accent)', outlineOffset: '2px', transition: 'none' } : undefined}
             >
               {btn.shortcut ? `${btn.label}(${btn.shortcut.toUpperCase()})` : btn.label}
             </Button>
@@ -356,16 +373,23 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
             variant="secondary"
             onClick={onClose}
             onMouseEnter={() => current.type === 'confirm' && setFocusAction('cancel')}
+            onFocus={() => current.type === 'confirm' && setFocusAction('cancel')}
             className={cn(
               'flex-1 py-2.5 justify-center',
-              current.type === 'confirm' && focusAction === 'cancel' && 'outline outline-2 outline-offset-2 outline-accent',
+              'focus-visible:ring-0',
             )}
+            // 内联样式绕开 Button BASE 里 outline-none 的样式表顺序冲突；
+            // transition:none 消除聚焦瞬间 outline-color 的过渡残影
+            style={current.type === 'confirm' && focusAction === 'cancel'
+              ? { outline: '3px solid var(--accent)', outlineOffset: '2px', transition: 'none' }
+              : undefined}
           >
             {current.type === 'confirm' ? `${t('取消')}(C)` : t('取消')}
           </Button>
         )}
         <Button
           variant="primary"
+          data-dialog-action="confirm"
           disabled={current.type === 'prompt' && submitting}
           onClick={() => {
             if (current.type === 'prompt') void submitPrompt();
@@ -373,10 +397,16 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
             else onClose();
           }}
           onMouseEnter={() => current.type === 'confirm' && setFocusAction('confirm')}
+          onFocus={() => current.type === 'confirm' && setFocusAction('confirm')}
           className={cn(
             current.type === 'alert' ? 'min-w-[120px] justify-center' : 'flex-1 py-2.5 justify-center',
-            current.type === 'confirm' && focusAction === 'confirm' && 'outline outline-2 outline-offset-2 outline-accent',
+            'focus-visible:ring-0',
           )}
+          // 内联样式绕开 Button BASE 里 outline-none 的样式表顺序冲突；
+          // transition:none 消除聚焦瞬间 outline-color 的过渡残影
+          style={current.type === 'confirm' && focusAction === 'confirm'
+            ? { outline: '3px solid var(--accent)', outlineOffset: '2px', transition: 'none' }
+            : undefined}
         >
           {current.type === 'alert' ? t('我知道了') : (current.type === 'confirm' ? `${t('确定')}(Y)` : t('确定'))}
         </Button>
