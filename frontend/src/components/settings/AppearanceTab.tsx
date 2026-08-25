@@ -73,13 +73,13 @@ export interface AppearanceTabProps {
   onToggleTerminalToolbarIconOnly: () => void;
   termBgImage: string;
   globalBgImage: string;
-  bgTargetMode: 'global' | 'terminal';
-  onBgTargetModeChange: (mode: 'global' | 'terminal') => void;
-  onBgUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onBgReset: () => void;
+  globalCoverTerminal: boolean;
+  onGlobalCoverTerminalChange: () => void;
+  onBgUpload: (target: 'global' | 'terminal', e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBgReset: (target: 'global' | 'terminal') => void;
   termBgOpacity: number;
   globalBgOpacity: number;
-  onBgOpacityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBgOpacityChange: (target: 'global' | 'terminal', e: React.ChangeEvent<HTMLInputElement>) => void;
   globalIconOpacity: number;
   onGlobalIconOpacityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   rememberWindowSize: boolean;
@@ -125,8 +125,7 @@ export default function AppearanceTab({
   showThemeQuickEntry, onToggleThemeQuickEntry,
   probePanelPosition, onProbePanelPositionChange,
   terminalToolbarIconOnly, onToggleTerminalToolbarIconOnly,
-  termBgImage, globalBgImage,
-  bgTargetMode, onBgTargetModeChange,
+  termBgImage, globalBgImage, globalCoverTerminal, onGlobalCoverTerminalChange,
   onBgUpload, onBgReset,
   termBgOpacity, globalBgOpacity, onBgOpacityChange,
   globalIconOpacity, onGlobalIconOpacityChange,
@@ -323,8 +322,8 @@ export default function AppearanceTab({
           <BackgroundPanel
             termBgImage={termBgImage}
             globalBgImage={globalBgImage}
-            bgTargetMode={bgTargetMode}
-            onBgTargetModeChange={onBgTargetModeChange}
+            globalCoverTerminal={globalCoverTerminal}
+            onGlobalCoverTerminalChange={onGlobalCoverTerminalChange}
             onBgUpload={onBgUpload}
             onBgReset={onBgReset}
             termBgOpacity={termBgOpacity}

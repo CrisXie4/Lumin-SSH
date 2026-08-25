@@ -19,7 +19,9 @@ export function useTerminalTheme(deps: {
   const [bgInfo, setBgInfo] = useState({
     image: localStorage.getItem('termBgImage') || '',
     opacity: parseFloat(localStorage.getItem('termBgOpacity') || '0.15'),
-    globalActive: Boolean(localStorage.getItem('globalBgImage')),
+    // "覆盖终端"开启且有全局图：终端不渲染自己的壁纸/默认纹理，透出全局覆盖层；
+    // 无全局图时开关仅作为偏好保留，终端正常显示自己的壁纸/默认纹理
+    coverTerminal: localStorage.getItem('globalBgCoverTerminal') === '1' && Boolean(localStorage.getItem('globalBgImage')),
   });
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function useTerminalTheme(deps: {
       setBgInfo({
         image: localStorage.getItem('termBgImage') || '',
         opacity: parseFloat(localStorage.getItem('termBgOpacity') || '0.15'),
-        globalActive: Boolean(localStorage.getItem('globalBgImage')),
+        coverTerminal: localStorage.getItem('globalBgCoverTerminal') === '1' && Boolean(localStorage.getItem('globalBgImage')),
       });
     };
     window.addEventListener('terminal-bg-changed', handleBgChange);

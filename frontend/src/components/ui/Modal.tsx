@@ -67,6 +67,7 @@ export function Modal({
 
   return (
     <div
+      data-modal-overlay="true"
       className={`fixed inset-0 flex ${align === 'top' ? 'items-start pt-[52px]' : 'items-center'} justify-center bg-scrim animate-[fadeIn_0.12s_ease]`}
       style={{ zIndex }}
       {...overlayProps}

@@ -366,10 +366,10 @@ const settingsTreeSource = rootNode(
         fieldNode('appearance.toolbar-icon-only', 'toolbarIconOnly', '终端工具栏仅显示图标', '开启后终端工具栏的进程管理、网络监控等按钮只显示图标', { control: 'toggle', stateKey: 'terminalToolbarIconOnly' }),
       ]),
     ], { targetId: 'appearance.toolbar-icon-only' }),
-    sectionNode('appearance', 'background', '终端背景', [
+    sectionNode('appearance', 'background', '背景', [
       panelNode('appearance.panel.background', [
-        fieldNode('appearance.terminal-wallpaper', 'terminalWallpaper', '自定义终端壁纸', '设置终端底部的自定义背景图片', { control: 'upload', stateKey: 'termBgImage' }),
-        fieldNode('appearance.wallpaper-opacity', 'wallpaperOpacity', '壁纸可见度', '', { control: 'range', stateKey: 'termBgOpacity' }),
+        fieldNode('appearance.terminal-wallpaper', 'terminalWallpaper', '终端背景', '设置终端显示区域的背景图片', { control: 'upload', stateKey: 'termBgImage' }),
+        fieldNode('appearance.wallpaper-opacity', 'wallpaperOpacity', '终端背景可见度', '', { control: 'range', stateKey: 'termBgOpacity' }),
       ]),
     ], { targetId: 'appearance.terminal-wallpaper' }),
     sectionNode('appearance', 'window', '窗口大小', [

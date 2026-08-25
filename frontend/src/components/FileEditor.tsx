@@ -167,6 +167,7 @@ export default function FileEditor(props: FileEditorProps) {
     if (!isActive || typeof document === 'undefined') return null;
     return createPortal(
       <div
+        data-modal-overlay="true"
         className="fixed flex flex-col bg-raised border border-line rounded-lg shadow-md overflow-hidden pointer-events-auto"
         style={{
           left: popupPos.x,

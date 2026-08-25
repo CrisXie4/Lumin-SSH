@@ -36,10 +36,11 @@ export default function AppearanceTabPane({
   } = useThemePackages({ addToast, forceDarkTheme, handleClose });
 
   const {
-    termBgImage, globalBgImage, bgTargetMode,
-    handleBgTargetModeChange, handleBgUpload, handleBgReset,
+    termBgImage, globalBgImage,
+    handleBgUpload, handleBgReset,
     termBgOpacity, globalBgOpacity, handleBgOpacityChange,
     globalIconOpacity, handleGlobalIconOpacityChange,
+    globalCoverTerminal, handleGlobalCoverTerminalChange,
   } = useBackgroundSettings({ addToast });
 
   const {
@@ -138,8 +139,8 @@ export default function AppearanceTabPane({
           onToggleTerminalToolbarIconOnly={handleToggleTerminalToolbarIconOnly}
           termBgImage={termBgImage}
           globalBgImage={globalBgImage}
-          bgTargetMode={bgTargetMode}
-          onBgTargetModeChange={handleBgTargetModeChange}
+          globalCoverTerminal={globalCoverTerminal}
+          onGlobalCoverTerminalChange={handleGlobalCoverTerminalChange}
           onBgUpload={handleBgUpload}
           onBgReset={handleBgReset}
           termBgOpacity={termBgOpacity}

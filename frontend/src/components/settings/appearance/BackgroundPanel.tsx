@@ -1,28 +1,48 @@
 import React from 'react';
 import { t as $t } from '../../../i18n.ts';
-import { cn } from '../../../utils/cn.ts';
 import { Button } from '../../ui';
+import { Switch } from '../../ui/Switch';
 import { SettingsDivider } from '../SharedComponents';
 
 export interface BackgroundPanelProps {
   termBgImage: string;
   globalBgImage: string;
-  bgTargetMode: 'global' | 'terminal';
-  onBgTargetModeChange: (mode: 'global' | 'terminal') => void;
-  onBgUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onBgReset: () => void;
+  globalCoverTerminal: boolean;
+  onGlobalCoverTerminalChange: () => void;
+  onBgUpload: (target: 'global' | 'terminal', e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBgReset: (target: 'global' | 'terminal') => void;
   termBgOpacity: number;
   globalBgOpacity: number;
-  onBgOpacityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBgOpacityChange: (target: 'global' | 'terminal', e: React.ChangeEvent<HTMLInputElement>) => void;
   globalIconOpacity: number;
   onGlobalIconOpacityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
+function OpacityRow({ label, value, min, max, step, onChange }: {
+  label: string;
+  value: number;
+  min: string;
+  max: string;
+  step: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="flex justify-between items-center">
+      <div className="text-base text-primary">{label}</div>
+      <div className="flex items-center gap-3">
+        <input type="range" min={min} max={max} step={step} value={value} onChange={onChange} />
+        <span className="text-base w-8 text-right text-primary">{Math.round(value * 100)}%</span>
+      </div>
+    </div>
+  );
+}
+
+/** 全局背景与终端背景两块并列展示，各自上传互不清除；「覆盖终端」开关决定终端显示哪张 */
 export default function BackgroundPanel({
   termBgImage,
   globalBgImage,
-  bgTargetMode,
-  onBgTargetModeChange,
+  globalCoverTerminal,
+  onGlobalCoverTerminalChange,
   onBgUpload,
   onBgReset,
   termBgOpacity,
@@ -31,74 +51,50 @@ export default function BackgroundPanel({
   globalIconOpacity,
   onGlobalIconOpacityChange,
 }: BackgroundPanelProps) {
-  return (
-    <>
-      {/* 背景类型切换：全局 / 终端 */}
-      <div className="flex justify-between items-center gap-3">
-        <div className="min-w-0">
-          <div className="text-base text-primary">{$t('全局背景图')}</div>
-          <div className="text-xs text-tertiary">{$t('设置全局背景后不可设置终端壁纸')}</div>
-        </div>
-        <div className="inline-flex border border-line rounded-sm overflow-hidden shrink-0">
-          {(['global', 'terminal'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => onBgTargetModeChange(mode)}
-              className={cn(
-                'px-3 py-1 text-sm cursor-pointer border-none',
-                bgTargetMode === mode ? 'bg-accent text-white' : 'bg-transparent text-secondary',
-              )}
-            >
-              {mode === 'global' ? $t('全局背景图') : $t('终端背景')}
-            </button>
-          ))}
-        </div>
+  const renderHeader = (target: 'global' | 'terminal', hasImage: boolean, title: string, desc: string, extra?: React.ReactNode) => (
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
+        <div className="text-base text-primary">{title}</div>
+        <div className="text-xs text-tertiary">{desc}</div>
       </div>
-      <SettingsDivider />
-      {/* 上传 / 恢复（作用于当前选中的类型） */}
-      <div className="flex justify-end items-center gap-3">
-        {(bgTargetMode === 'global' ? globalBgImage : termBgImage) && (
-          <Button variant="ghost" size="sm" onClick={onBgReset}>{$t('恢复默认')}</Button>
+      <div className="flex items-center gap-3 shrink-0">
+        {extra}
+        {hasImage && (
+          <Button size="sm" onClick={() => onBgReset(target)}>{$t('恢复默认')}</Button>
         )}
-        <label htmlFor="appearance-bg-upload" className="inline-flex items-center justify-center gap-1 min-h-6 py-[3px] px-[7px] rounded-sm text-sm font-medium leading-none whitespace-nowrap border select-none cursor-pointer outline-none transition-colors duration-[80ms] bg-raised text-secondary border-line hover:bg-hover hover:text-primary hover:border-focus active:bg-active">
+        <label htmlFor={`appearance-bg-upload-${target}`} className="inline-flex items-center justify-center gap-1 min-h-6 py-[3px] px-[7px] rounded-sm text-sm font-medium leading-none whitespace-nowrap border select-none cursor-pointer outline-none transition-colors duration-[80ms] bg-raised text-secondary border-line hover:bg-hover hover:text-primary hover:border-focus active:bg-active">
           {$t('上传图片')}
-          <input id="appearance-bg-upload" type="file" accept="image/*" className="hidden" onChange={onBgUpload} />
+          <input id={`appearance-bg-upload-${target}`} type="file" accept="image/*" className="hidden" onChange={(e) => onBgUpload(target, e)} />
         </label>
       </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── 终端背景 ── */}
+      {renderHeader('terminal', Boolean(termBgImage), $t('终端背景'), $t('设置终端显示区域的背景图片'))}
       <SettingsDivider />
-      {/* 可见度（随类型切换范围与标签） */}
-      <div className="flex justify-between items-center">
-        <div className="text-base text-primary">
-          {bgTargetMode === 'global' ? $t('全局背景可见度') : $t('壁纸可见度')}
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min="0"
-            max={bgTargetMode === 'global' ? 0.5 : 1}
-            step={bgTargetMode === 'global' ? 0.02 : 0.05}
-            value={bgTargetMode === 'global' ? globalBgOpacity : termBgOpacity}
-            onChange={onBgOpacityChange}
-          />
-          <span className="text-base w-8 text-right text-primary">
-            {Math.round((bgTargetMode === 'global' ? globalBgOpacity : termBgOpacity) * 100)}%
-          </span>
-        </div>
-      </div>
-      {/* 图标透明度仅全局模式有效 */}
-      {bgTargetMode === 'global' && (
-        <>
-          <SettingsDivider />
-          <div className="flex justify-between items-center">
-            <div className="text-base text-primary">{$t('图标透明度')}</div>
-            <div className="flex items-center gap-3">
-              <input type="range" min="0.4" max="1" step="0.05" value={globalIconOpacity} onChange={onGlobalIconOpacityChange} />
-              <span className="text-base w-8 text-right text-primary">{Math.round(globalIconOpacity * 100)}%</span>
-            </div>
-          </div>
-        </>
+      <OpacityRow label={$t('终端背景可见度')} value={termBgOpacity} min="0" max="1" step="0.05" onChange={(e) => onBgOpacityChange('terminal', e)} />
+      <SettingsDivider />
+
+      {/* ── 全局背景 ── */}
+      {renderHeader(
+        'global',
+        Boolean(globalBgImage),
+        $t('全局背景'),
+        $t('作用于整个应用界面；开启覆盖终端后也应用于终端'),
+        globalBgImage ? (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-sm text-secondary">{$t('覆盖终端')}</span>
+            <Switch checked={globalCoverTerminal} onChange={onGlobalCoverTerminalChange} size="sm" />
+          </label>
+        ) : undefined,
       )}
+      <SettingsDivider />
+      <OpacityRow label={$t('全局背景可见度')} value={globalBgOpacity} min="0" max="0.5" step="0.02" onChange={(e) => onBgOpacityChange('global', e)} />
+      <SettingsDivider />
+      <OpacityRow label={$t('图标透明度')} value={globalIconOpacity} min="0.4" max="1" step="0.05" onChange={onGlobalIconOpacityChange} />
     </>
   );
 }

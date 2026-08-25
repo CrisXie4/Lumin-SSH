@@ -13,24 +13,28 @@ export function TerminalBackground({
   bgInfo,
 }: {
   T: TerminalTheme;
-  bgInfo: { image: string; opacity: number; globalActive: boolean };
+  bgInfo: { image: string; opacity: number; coverTerminal: boolean };
 }) {
   return (
     <>
       {/* 主题色调层：xterm 背景已不透明，叠在内容上方才能生效（弹出层 fixed+zIndex 更高，不受影响） */}
       <div
         className="absolute inset-0 pointer-events-none bg-[var(--term-tint,transparent)]"
-        style={{ zIndex: Z.STACK }}
+        // 独立合成层：下方元素悬浮过渡时强制正确重合成，避免半透明层残留旧帧拖影
+        style={{ zIndex: Z.STACK, transform: 'translateZ(0)' }}
       />
-      {/* 壁纸层：叠在内容上方，浅色底下使用 multiply 混合模式，避免亮色/白色壁纸部分遮盖冲淡字色 */}
+      {/* 壁纸层：叠在内容上方。混合模式按明暗对称：浅色 multiply（暗部印上浅底），深色 screen（亮部浮上黑底），
+          保证两种主题下壁纸都有足够视觉存在感 */}
       {/* 全局背景激活时不渲染默认终端纹理，避免与全局壁纸叠加 */}
       <div
         className="absolute inset-0 pointer-events-none bg-cover bg-center"
         style={{
           zIndex: Z.STACK,
-          backgroundImage: `url("${bgInfo.image || (bgInfo.globalActive ? '' : defaultTermBg)}")`,
-          opacity: Number.isFinite(bgInfo.opacity) ? bgInfo.opacity : 0.15,
-          mixBlendMode: isDarkTerminalSurface(T) ? 'normal' : 'multiply',
+          transform: 'translateZ(0)',
+          backgroundImage: bgInfo.coverTerminal ? '' : `url("${bgInfo.image || defaultTermBg}")`,
+          // 封顶 0.9：壁纸层在内容上方（1.2.6 起），100% 会完全盖住终端文字
+          opacity: Math.min(Number.isFinite(bgInfo.opacity) ? bgInfo.opacity : 0.15, 0.9),
+          mixBlendMode: isDarkTerminalSurface(T) ? 'screen' : 'multiply',
         }}
       />
     </>

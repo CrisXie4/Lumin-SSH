@@ -89,6 +89,7 @@ export default function WorkspaceTerminalGrid({
             <div
               key={term.id}
               className="absolute flex flex-col min-w-0 min-h-0 overflow-hidden rounded-none bg-canvas"
+              data-wallpaper-exempt="true"
               style={{
                 ...getTerminalPaneAbsolutePlacement(placement?.cells || TERMINAL_PANE_CELL_IDS),
                 visibility: isTermVisible ? 'visible' : 'hidden',
@@ -137,7 +138,7 @@ export default function WorkspaceTerminalGrid({
       })() : (getEffectiveTerminals(s).map((term) => {
         const isTermActive = (contentTab === 'terminal' || s.status !== 'connected') && activeTerminalId === term.id;
         return (
-          <div key={term.id} className="absolute inset-0 flex flex-col" style={{
+          <div key={term.id} className="absolute inset-0 flex flex-col" data-wallpaper-exempt="true" style={{
             visibility: isTermActive ? 'visible' : 'hidden',
             pointerEvents: isTermActive ? 'auto' : 'none',
             contain: isTermActive ? 'none' : 'strict',
