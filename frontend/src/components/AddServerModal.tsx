@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Plus, SquarePen } from 'lucide-react';
 import type { config } from '../../wailsjs/go/models.ts';
 import type { ServerFormData } from '../hooks/useServerCatalog.ts';
@@ -65,18 +64,6 @@ export default function AddServerModal({
     onClose,
     inline,
   });
-
-  // Esc 关闭模态框
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   const inputClass = (key: string) => `input${shiningFields?.[key] ? ' editor-field-shine' : ''}`;
   const inputShellClass = (key: string) => `editor-field-shell${shiningFields?.[key] ? ' editor-field-shell-shine' : ''}`;
@@ -183,7 +170,7 @@ export default function AddServerModal({
       onClose={onClose}
       size="xl"
       closeOnOverlay={false}
-      closeOnEscape={false}
+      closeOnEscape
       panelClassName="flex flex-col self-start mt-14 h-[calc(100vh-72px)] max-h-[calc(100vh-72px)]!"
       bodyClassName="flex-1 min-h-0 overflow-y-auto"
       icon={(

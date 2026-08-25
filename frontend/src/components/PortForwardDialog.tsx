@@ -3,8 +3,7 @@ import { X } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import type { sshmanager } from '../../wailsjs/go/models.ts';
 import { useTranslation } from '../i18n.ts';
-import { Button } from './ui';
-import { Z } from '../constants/zIndex.ts';
+import { Button, Modal } from './ui';
 import type { PortForwardInitialMapping } from '../hooks/usePortForwardDialog.ts';
 import { PortForwardListTab } from './portForward/PortForwardListTab.tsx';
 import { PortForwardNewTab } from './portForward/PortForwardNewTab.tsx';
@@ -148,11 +147,7 @@ export default function PortForwardDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 flex items-start justify-center bg-scrim animate-[fadeIn_0.12s_ease] pt-[52px]"
-      style={{ zIndex: Z.MODAL }}
-    >
-      <div className="relative w-full max-w-[560px] flex flex-col bg-raised border border-line rounded-md shadow-lg overflow-hidden max-h-[calc(100vh-80px)] animate-[slideUp_0.12s_ease]">
+    <Modal open onClose={onClose} align="top" hideClose panelClassName="flex flex-col overflow-hidden max-h-[calc(100vh-80px)]" bodyClassName="p-0 gap-0">
         <div className="px-5 pt-4 flex items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-2 text-md font-semibold text-primary mb-1">{t('端口映射')}</div>
@@ -213,7 +208,6 @@ export default function PortForwardDialog({
             />
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

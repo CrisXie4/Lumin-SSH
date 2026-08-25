@@ -3,8 +3,7 @@ import { getAvailableLanguages, setLanguage as setGlobalLanguage, t as $t, type 
 import { APP_BUILD_TIME, APP_VERSION } from '../config.ts';
 import { formatUpdateError, useUpdateChecker, type UpdateCheckResult } from '../hooks/useUpdateChecker.ts';
 import { X } from 'lucide-react';
-import { Z } from '../constants/zIndex';
-import { Button } from './ui';
+import { Button, Modal } from './ui';
 import AppTab from './settings/AppTab';
 import GeneralTab from './settings/GeneralTab';
 import NetworkTab from './settings/NetworkTab';
@@ -205,11 +204,7 @@ export default function SettingsModal({
 
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]"
-      style={{ zIndex: Z.SETTINGS }}
-    >
-      <div className="relative w-full max-w-[1100px] max-h-[90vh] overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] flex flex-col h-[80vh]">
+    <Modal open onClose={handleClose} hideClose closeOnOverlay={false} size="xl" panelClassName="flex flex-col h-[80vh]" bodyClassName="p-0 gap-0 flex-1 min-h-0">
 
         {/* Settings Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line-subtle">
@@ -347,8 +342,6 @@ export default function SettingsModal({
           </div>
         </div>
 
-      </div>
-    </div>
+    </Modal>
   );
 }
-

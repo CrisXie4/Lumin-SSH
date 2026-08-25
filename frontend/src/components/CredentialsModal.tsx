@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Key, Lock, Eye, EyeOff } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import type { config } from '../../wailsjs/go/models.ts';
@@ -57,20 +57,6 @@ export default function CredentialsModal({ onClose, onChange, addToast }: Creden
     void loadCredentials(signal);
     return () => { signal.cancelled = true; };
   }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      if (showForm) {
-        closeForm();
-        return;
-      }
-      onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showForm]);
 
   const set = (key: keyof CredentialForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -143,7 +129,7 @@ export default function CredentialsModal({ onClose, onChange, addToast }: Creden
 
   return (
     <>
-      <Modal open onClose={onClose} title={t('凭据管理')} size="md" closeOnEscape={false}>
+      <Modal open onClose={showForm ? closeForm : onClose} title={t('凭据管理')} size="md">
       <div className="flex flex-col gap-2.5 max-h-[calc(80vh-120px)] overflow-y-auto">
         {credentials.length === 0 ? (
           <div className="text-center pt-7 pb-3 text-tertiary text-base">

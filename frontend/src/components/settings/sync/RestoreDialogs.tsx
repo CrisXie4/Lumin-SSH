@@ -1,7 +1,6 @@
 import { t as $t } from '../../../i18n.ts';
-import { Button } from '../../ui';
+import { Button, Modal } from '../../ui';
 import { cn } from '../../../utils/cn.ts';
-import { Z } from '../../../constants/zIndex';
 import { PROVIDER_LIST, getBackupFormatLabel, type ProviderKey } from './syncProviders.ts';
 
 interface RestoreDialogsProps {
@@ -52,9 +51,8 @@ export default function RestoreDialogs({
       {confirmRestoreProvider && (() => {
         const availableProviders = configuredProviderIds().filter(id => !failedRestoreProviders.includes(id));
         return (
-          <div className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
-            <div className="relative overflow-hidden w-[420px] p-6 bg-canvas border border-line rounded-sm animate-[scaleIn_0.18s_ease]">
-              <div className="text-[18px] text-primary mb-4 font-bold">{$t('选择恢复来源')}</div>
+          <Modal open onClose={() => setConfirmRestoreProvider(false)} hideClose title={$t('选择恢复来源')}>
+            <div>
               <div className="flex flex-col gap-2.5">
                 {availableProviders.map(id => (
                   <Button key={id} variant="secondary" disabled={loadingBackups} onClick={() => loadRestoreBackups(id)}>
@@ -63,19 +61,18 @@ export default function RestoreDialogs({
                 ))}
                 {availableProviders.length === 0 && <div className="text-secondary">{$t('没有可用的云端来源')}</div>}
               </div>
-              <div className="flex justify-end gap-3 mt-5">
+              <div className="flex justify-end gap-3">
                 <Button variant="secondary" disabled={loadingBackups} onClick={() => setConfirmRestoreProvider(false)}>{$t('取消')}</Button>
               </div>
             </div>
-          </div>
+          </Modal>
         );
       })()}
 
       {/* 确认恢复弹窗（含列表选择） */}
       {confirmRestore && (
-        <div className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
-          <div className="relative overflow-hidden w-[450px] p-6 bg-canvas border border-line rounded-sm animate-[scaleIn_0.18s_ease]">
-            <div className="text-[18px] text-primary mb-4 font-bold">{$t('选择要恢复的云端备份')}</div>
+        <Modal open onClose={() => setConfirmRestore(false)} hideClose title={$t('选择要恢复的云端备份')}>
+          <div>
             <div className="text-secondary mb-4 text-md">
               {$t('此操作将覆盖当前所有的本地服务器配置，且无法撤销。请选择要恢复的备份时间：')}
             </div>
@@ -108,21 +105,27 @@ export default function RestoreDialogs({
               ))}
             </div>
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end -mx-2.5">
               <Button variant="secondary" className="px-5" onClick={() => setConfirmRestore(false)}>{$t('取消')}</Button>
               <Button variant="danger" className="px-5" onClick={() => doRestore()} disabled={!selectedBackup || restoring}>
                 {restoring ? $t('恢复中...') : $t('确定恢复')}
               </Button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* 恢复失败 → 输入密码重试 */}
       {restoreWithPassword && (
-        <div className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
-          <div className="relative overflow-hidden w-[420px] p-6 bg-canvas border border-line rounded-sm animate-[scaleIn_0.18s_ease]">
-            <div className="text-[18px] text-primary mb-3 font-bold">{$t('输入恢复密码')}</div>
+        <Modal
+          open
+          onClose={() => { setRestoreWithPassword(false); setRestorePasswordInput(''); }}
+          hideClose
+          closeOnOverlay={false}
+          size="sm"
+          title={$t('输入恢复密码')}
+        >
+          <div>
             <div className="text-secondary mb-4 text-base leading-[1.6]">
               {$t('常规密钥解密失败。如果此备份是用恢复密码加密的，请输入恢复密码重试：')}
             </div>
@@ -137,14 +140,14 @@ export default function RestoreDialogs({
               onChange={(e) => setRestorePasswordInput(e.target.value)}
               autoFocus
             />
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end -mx-2.5">
               <Button variant="secondary" onClick={() => { setRestoreWithPassword(false); setRestorePasswordInput(''); }}>{$t('取消')}</Button>
               <Button variant="primary" onClick={doRestoreWithPassword} disabled={!restorePasswordInput.trim() || restoring}>
                 {restoring ? $t('恢复中...') : $t('用密码恢复')}
               </Button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

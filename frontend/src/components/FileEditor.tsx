@@ -4,7 +4,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { SquarePen, Upload } from 'lucide-react';
 import { Z } from '../constants/zIndex.ts';
 import { formatShortcut } from '../utils/platform.ts';
-import { ContextMenu } from './ui';
+import { ContextMenu, Modal } from './ui';
 import { BASIC_SETUP } from './fileEditor/fileEditorLanguages.ts';
 import { FileEditorTabs } from './fileEditor/FileEditorTabs.tsx';
 import { FileEditorToolbar } from './fileEditor/FileEditorToolbar.tsx';
@@ -20,7 +20,7 @@ export type { FileEditorFile, FileEditorProps };
 export default function FileEditor(props: FileEditorProps) {
   const {
     files,
-    onCloseAll: _onCloseAll,
+    onCloseAll,
     onActivate,
     mode = 'modal',
     onModeChange,
@@ -239,18 +239,24 @@ export default function FileEditor(props: FileEditorProps) {
   if (typeof document === 'undefined') return null;
   if (!isActive) return null;
   return createPortal(
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]"
-      style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
-      onContextMenu={handleContextMenu}
+    <Modal
+      open
+      onClose={onCloseAll}
+      hideClose
+      closeOnOverlay={false}
+      closeOnEscape={false}
+      panelClassName="flex flex-col"
+      bodyClassName="p-0 gap-0 flex-1 min-h-0"
+      panelStyle={{
+        height: 'calc(100vh - 40px)',
+        maxHeight: 'calc(100vh - 40px)',
+        maxWidth: '100vw',
+        marginTop: 40,
+      }}
+      overlayProps={{ onContextMenu: handleContextMenu }}
     >
-      <div
-        className="relative w-full max-h-[90vh] overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] flex flex-col"
-        style={{ height: 'calc(100vh - 40px)', maxHeight: 'calc(100vh - 40px)', maxWidth: '100vw', marginTop: 40 }}
-      >
         {editorContent}
-      </div>
-    </div>,
+    </Modal>,
     document.body,
   );
 }

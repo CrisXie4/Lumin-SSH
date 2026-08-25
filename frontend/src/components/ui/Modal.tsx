@@ -19,12 +19,15 @@ export interface ModalProps {
   icon?: ReactNode;
   footer?: ReactNode;
   size?: ModalSize;
+  align?: 'center' | 'top';
   zIndex?: number;
   closeOnOverlay?: boolean;
   closeOnEscape?: boolean;
   hideClose?: boolean;
   panelClassName?: string;
   bodyClassName?: string;
+  panelStyle?: React.CSSProperties;
+  overlayProps?: React.HTMLAttributes<HTMLDivElement>;
   children: ReactNode;
 }
 
@@ -35,12 +38,15 @@ export function Modal({
   icon,
   footer,
   size = 'md',
+  align = 'center',
   zIndex = Z.MODAL,
   closeOnOverlay = true,
   closeOnEscape = true,
   hideClose = false,
   panelClassName = '',
   bodyClassName = '',
+  panelStyle,
+  overlayProps,
   children,
 }: ModalProps) {
   useEffect(() => {
@@ -61,14 +67,16 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]"
+      className={`fixed inset-0 flex ${align === 'top' ? 'items-start pt-[52px]' : 'items-center'} justify-center bg-scrim animate-[fadeIn_0.12s_ease]`}
       style={{ zIndex }}
+      {...overlayProps}
       onMouseDown={(e) => {
         if (closeOnOverlay && e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className={`relative w-full max-h-[90vh] overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] ${SIZE_CLASS[size]} ${panelClassName}`}
+        className={`relative w-full overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] ${align === 'top' ? '' : 'max-h-[90vh]'} ${SIZE_CLASS[size]} ${panelClassName}`}
+        style={panelStyle}
       >
         {hasHeader && (
           <div className="flex items-center justify-between gap-2 px-5 pt-4">
