@@ -121,7 +121,7 @@ export default function AIProviderSelector({
             onMouseLeave={closeTooltip}
             onFocus={handleTriggerMouseEnter}
             onBlur={closeTooltip}
-            className={`h-7 inline-flex items-center gap-1.5 px-2.5 text-sm font-medium transition-colors duration-100 whitespace-nowrap min-w-0 max-w-full flex-none border ${
+            className={`h-7 inline-flex items-center gap-1.5 px-2.5 text-sm font-medium transition-colors duration-[80ms] whitespace-nowrap min-w-0 max-w-full flex-none border ${
               open ? 'bg-accent-dim border-accent-border' : 'bg-transparent border-line'
             }`}
             style={{
@@ -155,7 +155,7 @@ export default function AIProviderSelector({
                 onMouseLeave={closeTooltip}
                 onFocus={handleTriggerMouseEnter}
                 onBlur={closeTooltip}
-                className={`h-7 inline-flex items-center px-2.5 text-sm font-semibold transition-colors duration-100 whitespace-nowrap min-w-0 max-w-full w-full overflow-hidden border ${
+                className={`h-7 inline-flex items-center px-2.5 text-sm font-semibold transition-colors duration-[80ms] whitespace-nowrap min-w-0 max-w-full w-full overflow-hidden border ${
                   modelMenuOpen
                     ? 'bg-accent-dim border-accent-border text-primary'
                     : 'bg-transparent border-line text-secondary'
@@ -195,7 +195,7 @@ export default function AIProviderSelector({
                 onMouseLeave={closeTooltip}
                 onFocus={handleTriggerMouseEnter}
                 onBlur={closeTooltip}
-                className={`h-7 inline-flex items-center px-2.5 text-sm font-semibold transition-colors duration-100 whitespace-nowrap border ${
+                className={`h-7 inline-flex items-center px-2.5 text-sm font-semibold transition-colors duration-[80ms] whitespace-nowrap border ${
                   reasoningMenuOpen
                     ? 'bg-accent-dim border-accent-border text-primary'
                     : 'bg-transparent border-line text-secondary'

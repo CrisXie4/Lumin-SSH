@@ -198,7 +198,7 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
             onClick={onClose}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
-            className="bg-transparent border-none text-secondary cursor-pointer text-[16px] px-1.5 py-[2px] rounded-sm hover:bg-hover hover:text-primary transition-colors duration-100"
+            className="bg-transparent border-none text-secondary cursor-pointer text-[16px] px-1.5 py-[2px] rounded-sm hover:bg-hover hover:text-primary transition-colors duration-[80ms]"
             title={t('关闭')}
           >
             ✕

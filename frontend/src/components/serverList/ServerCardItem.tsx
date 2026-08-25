@@ -1,4 +1,4 @@
-import { SquarePen, X } from 'lucide-react';
+import { Check, SquarePen, X } from 'lucide-react';
 import type React from 'react';
 import type { config } from '../../../wailsjs/go/models.ts';
 import type { ServerPingResult } from '../../hooks/useServerPing.ts';
@@ -91,9 +91,7 @@ export function ServerCardItem({
             }}
           >
             {isChecked && (
-              <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <Check size={10} strokeWidth={4} />
             )}
           </div>
         )}

@@ -106,4 +106,4 @@ export function buildTriggerLabel(t: (key: I18nKey, vars?: Record<string, unknow
 export const PANEL_SHELL_CLASS = 'border border-line rounded-lg bg-overlay shadow-xl overflow-hidden overflow-x-hidden box-border';
 export const SECTION_HINT_CLASS = 'text-xs text-tertiary leading-[1.5]';
 export const COMMAND_INPUT_CLASS = 'flex-1 min-w-0 h-[34px] rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none text-sm';
-export const ADD_BUTTON_CLASS = 'h-[34px] px-3 rounded-lg border border-line bg-canvas text-primary text-sm font-semibold transition-colors duration-100 cursor-pointer';
+export const ADD_BUTTON_CLASS = 'h-[34px] px-3 rounded-lg border border-line bg-canvas text-primary text-sm font-semibold transition-colors duration-[80ms] cursor-pointer';

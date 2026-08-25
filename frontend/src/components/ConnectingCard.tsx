@@ -37,7 +37,7 @@ export default function ConnectingCard({ connectingServer, t, onCancel }: Connec
           </div>
           <div className="flex gap-2 shrink-0">
             <button
-              className="px-3.5 py-[5px] text-sm rounded-lg cursor-pointer bg-sunken hover:bg-hover border border-line text-secondary transition-colors duration-100"
+              className="px-3.5 py-[5px] text-sm rounded-lg cursor-pointer bg-sunken hover:bg-hover border border-line text-secondary transition-colors duration-[80ms]"
               onClick={onCancel}
             >
               {t('取消')}

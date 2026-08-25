@@ -83,7 +83,7 @@ export default function RestoreDialogs({
                   key={bk.name as string}
                   onClick={() => setSelectedBackup(bk.name as string)}
                   className={cn(
-                    'py-2.5 px-3 rounded-sm cursor-pointer flex justify-between items-center border mb-1 transition-all duration-200',
+                    'py-2.5 px-3 rounded-sm cursor-pointer flex justify-between items-center border mb-1 transition-all duration-[200ms]',
                     selectedBackup === (bk.name as string) ? 'bg-[rgba(var(--success-rgb),0.10)] border-accent' : 'bg-transparent border-transparent',
                   )}
                 >

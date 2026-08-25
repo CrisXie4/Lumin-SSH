@@ -55,7 +55,7 @@ function IconButton({ title, onClick, children, danger = false }: IconButtonProp
         event.stopPropagation()
         onClick?.()
       }}
-      className={`inline-flex items-center justify-center w-6 h-6 rounded-md border border-line bg-canvas transition-colors duration-100 cursor-pointer shrink-0 p-0 ${danger ? 'text-danger' : 'text-secondary'}`}>
+      className={`inline-flex items-center justify-center w-6 h-6 rounded-md border border-line bg-canvas transition-colors duration-[80ms] cursor-pointer shrink-0 p-0 ${danger ? 'text-danger' : 'text-secondary'}`}>
       {children}
     </button>
   )
@@ -291,7 +291,7 @@ export default function AICollaborationPromptDropdown({
                   type="button"
                   onClick={handleSubmitEdit}
                   disabled={!draftText.trim()}
-                  className={`flex-1 h-[30px] rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent text-sm font-semibold transition-colors duration-100 ${
+                  className={`flex-1 h-[30px] rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent text-sm font-semibold transition-colors duration-[80ms] ${
                     draftText.trim() ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
                   }`}>
                   {t('保存')}
@@ -299,7 +299,7 @@ export default function AICollaborationPromptDropdown({
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="flex-1 h-[30px] rounded-lg border border-line bg-transparent text-secondary text-sm font-semibold transition-colors duration-100 cursor-pointer">
+                  className="flex-1 h-[30px] rounded-lg border border-line bg-transparent text-secondary text-sm font-semibold transition-colors duration-[80ms] cursor-pointer">
                   {t('取消')}
                 </button>
               </div>

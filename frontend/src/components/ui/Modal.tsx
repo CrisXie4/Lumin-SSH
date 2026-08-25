@@ -89,7 +89,7 @@ export function Modal({
                 type="button"
                 aria-label={t('关闭')}
                 onClick={onClose}
-                className="shrink-0 inline-flex items-center justify-center w-[26px] h-[26px] rounded-sm border border-transparent bg-transparent text-secondary cursor-pointer outline-none transition-colors duration-100 hover:bg-hover hover:text-primary"
+                className="shrink-0 inline-flex items-center justify-center w-[26px] h-[26px] rounded-sm border border-transparent bg-transparent text-secondary cursor-pointer outline-none transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
               >
                 <X size={16} />
               </button>

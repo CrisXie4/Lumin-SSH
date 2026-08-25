@@ -55,7 +55,7 @@ export default function AIAutoApproveExecuteSection({
                   type="button"
                   aria-pressed={active}
                   onClick={() => handleExecuteApprovalModeChange(option.value)}
-                  className={`min-w-0 h-[30px] inline-flex items-center justify-center px-1.5 border-0 text-sm transition-colors duration-100 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${
+                  className={`min-w-0 h-[30px] inline-flex items-center justify-center px-1.5 border-0 text-sm transition-colors duration-[80ms] cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${
                     index === 0 ? '' : 'border-l border-line'
                   } ${
                     active

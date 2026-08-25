@@ -193,7 +193,7 @@ export default function AIAutoApproveDropdown({ settings, onPatchSettings, disab
         type="button"
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
-        className={`h-7 inline-flex items-center gap-1.5 px-2.5 rounded-lg border text-sm font-medium transition-colors duration-100 whitespace-nowrap ${
+        className={`h-7 inline-flex items-center gap-1.5 px-2.5 rounded-lg border text-sm font-medium transition-colors duration-[80ms] whitespace-nowrap ${
           open ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.12)]' : 'border-line bg-transparent'
         } ${normalizedSettings.autoApprovalEnabled ? 'text-primary' : 'text-secondary'} ${
           disabled ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'

@@ -278,7 +278,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
                   type="button"
                   aria-label={showPassword ? t('隐藏密码') : t('显示密码')}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-xs transition-colors duration-150 hover:bg-accent-dim"
+                  className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-xs transition-colors duration-[120ms] hover:bg-accent-dim"
                 >{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
               </Tiptop>
             )}
@@ -309,7 +309,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
                   }
                 }}
                 aria-label={t('粘贴')}
-                className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-xs transition-colors duration-150 hover:bg-accent-dim"
+                className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-xs transition-colors duration-[120ms] hover:bg-accent-dim"
               ><Clipboard size={16} /></button>
             </Tiptop>
           </div>

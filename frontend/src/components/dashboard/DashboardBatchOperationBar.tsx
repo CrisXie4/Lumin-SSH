@@ -102,52 +102,31 @@ export function DashboardBatchOperationBar({
           </button>
           {showMoveGroupDropdown && selectedIds.length > 0 && (
             <div
-              className="context-menu"
-              style={{
-                position: 'absolute',
-                bottom: '100%',
-                left: 0,
-                marginBottom: 8,
-                zIndex: Z.POPUP,
-                display: 'flex',
-                flexDirection: 'column',
-                minWidth: 180,
-                padding: '6px 8px',
-              }}
+              className="context-menu absolute bottom-full left-0 mb-2 flex flex-col min-w-[180px] px-2 py-1.5"
+              style={{ zIndex: Z.POPUP }}
             >
-              <div style={{ padding: '2px 4px 6px 4px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', marginBottom: 6 }}>
+              <div className="px-1 pt-0.5 pb-1.5 mb-1.5 text-xs text-muted border-b border-line">
                 {t('移动到分组')}
               </div>
 
-              <div style={{ marginBottom: 6 }} onClick={(e) => e.stopPropagation()}>
+              <div className="mb-1.5" onClick={(e) => e.stopPropagation()}>
                 <input
                   id="dashboard-group-search"
                   name="dashboard-group-search"
                   autoComplete="off"
                   type="text"
-                  className="input-compact"
                   placeholder={t('搜索或输入新分组...')}
                   value={groupSearchQuery}
                   onChange={(e) => setGroupSearchQuery(e.target.value)}
                   autoFocus
-                  style={{
-                    width: '100%',
-                    height: 26,
-                    fontSize: 11,
-                    padding: '0 6px',
-                    borderRadius: 4,
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-sunken)',
-                    color: 'var(--text-primary)',
-                  }}
+                  className="input-compact w-full h-[26px] text-xs px-1.5 rounded-xs border border-line bg-sunken text-primary"
                 />
               </div>
 
-              <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div className="max-h-[180px] overflow-y-auto flex flex-col gap-0.5">
                 {groupSearchQuery.trim() !== '' && !filteredGroups.includes(groupSearchQuery.trim()) && (
                   <div
-                    className="context-menu-item"
-                    style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}
+                    className="context-menu-item text-accent flex items-center gap-1.5"
                     onClick={() => {
                       onBatchMoveGroup(selectedIds, groupSearchQuery.trim());
                       setShowMoveGroupDropdown(false);
@@ -155,7 +134,7 @@ export function DashboardBatchOperationBar({
                     }}
                   >
                     <Plus size={11} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                       {t('新建并移动')}: "{groupSearchQuery.trim()}"
                     </span>
                   </div>
@@ -164,35 +143,33 @@ export function DashboardBatchOperationBar({
                 {filteredGroups.map((g) => (
                   <div
                     key={g}
-                    className="context-menu-item"
                     onClick={() => {
                       onBatchMoveGroup(selectedIds, g);
                       setShowMoveGroupDropdown(false);
                       setGroupSearchQuery('');
                     }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                    className="context-menu-item flex items-center gap-1.5"
                   >
                     <Folder size={11} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g}</span>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap">{g}</span>
                   </div>
                 ))}
 
                 {filteredGroups.length === 0 && groupSearchQuery.trim() === '' && (
-                  <div style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                  <div className="py-1.5 px-2 text-xs text-tertiary text-center">
                     {t('暂无分组')}
                   </div>
                 )}
               </div>
 
-              <div className="context-menu-divider" style={{ margin: '4px 0' }} />
+              <div className="context-menu-divider my-1" />
               <div
-                className="context-menu-item"
                 onClick={() => {
                   onBatchMoveGroup(selectedIds, '');
                   setShowMoveGroupDropdown(false);
                   setGroupSearchQuery('');
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                className="context-menu-item flex items-center gap-1.5"
               >
                 <X size={11} />
                 <span>{t('移出分组')}</span>

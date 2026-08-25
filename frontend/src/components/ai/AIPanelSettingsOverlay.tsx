@@ -263,7 +263,7 @@ export default function AIPanelSettingsOverlay({
               onClick={onClose}
               disabled={tasksDirMigrating}
               aria-label={t('关闭设置面板')}
-              className={`w-[30px] h-[30px] inline-flex items-center justify-center rounded-lg text-secondary bg-transparent border border-transparent transition-colors duration-100 ${tasksDirMigrating ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+              className={`w-[30px] h-[30px] inline-flex items-center justify-center rounded-lg text-secondary bg-transparent border border-transparent transition-colors duration-[80ms] ${tasksDirMigrating ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <X size={16} />
             </button>
@@ -285,7 +285,7 @@ export default function AIPanelSettingsOverlay({
                 type="button"
                 data-ai-settings-tab-key={tabKey}
                 onClick={() => onChangeTab(tabKey)}
-                className={`flex items-center justify-start min-h-[52px] px-2.5 text-left text-base whitespace-nowrap w-full border-0 border-l-2 rounded-none transition-colors duration-100 cursor-pointer ${
+                className={`flex items-center justify-start min-h-[52px] px-2.5 text-left text-base whitespace-nowrap w-full border-0 border-l-2 rounded-none transition-colors duration-[80ms] cursor-pointer ${
                   activeTab === tabKey
                     ? 'font-semibold text-primary bg-[rgba(var(--accent-rgb),0.10)] border-l-accent'
                     : 'font-medium text-secondary bg-transparent border-l-transparent'
@@ -298,7 +298,7 @@ export default function AIPanelSettingsOverlay({
               <button
                 type="button"
                 onClick={() => onChangeTab('backup')}
-                className={`flex items-center justify-start min-h-[52px] px-2.5 text-left text-base whitespace-nowrap w-full border-0 border-l-2 rounded-none transition-colors duration-100 cursor-pointer ${
+                className={`flex items-center justify-start min-h-[52px] px-2.5 text-left text-base whitespace-nowrap w-full border-0 border-l-2 rounded-none transition-colors duration-[80ms] cursor-pointer ${
                   activeTab === 'backup'
                     ? 'font-semibold text-primary bg-[rgba(var(--accent-rgb),0.10)] border-l-accent'
                     : 'font-medium text-secondary bg-transparent border-l-transparent'

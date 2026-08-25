@@ -12,7 +12,7 @@ export function OptionButton({ active, icon: Icon, label, onClick }: OptionButto
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-9 flex items-center justify-between gap-2.5 px-2.5 rounded-lg border text-sm transition-colors duration-100 ${
+      className={`min-h-9 flex items-center justify-between gap-2.5 px-2.5 rounded-lg border text-sm transition-colors duration-[80ms] ${
         active
           ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-primary font-bold'
           : 'border-line bg-canvas text-secondary font-medium'
@@ -36,7 +36,7 @@ export function CommandChip({ text, onRemove }: CommandChipProps) {
     <button
       type="button"
       onClick={onRemove}
-      className="min-h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-full border border-line bg-canvas text-primary text-sm transition-colors duration-100 cursor-pointer">
+      className="min-h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-full border border-line bg-canvas text-primary text-sm transition-colors duration-[80ms] cursor-pointer">
       <span>{text}</span>
       <X size={12} />
     </button>

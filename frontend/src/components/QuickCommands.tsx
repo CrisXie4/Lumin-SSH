@@ -206,7 +206,7 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
               onDragEnter={(e) => { e.preventDefault(); setRootDragOver(true); }}
               onDragLeave={(e) => { if (e.currentTarget === e.target) setRootDragOver(false); }}
               onDrop={(e) => { e.preventDefault(); handleDropToRoot(); }}
-              className={`w-[220px] shrink-0 border-r border-line-subtle overflow-y-auto px-1.5 py-1 flex flex-col transition-colors duration-100 ${
+              className={`w-[220px] shrink-0 border-r border-line-subtle overflow-y-auto px-1.5 py-1 flex flex-col transition-colors duration-[80ms] ${
                 rootDragOver ? 'bg-active outline outline-1 outline-dashed outline-accent' : 'bg-sunken'
               }`}
             >

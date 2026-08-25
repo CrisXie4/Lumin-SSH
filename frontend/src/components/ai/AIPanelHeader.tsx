@@ -168,7 +168,7 @@ export default function AIPanelHeader({
                 aria-label={condenseButtonTooltip}
                 disabled={!canOpenCondenseActions}
                 onClick={handleCondenseButtonClick}
-                className={`inline-flex items-center justify-center w-fit min-w-0 max-w-full h-7 px-2.5 rounded-full border text-sm font-bold transition-colors duration-100 whitespace-nowrap leading-none tabular-nums ${
+                className={`inline-flex items-center justify-center w-fit min-w-0 max-w-full h-7 px-2.5 rounded-full border text-sm font-bold transition-colors duration-[80ms] whitespace-nowrap leading-none tabular-nums ${
                   isCondensingContext
                     ? 'border-accent-border bg-accent-dim text-accent'
                     : 'border-line bg-transparent text-secondary'
@@ -187,7 +187,7 @@ export default function AIPanelHeader({
                   type="button"
                   onClick={handleTriggerQuickCondense}
                   disabled={!canQuickCondenseContext}
-                  className={`h-[30px] px-2.5 rounded-full border border-accent-border bg-accent-dim text-accent text-sm font-bold whitespace-nowrap transition-colors duration-100 ${
+                  className={`h-[30px] px-2.5 rounded-full border border-accent-border bg-accent-dim text-accent text-sm font-bold whitespace-nowrap transition-colors duration-[80ms] ${
                     canQuickCondenseContext ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
                   }`}
                 >
@@ -197,7 +197,7 @@ export default function AIPanelHeader({
                   type="button"
                   onClick={handleTriggerFullSummaryCondense}
                   disabled={!canSummaryCondenseContext}
-                  className={`h-[30px] px-2.5 rounded-full border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap transition-colors duration-100 ${
+                  className={`h-[30px] px-2.5 rounded-full border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap transition-colors duration-[80ms] ${
                     canSummaryCondenseContext ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
                   }`}
                 >

@@ -19,7 +19,7 @@ interface ImportExportDialogProps {
 }
 
 const ROW_BASE =
-  'flex items-center gap-3 px-3 py-2.5 rounded-md border border-line cursor-pointer bg-sunken transition-[border-color] duration-150';
+  'flex items-center gap-3 px-3 py-2.5 rounded-md border border-line cursor-pointer bg-sunken transition-[border-color] duration-[120ms]';
 const ROW_ACTIVE = 'border-accent bg-accent-dim';
 
 /**
@@ -153,7 +153,7 @@ export default function ImportExportDialog({ onClose, onExport, onImport, onDown
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoFocus
-                    className="w-full box-border pr-9 h-[34px] px-2.5 bg-sunken border border-line rounded-sm text-primary text-base outline-none transition-colors duration-100 placeholder:text-muted focus:border-focus focus:shadow-[0_0_0_2px_var(--accent-dim)]"
+                    className="w-full box-border pr-9 h-[34px] px-2.5 bg-sunken border border-line rounded-sm text-primary text-base outline-none transition-colors duration-[80ms] placeholder:text-muted focus:border-focus focus:shadow-[0_0_0_2px_var(--accent-dim)]"
                   />
                   <button
                     type="button"

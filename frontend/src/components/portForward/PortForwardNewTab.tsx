@@ -5,7 +5,7 @@ import { cn } from '../../utils/cn.ts';
 import { Button } from '../ui';
 
 const INPUT_CLASS =
-  'w-full box-border px-2.5 py-2 text-base bg-sunken border border-line rounded-sm text-primary outline-none transition-[border-color,box-shadow] duration-100 placeholder:text-muted focus:border-accent focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent)_18%,transparent)]';
+  'w-full box-border px-2.5 py-2 text-base bg-sunken border border-line rounded-sm text-primary outline-none transition-[border-color,box-shadow] duration-[80ms] placeholder:text-muted focus:border-accent focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent)_18%,transparent)]';
 
 const isSafeListenHost = (host: string) => {
   const h = String(host || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
@@ -189,7 +189,7 @@ export function PortForwardNewTab({
               type="button"
               onClick={() => setKind(option.value)}
               className={cn(
-                'text-left px-3.5 py-3 rounded-xl border cursor-pointer transition-colors duration-100 flex flex-col gap-1.5',
+                'text-left px-3.5 py-3 rounded-xl border cursor-pointer transition-colors duration-[80ms] flex flex-col gap-1.5',
                 selected
                   ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]'
                   : 'border-line bg-raised',

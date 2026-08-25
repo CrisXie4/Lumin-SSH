@@ -131,7 +131,7 @@ export default function SyncTab({
             onClick={() => onSyncProviderChange(item.id)}
             aria-pressed={syncProvider === item.id}
             className={cn(
-              'min-w-0 px-4 py-2.5 rounded-sm cursor-pointer text-md transition-all duration-150 border flex items-center justify-center gap-2',
+              'min-w-0 px-4 py-2.5 rounded-sm cursor-pointer text-md transition-all duration-[120ms] border flex items-center justify-center gap-2',
               syncProvider === item.id
                 ? 'bg-accent-dim border-accent-border text-primary font-semibold shadow-[inset_0_0_0_1px_var(--accent-border)]'
                 : 'bg-sunken border-line text-secondary',

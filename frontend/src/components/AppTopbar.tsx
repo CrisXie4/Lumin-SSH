@@ -265,7 +265,7 @@ export default function AppTopbar({
                 >
                   <span
                     aria-hidden="true"
-                    className="absolute top-1/2 left-[2px] w-[22px] h-[22px] rounded-full bg-overlay shadow-sm transition-transform duration-200 pointer-events-none"
+                    className="absolute top-1/2 left-[2px] w-[22px] h-[22px] rounded-full bg-overlay shadow-sm transition-transform duration-[200ms] pointer-events-none"
                     style={{
                       transform: resolvedQuickThemeMode === 'light'
                         ? 'translateY(-50%) translateX(0)'

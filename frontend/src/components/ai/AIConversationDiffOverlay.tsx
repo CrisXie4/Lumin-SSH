@@ -255,7 +255,7 @@ export default function AIConversationDiffOverlay({
             type="button"
             onClick={onClose}
             aria-label={t('关闭')}
-            className="w-[34px] h-[34px] inline-flex items-center justify-center rounded-lg border border-line bg-transparent text-secondary cursor-pointer transition-colors duration-100">
+            className="w-[34px] h-[34px] inline-flex items-center justify-center rounded-lg border border-line bg-transparent text-secondary cursor-pointer transition-colors duration-[80ms]">
             <X size={16} />
           </button>
         </div>

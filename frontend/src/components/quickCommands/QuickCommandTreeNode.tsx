@@ -107,7 +107,7 @@ export function TreeNode({
             onMouseEnter={() => setHover(true)}
             onMouseLeave={() => setHover(false)}
             {...commonDragProps}
-            className={`flex items-center gap-1 px-2 py-[5px] cursor-pointer rounded-xs text-base select-none transition-colors duration-100 ${
+            className={`flex items-center gap-1 px-2 py-[5px] cursor-pointer rounded-xs text-base select-none transition-colors duration-[80ms] ${
               dropPos === 'inside'
                 ? 'bg-active outline outline-1 outline-dashed outline-accent'
                 : isSelected
@@ -172,7 +172,7 @@ export function TreeNode({
         onDragLeave={(e) => { e.stopPropagation(); setDropPos(null); }}
         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const pos = calcDropPos(e, false); setDropPos(null); onDropItem?.(path, pos || 'after'); }}
         {...commonDragProps}
-        className={`flex items-center px-2 py-[5px] cursor-pointer rounded-xs text-sm select-none transition-colors duration-100 ${
+        className={`flex items-center px-2 py-[5px] cursor-pointer rounded-xs text-sm select-none transition-colors duration-[80ms] ${
           isSelected ? 'bg-active text-primary' : (hover ? 'bg-hover text-primary' : 'text-secondary')
         }`}
       >

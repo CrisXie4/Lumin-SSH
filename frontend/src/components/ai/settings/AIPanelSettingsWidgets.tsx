@@ -50,7 +50,7 @@ export function PositionSelectorCard({ title, description, items, onToggle, togg
               type="button"
               onClick={onToggle}
               aria-label={toggleLabel}
-              className="w-[34px] h-[34px] rounded-lg border border-line bg-transparent text-secondary inline-flex items-center justify-center transition-colors duration-100 shrink-0 cursor-pointer"
+              className="w-[34px] h-[34px] rounded-lg border border-line bg-transparent text-secondary inline-flex items-center justify-center transition-colors duration-[80ms] shrink-0 cursor-pointer"
             >
               <ArrowRightLeft size={14} />
             </button>

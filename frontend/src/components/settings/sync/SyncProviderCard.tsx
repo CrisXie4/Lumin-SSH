@@ -1,6 +1,6 @@
 import React from 'react';
 import { t as $t } from '../../../i18n.ts';
-import { Save, Cloud, Database, Folder, Lock, Plug, type LucideIcon } from 'lucide-react';
+import { Pencil, Save, Cloud, Database, Folder, Lock, Plug, type LucideIcon } from 'lucide-react';
 import { cn } from '../../../utils/cn.ts';
 import { Button } from '../../ui';
 import { SettingsPanel, type SettingsDefinitionNode } from '../SharedComponents';
@@ -45,8 +45,8 @@ export default function ProviderCard({ provider, providerKey, form, configured, 
               <div className="w-2.5 h-2.5 rounded-full" style={{ background: accent }}></div>
               <div className="text-[16px] font-bold text-primary tracking-[0.3px]">{$t(provider.successMsgKey)}</div>
             </div>
-            <button onClick={onEdit} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm text-base font-medium bg-hover border border-line text-secondary cursor-pointer transition-colors duration-200 hover:bg-sunken hover:text-primary">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            <button onClick={onEdit} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm text-base font-medium bg-hover border border-line text-secondary cursor-pointer transition-colors duration-[200ms] hover:bg-sunken hover:text-primary">
+              <Pencil size={14} />
               {$t('修改配置')}
             </button>
           </div>

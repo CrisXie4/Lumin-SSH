@@ -61,7 +61,7 @@ export default function BackgroundPanel({
         {(bgTargetMode === 'global' ? globalBgImage : termBgImage) && (
           <Button variant="ghost" size="sm" onClick={onBgReset}>{$t('恢复默认')}</Button>
         )}
-        <label htmlFor="appearance-bg-upload" className="inline-flex items-center justify-center gap-1 min-h-6 py-[3px] px-[7px] rounded-sm text-sm font-medium leading-none whitespace-nowrap border select-none cursor-pointer outline-none transition-colors duration-100 bg-raised text-secondary border-line hover:bg-hover hover:text-primary hover:border-focus active:bg-active">
+        <label htmlFor="appearance-bg-upload" className="inline-flex items-center justify-center gap-1 min-h-6 py-[3px] px-[7px] rounded-sm text-sm font-medium leading-none whitespace-nowrap border select-none cursor-pointer outline-none transition-colors duration-[80ms] bg-raised text-secondary border-line hover:bg-hover hover:text-primary hover:border-focus active:bg-active">
           {$t('上传图片')}
           <input id="appearance-bg-upload" type="file" accept="image/*" className="hidden" onChange={onBgUpload} />
         </label>

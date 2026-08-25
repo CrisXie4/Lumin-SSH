@@ -118,7 +118,7 @@ export function PortForwardSection({
         type="button"
         onClick={onClick}
         aria-label={title}
-        className="shrink-0 w-[26px] h-[26px] inline-flex items-center justify-center border border-line rounded-xs bg-sunken cursor-pointer transition-colors duration-100"
+        className="shrink-0 w-[26px] h-[26px] inline-flex items-center justify-center border border-line rounded-xs bg-sunken cursor-pointer transition-colors duration-[80ms]"
         style={{ color }}
       >
         {node}

@@ -160,7 +160,7 @@ export default function CredentialsModal({ onClose, onChange, addToast }: Creden
                   type="button"
                   onClick={() => handleDelete(cred)}
                   aria-label={t('删除凭据')}
-                  className="inline-flex items-center justify-center w-[26px] min-w-[26px] h-[26px] p-0 rounded-sm bg-transparent border border-transparent text-danger cursor-pointer outline-none transition-colors duration-100 hover:bg-hover"
+                  className="inline-flex items-center justify-center w-[26px] min-w-[26px] h-[26px] p-0 rounded-sm bg-transparent border border-transparent text-danger cursor-pointer outline-none transition-colors duration-[80ms] hover:bg-hover"
                 >
                   <Trash2 size={14} />
                 </button>

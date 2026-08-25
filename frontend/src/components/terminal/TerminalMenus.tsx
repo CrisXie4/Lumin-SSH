@@ -110,7 +110,7 @@ export function TerminalLinkMenu({
             e.stopPropagation();
             handleLinkMenuAction('copy');
           }}
-          className="flex items-center gap-2 w-full h-7 px-3 mx-0 rounded-sm text-sm text-left whitespace-nowrap cursor-pointer outline-none border-none bg-transparent text-secondary transition-colors duration-100 hover:bg-hover hover:text-primary"
+          className="flex items-center gap-2 w-full h-7 px-3 mx-0 rounded-sm text-sm text-left whitespace-nowrap cursor-pointer outline-none border-none bg-transparent text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
         >
           <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 [&>svg]:w-full [&>svg]:h-full"><Copy size={13} /></span>
           <span className="truncate">{t('复制')}</span>
@@ -121,7 +121,7 @@ export function TerminalLinkMenu({
             e.stopPropagation();
             handleLinkMenuAction('open');
           }}
-          className="flex items-center gap-2 w-full h-7 px-3 mx-0 rounded-sm text-sm text-left whitespace-nowrap cursor-pointer outline-none border-none bg-transparent text-secondary transition-colors duration-100 hover:bg-hover hover:text-primary"
+          className="flex items-center gap-2 w-full h-7 px-3 mx-0 rounded-sm text-sm text-left whitespace-nowrap cursor-pointer outline-none border-none bg-transparent text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
         >
           <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 [&>svg]:w-full [&>svg]:h-full"><ExternalLink size={13} /></span>
           <span className="truncate">{t('打开')}</span>

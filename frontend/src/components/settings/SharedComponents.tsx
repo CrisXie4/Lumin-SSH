@@ -124,7 +124,7 @@ export function RadioOption({ selected, label, description, onClick, definition 
       data-settings-field-id={definition?.id}
       onClick={onClick}
       className={cn(
-        'px-2.5 py-2 rounded-md cursor-pointer transition-all duration-150 border',
+        'px-2.5 py-2 rounded-md cursor-pointer transition-all duration-[120ms] border',
         selected
           ? 'bg-accent-dim border-accent-border shadow-[inset_0_0_0_1px_var(--accent-border)]'
           : 'bg-overlay border-line',
@@ -150,7 +150,7 @@ export function AboutLink({ icon, title, url, definition }: AboutLinkProps) {
     <div
       data-settings-field-id={definition?.id}
       onClick={() => window.runtime?.BrowserOpenURL?.(url)}
-      className="flex flex-col items-center justify-center gap-2.5 px-3 py-4 min-h-24 rounded-md cursor-pointer transition-all duration-200 text-center border border-line hover:border-accent-border hover:bg-sunken"
+      className="flex flex-col items-center justify-center gap-2.5 px-3 py-4 min-h-24 rounded-md cursor-pointer transition-all duration-[200ms] text-center border border-line hover:border-accent-border hover:bg-sunken"
     >
       <div className="flex items-center justify-center w-10 h-10 text-secondary">
         {icon}

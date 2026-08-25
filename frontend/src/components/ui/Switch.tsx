@@ -25,7 +25,7 @@ export function Switch({ checked, onChange, disabled = false, size = 'md', ...re
       onClick={onChange}
       disabled={disabled || typeof onChange !== 'function'}
       className={cn(
-        'rounded-full border border-line flex items-center justify-start transition-colors duration-100 shrink-0',
+        'rounded-full border border-line flex items-center justify-start transition-colors duration-[80ms] shrink-0',
         s.track,
         checked ? 'justify-end bg-success' : 'bg-hover',
         disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer',
@@ -33,7 +33,7 @@ export function Switch({ checked, onChange, disabled = false, size = 'md', ...re
       {...rest}
     >
       <span
-        className={cn('rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-100', s.knob)}
+        className={cn('rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-[80ms]', s.knob)}
         style={{ transform: checked ? `translateX(${s.travel}px)` : undefined }}
       />
     </button>

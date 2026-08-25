@@ -103,7 +103,7 @@ export function AIProviderQuickModelMenu({
             key={option}
             type="button"
             onClick={() => void handleQuickModelSelect(option)}
-            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-lg border-none text-left text-sm transition-colors duration-100 ${
+            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-lg border-none text-left text-sm transition-colors duration-[80ms] ${
               active ? 'bg-accent-dim text-primary font-bold' : 'bg-transparent text-secondary font-medium'
             }`}
           >
@@ -151,7 +151,7 @@ export function AIProviderQuickReasoningMenu({
             key={option}
             type="button"
             onClick={() => void handleQuickReasoningSelect(option)}
-            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-lg border-none text-left text-sm transition-colors duration-100 ${
+            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-lg border-none text-left text-sm transition-colors duration-[80ms] ${
               active ? 'bg-accent-dim text-primary font-bold' : 'bg-transparent text-secondary font-medium'
             }`}
           >

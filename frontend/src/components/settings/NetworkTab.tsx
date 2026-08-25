@@ -251,7 +251,7 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
                   key={s}
                   onClick={() => onProbeIntervalChange(s)}
                   className={cn(
-                    'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-150 border cursor-pointer',
+                    'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-[120ms] border cursor-pointer',
                     probeInterval === s ? 'border-success bg-[rgba(var(--success-rgb),0.12)] text-success' : 'border-line bg-sunken text-secondary',
                   )}
                 >{s}s</button>
@@ -270,7 +270,7 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
                     disabled={disabled}
                     title={disabled ? $t('Banner 模式下间隔不能低于 15 秒') : undefined}
                     className={cn(
-                      'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-150 border',
+                      'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-[120ms] border',
                       disabled
                         ? 'opacity-45 cursor-not-allowed border-line bg-sunken text-tertiary'
                         : (pingInterval === s

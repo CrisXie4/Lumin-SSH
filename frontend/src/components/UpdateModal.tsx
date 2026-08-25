@@ -1,5 +1,5 @@
 import { Z } from '../constants/zIndex';
-import { Rocket } from 'lucide-react';
+import { RefreshCw, Rocket } from 'lucide-react';
 import { Button } from './ui';
 
 interface UpdateInfo {
@@ -39,14 +39,14 @@ export default function UpdateModal({ visible, updateInfo, downloadProgress, t, 
             <Button variant="success" className="relative overflow-hidden font-semibold" onClick={onUpdate} disabled={downloadProgress >= 0}>
               {downloadProgress >= 0 && (
                 <div
-                  className="absolute left-0 top-0 bottom-0 bg-black/20 transition-[width] duration-200 ease-out"
+                  className="absolute left-0 top-0 bottom-0 bg-black/20 transition-[width] duration-[200ms] ease-out"
                   style={{ width: `${downloadProgress}%` }}
                 />
               )}
               <span className="relative flex items-center gap-1.5" style={{ zIndex: Z.CONTENT }}>
                 {downloadProgress >= 0 ? (
                   <>
-                    <svg className="animate-[spin_1s_linear_infinite]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                    <RefreshCw size={14} strokeWidth={2.5} className="animate-[spin_1s_linear_infinite]" />
                     {Math.round(downloadProgress)}%
                   </>
                 ) : (

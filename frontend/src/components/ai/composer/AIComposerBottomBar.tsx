@@ -98,7 +98,7 @@ export function AIComposerBottomBar({
             }}
             className={cn(
               'h-7 inline-flex items-center gap-2 px-2 rounded-lg border text-sm font-medium',
-              'transition-colors duration-100 whitespace-nowrap',
+              'transition-colors duration-[80ms] whitespace-nowrap',
               'disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none',
               alwaysAllowAssistantCollaboration
                 ? 'border-accent-border bg-accent-dim text-primary cursor-pointer'
@@ -117,7 +117,7 @@ export function AIComposerBottomBar({
             onClick={() => onTemporarySessionEnabledChange?.(!temporarySessionEnabled)}
             className={cn(
               'h-7 inline-flex items-center gap-2 px-2 rounded-lg border text-sm font-medium',
-              'transition-colors duration-100 whitespace-nowrap',
+              'transition-colors duration-[80ms] whitespace-nowrap',
               'disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none',
               temporarySessionEnabled
                 ? 'border-accent-border bg-accent-dim text-primary cursor-pointer'

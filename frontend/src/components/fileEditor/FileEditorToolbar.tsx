@@ -87,7 +87,7 @@ export function FileEditorToolbar({
               value={splitPosition}
               onChange={(e) => onSplitPositionChange && onSplitPositionChange(e.target.value)}
               aria-label={t('分栏位置')}
-              className="px-1.5 py-1 text-xs cursor-pointer border-none bg-overlay text-primary rounded-md shrink-0 outline-none transition-colors duration-100 hover:bg-hover hover:text-primary"
+              className="px-1.5 py-1 text-xs cursor-pointer border-none bg-overlay text-primary rounded-md shrink-0 outline-none transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
             >
               <option value="left">{t('左侧分栏')}</option>
               <option value="right">{t('右侧分栏')}</option>
@@ -103,7 +103,7 @@ export function FileEditorToolbar({
             value={mode}
             onChange={(e) => onModeChange && onModeChange(e.target.value)}
             aria-label={t('编辑模式')}
-            className="px-1.5 py-1 text-xs cursor-pointer border-none bg-overlay text-primary rounded-md shrink-0 outline-none transition-colors duration-100 hover:bg-hover hover:text-primary"
+            className="px-1.5 py-1 text-xs cursor-pointer border-none bg-overlay text-primary rounded-md shrink-0 outline-none transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
           >
             <option value="modal">{t('全屏弹窗')}</option>
             <option value="popup">{t('浮动面板')}</option>

@@ -157,7 +157,7 @@ export default function MCPAccessView({
           <button
             type="button"
             onClick={copyAgentPrompt}
-            className={`text-xs py-[3px] px-2.5 rounded-md border border-line text-secondary cursor-pointer whitespace-nowrap transition-colors duration-100 ${agentPromptCopied ? 'bg-raised' : 'bg-overlay'}`}
+            className={`text-xs py-[3px] px-2.5 rounded-md border border-line text-secondary cursor-pointer whitespace-nowrap transition-colors duration-[80ms] ${agentPromptCopied ? 'bg-raised' : 'bg-overlay'}`}
           >
             {agentPromptCopied ? t('已复制') : t('复制')}
           </button>

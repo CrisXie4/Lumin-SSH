@@ -142,7 +142,7 @@ export default function MCPServersView({
             type="button"
             onClick={() => void handleReload()}
             disabled={saving || reloading}
-            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-line bg-transparent text-secondary text-base font-bold transition-colors duration-100 ${
+            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-line bg-transparent text-secondary text-base font-bold transition-colors duration-[80ms] ${
               saving || reloading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
             }`}
           >
@@ -153,7 +153,7 @@ export default function MCPServersView({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || reloading}
-            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.12)] text-accent text-base font-bold transition-colors duration-100 ${
+            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.12)] text-accent text-base font-bold transition-colors duration-[80ms] ${
               saving || reloading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
             }`}
           >

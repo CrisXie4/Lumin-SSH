@@ -177,7 +177,7 @@ export function TerminalQuickCmdConfirm({
                     setQuickCmdHistoryParam(null);
                     setQuickCmdHistorySearch('');
                   }}
-                  className="w-full shrink-0 flex items-center gap-1 min-h-7 py-1 px-2 text-sm font-medium leading-none whitespace-nowrap select-none cursor-pointer outline-none border-0 border-b border-line-subtle rounded-none bg-transparent text-danger transition-colors duration-100 hover:bg-danger-dim"
+                  className="w-full shrink-0 flex items-center gap-1 min-h-7 py-1 px-2 text-sm font-medium leading-none whitespace-nowrap select-none cursor-pointer outline-none border-0 border-b border-line-subtle rounded-none bg-transparent text-danger transition-colors duration-[80ms] hover:bg-danger-dim"
                 >
                   {t('清空列表')}
                 </button>
@@ -199,7 +199,7 @@ export function TerminalQuickCmdConfirm({
                           setQuickCmdHistoryParam(null);
                           setQuickCmdHistorySearch('');
                         }}
-                        className="flex-1 min-w-0 flex items-center gap-1 min-h-7 py-1 px-2 text-sm font-medium text-left leading-none select-none cursor-pointer outline-none border-0 rounded-none bg-transparent text-secondary transition-colors duration-100 font-mono overflow-hidden text-ellipsis whitespace-nowrap hover:bg-hover hover:text-primary"
+                        className="flex-1 min-w-0 flex items-center gap-1 min-h-7 py-1 px-2 text-sm font-medium text-left leading-none select-none cursor-pointer outline-none border-0 rounded-none bg-transparent text-secondary transition-colors duration-[80ms] font-mono overflow-hidden text-ellipsis whitespace-nowrap hover:bg-hover hover:text-primary"
                       >
                         {value}
                       </button>
@@ -208,7 +208,7 @@ export function TerminalQuickCmdConfirm({
                         title={t('删除')}
                         aria-label={t('删除')}
                         onClick={() => saveHistory(history.filter((entry) => entry !== value))}
-                        className="shrink-0 self-stretch inline-flex items-center justify-center w-[26px] min-w-[26px] p-0 text-sm font-medium leading-none select-none cursor-pointer outline-none border-0 rounded-none bg-transparent text-danger transition-colors duration-100 hover:bg-hover"
+                        className="shrink-0 self-stretch inline-flex items-center justify-center w-[26px] min-w-[26px] p-0 text-sm font-medium leading-none select-none cursor-pointer outline-none border-0 rounded-none bg-transparent text-danger transition-colors duration-[80ms] hover:bg-hover"
                       >
                         <Trash2 size={12} />
                       </button>

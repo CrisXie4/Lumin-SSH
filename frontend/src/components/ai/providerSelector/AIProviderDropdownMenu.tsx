@@ -89,7 +89,7 @@ export default function AIProviderDropdownMenu({
                 type="button"
                 aria-label={t('添加供应商')}
                 onClick={() => handleOpenEditor('create', null)}
-                className="w-7 h-7 inline-flex items-center justify-center rounded-none border border-line bg-transparent text-secondary transition-colors duration-100"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-none border border-line bg-transparent text-secondary transition-colors duration-[80ms]"
               >
                 <Plus size={14} />
               </button>

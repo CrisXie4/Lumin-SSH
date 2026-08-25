@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Folder, FolderOpen, Trash } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Folder, FolderOpen, Minus, Trash } from 'lucide-react';
 import type React from 'react';
 import { useTranslation } from '../../i18n.ts';
 import { cn } from '../../utils/cn.ts';
@@ -48,13 +48,9 @@ export function ServerGroupHeader({
           }}
         >
           {isGroupSelected(groupName) ? (
-            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+            <Check size={10} strokeWidth={4} />
           ) : (isGroupPartiallySelected(groupName) ? (
-            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="12" x2="20" y2="12" />
-            </svg>
+            <Minus size={10} strokeWidth={4} />
           ) : null)}
         </div>
       )}

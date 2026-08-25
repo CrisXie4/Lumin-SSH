@@ -25,7 +25,7 @@ function IconButton({ title, active = false, disabled = false, onClick, children
           }
           onClick?.();
         }}
-        className={`w-7 h-7 inline-flex items-center justify-center rounded-none border border-transparent shrink-0 transition-colors duration-100 ${
+        className={`w-7 h-7 inline-flex items-center justify-center rounded-none border border-transparent shrink-0 transition-colors duration-[80ms] ${
           active ? 'bg-[rgba(var(--accent-rgb),0.10)] text-accent' : 'bg-transparent text-muted'
         } ${disabled ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
       >
@@ -65,7 +65,7 @@ export default function AIProviderListRow({ item, active = false, builtin = fals
           onSelect?.()
         }
       }}
-      className={`w-full min-h-[46px] flex items-center justify-between gap-3 py-2 px-2.5 border-b border-line-subtle text-left box-border overflow-hidden cursor-pointer transition-colors duration-100 ${
+      className={`w-full min-h-[46px] flex items-center justify-between gap-3 py-2 px-2.5 border-b border-line-subtle text-left box-border overflow-hidden cursor-pointer transition-colors duration-[80ms] ${
         active ? 'bg-[rgba(var(--accent-rgb),0.10)]' : 'bg-transparent'
       }`}
     >

@@ -221,7 +221,7 @@ export function QuickCommandDetail({
                               setHistoryDropdown(null);
                               setHistorySearch('');
                             }}
-                            className="px-3 py-1.5 text-sm text-danger cursor-pointer border-b border-line-subtle shrink-0 font-semibold hover:bg-danger-dim transition-colors duration-100"
+                            className="px-3 py-1.5 text-sm text-danger cursor-pointer border-b border-line-subtle shrink-0 font-semibold hover:bg-danger-dim transition-colors duration-[80ms]"
                           >
                             {t('清空列表')}
                           </div>
@@ -246,7 +246,7 @@ export function QuickCommandDetail({
                                       setHistoryDropdown(null);
                                       setHistorySearch('');
                                     }}
-                                    className="flex-1 min-w-0 px-3 py-[7px] text-sm text-primary cursor-pointer font-mono whitespace-nowrap overflow-hidden text-ellipsis hover:bg-hover transition-colors duration-100"
+                                    className="flex-1 min-w-0 px-3 py-[7px] text-sm text-primary cursor-pointer font-mono whitespace-nowrap overflow-hidden text-ellipsis hover:bg-hover transition-colors duration-[80ms]"
                                   >
                                     {val}
                                   </div>
@@ -260,7 +260,7 @@ export function QuickCommandDetail({
                                       pHist[cmdKey][p.num] = (pHist[cmdKey][p.num] || []).filter((v) => v !== val);
                                       setParamHistory(pHist);
                                     }}
-                                    className="shrink-0 self-stretch inline-flex items-center px-2 border-0 border-l border-line-subtle bg-transparent text-danger cursor-pointer hover:bg-danger-dim transition-colors duration-100"
+                                    className="shrink-0 self-stretch inline-flex items-center px-2 border-0 border-l border-line-subtle bg-transparent text-danger cursor-pointer hover:bg-danger-dim transition-colors duration-[80ms]"
                                   >
                                     <Trash2 size={12} />
                                   </button>

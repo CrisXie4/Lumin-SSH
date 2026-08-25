@@ -24,7 +24,7 @@ const isEntry = (item: MenuItem): item is MenuEntry => item !== 'separator' && !
 
 function itemClasses(entry: MenuEntry): string {
   const base =
-    'flex items-center gap-2 w-full h-7 px-3 rounded-sm text-sm text-left whitespace-nowrap cursor-pointer outline-none border-none bg-transparent transition-colors duration-100';
+    'flex items-center gap-2 w-full h-7 px-3 rounded-sm text-sm text-left whitespace-nowrap cursor-pointer outline-none border-none bg-transparent transition-colors duration-[80ms]';
   if (entry.disabled) return `${base} opacity-40 pointer-events-none text-secondary`;
   if (entry.danger) return `${base} text-danger hover:bg-danger-dim`;
   return `${base} text-secondary hover:bg-hover hover:text-primary`;

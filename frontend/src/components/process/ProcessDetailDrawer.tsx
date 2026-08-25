@@ -67,7 +67,7 @@ export function ProcessDetailDrawer({
                   key={p.pid}
                   onClick={() => detailDispatch({ type: 'toggle', process: p })}
                   className={cn(
-                    'flex items-center gap-1 px-2.5 py-[3px] text-sm rounded-sm cursor-pointer font-mono select-none whitespace-nowrap border transition-all duration-150',
+                    'flex items-center gap-1 px-2.5 py-[3px] text-sm rounded-sm cursor-pointer font-mono select-none whitespace-nowrap border transition-all duration-[120ms]',
                     isActive
                       ? 'border-accent bg-active text-primary font-medium'
                       : 'border-line bg-sunken text-secondary hover:border-focus hover:bg-hover hover:text-primary',
@@ -146,7 +146,7 @@ export function ProcessDetailDrawer({
                 className="text-sm text-tertiary mb-1 cursor-pointer select-none flex items-center gap-1"
                 onClick={() => setShowEnv((v) => !v)}
               >
-                <span className="inline-block transition-transform duration-150" style={{ transform: showEnv ? 'rotate(90deg)' : 'none' }}>▶</span>
+                <span className="inline-block transition-transform duration-[120ms]" style={{ transform: showEnv ? 'rotate(90deg)' : 'none' }}>▶</span>
                 {t('环境变量')} <span className="text-muted text-xs">({envVars.length})</span>
               </div>
               {showEnv ? (
