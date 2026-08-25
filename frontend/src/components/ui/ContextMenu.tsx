@@ -186,10 +186,12 @@ export function ContextMenu({ x, y, items, onClose, zIndex = Z.MENU, minWidth }:
         style={{ zIndex: zIndex - 1 }}
         onMouseDown={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onClose();
         }}
         onContextMenu={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onClose();
         }}
       />

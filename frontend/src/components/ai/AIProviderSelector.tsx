@@ -141,8 +141,8 @@ export default function AIProviderSelector({
           {quickModelConfig.visible ? (
             <div
               ref={modelButtonRef}
-              className="relative -ml-px min-w-0 max-w-full flex-none"
-              style={modelTriggerWidth > 0 ? { width: modelTriggerWidth } : undefined}>
+              className="relative -ml-px min-w-0 max-w-full flex-1"
+              style={modelTriggerWidth > 0 ? { maxWidth: modelTriggerWidth } : undefined}>
               <button
                 type="button"
                 onClick={() => {
@@ -155,7 +155,7 @@ export default function AIProviderSelector({
                 onMouseLeave={closeTooltip}
                 onFocus={handleTriggerMouseEnter}
                 onBlur={closeTooltip}
-                className={`h-7 inline-flex items-center px-2.5 text-sm font-semibold transition-colors duration-100 whitespace-nowrap min-w-0 max-w-full w-full border ${
+                className={`h-7 inline-flex items-center px-2.5 text-sm font-semibold transition-colors duration-100 whitespace-nowrap min-w-0 max-w-full w-full overflow-hidden border ${
                   modelMenuOpen
                     ? 'bg-accent-dim border-accent-border text-primary'
                     : 'bg-transparent border-line text-secondary'

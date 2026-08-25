@@ -79,6 +79,14 @@ export function resolveEditableTarget(target: EventTarget | null): HTMLInputElem
     return null;
   }
   if (target instanceof window.HTMLInputElement || target instanceof window.HTMLTextAreaElement) {
+    if (
+      target.classList.contains('xterm-helper-textarea') ||
+      target.closest?.('.xterm') ||
+      target.closest?.('.terminal-viewport') ||
+      target.closest?.('.xterm-screen')
+    ) {
+      return null;
+    }
     return target;
   }
   return null;

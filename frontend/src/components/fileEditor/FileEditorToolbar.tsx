@@ -56,7 +56,7 @@ export function FileEditorToolbar({
     <div
       className={cn(
         'relative flex flex-wrap items-center justify-between gap-2 gap-y-1.5 min-w-0',
-        mode === 'popup' ? 'cursor-move pt-2 pr-10 pb-1.5 pl-3' : 'pt-4 pr-[72px] pb-2 pl-4',
+        mode === 'popup' ? 'cursor-move pt-2 pr-[74px] pb-1.5 pl-3' : mode === 'split' ? 'pt-4 pr-10 pb-2 pl-4' : 'pt-4 pr-[74px] pb-2 pl-4',
       )}
       onMouseDown={mode === 'popup' ? startPopupDrag : undefined}
     >
@@ -192,14 +192,14 @@ export function FileEditorToolbar({
       </div>
 
       {mode !== 'split' && (
-        <Tiptop text={t('最小化')} placement="bottom" style={{ position: 'absolute', top: 8, right: 36, zIndex: Z.PANEL_BUTTON }}>
-          <Button variant="ghost" size="icon" onClick={() => setMinimized(true)} aria-label={t('最小化')}>
+        <Tiptop text={t('最小化')} placement="bottom" style={{ position: 'absolute', top: mode === 'popup' ? 6 : 12, right: 38, zIndex: Z.PANEL_BUTTON }}>
+          <Button variant="ghost" size="icon" onClick={() => setMinimized(true)} aria-label={t('最小化')} className="w-7 h-7">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
           </Button>
         </Tiptop>
       )}
-      <Tiptop text={filesCount > 1 ? t('关闭全部') : t('关闭')} placement="bottom" style={{ position: 'absolute', top: 8, right: 8, zIndex: Z.PANEL_BUTTON }}>
-        <Button variant="ghost" size="icon" onClick={() => void handleCloseAllEditors()} aria-label={filesCount > 1 ? t('关闭全部') : t('关闭')}>
+      <Tiptop text={filesCount > 1 ? t('关闭全部') : t('关闭')} placement="bottom" style={{ position: 'absolute', top: mode === 'popup' ? 6 : 12, right: 8, zIndex: Z.PANEL_BUTTON }}>
+        <Button variant="ghost" size="icon" onClick={() => void handleCloseAllEditors()} aria-label={filesCount > 1 ? t('关闭全部') : t('关闭')} className="w-7 h-7">
           <X size={14} />
         </Button>
       </Tiptop>

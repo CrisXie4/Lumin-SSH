@@ -191,7 +191,7 @@ export default function Terminal({
 
   // ── 右键 / 链接菜单 ──
   const {
-    handleContextMenu, handleInputContextMenu, closeContextMenu,
+    handleContextMenu, closeContextMenu,
     handleLinkMenuAction, handleMenuAction,
   } = useTerminalMenus({
     termRef, cmdInputRef, setCmdInput, contextMenu, setContextMenu, contextHasSelection, setContextHasSelection,
@@ -271,7 +271,7 @@ export default function Terminal({
         loadCommandAutocompleteSuggestions={loadCommandAutocompleteSuggestions}
         applyCommandAutocompleteItem={applyCommandAutocompleteItem} toggleCommandInputHints={toggleCommandInputHints}
         altOpenHistoryEnabled={altOpenHistoryEnabled} openHistoryAndFocusSearch={openHistoryAndFocusSearch}
-        handleInputContextMenu={handleInputContextMenu} setShowHistory={setShowHistory}
+        setShowHistory={setShowHistory}
         showHistory={showHistory} showCommands={showCommands} historyBtnRef={historyBtnRef}
         toggleHistory={toggleHistory} toggleCommands={toggleCommands} executeCommand={executeCommand}
         cmdTrimmed={cmdTrimmed} isConnected={isConnected} copyCommand={copyCommand}

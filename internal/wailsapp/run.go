@@ -280,6 +280,13 @@ func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
 		OnStartup: func(ctx context.Context) {
 			// 先挂托盘：startup 里 MCP 等可能阻塞，托盘若排后面会出现「窗口已能关到托盘但图标很久才出」。
 			app.ctx = ctx
+			platformruntime.AttachFramelessWindowFix()
+			go func() {
+				time.Sleep(200 * time.Millisecond)
+				platformruntime.AttachFramelessWindowFix()
+				time.Sleep(1 * time.Second)
+				platformruntime.AttachFramelessWindowFix()
+			}()
 			// macOS: 窗口隐藏到托盘后，点 Dock 图标恢复窗口。
 			// Wails 的 AppDelegate 未实现 applicationShouldHandleReopen:hasVisibleWindows:。
 			platformruntime.SetupDockReopenHandler(func() { forceShowWindow(app.ctx) })

@@ -251,7 +251,7 @@ export default function AppTopbar({
                 <button
                   type="button"
                   className={cn(
-                    'no-drag relative w-[52px] h-7 p-[3px] rounded-full border border-line inline-flex items-center justify-between overflow-hidden shrink-0',
+                    'no-drag relative w-[50px] h-7 p-0 rounded-full border border-line inline-flex items-center justify-between overflow-hidden shrink-0',
                     '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.04)]',
                     resolvedQuickThemeMode === 'light' ? 'bg-[rgba(250,204,21,0.12)]' : 'bg-[rgba(99,102,241,0.16)]',
                   )}
@@ -260,19 +260,23 @@ export default function AppTopbar({
                 >
                   <span
                     aria-hidden="true"
-                    className="absolute top-[3px] w-[22px] h-[22px] rounded-full bg-overlay shadow-sm [transition:left_0.2s_ease]"
-                    style={{ left: resolvedQuickThemeMode === 'light' ? 3 : 27 }}
+                    className="absolute top-1/2 left-[2px] w-[22px] h-[22px] rounded-full bg-overlay shadow-sm transition-transform duration-200 pointer-events-none"
+                    style={{
+                      transform: resolvedQuickThemeMode === 'light'
+                        ? 'translateY(-50%) translateX(0)'
+                        : 'translateY(-50%) translateX(22px)'
+                    }}
                   />
                   <span
                     aria-hidden="true"
-                    className="relative w-4 inline-flex items-center justify-center [transition:color_0.2s_ease]"
+                    className="relative ml-[2px] w-[22px] h-[22px] inline-flex items-center justify-center shrink-0 [transition:color_0.2s_ease]"
                     style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'light' ? '#f59e0b' : 'var(--text-tertiary)' }}
                   >
                     <Sun size={13} />
                   </span>
                   <span
                     aria-hidden="true"
-                    className="relative w-4 inline-flex items-center justify-center [transition:color_0.2s_ease]"
+                    className="relative mr-[2px] w-[22px] h-[22px] inline-flex items-center justify-center shrink-0 [transition:color_0.2s_ease]"
                     style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'dark' ? '#a78bfa' : 'var(--text-tertiary)' }}
                   >
                     <Moon size={13} />

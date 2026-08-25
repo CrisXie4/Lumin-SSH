@@ -45,6 +45,11 @@ export function useTerminalMenus(deps: {
   } = deps;
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    const target = e.target as Element | null;
+    if (!target?.closest?.('.xterm-helper-textarea')
+      && target?.closest?.('.term-command-input, input, textarea, button, select, [contenteditable="true"]')) {
+      return;
+    }
     e.preventDefault();
     setLinkMenu(null);
     const hasSelection = !!(termRef.current && termRef.current.getSelection());
@@ -111,7 +116,9 @@ export function useTerminalMenus(deps: {
       setLinkMenu(null);
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+    };
   }, [contextMenu, linkMenu]);
 
   const handleMenuAction = (action: string) => {

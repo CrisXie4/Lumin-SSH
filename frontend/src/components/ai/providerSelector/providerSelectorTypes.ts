@@ -231,21 +231,27 @@ export function resolveAdaptiveLabelLayout({
   if (bestLayout) {
     return bestLayout;
   }
+  const fallbackProviderWidth = measureAdaptiveLabelTriggerWidth(normalizedProviderText, minFontSize, {
+    fontWeight: 500,
+    fontFamily: providerFontFamily,
+  });
+  const rawModelWidth = normalizedModelText
+    ? measureAdaptiveLabelTriggerWidth(normalizedModelText, minFontSize, {
+        fontWeight: 600,
+        fontFamily: modelFontFamily,
+        minWidth: 32,
+      })
+    : 0;
+  const fallbackModelWidth = normalizedAvailableWidth > 0 && normalizedModelText
+    ? Math.max(0, Math.min(rawModelWidth, normalizedAvailableWidth - fallbackProviderWidth - fixedWidth))
+    : rawModelWidth;
+
   return {
     providerFontSize: minFontSize,
     modelFontSize: normalizedModelText ? minFontSize : baseFontSize,
-    providerWidth: measureAdaptiveLabelTriggerWidth(normalizedProviderText, minFontSize, {
-      fontWeight: 500,
-      fontFamily: providerFontFamily,
-    }),
-    modelWidth: normalizedModelText
-      ? measureAdaptiveLabelTriggerWidth(normalizedModelText, minFontSize, {
-          fontWeight: 600,
-          fontFamily: modelFontFamily,
-          minWidth: 32,
-        })
-      : 0,
-    totalWidth: 0,
+    providerWidth: fallbackProviderWidth,
+    modelWidth: fallbackModelWidth,
+    totalWidth: fallbackProviderWidth + fallbackModelWidth + fixedWidth,
   };
 }
 
@@ -261,7 +267,7 @@ export function resolveAdaptiveSelectorAvailableWidth(container: HTMLElement | n
     .filter((child) => child !== container)
     .reduce((total, child) => total + child.getBoundingClientRect().width, 0);
   const totalGap = gap * Math.max(0, children.length - 1);
-  return Math.max(0, Math.max(container.clientWidth, row.clientWidth - siblingsWidth - totalGap));
+  return Math.max(0, row.clientWidth - siblingsWidth - totalGap);
 }
 
 export function buildProviderModelOptions(provider: AIProviderLike | null | undefined) {

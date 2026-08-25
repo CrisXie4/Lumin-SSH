@@ -40,6 +40,10 @@ var (
 	procGetCurrentThreadId       = kernel32.NewProc("GetCurrentThreadId")
 	procGetCurrentProcessId      = kernel32.NewProc("GetCurrentProcessId")
 	procShellNotifyIconW         = shell32.NewProc("Shell_NotifyIconW")
+	procIsZoomed                 = user32.NewProc("IsZoomed")
+	comctl32                     = syscall.NewLazyDLL("comctl32.dll")
+	procSetWindowSubclass        = comctl32.NewProc("SetWindowSubclass")
+	procDefSubclassProc          = comctl32.NewProc("DefSubclassProc")
 )
 
 const (
@@ -515,5 +519,53 @@ func ApplyOptions(opts *options.App, webviewGpuDisabled bool) {
 		ZoomFactor:                        1.0,
 		WebviewGpuIsDisabled:              webviewGpuDisabled,
 		Theme:                             windows.Dark,
+	}
+}
+
+const (
+	wmNCHitTest   = 0x0084
+	htClient      = 1
+	htGrowBox     = 4
+	htLeft        = 10
+	htRight       = 11
+	htTop         = 12
+	htTopLeft     = 13
+	htTopRight    = 14
+	htBottom      = 15
+	htBottomLeft  = 16
+	htBottomRight = 17
+	htBorder      = 18
+)
+
+func framelessWindowSubclassProc(hwnd syscall.Handle, msg uint32, wParam, lParam, uIdSubclass, dwRefData uintptr) uintptr {
+	ret, _, _ := procDefSubclassProc.Call(uintptr(hwnd), uintptr(msg), wParam, lParam)
+	if msg == wmNCHitTest {
+		isZoomed, _, _ := procIsZoomed.Call(uintptr(hwnd))
+		if isZoomed != 0 {
+			// 最大化时，鼠标靠近边缘不应出现调整窗口大小的光标
+			if ret == htGrowBox || (ret >= htLeft && ret <= htBorder) {
+				return htClient
+			}
+		}
+	}
+	return ret
+}
+
+var subclassCallback = syscall.NewCallback(framelessWindowSubclassProc)
+
+var attachedSubclassHandles sync.Map
+
+// AttachFramelessWindowFix 对当前进程的 Wails 主窗口安装子类化，修复最大化时边缘光标显示为调整窗口大小的问题。
+func AttachFramelessWindowFix() {
+	pid, _, _ := procGetCurrentProcessId.Call()
+	hwnds := findMainWindowCandidates(uint32(pid))
+	for _, hwnd := range hwnds {
+		if _, loaded := attachedSubclassHandles.LoadOrStore(hwnd, struct{}{}); !loaded {
+			const subclassID = 1001
+			ret, _, _ := procSetWindowSubclass.Call(uintptr(hwnd), subclassCallback, subclassID, 0)
+			if ret == 0 {
+				attachedSubclassHandles.Delete(hwnd)
+			}
+		}
 	}
 }

@@ -155,3 +155,6 @@ func RemoveTrayIconSync() {}
 
 // PrepareTrayMenu 是 Windows 专用前台解锁的 Unix 空实现。
 func PrepareTrayMenu() {}
+
+// AttachFramelessWindowFix 是 Windows 专用窗口边缘光标修复的 Unix 空实现。
+func AttachFramelessWindowFix() {}

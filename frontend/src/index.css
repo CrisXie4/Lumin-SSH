@@ -5381,7 +5381,9 @@ body.theme-light .dashboard-server-editor {
   max-height: 132px;
   overflow-x: hidden;
   overflow-y: hidden;
-  line-height: 1.4;
+  line-height: 20px;
+  padding-top: 7px;
+  padding-bottom: 7px;
   white-space: pre-wrap;
   scrollbar-width: thin;
   color: var(--term-input-color);

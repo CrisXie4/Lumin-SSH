@@ -29,7 +29,6 @@ interface TerminalInputBarProps {
   toggleCommandInputHints: () => void | Promise<void>
   altOpenHistoryEnabled: boolean
   openHistoryAndFocusSearch: () => void
-  handleInputContextMenu: (e: React.MouseEvent) => void
   setShowHistory: React.Dispatch<React.SetStateAction<boolean>>
   showHistory: boolean
   showCommands: boolean
@@ -64,7 +63,6 @@ export function TerminalInputBar({
   toggleCommandInputHints,
   altOpenHistoryEnabled,
   openHistoryAndFocusSearch,
-  handleInputContextMenu,
   setShowHistory,
   showHistory,
   showCommands,
@@ -139,13 +137,12 @@ export function TerminalInputBar({
       >
         <textarea
           ref={cmdInputRef}
-          className="input term-command-input w-full text-sm py-2 px-[11px] h-9 min-h-9 bg-[var(--term-input-bg)] text-[var(--term-input-color)]"
+          className="input term-command-input w-full text-sm py-[7px] px-[11px] h-9 min-h-9 leading-5 bg-[var(--term-input-bg)] text-[var(--term-input-color)]"
           name="terminalCommand"
           value={cmdInput}
           rows={1}
           spellCheck={false}
           autoComplete="off"
-          onContextMenu={handleInputContextMenu}
           onChange={e => {
             const nextValue = e.target.value;
             setCmdInput(nextValue);
