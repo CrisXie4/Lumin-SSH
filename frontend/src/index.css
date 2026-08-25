@@ -720,26 +720,6 @@ body.theme-light .update-bubble {
   color: var(--accent);
 }
 
-.section-title-container .segment-control {
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-}
-.section-title-container .segment-control button {
-  background: transparent;
-  color: var(--text-secondary);
-}
-.section-title-container .segment-control button:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-.section-title-container .segment-control button.active {
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  border-color: var(--border);
-  font-weight: 600;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
 /* ── 输入框 ─────────────────────────────────────────────────── */
 .input, .select {
   width: 100%;
@@ -2417,43 +2397,6 @@ body.theme-light .batch-operation-bar {
   color: var(--text-tertiary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-.segment-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
-}
-
-.segment-control button {
-  min-height: 26px;
-  min-width: 30px;
-  padding: 2px 9px;
-  border-radius: var(--radius-xs);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-  border: 1px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-}
-
-.segment-control button:hover {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-.segment-control button.active {
-  color: var(--text-primary);
-  background: var(--surface-raised);
-  border-color: var(--border);
-  font-weight: 600;
 }
 
 .data-table-shell {
@@ -4483,12 +4426,27 @@ body.theme-light .dashboard-server-editor {
   background: var(--surface-sunken);
 }
 
+/* 内容自适应变体：不做等宽拉伸（如 dashboard 图标切换） */
+.server-editor-segment.inline {
+  display: inline-flex;
+}
+
+.server-editor-segment.inline button:first-child,
+.server-editor-segment.inline button:last-child {
+  grid-column: auto;
+}
+
 .server-editor-segment::before {
   content: none;
 }
 
 .server-editor-segment button {
   min-height: 28px;
+  min-width: 30px;
+  padding: 2px 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-xs);
   color: var(--text-secondary);
   font-size: 12px;
@@ -4621,6 +4579,14 @@ body.theme-light .dashboard-server-editor {
 /* 主页主机区：主机 / 最近连接 切换 */
 .dashboard-page-switch {
   flex-shrink: 0;
+}
+.dashboard-page-switch.server-editor-segment {
+  display: inline-flex;
+  gap: 2px;
+}
+.dashboard-page-switch.server-editor-segment button:first-child,
+.dashboard-page-switch.server-editor-segment button:last-child {
+  grid-column: auto;
 }
 .dashboard-page-switch button {
   display: inline-flex;
@@ -4847,45 +4813,6 @@ body.theme-light .dashboard-server-editor {
   100% { transform: translateX(200%)  scaleX(0.4); width: 40%; }
 }
 
-/* ── 视图切换分段控件 ───────────────────────────────────────── */
-.segment-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
-  overflow: hidden;
-}
-.segment-control button {
-  min-height: 26px;
-  min-width: 30px;
-  padding: 2px 9px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-  transition: var(--transition-fast);
-  background: transparent;
-}
-.segment-control button:hover {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-.segment-control button.active {
-  color: var(--text-primary);
-  background: var(--surface-raised);
-  border-color: var(--border);
-  font-weight: 600;
-}
-.segment-control-divider { display: none; }
-
 /* ── 标签右键菜单 ───────────────────────────────────────────── */
 .tab-context-menu {
   position: fixed;
@@ -4926,7 +4853,6 @@ body.theme-light .dashboard-server-editor {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--surface-base);
   flex-shrink: 0;
 }
 
@@ -5587,4 +5513,3 @@ body.theme-light .dashboard-server-editor {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
-

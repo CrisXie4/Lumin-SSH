@@ -298,7 +298,7 @@ export default function CommandHistory({ sessionId, historyServerId, terminalId,
           onChange={e => setSearchQuery(e.target.value)}
           placeholder={t('搜索命令...')}
         />
-        <div className="segment-control">
+        <div className="server-editor-segment">
           <button className={historyMode === 'server' ? 'active' : ''} onClick={() => setHistoryMode('server')}>
             {t('当前服务器')}
           </button>

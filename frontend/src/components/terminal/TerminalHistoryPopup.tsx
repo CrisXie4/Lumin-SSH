@@ -198,7 +198,7 @@ export function TerminalHistoryPopup({
               placeholder={t('搜索命令...')}
               className="flex-1 px-2 py-1 bg-[var(--term-input-bg)] border border-[var(--term-btn-border)] rounded-sm text-sm text-[var(--term-input-color)] outline-none"
             />
-            <div className="segment-control">
+            <div className="server-editor-segment">
               <button className={historyMode === 'server' ? 'active' : ''} onClick={() => setHistoryMode('server')}>
                 {t('当前服务器')}
               </button>

@@ -91,7 +91,7 @@ export default function SettingsSidebar({
           onClick={() => setActiveTab(tab.id)}
           className={cn(
             'flex items-center gap-2 py-[7px] px-2.5 rounded-sm cursor-pointer text-base transition-colors duration-[120ms]',
-            activeTab === tab.id ? 'bg-overlay text-primary font-semibold' : 'text-secondary',
+            activeTab === tab.id ? 'bg-accent-dim text-accent font-semibold' : 'text-secondary',
           )}
         >
           <span className="inline-flex items-center">{(() => { const IC = TAB_ICON[tab.id]; return IC ? <IC size={15} /> : null; })()}</span> {$t(TAB_LABELS[tab.id])}

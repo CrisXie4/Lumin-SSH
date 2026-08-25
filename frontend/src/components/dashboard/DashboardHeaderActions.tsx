@@ -71,7 +71,7 @@ export function DashboardHeaderActions({
   return (
     <div className="section-title-container">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 280px', minWidth: 'min(100%, 280px)', maxWidth: '100%' }}>
-        <div className="segment-control dashboard-page-switch">
+        <div className="server-editor-segment dashboard-page-switch">
           <Tiptop text={t('主机')} placement="bottom">
             <button
               type="button"
@@ -84,7 +84,6 @@ export function DashboardHeaderActions({
               <span>{t('主机')}</span>
             </button>
           </Tiptop>
-          <div className="segment-control-divider" />
           <Tiptop text={t('最近连接')} placement="bottom">
             <button
               type="button"
@@ -161,7 +160,7 @@ export function DashboardHeaderActions({
                 <CheckSquare size={14} />
               </Button>
             </Tiptop>
-            <div className="segment-control">
+            <div className="server-editor-segment inline">
               <Tiptop text={t('卡片视图')} placement="bottom">
                 <button
                   onClick={() => onViewModeChange('grid')}
@@ -171,7 +170,6 @@ export function DashboardHeaderActions({
                   <LayoutGrid size={13} />
                 </button>
               </Tiptop>
-              <div className="segment-control-divider" />
               <Tiptop text={t('列表视图')} placement="bottom">
                 <button
                   onClick={() => onViewModeChange('table')}

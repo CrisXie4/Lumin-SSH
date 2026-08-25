@@ -2,9 +2,26 @@ import { cn } from '../../utils/cn.ts';
 
 export type SwitchSize = 'sm' | 'md';
 
-const SIZE: Record<SwitchSize, { track: string; knob: string; travel: number }> = {
-  md: { track: 'w-[42px] h-6 p-0.5', knob: 'w-[18px] h-[18px]', travel: 18 },
-  sm: { track: 'w-[34px] h-5 p-0.5', knob: 'w-[14px] h-[14px]', travel: 14 },
+interface SwitchDims {
+  track: string;
+  knob: number;
+  /** 轨道宽 - 左右 border/padding - knob 直径，保证开启时滑块贴右端 */
+  travel: number;
+}
+
+const BORDER = 1;
+
+function dims(trackW: number, trackH: number, knob: number): SwitchDims {
+  return {
+    track: `w-[${trackW}px] h-[${trackH}px]`,
+    knob,
+    travel: trackW - BORDER * 2 - knob,
+  };
+}
+
+const SIZE: Record<SwitchSize, SwitchDims> = {
+  md: dims(42, 24, 16),
+  sm: dims(34, 20, 12),
 };
 
 export interface SwitchProps {
@@ -19,22 +36,21 @@ export interface SwitchProps {
 
 export function Switch({ checked, onChange, disabled = false, size = 'md', indicator = false, ...rest }: SwitchProps) {
   const s = SIZE[size];
+  const shell = cn(
+    'rounded-full border border-line flex items-center justify-start overflow-hidden transition-colors duration-[80ms] shrink-0',
+    s.track,
+    disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer',
+  );
+  const knob = (
+    <span
+      className="rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-[80ms]"
+      style={{ width: s.knob, height: s.knob, transform: checked ? `translateX(${s.travel}px)` : undefined }}
+    />
+  );
   if (indicator) {
     return (
-      <span
-        role="switch"
-        aria-checked={checked}
-        className={cn(
-          'rounded-full border border-line flex items-center justify-start transition-colors duration-100 shrink-0',
-          s.track,
-          checked ? 'justify-end bg-accent' : 'bg-line',
-        )}
-        {...rest}
-      >
-        <span
-          className={cn('rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-100', s.knob)}
-          style={{ transform: checked ? `translateX(${s.travel}px)` : undefined }}
-        />
+      <span role="switch" aria-checked={checked} className={cn(shell, checked ? 'bg-accent' : 'bg-line')} {...rest}>
+        {knob}
       </span>
     );
   }
@@ -45,18 +61,10 @@ export function Switch({ checked, onChange, disabled = false, size = 'md', indic
       aria-checked={checked}
       onClick={onChange}
       disabled={disabled || typeof onChange !== 'function'}
-      className={cn(
-        'rounded-full border border-line flex items-center justify-start transition-colors duration-[80ms] shrink-0',
-        s.track,
-        checked ? 'justify-end bg-success' : 'bg-hover',
-        disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer',
-      )}
+      className={cn(shell, checked ? 'bg-success' : 'bg-hover')}
       {...rest}
     >
-      <span
-        className={cn('rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-[80ms]', s.knob)}
-        style={{ transform: checked ? `translateX(${s.travel}px)` : undefined }}
-      />
+      {knob}
     </button>
   );
 }

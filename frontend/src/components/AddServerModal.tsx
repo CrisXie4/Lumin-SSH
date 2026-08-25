@@ -130,10 +130,10 @@ export default function AddServerModal({
           {t('取消')}
         </Button>
       )}
-      <Button data-submit-action="save" variant="primary" disabled={saving} onClick={() => void submitForm('save')}>
+      <Button data-submit-action="save" disabled={saving} onClick={() => void submitForm('save')}>
         {saving ? t('保存中...') : t('添加')}
       </Button>
-      <Button data-submit-action="connect" variant="success" disabled={saving} onClick={() => void submitForm('connect')}>
+      <Button data-submit-action="connect" variant="primary" disabled={saving} onClick={() => void submitForm('connect')}>
         {saving ? t('保存中...') : t('添加并链接')}
       </Button>
     </>
