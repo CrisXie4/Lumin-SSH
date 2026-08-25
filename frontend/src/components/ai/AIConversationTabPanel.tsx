@@ -277,7 +277,7 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
       }}
     >
       {tasksDirMigrating ? (
-        <div className="absolute inset-0 bg-[rgba(5,10,18,0.6)] backdrop-blur-[3px] flex flex-col items-center justify-center gap-3" style={{ zIndex: Z.SETTINGS }}>
+        <div className="absolute inset-0 bg-scrim/85 backdrop-blur-[3px] flex flex-col items-center justify-center gap-3" style={{ zIndex: Z.SETTINGS }}>
           <Loader2 size={36} className="animate-[spin_1s_linear_infinite] text-accent" />
           <div className="text-md font-semibold text-primary">{t('正在迁移对话数据...')}</div>
           <div className="text-sm text-tertiary">{t('迁移期间请勿使用 AI 对话')}</div>

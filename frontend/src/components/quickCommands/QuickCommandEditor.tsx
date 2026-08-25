@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type React from 'react';
 import { Rocket } from 'lucide-react';
+import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
 import { Button } from '../ui';
 import { inputClass } from './quickCommandTypes.ts';
@@ -77,7 +78,8 @@ export function QuickCommandEditor({
           {cmdEditorShowOpts && (
             <div
               onMouseDown={(e) => e.stopPropagation()}
-              className="absolute left-0 bottom-[calc(100%+6px)] z-[2] min-w-[190px] px-2.5 py-2 bg-overlay border border-line rounded-md shadow-md flex flex-col gap-2"
+              className="absolute left-0 bottom-[calc(100%+6px)] min-w-[190px] px-2.5 py-2 bg-overlay border border-line rounded-md shadow-md flex flex-col gap-2"
+              style={{ zIndex: Z.STACK }}
             >
               <div className="text-xs text-muted select-none">
                 {t('按Ctrl+Enter发送')}

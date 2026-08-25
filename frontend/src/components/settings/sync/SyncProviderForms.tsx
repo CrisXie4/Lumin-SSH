@@ -80,7 +80,7 @@ export function FtpFormFields({ ftpForm, setFTPField }: { ftpForm: ProviderForm;
         </select>
       </div>
       {ftpForm.mode === 'plain' ? (
-        <div className="px-3.5 py-2.5 rounded-lg bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.35)] text-warning text-sm leading-[1.6]">
+        <div className="px-3.5 py-2.5 rounded-lg bg-[rgba(var(--warning-rgb),0.12)] border border-[rgba(var(--warning-rgb),0.28)] text-warning text-sm leading-[1.6]">
           {$t('普通 FTP 不加密连接，用户名、密码、文件名和传输数据可能被截获。备份文件加密也无法保护 FTP 登录和传输元数据。')}
         </div>
       ) : null}

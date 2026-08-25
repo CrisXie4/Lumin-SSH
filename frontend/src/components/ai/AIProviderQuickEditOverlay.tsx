@@ -108,7 +108,7 @@ export default function AIProviderQuickEditOverlay({
         height: panelBounds?.height ?? '100vh',
         zIndex: Z.DIALOG,
       }}
-      className="fixed max-w-screen max-h-screen overflow-hidden flex justify-center items-stretch bg-[rgba(5,10,18,0.62)] backdrop-blur-[4px]">
+      className="fixed max-w-screen max-h-screen overflow-hidden flex justify-center items-stretch bg-scrim/90 backdrop-blur-[4px]">
       <div
         onClick={(event) => event.stopPropagation()}
         className="w-full h-full bg-canvas flex flex-col text-primary overflow-hidden">

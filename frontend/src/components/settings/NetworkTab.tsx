@@ -210,7 +210,7 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
             action={<ToggleSwitch checked={pingEnabled} onChange={onTogglePingEnabled} />}
           />
         </SettingsPanel>
-        <div className="mt-2.5 px-3.5 py-2.5 bg-[rgba(245,158,11,0.08)] rounded-lg text-sm text-tertiary leading-[1.7] border border-[rgba(245,158,11,0.28)]">
+        <div className="mt-2.5 px-3.5 py-2.5 bg-[rgba(var(--warning-rgb),0.12)] rounded-lg text-sm text-tertiary leading-[1.7] border border-[rgba(var(--warning-rgb),0.28)]">
           <span className="inline-flex items-center align-middle mr-1"><Lightbulb size={14} /></span>{' '}
           <strong className="text-secondary">{$t('安全说明：')}</strong>
           {$t('延迟检测会在主页对列表中的服务器周期性探测 SSH 端口，仅做连通/延迟判断，不会使用密码或密钥登录。智能检测默认 2 秒刷新，直连只做 TCP；疑似 TUN/代理时约每 30 秒才做一次 Banner 确认以防假在线。选择「SSH Banner RTT」时会自动将间隔调整为至少 15 秒。若环境有登录失败告警策略，可关闭检测、增大间隔，或在纯内网使用 TCP Dial。')}
@@ -252,7 +252,7 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
                   onClick={() => onProbeIntervalChange(s)}
                   className={cn(
                     'px-3 py-1 rounded-md text-sm font-semibold transition-all duration-150 border cursor-pointer',
-                    probeInterval === s ? 'border-success bg-[rgba(34,197,94,0.1)] text-success' : 'border-line bg-sunken text-secondary',
+                    probeInterval === s ? 'border-success bg-[rgba(var(--success-rgb),0.12)] text-success' : 'border-line bg-sunken text-secondary',
                   )}
                 >{s}s</button>
               ))}
@@ -274,7 +274,7 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
                       disabled
                         ? 'opacity-45 cursor-not-allowed border-line bg-sunken text-tertiary'
                         : (pingInterval === s
-                          ? 'border-success bg-[rgba(34,197,94,0.1)] text-success'
+                          ? 'border-success bg-[rgba(var(--success-rgb),0.12)] text-success'
                           : 'border-line bg-sunken text-secondary cursor-pointer'),
                     )}
                   >{s}s</button>

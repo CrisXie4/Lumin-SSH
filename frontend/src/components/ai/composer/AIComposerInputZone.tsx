@@ -141,7 +141,7 @@ export function AIComposerInputZone({
         <div
           onClick={isCollaborationBlocked ? undefined : (canClickQueuedSubmissionOverlay ? onCancelQueuedSubmission : undefined)}
           className={cn(
-            'absolute inset-0 flex items-center justify-center bg-black/[0.18] px-6 text-center text-primary',
+            'absolute inset-0 flex items-center justify-center bg-scrim/40 px-6 text-center text-primary',
             (!isCollaborationBlocked && canClickQueuedSubmissionOverlay) ? 'cursor-pointer' : 'cursor-default',
           )}
           style={{ zIndex: Z.COMPONENT_OVERLAY }}>
@@ -176,7 +176,7 @@ export function AIComposerInputZone({
 
       {isComposerInteractionLocked && !isQueuedSubmissionBlocked ? (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-black/[0.18] px-6 text-center text-primary cursor-default"
+          className="absolute inset-0 flex items-center justify-center bg-scrim/40 px-6 text-center text-primary cursor-default"
           style={{ zIndex: Z.COMPONENT_OVERLAY - 1 }}>
           <span className="inline-flex items-center gap-2 max-w-[360px] rounded-full border border-line bg-overlay px-3 py-2 text-sm leading-none shadow-lg">
             <span className="text-secondary font-bold whitespace-nowrap overflow-hidden text-ellipsis">

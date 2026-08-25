@@ -18,7 +18,7 @@ export default function ConnectingCard({ connectingServer, t, onCancel }: Connec
 
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center bg-black/[0.42]"
+      className="absolute inset-0 flex items-center justify-center bg-scrim"
       style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
     >
       <div className="w-[380px] rounded-[16px] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">

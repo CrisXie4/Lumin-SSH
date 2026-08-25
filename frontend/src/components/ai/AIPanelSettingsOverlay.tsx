@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
 import MCPAccessView from './MCPAccessView.tsx';
 import MCPServersView from './MCPServersView.tsx';
@@ -245,8 +246,9 @@ export default function AIPanelSettingsOverlay({
   return (
     <div
       ref={overlayRef}
-      className="absolute max-w-full max-h-full bg-[rgba(5,10,18,0.62)] backdrop-blur-[4px] flex items-stretch justify-center overflow-hidden z-[120]"
+      className="absolute max-w-full max-h-full bg-scrim/90 backdrop-blur-[4px] flex items-stretch justify-center overflow-hidden"
       style={{
+        zIndex: Z.POPOVER,
         top: overlayBounds?.top ?? 0,
         left: overlayBounds?.left ?? 0,
         width: overlayBounds?.width ?? '100%',

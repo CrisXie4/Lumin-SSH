@@ -30,16 +30,16 @@ interface ActivityCard {
 type ActivityMap = Map<string, ActivityCard>
 
 const statusColors: Record<string, string> = {
-  started: '#5b9cf6',
-  queued: '#f0a040',
-  running: '#5b9cf6',
-  output: '#888',
-  done: '#4caf72',
-  error: '#ef5350',
-  approval_required: '#f0a040',
-  approved: '#4caf72',
-  rejected: '#ef5350',
-  timed_out: '#ef5350',
+  started: 'var(--accent)',
+  queued: 'var(--warning)',
+  running: 'var(--accent)',
+  output: 'var(--text-muted)',
+  done: 'var(--success)',
+  error: 'var(--danger)',
+  approval_required: 'var(--warning)',
+  approved: 'var(--success)',
+  rejected: 'var(--danger)',
+  timed_out: 'var(--danger)',
 }
 
 const statusLabels: Record<string, string> = {
@@ -108,7 +108,7 @@ export function MCPActivityFloatingToggle({ visible, offset, onClick, onPointerD
       onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick}
       title={t('拖动按钮移动，双击复位')}
-      className="fixed bottom-4 right-4 w-10 h-10 rounded-full border border-[rgba(255,255,255,0.12)] bg-overlay text-secondary cursor-grab flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.4)] select-none [touch-action:none]"
+      className="fixed bottom-4 right-4 w-10 h-10 rounded-full border border-line bg-overlay text-secondary cursor-grab flex items-center justify-center shadow-md select-none [touch-action:none]"
       style={{ zIndex: Z.SETTINGS, transform: `translate(${offset.x}px, ${offset.y}px)` }}
     >
       <Activity size={17} strokeWidth={2} />

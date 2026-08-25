@@ -61,7 +61,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease]"
+      className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]"
       style={{ zIndex }}
       onMouseDown={(e) => {
         if (closeOnOverlay && e.target === e.currentTarget) onClose();

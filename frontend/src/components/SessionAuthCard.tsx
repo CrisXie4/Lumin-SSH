@@ -131,7 +131,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
 
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center bg-black/[0.42]"
+      className="absolute inset-0 flex items-center justify-center bg-scrim"
       style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
     >
       <div className="w-[440px] max-w-[calc(100%-32px)] rounded-[16px] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">

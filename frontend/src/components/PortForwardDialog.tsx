@@ -149,7 +149,7 @@ export default function PortForwardDialog({
 
   return (
     <div
-      className="fixed inset-0 flex items-start justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease] pt-[52px]"
+      className="fixed inset-0 flex items-start justify-center bg-scrim animate-[fadeIn_0.12s_ease] pt-[52px]"
       style={{ zIndex: Z.MODAL }}
     >
       <div className="relative w-full max-w-[560px] flex flex-col bg-raised border border-line rounded-md shadow-lg overflow-hidden max-h-[calc(100vh-80px)] animate-[slideUp_0.12s_ease]">

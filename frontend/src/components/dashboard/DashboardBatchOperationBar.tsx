@@ -1,6 +1,7 @@
 import { CheckSquare, Download, Folder, Monitor, Plus, Trash2, X } from 'lucide-react';
 import type React from 'react';
 import type { config } from '../../../wailsjs/go/models.ts';
+import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
 
 export interface DashboardBatchOperationBarProps {
@@ -107,7 +108,7 @@ export function DashboardBatchOperationBar({
                 bottom: '100%',
                 left: 0,
                 marginBottom: 8,
-                zIndex: 110,
+                zIndex: Z.POPUP,
                 display: 'flex',
                 flexDirection: 'column',
                 minWidth: 180,

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { Z } from '../../constants/zIndex.ts';
 import MCPActivityPanel, { MCPActivityFloatingToggle } from '../MCPActivityPanel.tsx';
 import type { SessionLike } from '../../utils/sessionWorkspace.ts';
 
@@ -52,7 +53,7 @@ export default function AppMCPFloatingOverlay({
         maxWidth: 'calc(100vw - 32px)',
         height: '60vh',
         maxHeight: '600px',
-        zIndex: 9999,
+        zIndex: Z.SETTINGS,
         display: showMCPActivity ? 'block' : 'none',
         transform: `translate(${mcpActivityOffset.x}px, ${mcpActivityOffset.y}px)`,
       }}>

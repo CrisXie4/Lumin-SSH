@@ -270,14 +270,14 @@ export default function AppTopbar({
                   <span
                     aria-hidden="true"
                     className="relative ml-[2px] w-[22px] h-[22px] inline-flex items-center justify-center shrink-0 [transition:color_0.2s_ease]"
-                    style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'light' ? '#f59e0b' : 'var(--text-tertiary)' }}
+                    style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'light' ? 'var(--warning)' : 'var(--text-tertiary)' }}
                   >
                     <Sun size={13} />
                   </span>
                   <span
                     aria-hidden="true"
                     className="relative mr-[2px] w-[22px] h-[22px] inline-flex items-center justify-center shrink-0 [transition:color_0.2s_ease]"
-                    style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'dark' ? '#a78bfa' : 'var(--text-tertiary)' }}
+                    style={{ zIndex: Z.CONTENT, color: resolvedQuickThemeMode === 'dark' ? 'var(--info)' : 'var(--text-tertiary)' }}
                   >
                     <Moon size={13} />
                   </span>

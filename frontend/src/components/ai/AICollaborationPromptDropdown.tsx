@@ -1,5 +1,6 @@
 import { Check, Pencil, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Z } from '../../constants/zIndex.ts'
 import { useTranslation } from '../../i18n.ts'
 
 /** 常用要求预设 */
@@ -226,7 +227,7 @@ export default function AICollaborationPromptDropdown({
         bottom: window.innerHeight - triggerRect.top + 8,
         width: panelBounds?.width ?? 320,
         maxWidth: panelBounds?.width ? `${panelBounds.width}px` : 'min(320px, calc(100vw - 32px))',
-        zIndex: 10000,
+        zIndex: Z.POPUP,
       }}>
       <div className="px-3 py-2.5 border-b border-line-subtle grid gap-2">
         <div className="flex items-center justify-between gap-2.5">

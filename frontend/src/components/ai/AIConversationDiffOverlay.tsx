@@ -237,7 +237,7 @@ export default function AIConversationDiffOverlay({
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-stretch justify-center p-1.5 bg-black/[0.18] backdrop-blur-[4px]">
+    <div className="absolute inset-0 z-40 flex items-stretch justify-center p-1.5 bg-scrim/40 backdrop-blur-[4px]">
       <div className="w-full h-full grid grid-rows-[64px_minmax(0,1fr)] rounded-[16px] border border-line bg-overlay shadow-xl overflow-hidden">
         <div className="flex items-center justify-between gap-3 px-[18px] border-b border-line bg-raised">
           <div className="min-w-0 flex items-center gap-3">

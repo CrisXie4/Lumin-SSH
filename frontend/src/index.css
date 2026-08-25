@@ -54,6 +54,9 @@
   --color-warning-dim: var(--warning-dim);
   --color-info: var(--info);
   --color-info-dim: var(--info-dim);
+
+  /* 弹窗/浮层遮罩 */
+  --color-scrim: var(--overlay-scrim);
 }
 
 /* ── Tailwind 静态刻度：对齐设计 token（字号/圆角/阴影/字体）── */
@@ -121,6 +124,7 @@ svg[class*="lucide"] {
   --surface-active:    #2c384c;  /* active/选中态 */
 
   /* ── 边框 ── */
+  --overlay-scrim: rgba(0, 0, 0, 0.42);
   --border:        rgba(72, 86, 110, 0.55);
   --border-light:  rgba(72, 86, 110, 0.28);
   --border-subtle: rgba(72, 86, 110, 0.32);
@@ -319,6 +323,7 @@ body.theme-light {
   --surface-hover:     #e2e6eb;
   --surface-active:    #d6dbe2;
 
+  --overlay-scrim: rgba(28, 35, 45, 0.32);
   --border:        rgba(28, 35, 45, 0.14);
   --border-light:  rgba(28, 35, 45, 0.08);
   --border-subtle: rgba(28, 35, 45, 0.10);
@@ -920,7 +925,7 @@ input::-ms-clear {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.42);
+  background: var(--overlay-scrim);
   display: flex;
   align-items: center;
   justify-content: center;

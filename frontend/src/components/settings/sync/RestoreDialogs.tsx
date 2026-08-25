@@ -52,7 +52,7 @@ export default function RestoreDialogs({
       {confirmRestoreProvider && (() => {
         const availableProviders = configuredProviderIds().filter(id => !failedRestoreProviders.includes(id));
         return (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
+          <div className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
             <div className="relative overflow-hidden w-[420px] p-6 bg-canvas border border-line rounded-sm animate-[scaleIn_0.18s_ease]">
               <div className="text-[18px] text-primary mb-4 font-bold">{$t('选择恢复来源')}</div>
               <div className="flex flex-col gap-2.5">
@@ -73,7 +73,7 @@ export default function RestoreDialogs({
 
       {/* 确认恢复弹窗（含列表选择） */}
       {confirmRestore && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
+        <div className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
           <div className="relative overflow-hidden w-[450px] p-6 bg-canvas border border-line rounded-sm animate-[scaleIn_0.18s_ease]">
             <div className="text-[18px] text-primary mb-4 font-bold">{$t('选择要恢复的云端备份')}</div>
             <div className="text-secondary mb-4 text-md">
@@ -87,7 +87,7 @@ export default function RestoreDialogs({
                   onClick={() => setSelectedBackup(bk.name as string)}
                   className={cn(
                     'py-2.5 px-3 rounded-sm cursor-pointer flex justify-between items-center border mb-1 transition-all duration-200',
-                    selectedBackup === (bk.name as string) ? 'bg-[rgba(16,185,129,0.10)] border-accent' : 'bg-transparent border-transparent',
+                    selectedBackup === (bk.name as string) ? 'bg-[rgba(var(--success-rgb),0.10)] border-accent' : 'bg-transparent border-transparent',
                   )}
                 >
                   <div className={selectedBackup === bk.name ? 'text-accent' : 'text-primary'}>
@@ -120,7 +120,7 @@ export default function RestoreDialogs({
 
       {/* 恢复失败 → 输入密码重试 */}
       {restoreWithPassword && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
+        <div className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]" style={{ zIndex: Z.MODAL }}>
           <div className="relative overflow-hidden w-[420px] p-6 bg-canvas border border-line rounded-sm animate-[scaleIn_0.18s_ease]">
             <div className="text-[18px] text-primary mb-3 font-bold">{$t('输入恢复密码')}</div>
             <div className="text-secondary mb-4 text-base leading-[1.6]">

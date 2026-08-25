@@ -206,7 +206,7 @@ export default function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black/[0.42] animate-[fadeIn_0.12s_ease]"
+      className="fixed inset-0 flex items-center justify-center bg-scrim animate-[fadeIn_0.12s_ease]"
       style={{ zIndex: Z.SETTINGS }}
     >
       <div className="relative w-full max-w-[1100px] max-h-[90vh] overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] flex flex-col h-[80vh]">

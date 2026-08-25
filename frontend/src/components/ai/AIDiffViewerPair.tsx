@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { I18nKey } from '../../i18n.ts';
+import { Z } from '../../constants/zIndex.ts';
 import {
   DIFF_EDITOR_BASE_OPTIONS,
   ensureMonacoConfigured,
@@ -197,7 +198,7 @@ export function DiffEditorPair({ block, index = 0, path = '', reviewId = '', sho
       ) : null}
       <div className="min-h-0 relative">
         {!editorReady ? (
-          <div className="absolute inset-0 z-[1]">{buildLoadingNode(t('加载中...'))}</div>
+          <div className="absolute inset-0" style={{ zIndex: Z.CONTENT }}>{buildLoadingNode(t('加载中...'))}</div>
         ) : null}
         <div ref={hostRef} className="h-full min-h-0" />
       </div>

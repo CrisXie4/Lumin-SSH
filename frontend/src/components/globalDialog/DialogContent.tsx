@@ -3,6 +3,7 @@ import { Eye, EyeOff, Clipboard } from 'lucide-react';
 import { useTranslation } from '../../i18n.ts';
 import Tiptop from '../Tiptop.tsx';
 import { Button } from '../ui';
+import { Z } from '../../constants/zIndex.ts';
 import { cn } from '../../utils/cn.ts';
 import type { QueuedDialog } from './globalDialogTypes.ts';
 
@@ -270,7 +271,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
                 text={showPassword ? t('隐藏密码') : t('显示密码')}
                 style={{
                   position: 'absolute', right: 42, top: '50%', transform: 'translateY(-50%)',
-                  zIndex: 2,
+                  zIndex: Z.STACK,
                 }}
               >
                 <button
@@ -285,7 +286,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
               text={t('粘贴')}
               style={{
                 position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                zIndex: 2,
+                zIndex: Z.STACK,
               }}
             >
               <button

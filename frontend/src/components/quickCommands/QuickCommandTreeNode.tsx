@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Z } from '../../constants/zIndex.ts';
 import type React from 'react';
 import { Folder } from 'lucide-react';
 import { useTranslation } from '../../i18n.ts';
@@ -80,8 +81,8 @@ export function TreeNode({
 
     return (
       <div
-        className="absolute left-1 right-1 h-0.5 bg-success rounded-full z-[5]"
-        style={{ [pos === 'before' ? 'top' : 'bottom']: -1 }}
+        className="absolute left-1 right-1 h-0.5 bg-success rounded-full"
+        style={{ [pos === 'before' ? 'top' : 'bottom']: -1, zIndex: Z.SCROLLBAR }}
       />
     );
   };

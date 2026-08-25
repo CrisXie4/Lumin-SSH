@@ -64,7 +64,7 @@ export function TerminalAutocompletePopup({
               }}
               className={`w-full min-w-0 grid gap-1 px-3 py-[9px] text-left cursor-pointer overflow-hidden border-x-0 border-t-0 ${
                 index === commandAutocomplete.items.length - 1 && !commandAutocomplete.loading ? '' : 'border-b border-b-[var(--term-separator)]'
-              } ${isSelected ? 'bg-[rgba(59,130,246,0.12)]' : 'bg-transparent'} text-[var(--term-input-color)]`}
+              } ${isSelected ? 'bg-[rgba(var(--accent-rgb),0.12)]' : 'bg-transparent'} text-[var(--term-input-color)]`}
             >
               <div className="flex items-center gap-2">
                 <span

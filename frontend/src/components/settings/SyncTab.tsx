@@ -228,7 +228,7 @@ export default function SyncTab({
           {hasRecoveryPassword ? $t('同步将写入 .lumin2 加密备份') : $t('未开启同步加密时写入明文 .json 备份')}
         </div>
         {autoSyncEnabled && isAnyConfigured ? (
-          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-[rgba(34,197,94,0.1)] border border-[rgba(34,197,94,0.3)] rounded-lg mb-5 text-success text-base">
+          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-[rgba(var(--success-rgb),0.12)] border border-[rgba(var(--success-rgb),0.28)] rounded-lg mb-5 text-success text-base">
             <span className="inline-flex items-center"><Sparkles size={14} /></span> <span><strong>{$t('已开启自动云端备份：')}</strong>{$t('添加、编辑、删除时自动同步')}</span>
           </div>
         ) : null}

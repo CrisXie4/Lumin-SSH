@@ -68,7 +68,7 @@ export default function RuntimeEnvironmentTab() {
         <div className="text-tertiary text-sm mb-2.5">{$t('管理应用运行所需的二进制工具与运行时依赖。')}</div>
         <SettingsPanel className="flex flex-col gap-3.5">
           <div data-settings-field-id={uvNode.id} className="flex items-start gap-3.5">
-            <div className="w-12 h-12 rounded-[14px] bg-[rgba(16,185,129,0.12)] text-accent flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-[14px] bg-[rgba(var(--success-rgb),0.12)] text-accent flex items-center justify-center shrink-0">
               <Package size={24} />
             </div>
             <div className="min-w-0 flex flex-col gap-2 flex-1">
