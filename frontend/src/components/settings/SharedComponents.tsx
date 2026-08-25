@@ -1,5 +1,6 @@
 import React from 'react';
 import { t as $t, type I18nKey } from '../../i18n.ts';
+import { Switch } from '../ui';
 import { cn } from '../../utils/cn.ts';
 
 const SETTINGS_TAB_GAP = 14;
@@ -105,20 +106,8 @@ interface ToggleSwitchProps {
 }
 
 export function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
-  return (
-    <div
-      onClick={onChange}
-      className={cn(
-        'relative w-[38px] h-[22px] rounded-full cursor-pointer transition-colors duration-200 border border-line shrink-0',
-        checked ? 'bg-success' : 'bg-hover',
-      )}
-    >
-      <div
-        className="absolute top-px w-[18px] h-[18px] bg-white rounded-full shadow-xs transition-[left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
-        style={{ left: checked ? 18 : 2 }}
-      ></div>
-    </div>
-  );
+  // ponytail: 旧实现是 div 无键盘可达性，统一收敛到 ui/Switch（button + role=switch）
+  return <Switch checked={checked} onChange={onChange} />;
 }
 
 interface RadioOptionProps {

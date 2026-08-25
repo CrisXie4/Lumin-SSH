@@ -2,6 +2,7 @@ import { Check, CircleHelp, Globe, Search } from 'lucide-react';
 import type React from 'react';
 import { Z } from '../../../constants/zIndex.ts';
 import { useTranslation } from '../../../i18n.ts';
+import { Switch } from '../../ui';
 import { handleInputDragSelectAll } from '../inputDragSelect.ts';
 import type { ProviderDraft } from './quickEditTypes.ts';
 
@@ -90,15 +91,7 @@ export default function QuickEditWebSearchSection({
 
               <div className="flex items-center gap-2.5 shrink-0">
                 <CircleHelp size={14} color="var(--text-tertiary)" />
-                <button
-                  type="button"
-                  onClick={handleWebSearchToggle}
-                  className={`w-[34px] h-5 rounded-full border border-line p-0.5 relative transition-colors duration-[120ms] ${draft.webSearchEnabled ? 'bg-[rgba(var(--accent-rgb),0.52)]' : 'bg-hover'}`}>
-                  <span
-                    className="block w-3.5 h-3.5 rounded-full bg-raised"
-                    style={{ transform: draft.webSearchEnabled ? 'translateX(14px)' : 'translateX(0)' }}
-                  />
-                </button>
+                <Switch checked={draft.webSearchEnabled} size="sm" onChange={handleWebSearchToggle} />
               </div>
             </div>
 
@@ -236,15 +229,7 @@ export default function QuickEditWebSearchSection({
             </div>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() => setDraft((prev) => ({ ...prev, dedicatedProxyEnabled: !prev.dedicatedProxyEnabled }))}
-            className={`w-[34px] h-5 rounded-full border border-line p-0.5 relative transition-colors duration-[120ms] ${draft.dedicatedProxyEnabled ? 'bg-[rgba(var(--accent-rgb),0.52)]' : 'bg-hover'}`}>
-            <span
-              className="block w-3.5 h-3.5 rounded-full bg-raised"
-              style={{ transform: draft.dedicatedProxyEnabled ? 'translateX(14px)' : 'translateX(0)' }}
-            />
-          </button>
+          <Switch checked={draft.dedicatedProxyEnabled} size="sm" onChange={() => setDraft((prev) => ({ ...prev, dedicatedProxyEnabled: !prev.dedicatedProxyEnabled }))} />
         </div>
         <div className="text-xs text-tertiary leading-normal">
           {t('开启后为当前供应商单独指定代理；关闭后跟随全局 AI 请求代理。')}

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { Switch } from '../../ui';
 import { useTranslation } from '../../../i18n.ts';
 import {
   DEFAULT_MAX_OUTPUT_TOKENS,
@@ -37,15 +38,7 @@ export default function QuickEditReasoningSection({
         {!modelCapability.requiredReasoningBudget ? (
           <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-xl bg-overlay">
             <span className="text-sm text-primary font-semibold">{t('启用推理')}</span>
-            <button
-              type="button"
-              onClick={() => setDraft((prev) => ({ ...prev, enableReasoningEffort: !prev.enableReasoningEffort }))}
-              className={`w-[34px] h-5 rounded-full border border-line p-0.5 relative transition-colors duration-[120ms] ${draft.enableReasoningEffort ? 'bg-[rgba(var(--accent-rgb),0.52)]' : 'bg-hover'}`}>
-              <span
-                className="block w-3.5 h-3.5 rounded-full bg-raised"
-                style={{ transform: draft.enableReasoningEffort ? 'translateX(14px)' : 'translateX(0)' }}
-              />
-            </button>
+            <Switch checked={draft.enableReasoningEffort} size="sm" onChange={() => setDraft((prev) => ({ ...prev, enableReasoningEffort: !prev.enableReasoningEffort }))} />
           </div>
         ) : null}
 
@@ -101,15 +94,7 @@ export default function QuickEditReasoningSection({
       return (
         <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-xl bg-overlay">
           <span className="text-sm text-primary font-semibold">{t('启用推理')}</span>
-          <button
-            type="button"
-            onClick={() => setDraft((prev) => ({ ...prev, enableReasoningEffort: !prev.enableReasoningEffort }))}
-            className={`w-[34px] h-5 rounded-full border border-line p-0.5 relative transition-colors duration-[120ms] ${draft.enableReasoningEffort ? 'bg-[rgba(var(--accent-rgb),0.52)]' : 'bg-hover'}`}>
-            <span
-              className="block w-3.5 h-3.5 rounded-full bg-raised"
-              style={{ transform: draft.enableReasoningEffort ? 'translateX(14px)' : 'translateX(0)' }}
-            />
-          </button>
+          <Switch checked={draft.enableReasoningEffort} size="sm" onChange={() => setDraft((prev) => ({ ...prev, enableReasoningEffort: !prev.enableReasoningEffort }))} />
         </div>
       );
     case 'budget':
@@ -158,15 +143,7 @@ export default function QuickEditReasoningSection({
                 <div className="text-sm text-primary font-semibold">{t('旧推理格式')}</div>
                 <div className="text-xs text-tertiary leading-[1.4]">{t('为 Messages 使用旧式 thinking budget 负载，而不是 adaptive effort。')}</div>
               </div>
-              <button
-                type="button"
-                onClick={() => setDraft((prev) => ({ ...prev, openAiLegacyReasoningFormatEnabled: !prev.openAiLegacyReasoningFormatEnabled }))}
-                className={`w-[34px] h-5 shrink-0 rounded-full border border-line p-0.5 relative transition-colors duration-[120ms] ${draft.openAiLegacyReasoningFormatEnabled ? 'bg-[rgba(var(--accent-rgb),0.52)]' : 'bg-hover'}`}>
-                <span
-                  className="block w-3.5 h-3.5 rounded-full bg-raised"
-                  style={{ transform: draft.openAiLegacyReasoningFormatEnabled ? 'translateX(14px)' : 'translateX(0)' }}
-                />
-              </button>
+              <Switch checked={draft.openAiLegacyReasoningFormatEnabled} size="sm" onChange={() => setDraft((prev) => ({ ...prev, openAiLegacyReasoningFormatEnabled: !prev.openAiLegacyReasoningFormatEnabled }))} />
             </div>
           ) : null}
         </div>

@@ -4,6 +4,7 @@ import { Sun, Monitor, Moon } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
 import { Button } from '../ui';
 import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch } from './SharedComponents';
+import { Switch } from '../ui';
 import { settings } from './settingDefinitions';
 import KeywordRulesPanel from './KeywordRulesPanel.tsx';
 import { type KeywordRule } from '../../utils/terminalKeywordHighlight.ts';
@@ -245,18 +246,7 @@ export default function AppearanceTab({
                 )}
               >
                 <span className="text-sm font-semibold">{$t('快捷入口')}</span>
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'w-9 h-5 rounded-full relative transition-colors duration-[80ms] border border-line',
-                    showThemeQuickEntry ? 'bg-accent' : 'bg-hover',
-                  )}
-                >
-                  <span
-                    className="absolute top-px w-4 h-4 rounded-full bg-white shadow-xs transition-[left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    style={{ left: showThemeQuickEntry ? 17 : 1 }}
-                  />
-                </span>
+                <Switch checked={showThemeQuickEntry} size="sm" onChange={onToggleThemeQuickEntry} />
               </button>
               <div className="flex bg-raised rounded-xl p-1 border border-line">
                 <Button size="sm" variant={themeMode === 'light' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'light'} onClick={() => onThemeChange('light')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Sun size={14} />{$t('浅色')}</Button>

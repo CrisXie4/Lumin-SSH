@@ -2,6 +2,7 @@ import { RotateCcw, Save, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from '../../i18n.ts'
 import Tiptop from '../Tiptop.tsx'
+import { Switch } from '../ui'
 import { handleInputDragSelectAll } from './inputDragSelect.ts'
 
 const defaultConfigText = '{\n  "mcpServers": {}\n}'
@@ -13,19 +14,7 @@ interface ToggleSwitchProps {
 }
 
 function ToggleSwitch({ checked, onChange, disabled = false }: ToggleSwitchProps) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      disabled={disabled}
-      aria-pressed={checked}
-      className={`w-[42px] h-6 rounded-full border border-line p-0.5 flex items-center transition-colors duration-100 shrink-0 ${checked ? 'justify-end' : 'justify-start'} ${
-        disabled ? 'bg-hover opacity-60 cursor-not-allowed' : (checked ? 'bg-success cursor-pointer' : 'bg-hover cursor-pointer')
-      }`}
-    >
-      <span className="w-[18px] h-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
-    </button>
-  )
+  return <Switch checked={checked} onChange={disabled ? undefined : onChange} disabled={disabled} />
 }
 
 function normalizeErrorMessage(error: unknown) {

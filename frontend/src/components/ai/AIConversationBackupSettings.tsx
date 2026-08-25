@@ -1,6 +1,7 @@
 import { ChevronLeft, History, MessagesSquare, RotateCcw, Trash2, type LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from '../../i18n.ts'
+import { Switch } from '../ui'
 import { deleteAIConversationBackup, getAIConversationBackupHistory, listAIConversationBackups, restoreAIConversationBackup } from './aiConversationBackupBridge.ts'
 import AIChatMarkdown from './chat/AIChatMarkdown.tsx'
 
@@ -104,16 +105,7 @@ interface ToggleSwitchControlProps {
 }
 
 function ToggleSwitchControl({ checked, onChange }: ToggleSwitchControlProps) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange?.()}
-      aria-pressed={checked}
-      className={`w-[42px] h-6 rounded-full border border-line p-0.5 flex items-center transition-colors duration-100 shrink-0 ${checked ? 'justify-end bg-success' : 'justify-start bg-hover'}`}
-    >
-      <span className="w-[18px] h-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
-    </button>
-  )
+  return <Switch checked={checked} onChange={onChange} />
 }
 
 export interface AIConversationBackupSettingsProps {

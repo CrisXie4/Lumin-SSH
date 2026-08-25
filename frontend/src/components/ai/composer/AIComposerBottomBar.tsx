@@ -3,6 +3,7 @@ import { Z } from '../../../constants/zIndex.ts';
 import { useTranslation } from '../../../i18n.ts';
 import { cn } from '../../../utils/cn.ts';
 import Tiptop from '../../Tiptop.tsx';
+import { Switch } from '../../ui';
 import AIAutoApproveDropdown from '../AIAutoApproveDropdown.tsx';
 import AICollaborationPromptDropdown from '../AICollaborationPromptDropdown.tsx';
 import AIProviderSelector from '../AIProviderSelector.tsx';
@@ -104,18 +105,7 @@ export function AIComposerBottomBar({
                 : 'border-line bg-transparent text-secondary cursor-pointer',
             )}>
             <span>{t('助理协同')}</span>
-            <span
-              className={cn(
-                'relative w-[26px] h-4 rounded-full transition-colors duration-100 shrink-0',
-                alwaysAllowAssistantCollaboration ? 'bg-accent' : 'bg-line',
-              )}>
-              <span
-                className={cn(
-                  'absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all duration-100',
-                  alwaysAllowAssistantCollaboration && 'left-3',
-                )}
-              />
-            </span>
+            <Switch checked={alwaysAllowAssistantCollaboration} size="sm" />
           </button>
         </Tiptop>
         <Tiptop text={t('开启后对话仅在本次软件运行期间保留')}>
@@ -134,9 +124,7 @@ export function AIComposerBottomBar({
                 : 'border-line bg-transparent text-secondary cursor-pointer',
             )}>
             <span>{t('临时会话')}</span>
-            <span className={cn('relative w-[26px] h-4 rounded-full transition-colors duration-100 shrink-0', temporarySessionEnabled ? 'bg-accent' : 'bg-line')}>
-              <span className={cn('absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all duration-100', temporarySessionEnabled && 'left-3')} />
-            </span>
+            <Switch checked={temporarySessionEnabled} size="sm" />
           </button>
         </Tiptop>
       </div>
