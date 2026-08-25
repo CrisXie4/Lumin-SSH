@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { House, Minus, Square, X, Bot, Settings, RefreshCw, Rocket, Sun, Moon, ChevronDown } from 'lucide-react';
 import Tiptop from './Tiptop.tsx';
+import { Button } from './ui';
 import { WindowMinimise } from '../../wailsjs/runtime/runtime.js';
 import { Z } from '../constants/zIndex.ts';
 import { cn } from '../utils/cn.ts';
@@ -115,13 +116,15 @@ export default function AppTopbar({
           {sessions.length > 0 && (
             <div className="tab-bar">
               <Tiptop text={t('返回主页')} placement="bottom">
-                <button
-                  className="btn btn-ghost btn-sm no-drag shrink-0"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="no-drag shrink-0 rounded-sm!"
                   onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); }}
                   aria-label={t('返回主页')}
                 >
                   <House size={14} />
-                </button>
+                </Button>
               </Tiptop>
               <div className="tab-scroll" ref={tabScrollRef}>
                 <div ref={tabListRef} className="tab-list">
@@ -221,7 +224,7 @@ export default function AppTopbar({
                   <Tiptop text={t('服务器列表')} placement="bottom">
                     <button
                       ref={sessionListBtnRef}
-                      className="btn btn-icon no-drag"
+                      className="no-drag w-[26px]! min-w-[26px]! h-[26px]! p-0 rounded-sm!"
                       onClick={toggleSessionList}
                       aria-label={t('服务器列表')}
                     >
@@ -231,13 +234,15 @@ export default function AppTopbar({
                 )}
                 {sessions.length >= 2 && (
                   <Tiptop text={t('关闭全部')} placement="bottom">
-                    <button
-                      className="btn btn-danger btn-sm no-drag"
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="no-drag text-danger!"
                       onClick={closeAllSessions}
                       aria-label={t('关闭全部')}
                     >
                       <X size={12} /> {t('关闭全部')}
-                    </button>
+                    </Button>
                   </Tiptop>
                 )}
               </div>
@@ -286,14 +291,16 @@ export default function AppTopbar({
             )}
             {activeSessionId !== null && isActiveSessionConnected && sessions.length > 0 && (
               <Tiptop text={showAIPanel ? t('收起 AI 助手面板') : t('打开 AI 助手面板')} placement="bottom">
-                <button
-                  className="btn btn-ghost btn-icon no-drag"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="no-drag w-7! h-7! rounded-xs!"
                   onClick={() => setAIPanelVisibility(!showAIPanel)}
                   aria-label={showAIPanel ? t('收起 AI 助手面板') : t('打开 AI 助手面板')}
                   style={{ color: showAIPanel ? 'var(--accent)' : undefined }}
                 >
                   <Bot size={16} />
-                </button>
+                </Button>
               </Tiptop>
             )}
             {startupUpdateInfo && (
@@ -315,8 +322,11 @@ export default function AppTopbar({
                       <span className="update-bubble-text">{startupUpdateInfo.version}</span>
                     </div>
                   </div>
-                  <button
-                    className={`btn btn-ghost btn-icon no-drag update-entry-button overflow-visible${isUpdateModalVisible ? ' active' : ''}`}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-pressed={isUpdateModalVisible}
+                    className="no-drag w-7! h-7! rounded-xs! overflow-visible"
                     onClick={() => {
                       setShowUpdateBubble(false);
                       setIsUpdateModalVisible(true);
@@ -328,29 +338,31 @@ export default function AppTopbar({
                   >
                     <Rocket size={16} />
                     <span className="update-entry-badge absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger shadow-[0_0_0_2px_var(--surface-base)]" />
-                  </button>
+                  </Button>
                 </div>
               </Tiptop>
             )}
             <Tiptop text={t('设置')} placement="bottom">
-              <button
-                className="btn btn-ghost btn-icon no-drag"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="no-drag w-7! h-7! rounded-xs!"
                 onClick={() => {
                   setSettingsInitialTab('general');
                   setShowSettings(true);
                 }}
                 aria-label={t('设置')}
-              ><Settings size={16} /></button>
+              ><Settings size={16} /></Button>
             </Tiptop>
             <div className="window-divider" />
             <Tiptop text={t('最小化')} placement="bottom">
-              <button className="btn btn-ghost btn-icon no-drag" onClick={WindowMinimise} aria-label={t('最小化')}><Minus size={14} /></button>
+              <Button variant="ghost" size="icon" className="no-drag w-7! h-7! rounded-xs!" onClick={WindowMinimise} aria-label={t('最小化')}><Minus size={14} /></Button>
             </Tiptop>
             <Tiptop text={t('最大化')} placement="bottom">
-              <button className="btn btn-ghost btn-icon no-drag" onClick={handleToggleMaximise} aria-label={t('最大化')}><Square size={14} /></button>
+              <Button variant="ghost" size="icon" className="no-drag w-7! h-7! rounded-xs!" onClick={handleToggleMaximise} aria-label={t('最大化')}><Square size={14} /></Button>
             </Tiptop>
             <Tiptop text={t('关闭')} placement="bottom">
-              <button className="btn btn-ghost btn-icon no-drag" aria-label={t('关闭')} onClick={handleCloseWindow}><X size={14} /></button>
+              <Button variant="ghost" size="icon" className="no-drag w-7! h-7! rounded-xs!" aria-label={t('关闭')} onClick={handleCloseWindow}><X size={14} /></Button>
             </Tiptop>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { Clock, X } from 'lucide-react';
 import type { config } from '../../../wailsjs/go/models.ts';
 import { useTranslation } from '../../i18n.ts';
-import { EmptyState } from '../ui';
+import { Button, EmptyState } from '../ui';
 import { maskSensitiveText, type DashboardSessionLike } from './dashboardTypes.ts';
 
 export interface DashboardRecentTableProps {
@@ -94,9 +94,10 @@ export function DashboardRecentTable({
                   {groupText}
                 </td>
                 <td>
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-sm recent-remove-btn"
+                    variant="danger"
+                    size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       onRemoveRecentConnection?.(server.id);
@@ -104,7 +105,7 @@ export function DashboardRecentTable({
                   >
                     <X size={12} />
                     {t('移除')}
-                  </button>
+                  </Button>
                 </td>
               </tr>
             );
