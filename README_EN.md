@@ -41,6 +41,8 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 - **Collapsible command blocks** — optionally show command-block borders on the left side of the terminal; click to collapse output for easier browsing of long logs
 - **Terminal links** — URLs can be clicked to open in the system browser
 - **Terminal timestamps** — optionally show a timestamp at the start of each line (xterm marker, synchronized with scrollback)
+- **Log keyword highlighting** — custom keyword color rules (ANSI 16 colors or any color value) to spot errors/warnings in long logs at a glance
+- **Alt history commands** — press Alt to bring up quick history command switching (can be disabled); the command input shortcut hints can be toggled with F1
 - **Sensitive information masking** — hide or show passwords, keys, and other sensitive information with one click
 - **Session-level shell hook (bash)** — when connecting to bash, injects a session-level `PROMPT_COMMAND` to collect command history and CWD (without writing to `.bashrc`); used by the history panel, AI, and completion. Also supports OSC 733 for CWD tracking in zsh/fish and other non-bash shells
 - **Port forwarding** — SSH local/remote port forwarding with create, edit, delete, and query operations; persisted per session and automatically reclaimed on disconnect
@@ -67,7 +69,7 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 - **Zero Agent** — deploys monitoring scripts such as `~/.lumin/probe.sh` on demand after connection; no resident service is required
 - **Real-time metrics** — per-core CPU, memory, network throughput, disk partitions, and more
 - **GPU / RAID** — additional information when supported by the environment
-- **Process management** — view, search, sort, and signal processes; termination confirmation can be enabled
+- **Process management** — view, search, sort, and signal processes; termination confirmation can be enabled; low-overhead top-N sampling (compatible with OpenWrt and other minimal environments, excluding the sampler's own overhead)
 - **Network details** — active connections and traffic-related views
 - **Refresh interval and panel position** — configurable; the probe can be placed on the left or right
 
@@ -76,7 +78,7 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 - **Clipboard** — right-click to copy / cut / paste remote paths within a session
 - **Built-in editor** — edit remote files with syntax highlighting (approximately 5 MB size limit)
 - **External editor** — use the system default or a specified local editor; automatically uploads changes after local saves (fsnotify + debounce, approximately 5 MB limit); remembers the editor path
-- **Compress / extract** — tar.gz and other formats; double-click extraction can be enabled or disabled in Settings
+- **Compress / extract** — tar.gz and other formats; double-click extraction can be enabled or disabled in Settings; symlink targets are validated during extraction to prevent path traversal
 - **Compressed transfer** — package multiple local files into a tar.gz archive, upload it, then extract it remotely
 - **Chunked upload** — configure chunk size, maximum concurrent files, per-file chunk concurrency, and the global in-flight limit
 - **Transfer queue** — upload/download queue panel; transfer-channel concurrency and reuse are optimized
@@ -109,13 +111,15 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 - **Built-in AI panel** — multi-turn conversations, streaming output, reasoning display, message editing/retry/copy
 - **Multiple provider protocols** — Compatible / Messages / Responses
 - **Slash commands and @ mentions** — custom `/` commands; reference terminal output or remote paths with `@`
-- **Tool approval** — configure automatic approval or per-item confirmation for read/write/execute operations; supports continue/terminate and terminal reassignment
+- **Tool approval** — read/write auto-approval can be toggled independently; execution approval uses three mutually exclusive modes: **Basic rules** (command allowlist) / **Read-only approval** / **Approve all**, with allowed and denied command prefixes (longest-prefix match wins on conflict); supports continue/terminate and terminal reassignment
 - **Change review** — remote editing tools provide diff / patch / restore workbenches
 - **Context compression and conversation backups** — token compression; automatic/manual backup and restore; editable task titles
 - **Conversation search** — full-text search across AI conversation history (SQLite FTS5 + CJK fallback)
 - **Web search** — Responses API `web_search` tool support; enable per provider or specify a dedicated web-search provider
 - **Conversation storage directory** — customize it in AI settings; existing conversations are migrated automatically when it changes
 - **Collaboration-related capabilities** — including conversation collaboration takeover (see the AI panel)
+- **Multi-session workspace** — AI supports multiple tabbed sessions within the terminal, with layout and sessions restored via the workspace
+- **Generation tuning** — thinking depth goes up to Max; model caching strategies and advanced sampling parameters are configurable
 - **Terminal isolation** — maintain a relatively independent AI runtime context for each terminal
 - **Built-in MCP service (Streamable HTTP)** — enabled by default and listening on `127.0.0.1:5779` (can be disabled in AI settings); **no HTTP token**; relies mainly on loopback + Origin friction (**not** a security boundary against malicious processes running as the same user)
 - **External CLI Integration** — External CLIs such as Claude Code and Codex can drive already-connected SSH sessions through the built-in MCP server. All operations leave an audit trail in the **MCP Activity panel** (showing client name, server, invoked tool, command and status). Write-operation approval gating is optional (disabled by default; see [Setup Guide (Chinese only)](./docs/MCP-CLI-GUIDE.md)).
@@ -154,7 +158,7 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 - **Dark / light** — optionally follow the system
 - **Theme packages** — multiple built-in terminal/UI themes (with light/dark variants); copy themes between light/dark modes; AI-assisted color adjustment is available (color-mode conversations are not saved by default)
 - **Font management** — import ttf/otf/ttc/woff/woff2, separately for the UI, terminal, and AI panel
-- **Terminal wallpaper** — customize the background and opacity
+- **Backgrounds** — global background and terminal background set independently; the global background can optionally cover the terminal; both support opacity adjustment
 - **Title-bar theme shortcut** — can be enabled or disabled
 - **Splits** — adjust the width/position of the probe, file manager, and AI panels; layout preferences persist
 - **Toast** — unobtrusive notifications
@@ -226,7 +230,7 @@ Lumin is a desktop SSH client for developers and operations teams. Built on **na
 2. Match an installer or portable package for the platform
 3. Download over HTTPS (optionally through a mirror) → **`.sha256` verification** → platform installation or hot replacement
 
-Version numbers are based on `wails.json`, `frontend/src/config.ts`, `frontend/package.json`, and `frontend/package-lock.json`; the current version is **1.2.6**.
+Version numbers are based on `wails.json`, `frontend/src/config.ts`, `frontend/package.json`, and `frontend/package-lock.json`; the current version is **1.3.1**.
 
 ---
 
@@ -238,7 +242,7 @@ Version numbers are based on `wails.json`, `frontend/src/config.ts`, `frontend/p
 | **Network** | Latency protocol and interval, probe refresh, proxy nodes |
 | **File manager** | Follow terminal directory, compressed transfer, queue, double-click extraction, layout/tabs, download conflicts, chunked-upload tuning, and more |
 | **Runtime environment** | uv installation and detection |
-| **Appearance** | Fonts, terminal themes/wallpaper, UI theme packages, probe position, command-block borders, and more |
+| **Appearance** | Fonts, terminal themes and backgrounds, UI theme packages, probe position, command-block borders, and more |
 | **Shortcuts** | Terminal shortcuts |
 | **Sync and cloud** | WebDAV / R2 / FTP / SFTP, recovery password, retention count, auto-sync |
 | **About** | Version, update check, repository, and community links |
