@@ -9,13 +9,13 @@ import (
 )
 
 type PromptServerTool struct {
-	ServerName        string
-	ServerSource      ServerSource
-	ToolName          string
-	Description       string
-	InputSchema       map[string]any
-	AlwaysAllow       bool
-	EnabledForPrompt  bool
+	ServerName       string
+	ServerSource     ServerSource
+	ToolName         string
+	Description      string
+	InputSchema      map[string]any
+	AlwaysAllow      bool
+	EnabledForPrompt bool
 }
 
 type CallToolResult struct {
@@ -42,12 +42,14 @@ type serverConnection struct {
 }
 
 type ClientHub struct {
-	configDir    string
-	globalStore  *ConfigStore
-	mu           sync.RWMutex
-	connections  map[string]*serverConnection
-	embedded     StoredServerSettings
-	global       StoredServerSettings
+	configDir   string
+	globalStore *ConfigStore
+	mu          sync.RWMutex
+	// configMu 串行化配置的读-改-写事务，防止并发更新互相覆盖（CodeRabbit 审查意见）。
+	configMu    sync.Mutex
+	connections map[string]*serverConnection
+	embedded    StoredServerSettings
+	global      StoredServerSettings
 }
 
 var defaultHub struct {
@@ -101,7 +103,7 @@ func (h *ClientHub) Reload() error {
 	for name, config := range embedded.McpServers {
 		key := serverConnectionKey(ServerSourceEmbedded, name)
 		desired[key] = struct{}{}
-		h.ensureConnection(name, config, ServerSourceEmbedded, false)
+		h.ensureConnection(name, withPromptDisabledTools(config, global.PromptDisabledTools[key]), ServerSourceEmbedded, false)
 	}
 	for name, config := range global.McpServers {
 		key := serverConnectionKey(ServerSourceGlobal, name)
@@ -413,6 +415,8 @@ func (h *ClientHub) SaveGlobalServer(name string, config ServerConfig) error {
 	if h == nil {
 		return nil
 	}
+	h.configMu.Lock()
+	defer h.configMu.Unlock()
 	normalizedName := strings.TrimSpace(name)
 	if normalizedName == "" {
 		return fmt.Errorf("server name is required")
@@ -434,49 +438,223 @@ func (h *ClientHub) DeleteServer(name string, source ServerSource) error {
 	if source != ServerSourceGlobal {
 		return nil
 	}
+	h.configMu.Lock()
+	defer h.configMu.Unlock()
 	if err := h.globalStore.Delete(strings.TrimSpace(name)); err != nil {
 		return err
 	}
 	return h.Reload()
 }
 
-func (h *ClientHub) UpdateServerDisabled(name string, source ServerSource, disabled bool) error {
+// UpdateServerDisabled 是真实启停：disabled 变化涉及 MCP 进程生命周期，必须走 Reload 重建连接。
+// 返回操作后该服务器最新 runtime，供前端做差异更新（enable 后通常是 connecting）。
+func (h *ClientHub) UpdateServerDisabled(name string, source ServerSource, disabled bool) (ServerRuntime, error) {
 	connection := h.findConnection(name, source)
 	if connection == nil {
-		return fmt.Errorf("server not found")
+		return ServerRuntime{}, fmt.Errorf("server not found")
 	}
 	if source != ServerSourceGlobal {
-		return nil
+		return connection.runtime, nil
 	}
 	nextConfig := connection.config
 	nextConfig.Disabled = disabled
-	return h.SaveGlobalServer(name, nextConfig)
+	if err := h.SaveGlobalServer(name, nextConfig); err != nil {
+		return ServerRuntime{}, err
+	}
+	return h.snapshotServerRuntime(name, source), nil
 }
 
-func (h *ClientHub) UpdateServerDisabledForPrompts(name string, source ServerSource, disabledForPrompts bool) error {
+// UpdateServerDisabledForPrompts 只影响 ListPromptTools 过滤，不需要重启进程。
+// 就地持久化并更新内存 runtime，返回最新 runtime 供前端差异更新。
+func (h *ClientHub) UpdateServerDisabledForPrompts(name string, source ServerSource, disabledForPrompts bool) (ServerRuntime, error) {
 	connection := h.findConnection(name, source)
 	if connection == nil {
-		return fmt.Errorf("server not found")
+		return ServerRuntime{}, fmt.Errorf("server not found")
 	}
 	if source != ServerSourceGlobal {
-		return nil
+		return connection.runtime, nil
 	}
 	nextConfig := connection.config
 	nextConfig.DisabledForPrompts = disabledForPrompts
-	return h.SaveGlobalServer(name, nextConfig)
+	return h.saveGlobalServerConfigWithoutReconnect(name, nextConfig)
 }
 
-func (h *ClientHub) UpdateServerTimeout(name string, source ServerSource, timeout int) error {
+// UpdateServerToolDisabledForPrompts 仅切换单个工具的提示词可见性。
+// 提示词可见性只影响 ListPromptTools 的过滤，不需要重启 MCP 进程，
+// 因此这里持久化配置后只就地更新内存连接态，绝不关闭 transport 或触发 Reload，
+// 避免与在途/紧邻的工具调用竞态而产生 "stdio transport closed"。
+func (h *ClientHub) UpdateServerToolDisabledForPrompts(name string, source ServerSource, toolName string, disabledForPrompts bool) (ServerRuntime, error) {
+	if h == nil {
+		return ServerRuntime{}, nil
+	}
+	h.configMu.Lock()
+	defer h.configMu.Unlock()
 	connection := h.findConnection(name, source)
 	if connection == nil {
-		return fmt.Errorf("server not found")
+		return ServerRuntime{}, fmt.Errorf("server not found")
+	}
+	trimmedName := strings.TrimSpace(name)
+	trimmedToolName := strings.TrimSpace(toolName)
+	if trimmedToolName == "" {
+		return ServerRuntime{}, fmt.Errorf("tool name is required")
+	}
+	key := serverConnectionKey(source, name)
+	settings, err := h.globalStore.Load()
+	if err != nil {
+		return ServerRuntime{}, err
+	}
+	var effectiveDisabledTools []string
+	switch source {
+	case ServerSourceGlobal:
+		serverConfig, exists := settings.McpServers[trimmedName]
+		if !exists {
+			return ServerRuntime{}, fmt.Errorf("server not found")
+		}
+		serverConfig.DisabledTools = updatePromptDisabledTools(serverConfig.DisabledTools, trimmedToolName, disabledForPrompts)
+		settings.McpServers[trimmedName] = serverConfig
+		effectiveDisabledTools = serverConfig.DisabledTools
+	case ServerSourceEmbedded:
+		if settings.PromptDisabledTools == nil {
+			settings.PromptDisabledTools = map[string][]string{}
+		}
+		nextDisabledTools := updatePromptDisabledTools(settings.PromptDisabledTools[key], trimmedToolName, disabledForPrompts)
+		if len(nextDisabledTools) == 0 {
+			delete(settings.PromptDisabledTools, key)
+		} else {
+			settings.PromptDisabledTools[key] = nextDisabledTools
+		}
+		embeddedConfig := h.embedded.McpServers[trimmedName]
+		effectiveDisabledTools = normalizeUniqueStrings(append(append([]string{}, embeddedConfig.DisabledTools...), nextDisabledTools...))
+	default:
+		return connection.runtime, nil
+	}
+	if err := h.globalStore.Save(settings); err != nil {
+		return ServerRuntime{}, err
+	}
+	return h.applyRuntimePromptDisabledTools(key, effectiveDisabledTools, NormalizeStoredServerSettings(settings)), nil
+}
+
+func (h *ClientHub) applyRuntimePromptDisabledTools(key string, disabledTools []string, global StoredServerSettings) ServerRuntime {
+	if h == nil {
+		return ServerRuntime{}
+	}
+	disabledSet := make(map[string]struct{}, len(disabledTools))
+	for _, name := range disabledTools {
+		disabledSet[strings.TrimSpace(name)] = struct{}{}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.global = global
+	connection := h.connections[key]
+	if connection == nil {
+		return ServerRuntime{}
+	}
+	connection.config.DisabledTools = disabledTools
+	for index := range connection.runtime.Tools {
+		_, disabled := disabledSet[strings.TrimSpace(connection.runtime.Tools[index].Name)]
+		connection.runtime.Tools[index].EnabledForPrompt = !disabled
+	}
+	connection.runtime.Config = MarshalServerConfig(connection.config)
+	return connection.runtime
+}
+
+func withPromptDisabledTools(config ServerConfig, disabledTools []string) ServerConfig {
+	nextConfig := config
+	nextConfig.DisabledTools = normalizeUniqueStrings(append(append([]string{}, config.DisabledTools...), disabledTools...))
+	return nextConfig
+}
+
+func updatePromptDisabledTools(disabledTools []string, toolName string, disabled bool) []string {
+	nextDisabledTools := make([]string, 0, len(disabledTools))
+	found := false
+	for _, disabledToolName := range disabledTools {
+		if strings.TrimSpace(disabledToolName) == toolName {
+			found = true
+			if disabled {
+				nextDisabledTools = append(nextDisabledTools, toolName)
+			}
+			continue
+		}
+		nextDisabledTools = append(nextDisabledTools, disabledToolName)
+	}
+	if disabled && !found {
+		nextDisabledTools = append(nextDisabledTools, toolName)
+	}
+	return normalizeUniqueStrings(nextDisabledTools)
+}
+
+func (h *ClientHub) snapshotServerRuntime(name string, source ServerSource) ServerRuntime {
+	if h == nil {
+		return ServerRuntime{}
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	connection := h.connections[serverConnectionKey(source, name)]
+	if connection == nil {
+		return ServerRuntime{}
+	}
+	return connection.runtime
+}
+
+// saveGlobalServerConfigWithoutReconnect 持久化 global 服务器 config 并就地更新内存 runtime，
+// 不关闭 transport、不触发 Reload。仅用于不影响进程生命周期的字段（DisabledForPrompts、Timeout）。
+// 直接改写磁盘 settings.McpServers 而不走 Upsert，避免 ensureServerOrderContains 把该服务器重排到末尾。
+func (h *ClientHub) saveGlobalServerConfigWithoutReconnect(name string, config ServerConfig) (ServerRuntime, error) {
+	h.configMu.Lock()
+	defer h.configMu.Unlock()
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return ServerRuntime{}, fmt.Errorf("server name is required")
+	}
+	normalizedConfig, err := NormalizeServerConfig(config)
+	if err != nil {
+		return ServerRuntime{}, err
+	}
+	settings, err := h.globalStore.Load()
+	if err != nil {
+		return ServerRuntime{}, err
+	}
+	if settings.McpServers == nil {
+		settings.McpServers = map[string]ServerConfig{}
+	}
+	if _, exists := settings.McpServers[trimmedName]; !exists {
+		return ServerRuntime{}, fmt.Errorf("server not found")
+	}
+	settings.McpServers[trimmedName] = normalizedConfig
+	if err := h.globalStore.Save(settings); err != nil {
+		return ServerRuntime{}, err
+	}
+	global, err := h.globalStore.Load()
+	if err != nil {
+		return ServerRuntime{}, err
+	}
+	key := serverConnectionKey(ServerSourceGlobal, trimmedName)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.global = global
+	connection := h.connections[key]
+	if connection == nil {
+		return ServerRuntime{}, nil
+	}
+	connection.config = normalizedConfig
+	connection.runtime.DisabledForPrompts = normalizedConfig.DisabledForPrompts
+	connection.runtime.Timeout = normalizedConfig.Timeout
+	connection.runtime.Config = MarshalServerConfig(normalizedConfig)
+	return connection.runtime, nil
+}
+
+// UpdateServerTimeout 只影响后续请求超时计算，不需要重启进程，就地更新即可。
+func (h *ClientHub) UpdateServerTimeout(name string, source ServerSource, timeout int) (ServerRuntime, error) {
+	connection := h.findConnection(name, source)
+	if connection == nil {
+		return ServerRuntime{}, fmt.Errorf("server not found")
 	}
 	if source != ServerSourceGlobal {
-		return nil
+		return connection.runtime, nil
 	}
 	nextConfig := connection.config
 	nextConfig.Timeout = timeout
-	return h.SaveGlobalServer(name, nextConfig)
+	return h.saveGlobalServerConfigWithoutReconnect(name, nextConfig)
 }
 
 func (h *ClientHub) RestartServer(name string, source ServerSource) error {
@@ -607,4 +785,3 @@ func (h *ClientHub) GlobalStore() *ConfigStore {
 	}
 	return h.globalStore
 }
-
