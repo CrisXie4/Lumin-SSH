@@ -118,28 +118,6 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     });
   }, []);
 
-  const _removeChangeReviewById = useCallback((reviewId: string) => {
-    const normalizedId = typeof reviewId === 'string' ? reviewId.trim() : '';
-    if (!normalizedId) {
-      return;
-    }
-    setChangeReviewQueues((prev) => {
-      let changed = false;
-      const next: Record<string, AIChangeReview[]> = {};
-      Object.entries(prev).forEach(([panelKey, queue]) => {
-        const currentQueue = Array.isArray(queue) ? queue : [];
-        const filteredQueue = currentQueue.filter((item) => item.reviewId !== normalizedId);
-        if (filteredQueue.length !== currentQueue.length) {
-          changed = true;
-        }
-        if (filteredQueue.length > 0) {
-          next[panelKey] = filteredQueue;
-        }
-      });
-      return changed ? next : prev;
-    });
-  }, []);
-
   const removeChangeReviewsByRequestId = useCallback((requestId: string) => {
     const normalizedRequestId = typeof requestId === 'string' ? requestId.trim() : '';
     if (!normalizedRequestId) {

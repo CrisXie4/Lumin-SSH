@@ -9,22 +9,6 @@ const AI_CONVERSATION_CHANGED_EVENT = 'lumin:ai-conversations-changed'
 
 type AIExecuteApprovalMode = 'basic' | 'read_only' | 'all'
 
-const _DEFAULT_TASK_SETTINGS = {
-  currentProviderId: '',
-  autoApprovalEnabled: false,
-  alwaysAllowReadOnly: false,
-  alwaysAllowReadOnlyOutsideWorkspace: false,
-  alwaysAllowWrite: false,
-  alwaysAllowWriteOutsideWorkspace: false,
-  alwaysAllowWriteProtected: false,
-  alwaysAllowExecute: false,
-  executeApprovalMode: 'basic' as AIExecuteApprovalMode,
-  alwaysAllowMcp: false,
-  alwaysAllowModeSwitch: false,
-  alwaysAllowSubtasks: false,
-  alwaysAllowFollowupQuestions: false,
-}
-
 export type AIConversationSummary = {
   id: string
   title: string
