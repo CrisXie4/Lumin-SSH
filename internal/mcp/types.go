@@ -65,19 +65,19 @@ type ServerResourceTemplate struct {
 }
 
 type ServerRuntime struct {
-	Name              string                   `json:"name"`
-	Config            string                   `json:"config"`
-	Status            string                   `json:"status"`
-	Error             string                   `json:"error,omitempty"`
-	ErrorHistory      []ServerErrorEntry       `json:"errorHistory,omitempty"`
-	Tools             []ServerTool             `json:"tools,omitempty"`
-	Resources         []ServerResource         `json:"resources,omitempty"`
-	ResourceTemplates []ServerResourceTemplate `json:"resourceTemplates,omitempty"`
-	Disabled          bool                     `json:"disabled,omitempty"`
-	DisabledForPrompts bool                    `json:"disabledForPrompts,omitempty"`
-	Timeout           int                      `json:"timeout,omitempty"`
-	Source            ServerSource             `json:"source,omitempty"`
-	Instructions      string                   `json:"instructions,omitempty"`
+	Name               string                   `json:"name"`
+	Config             string                   `json:"config"`
+	Status             string                   `json:"status"`
+	Error              string                   `json:"error,omitempty"`
+	ErrorHistory       []ServerErrorEntry       `json:"errorHistory,omitempty"`
+	Tools              []ServerTool             `json:"tools,omitempty"`
+	Resources          []ServerResource         `json:"resources,omitempty"`
+	ResourceTemplates  []ServerResourceTemplate `json:"resourceTemplates,omitempty"`
+	Disabled           bool                     `json:"disabled,omitempty"`
+	DisabledForPrompts bool                     `json:"disabledForPrompts,omitempty"`
+	Timeout            int                      `json:"timeout,omitempty"`
+	Source             ServerSource             `json:"source,omitempty"`
+	Instructions       string                   `json:"instructions,omitempty"`
 }
 
 func NormalizeServerConfig(config ServerConfig) (ServerConfig, error) {
@@ -214,7 +214,7 @@ func formatServerConfigError(serverName string, message string) error {
 	if trimmedName == "" {
 		return fmt.Errorf("%s", trimmedMessage)
 	}
-	return fmt.Errorf("Invalid configuration for server %q: %s", trimmedName, trimmedMessage)
+	return fmt.Errorf("invalid configuration for server %q: %s", trimmedName, trimmedMessage)
 }
 
 func normalizeTrimmedStrings(values []string) []string {

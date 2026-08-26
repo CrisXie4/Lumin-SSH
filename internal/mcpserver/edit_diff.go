@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	applyDiffBufferLines   = 40
+	applyDiffBufferLines    = 40
 	applyDiffFuzzyThreshold = 1.0
 )
 
@@ -44,16 +44,16 @@ type ApplyDiffResolvedBlock struct {
 }
 
 type ApplyDiffPreview struct {
-	Path                  string                 `json:"path,omitempty"`
-	CanApply              bool                   `json:"can_apply"`
+	Path                  string                   `json:"path,omitempty"`
+	CanApply              bool                     `json:"can_apply"`
 	Blocks                []ApplyDiffResolvedBlock `json:"blocks"`
-	BlockResults          []ApplyDiffBlockResult `json:"block_results"`
-	Failure               *EditMatchFailure      `json:"failure,omitempty"`
-	FailureBlockIndex     int                    `json:"failure_block_index,omitempty"`
-	FailureBlockStartLine int                    `json:"failure_block_start_line,omitempty"`
-	OriginalContent       string                 `json:"-"`
-	PreviewContent        string                 `json:"-"`
-	LineEnding            string                 `json:"-"`
+	BlockResults          []ApplyDiffBlockResult   `json:"block_results"`
+	Failure               *EditMatchFailure        `json:"failure,omitempty"`
+	FailureBlockIndex     int                      `json:"failure_block_index,omitempty"`
+	FailureBlockStartLine int                      `json:"failure_block_start_line,omitempty"`
+	OriginalContent       string                   `json:"-"`
+	PreviewContent        string                   `json:"-"`
+	LineEnding            string                   `json:"-"`
 }
 
 type ApplyDiffResult struct {
@@ -137,7 +137,7 @@ func validateApplyDiffMarkerSequencing(diffContent string) error {
 	likelyBadStructure := searchCount != replaceCount || separatorCount < searchCount
 	reportMergeConflictError := func(found string) error {
 		return fmt.Errorf(
-			"ERROR: Special marker '%s' found in your diff content at line %d:\n\nWhen removing merge conflict markers like '%s' from files, you MUST escape them\nin your SEARCH section by prepending a backslash (\\) at the beginning of the line:\n\nCORRECT FORMAT:\n\n<<<<<<< SEARCH\ncontent before\n\\%s    <-- Note the backslash here in this example\ncontent after\n=======\nreplacement content\n>>>>>>> REPLACE\n\nWithout escaping, the system confuses your content with diff syntax markers.\nYou may use multiple diff blocks in a single diff request, but ANY of ONLY the following separators that occur within SEARCH or REPLACE content must be escaped, as follows:\n\\%s\n\\%s\n\\%s\n",
+			"ERROR: Special marker '%s' found in your diff content at line %d:\n\nWhen removing merge conflict markers like '%s' from files, you MUST escape them\nin your SEARCH section by prepending a backslash (\\) at the beginning of the line:\n\nCORRECT FORMAT:\n\n<<<<<<< SEARCH\ncontent before\n\\%s    <-- Note the backslash here in this example\ncontent after\n=======\nreplacement content\n>>>>>>> REPLACE\n\nWithout escaping, the system confuses your content with diff syntax markers.\nYou may use multiple diff blocks in a single diff request, but ANY of ONLY the following separators that occur within SEARCH or REPLACE content must be escaped, as follows:\n\\%s\n\\%s\n\\%s",
 			found,
 			state.line,
 			found,
@@ -149,7 +149,7 @@ func validateApplyDiffMarkerSequencing(diffContent string) error {
 	}
 	reportInvalidDiffError := func(found string, expected string) error {
 		return fmt.Errorf(
-			"ERROR: Diff block is malformed: marker '%s' found in your diff content at line %d. Expected: %s\n\nCORRECT FORMAT:\n\n<<<<<<< SEARCH\n:start_line: (required) The line number of original content where the search block starts.\n-------\n[exact content to find including whitespace]\n=======\n[new content to replace with]\n>>>>>>> REPLACE\n",
+			"ERROR: Diff block is malformed: marker '%s' found in your diff content at line %d. Expected: %s\n\nCORRECT FORMAT:\n\n<<<<<<< SEARCH\n:start_line: (required) The line number of original content where the search block starts.\n-------\n[exact content to find including whitespace]\n=======\n[new content to replace with]\n>>>>>>> REPLACE",
 			found,
 			state.line,
 			expected,
@@ -157,7 +157,7 @@ func validateApplyDiffMarkerSequencing(diffContent string) error {
 	}
 	reportLineMarkerInReplaceError := func(marker string) error {
 		return fmt.Errorf(
-			"ERROR: Invalid line marker '%s' found in REPLACE section at line %d\n\nLine markers (:start_line: and :end_line:) are only allowed in SEARCH sections.\n\nCORRECT FORMAT:\n<<<<<<< SEARCH\n:start_line:5\ncontent to find\n=======\nreplacement content\n>>>>>>> REPLACE\n\nINCORRECT FORMAT:\n<<<<<<< SEARCH\ncontent to find\n=======\n:start_line:5    <-- Invalid location\nreplacement content\n>>>>>>> REPLACE\n",
+			"ERROR: Invalid line marker '%s' found in REPLACE section at line %d\n\nLine markers (:start_line: and :end_line:) are only allowed in SEARCH sections.\n\nCORRECT FORMAT:\n<<<<<<< SEARCH\n:start_line:5\ncontent to find\n=======\nreplacement content\n>>>>>>> REPLACE\n\nINCORRECT FORMAT:\n<<<<<<< SEARCH\ncontent to find\n=======\n:start_line:5    <-- Invalid location\nreplacement content\n>>>>>>> REPLACE",
 			marker,
 			state.line,
 		)
@@ -232,9 +232,9 @@ func validateApplyDiffMarkerSequencing(diffContent string) error {
 		return nil
 	}
 	if state.current == stateAfterSearch {
-		return fmt.Errorf("ERROR: Unexpected end of sequence: Expected '=======' was not found.")
+		return fmt.Errorf("ERROR: Unexpected end of sequence: Expected '=======' was not found")
 	}
-	return fmt.Errorf("ERROR: Unexpected end of sequence: Expected '>>>>>>> REPLACE' was not found.")
+	return fmt.Errorf("ERROR: Unexpected end of sequence: Expected '>>>>>>> REPLACE' was not found")
 }
 
 func splitApplyDiffFileLines(content string) []string {
@@ -475,7 +475,7 @@ func parseApplyDiffBlocks(diff string) ([]ApplyDiffBlock, error) {
 	}
 	matches := applyDiffBlockPattern.FindAllStringSubmatch(normalized, -1)
 	if len(matches) == 0 {
-		return nil, fmt.Errorf("Invalid diff format - missing required sections\n\nDebug Info:\n- Expected Format: <<<<<<< SEARCH\\n:start_line: start line\\n-------\\n[search content]\\n=======\\n[replace content]\\n>>>>>>> REPLACE\n- Tip: Make sure to include start_line/SEARCH/=======/REPLACE sections with correct markers on new lines")
+		return nil, fmt.Errorf("invalid diff format - missing required sections\n\nDebug Info:\n- Expected Format: <<<<<<< SEARCH\\n:start_line: start line\\n-------\\n[search content]\\n=======\\n[replace content]\\n>>>>>>> REPLACE\n- Tip: Make sure to include start_line/SEARCH/=======/REPLACE sections with correct markers on new lines")
 	}
 	blocks := make([]ApplyDiffBlock, 0, len(matches))
 	for index, match := range matches {

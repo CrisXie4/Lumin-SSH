@@ -177,9 +177,7 @@ func normalizeAILocalMentionPath(filePath string) string {
 func normalizeAILongTextWrapperLocalPath(value string) string {
 	normalized := strings.TrimSpace(value)
 	normalized = strings.Trim(normalized, `"'`)
-	if strings.HasPrefix(normalized, "@") {
-		normalized = normalized[1:]
-	}
+	normalized = strings.TrimPrefix(normalized, "@")
 	normalized = strings.ReplaceAll(normalized, "\\ ", " ")
 	if len(normalized) >= 4 && normalized[0] == '/' && ((normalized[1] >= 'A' && normalized[1] <= 'Z') || (normalized[1] >= 'a' && normalized[1] <= 'z')) && normalized[2] == ':' && normalized[3] == '/' {
 		normalized = normalized[1:]

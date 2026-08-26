@@ -51,10 +51,10 @@ func ParseStoredServerSettingsText(raw string) (StoredServerSettings, error) {
 
 	rawServers, hasServers := root["mcpServers"]
 	if !hasServers {
-		return StoredServerSettings{}, fmt.Errorf("Missing required top-level field %q.", "mcpServers")
+		return StoredServerSettings{}, fmt.Errorf("missing required top-level field %q", "mcpServers")
 	}
 	if strings.TrimSpace(string(rawServers)) == "" || strings.TrimSpace(string(rawServers)) == "null" {
-		return StoredServerSettings{}, fmt.Errorf("Field %q must be an object.", "mcpServers")
+		return StoredServerSettings{}, fmt.Errorf("field %q must be an object", "mcpServers")
 	}
 
 	envelope := storedServerSettingsEnvelope{}
@@ -62,7 +62,7 @@ func ParseStoredServerSettingsText(raw string) (StoredServerSettings, error) {
 		return StoredServerSettings{}, err
 	}
 	if envelope.McpServers == nil {
-		return StoredServerSettings{}, fmt.Errorf("Field %q must be an object.", "mcpServers")
+		return StoredServerSettings{}, fmt.Errorf("field %q must be an object", "mcpServers")
 	}
 
 	normalized := StoredServerSettings{
@@ -73,11 +73,11 @@ func ParseStoredServerSettingsText(raw string) (StoredServerSettings, error) {
 	for name, rawConfig := range envelope.McpServers {
 		trimmedName := strings.TrimSpace(name)
 		if trimmedName == "" {
-			return StoredServerSettings{}, fmt.Errorf("Server name cannot be empty.")
+			return StoredServerSettings{}, fmt.Errorf("server name cannot be empty")
 		}
 		configMap := map[string]any{}
 		if err := json.Unmarshal(rawConfig, &configMap); err != nil {
-			return StoredServerSettings{}, fmt.Errorf("Invalid configuration for server %q: %s", trimmedName, err.Error())
+			return StoredServerSettings{}, fmt.Errorf("invalid configuration for server %q: %s", trimmedName, err.Error())
 		}
 		validatedConfig, err := ValidateServerConfigMap(configMap, trimmedName)
 		if err != nil {

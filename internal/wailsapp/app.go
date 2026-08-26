@@ -290,11 +290,7 @@ func (a *App) IsPortableVersion() bool {
 		return false
 	}
 	// 安装在 Program Files 下的一定是安装版
-	exeDir := strings.ToLower(filepath.Dir(exePath))
-	if strings.Contains(exeDir, "program files") {
-		return false
-	}
-	return true
+	return !strings.Contains(strings.ToLower(filepath.Dir(exePath)), "program files")
 }
 
 // GetArch returns the current executable's CPU architecture (amd64, arm64, etc.)
