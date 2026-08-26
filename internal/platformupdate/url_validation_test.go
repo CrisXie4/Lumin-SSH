@@ -8,7 +8,13 @@ func TestIsAllowedDownloadURL(t *testing.T) {
 		want bool
 	}{
 		{"https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v1.2.0.1/Lumin-V1.2.0.1-portable.exe", true},
-		{"https://ghproxy.net/https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v1.2.0.1/x.exe", true},
+		{"https://objects.githubusercontent.com/wmwlwmwl/Lumin-SSH/releases/download/v1/x.exe", false},
+		{"https://github.com:443/wmwlwmwl/Lumin-SSH/releases/download/v1/x.exe", true},
+		{"https://ghproxy.net/https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v1.2.0.1/x.exe", false},
+		{"https://evil.com/github.com/wmwlwmwl/Lumin-SSH/releases/download/v1/x.exe", false},
+		{"https://github.com.evil.com/wmwlwmwl/Lumin-SSH/releases/download/v1/x.exe", false},
+		{"https://evil.com/?x=https://github.com/a/b/releases/download/v1/x.exe", false},
+		{"javascript:alert(1)", false},
 		{"https://github.com/wmwlwmwl/Lumin-SSH/releases/tag/v1.2.0.1", false},
 		{"https://github.com/wmwlwmwl/Lumin-SSH/releases/latest", false},
 		{"https://github.com/wmwlwmwl/Lumin-SSH/releases/download/v1/x.exe.sha256", false},

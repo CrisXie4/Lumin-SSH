@@ -43,7 +43,9 @@ function normalizeAIConversationBackupHistoryEntry(entry: unknown): AIConversati
     ts: typeof e.ts === 'number' ? e.ts : 0,
     messageId: typeof e.messageId === 'string' ? e.messageId : '',
     uiMessageIds: Array.isArray(e.uiMessageIds) ? e.uiMessageIds.filter((item) => typeof item === 'string') : [],
-    images: Array.isArray(e.images) ? e.images.filter((item) => typeof item === 'string') : [],
+    images: Array.isArray(e.images)
+      ? e.images.filter((item): item is string => typeof item === 'string' && item.startsWith('data:image/'))
+      : [],
   }
 }
 
