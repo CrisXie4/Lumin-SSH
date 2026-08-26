@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -279,7 +280,7 @@ func (a *Service) CountAIConversationContextTokens(sessionID string, snapshotJSO
 }
 
 func buildAISystemPromptRawTokens(conversationID string, sessionID string, profile AIProviderProfile) (int, error) {
-	return estimateAITextTokensForProfile(BuildChatSystemPromptWithProfile(nil, conversationID, sessionID, false, profile), profile), nil
+	return estimateAITextTokensForProfile(BuildChatSystemPromptWithProfile(context.TODO(), conversationID, sessionID, false, profile), profile), nil
 }
 
 func buildAIConversationAPIMessageTokenBlocks(message AIConversationAPIMessage, profile AIProviderProfile) []TokenCountBlock {

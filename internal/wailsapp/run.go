@@ -26,10 +26,6 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// embeddedModuleFS 由 main 包的 //go:embed all:module 注入，供内置 Provider 释放用。
-// 保留为包级变量，使 app.go 中既有的 embeddedModuleFS.ReadFile / ReleaseEmbeddedDirectory 调用零改动。
-var embeddedModuleFS embed.FS
-
 // forceShowWindow 唤醒隐藏到托盘/久置最小化的窗口。
 // 不先 Hide 再 Show：久置后 Show 失败会把窗口永久卡在隐藏态。
 // 先走平台原生激活抢前台（Windows 久置后 SetForeground 常被拒），再异步走 Wails 恢复。
@@ -238,15 +234,12 @@ func initLogFile() func() {
 }
 
 // Run 启动 Wails 应用。embed 资源由 main 包注入（//go:embed 路径必须相对根目录的 main.go）。
-func Run(assets embed.FS, moduleFS embed.FS, icon []byte) {
+func Run(assets embed.FS, icon []byte) {
 	// 日志落盘：先于一切业务日志，保证 [channel-diag] 等诊断可追溯
 	closeLogs := initLogFile()
 
 	// 单实例检查（平台特定实现）
 	platformruntime.EnsureSingleInstance()
-
-	// 内置 Provider 释放所需的 module embed 注入包级变量
-	embeddedModuleFS = moduleFS
 
 	app := NewApp()
 	app.icon = icon

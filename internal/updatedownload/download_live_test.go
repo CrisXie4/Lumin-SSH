@@ -1,7 +1,6 @@
 package updatedownload
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,7 +106,7 @@ func TestUpdateDownloadSpeedLive(t *testing.T) {
 			t.Logf("%-36s %s (%.1fs)", item.name, item.err, item.sec)
 			continue
 		}
-		t.Log(fmt.Sprintf("%-36s %6.2f MB/s  %.1fs", item.name, item.mbps, item.sec))
+		t.Logf("%-36s %6.2f MB/s  %.1fs", item.name, item.mbps, item.sec)
 		if item.mbps > best {
 			best = item.mbps
 			bestName = item.name

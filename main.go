@@ -10,9 +10,6 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed all:module
-var embeddedModuleFS embed.FS
-
 //go:embed build/appicon.png
 var appIcon []byte
 
@@ -27,5 +24,5 @@ var icon = func() []byte {
 }()
 
 func main() {
-	wailsapp.Run(assets, embeddedModuleFS, icon)
+	wailsapp.Run(assets, icon)
 }

@@ -23,6 +23,11 @@ type localArchiveStats struct {
 	DirCount   int64
 }
 
+// compressedUploadCtxKey 用自有类型做 context key，避免与 string 类型撞键。
+type compressedUploadCtxKey string
+
+const compressedUploadSessionIDKey compressedUploadCtxKey = "compressedUploadSessionId"
+
 type compressedUploadArchiveEntry struct {
 	ArchivePath string
 	LocalPath   string
@@ -923,7 +928,7 @@ func (s *Service) autoRepairCompressedUploadTargets(sessionId string, remoteDir 
 		s.bestEffortRepairRemoteFile(sessionId, sftpClient, remotePath)
 	}
 
-	ctx := context.WithValue(context.Background(), "compressedUploadSessionId", sessionId)
+	ctx := context.WithValue(context.Background(), compressedUploadSessionIDKey, sessionId)
 	if err := s.preflightCompressedUploadTargets(ctx, sessionId, remoteDir, entries, nil); err != nil {
 		repairState.restore(s)
 		return nil, err
@@ -1095,7 +1100,7 @@ func (s *Service) uploadLocalFileWithContext(ctx context.Context, sshClient *ssh
 	tempPath := destPath + ".luminpart." + newUploadObjectID("upload_file")
 
 	pool := newSFTPUploadPool(sshClient, maxConcurrent, s.Tuning())
-	if sessionId, ok := ctx.Value("compressedUploadSessionId").(string); ok && strings.TrimSpace(sessionId) != "" {
+	if sessionId, ok := ctx.Value(compressedUploadSessionIDKey).(string); ok && strings.TrimSpace(sessionId) != "" {
 		pool.onChannelDelta = func(delta int) {
 			s.backend.UpdateUploadChannels(sessionId, delta)
 		}
@@ -1361,7 +1366,7 @@ func (s *Service) UploadLocalPathsCompressed(sessionId string, uploadID string, 
 		return fmt.Errorf("no local paths")
 	}
 
-	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), "compressedUploadSessionId", sessionId))
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), compressedUploadSessionIDKey, sessionId))
 	task := &compressedUploadTask{
 		id:        uploadID,
 		sessionId: sessionId,
