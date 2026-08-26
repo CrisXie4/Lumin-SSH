@@ -20,25 +20,17 @@ type (
 )
 
 var (
-	defaultAIGlobalSettings               = aitypes.DefaultAIGlobalSettings
-	isValidAISlashCommandName             = aitypes.IsValidAISlashCommandName
-	normalizeAICollaborationPromptPresets = aitypes.NormalizeAICollaborationPromptPresets
-	normalizeAISlashCommands              = aitypes.NormalizeAISlashCommands
-	normalizeAIStringList                 = aitypes.NormalizeAIStringList
-	normalizeAIExecuteApprovalMode        = aitypes.NormalizeAIExecuteApprovalMode
-	normalizeAIApprovalButtonOrder        = aitypes.NormalizeAIApprovalButtonOrder
-	normalizeAICommandActionButtonOrder   = aitypes.NormalizeAICommandActionButtonOrder
-	normalizeAIProxyType                  = aitypes.NormalizeAIProxyType
-	normalizeAISoundVolume                = aitypes.NormalizeAISoundVolume
-	buildDefaultAIProxyNodeID             = aitypes.BuildDefaultAIProxyNodeID
-	normalizeAIProxyNodes                 = aitypes.NormalizeAIProxyNodes
-	normalizeAIRequestProxyID             = aitypes.NormalizeAIRequestProxyID
-	aiProxyNodesPathForConfigDir          = aitypes.AIProxyNodesPathForConfigDir
-	loadAIProxyNodesFromPath              = aitypes.LoadAIProxyNodesFromPath
-	LoadAIProxyNodes                      = aitypes.LoadAIProxyNodes
-	normalizeAIGlobalSettings             = aitypes.NormalizeAIGlobalSettings
-	aiGlobalSettingsContentEqual          = aitypes.AIGlobalSettingsContentEqual
-	LoadAIGlobalSettings                  = aitypes.LoadAIGlobalSettings
+	defaultAIGlobalSettings        = aitypes.DefaultAIGlobalSettings
+	normalizeAIStringList          = aitypes.NormalizeAIStringList
+	normalizeAIExecuteApprovalMode = aitypes.NormalizeAIExecuteApprovalMode
+	normalizeAIProxyType           = aitypes.NormalizeAIProxyType
+	normalizeAIProxyNodes          = aitypes.NormalizeAIProxyNodes
+	aiProxyNodesPathForConfigDir   = aitypes.AIProxyNodesPathForConfigDir
+	loadAIProxyNodesFromPath       = aitypes.LoadAIProxyNodesFromPath
+	LoadAIProxyNodes               = aitypes.LoadAIProxyNodes
+	normalizeAIGlobalSettings      = aitypes.NormalizeAIGlobalSettings
+	aiGlobalSettingsContentEqual   = aitypes.AIGlobalSettingsContentEqual
+	LoadAIGlobalSettings           = aitypes.LoadAIGlobalSettings
 )
 
 func (c *configBridge) aiGlobalSettingsPath() string {

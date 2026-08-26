@@ -3,7 +3,6 @@ package ai
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -11,28 +10,6 @@ import (
 const aiRequestFailureLivenessProbeText = "Have you received my message? If so, reply OK"
 const aiConversationCondenseEscalationThreshold = 0.1
 const aiRequestFailureProbeStreamEventPrefix = "hidden_probe"
-
-type aiRequestFailureKind string
-
-const (
-	aiRequestFailureKindUnknown         aiRequestFailureKind = "unknown"
-	aiRequestFailureKindContextOverflow aiRequestFailureKind = "likely_context_overflow"
-	aiRequestFailureKindProviderOutage  aiRequestFailureKind = "likely_provider_outage"
-	aiRequestFailureKindRetryable       aiRequestFailureKind = "unknown_retryable"
-)
-
-type aiRequestFailureAssessment struct {
-	Kind           aiRequestFailureKind
-	OverflowScore  int
-	OutageScore    int
-	ContextTokens  int
-	BudgetHint     int
-	ProbeSucceeded bool
-	ReasonCodes    []string
-}
-
-var aiRequestFailureContextOverflowPattern = regexp.MustCompile(`(?i)(context(?:\s+length|\s+window)?|maximum context|too many tokens|prompt too long|input exceeds|reduce the length|token limit)`)
-var aiRequestFailureGatewayPattern = regexp.MustCompile(`(?i)(502|503|504|bad gateway|gateway|timeout|upstream|overload|rate limit|temporar(?:y|ily)|service unavailable)`)
 
 func withAIDisabledWebSearch(profile AIProviderProfile) AIProviderProfile {
 	nextProfile := profile

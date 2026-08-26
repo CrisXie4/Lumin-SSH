@@ -30,7 +30,6 @@ type AIConversationContextCondenseResult struct {
 	NewContextTokens  int                    `json:"newContextTokens"`
 }
 
-const aiConversationContextKeepMessages = 3
 const aiConversationFileContentCompressedPlaceholder = "{因节省资源,请重新调用工具获取}"
 const aiConversationImageRemovedPlaceholder = "{图片因节省资源已被移除}"
 const aiConversationCondenseFollowupPrompt = "<system_message>\ncontext compression caused you to be unable to confirm the working directory or the scope of files or directories to operate on. Please use the ask_followup_question tool to ask or confirm with the user.\n</system_message>"

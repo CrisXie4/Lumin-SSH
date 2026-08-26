@@ -86,7 +86,3 @@ type clientToolCallResult struct {
 type clientReadResourceResult struct {
 	Contents []map[string]any `json:"contents"`
 }
-
-type clientPromptListResult struct {
-	Prompts []map[string]any `json:"prompts"`
-}

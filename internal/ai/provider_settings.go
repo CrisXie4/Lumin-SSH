@@ -20,9 +20,7 @@ type AIProviderState = aitypes.AIProviderState
 
 var (
 	normalizeAIProviderProtocol        = aitypes.NormalizeAIProviderProtocol
-	normalizeAIProviderCacheStrategy   = aitypes.NormalizeAIProviderCacheStrategy
 	normalizeAIProviderReasoningEffort = aitypes.NormalizeAIProviderReasoningEffort
-	normalizeAIProviderProfiles        = aitypes.NormalizeAIProviderProfiles
 	normalizeAIProviderRegistry        = aitypes.NormalizeAIProviderRegistry
 	normalizeAIProviderState           = aitypes.NormalizeAIProviderState
 )

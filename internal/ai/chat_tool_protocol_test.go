@@ -62,36 +62,6 @@ func TestParseAssistantToolUses_AcceptsTrailingStreamJunk(t *testing.T) {
 	}
 }
 
-func TestParseAssistantToolUses_RemovesDuplicateToolXML(t *testing.T) {
-	raw := `<execute_command>
-<command>echo ok</command>
-<cwd>/root</cwd>
-<is_mutating>0</is_mutating>
-<purpose>ping</purpose>
-<session_id>session_1</session_id>
-<shellType>zsh</shellType>
-</execute_command>
-<execute_command>
-<command>echo ok</command>
-<cwd>/root</cwd>
-<is_mutating>0</is_mutating>
-<purpose>ping</purpose>
-<session_id>session_1</session_id>
-<shellType>zsh</shellType>
-</execute_command>`
-	tools, err := parseAssistantToolUses(raw)
-	if err != nil {
-		t.Fatalf("expected parse success, got %v", err)
-	}
-	if len(tools) != 1 || tools[0].Name != "execute_command" {
-		t.Fatalf("unexpected tools: %+v", tools)
-	}
-	cleaned := removeAIDuplicateToolXML(raw)
-	if strings.Count(cleaned, "<execute_command>") != 1 {
-		t.Fatalf("duplicate tool XML was not removed: %q", cleaned)
-	}
-}
-
 func TestParseAssistantToolUsesWithDuplicateCount_UsesExactRawXML(t *testing.T) {
 	raw := `<list_files><path>/root</path></list_files><read_file><path>/root/a</path></read_file><list_files><path>/root</path></list_files>`
 	tools, duplicateCount, err := parseAssistantToolUsesWithDuplicateCount(raw)

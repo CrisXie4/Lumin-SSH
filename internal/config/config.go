@@ -197,7 +197,6 @@ type ConfigManager struct {
 	wailsCtx                  context.Context
 	syncEventForTest          func(string, map[string]interface{})
 	syncProvidersForTest      func() ([]providerEntry, []providerFailure)
-	allSyncProvidersForTest   func() ([]providerEntry, []providerFailure)
 	onDeleteConnection        func(string) // 删除连接时回调（清理 pingStates 等包级状态）
 }
 
@@ -1830,10 +1829,6 @@ const (
 	maxTransferMaxPacketKiB           = 512
 	minTransferMaxRequestsPerFile     = 1
 	maxTransferMaxRequestsPerFile     = 1024
-	// sshChannelWindowBytes 对齐 golang.org/x/crypto/ssh 的 channelWindowSize(64 * 32KiB)。
-	// 该窗口在库内硬编码不可配置，决定了单条 SSH channel 上在途数据量的物理上限；
-	// 超出窗口的请求只能排队等待窗口回补，不会带来额外吞吐。
-	sshChannelWindowBytes = 64 * 32 * 1024
 )
 
 func clampIntSetting(value int, minValue int, maxValue int, fallback int) int {

@@ -42,12 +42,6 @@ type remoteDirEnsurer interface {
 	EnsureRemoteDir() error
 }
 
-// maxBackupsProvider 是可选接口：后端若实现 MaxBackups()，syncFromProvider 在
-// 同步后触发备份时会使用该值清理旧备份。未实现者（如 webdavStorage）保持原行为（不清理）。
-type maxBackupsProvider interface {
-	MaxBackups() int
-}
-
 // storageCloser 是可选接口：后端若持有需要显式释放的底层连接（如 SFTP/FTP），
 // 调用方应在使用完毕后 defer Close() 以避免连接泄漏。webdav/r2 等基于 HTTP 的后端无需实现。
 type storageCloser interface {

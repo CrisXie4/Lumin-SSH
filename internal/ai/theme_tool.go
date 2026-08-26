@@ -270,7 +270,7 @@ func (a *Service) runAIChatThemeToolExecution(execution *aiToolExecutionState) {
 	rawResultText := ""
 	uiResultText := ""
 	stopAfterThisTool := false
-	resultPayload := map[string]interface{}{}
+	var resultPayload map[string]interface{}
 
 	if a.themeToolDelegate == nil {
 		statusText = "错误"

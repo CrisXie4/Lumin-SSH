@@ -1713,53 +1713,6 @@ func dedupeParsedToolUsesWithCount(tools []aiParsedToolUse) ([]aiParsedToolUse, 
 	return deduped, duplicateToolCount
 }
 
-func dedupeParsedToolUsesAndText(tools []aiParsedToolUse, content string) ([]aiParsedToolUse, string) {
-	if len(tools) <= 1 {
-		return tools, content
-	}
-	type duplicateRange struct {
-		start int
-		end   int
-	}
-	seen := make(map[string]struct{}, len(tools))
-	deduped := make([]aiParsedToolUse, 0, len(tools))
-	duplicateRanges := make([]duplicateRange, 0)
-	for _, tool := range tools {
-		key := buildParsedToolUseDedupeKey(tool)
-		if _, exists := seen[key]; exists {
-			if tool.StartIndex >= 0 && tool.EndIndex > tool.StartIndex && tool.EndIndex <= len(content) {
-				duplicateRanges = append(duplicateRanges, duplicateRange{start: tool.StartIndex, end: tool.EndIndex})
-			}
-			continue
-		}
-		seen[key] = struct{}{}
-		deduped = append(deduped, tool)
-	}
-	if len(duplicateRanges) == 0 {
-		return deduped, content
-	}
-	var builder strings.Builder
-	cursor := 0
-	for _, item := range duplicateRanges {
-		if item.start < cursor || item.end > len(content) {
-			continue
-		}
-		builder.WriteString(content[cursor:item.start])
-		cursor = item.end
-	}
-	builder.WriteString(content[cursor:])
-	return deduped, strings.TrimSpace(builder.String())
-}
-
-func removeAIDuplicateToolXML(content string) string {
-	trimmedContent := strings.TrimSpace(content)
-	if trimmedContent == "" {
-		return ""
-	}
-	_, cleanedContent := dedupeParsedToolUsesAndText(parseToolUsesFromXML(trimmedContent), trimmedContent)
-	return cleanedContent
-}
-
 func stripAssistantToolXML(content string) string {
 	trimmedContent := sanitizeAIAssistantToolProtocolText(content)
 	if trimmedContent == "" {

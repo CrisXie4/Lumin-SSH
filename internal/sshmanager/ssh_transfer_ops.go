@@ -177,7 +177,6 @@ type progressReader struct {
 	ctx       context.Context
 	eventName string
 	total     int64
-	current   int64
 	lastEmit  time.Time
 }
 

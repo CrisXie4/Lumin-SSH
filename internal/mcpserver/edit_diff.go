@@ -671,11 +671,10 @@ func BuildApplyDiffPreview(path string, originalContent string, diff string) (Ap
 			aggressiveReplaceContent := stripLineNumbers(replaceContent, true)
 			aggressiveSearchLines := splitApplyDiffContentLines(aggressiveSearchContent)
 			aggressiveSearchChunk := strings.Join(aggressiveSearchLines, "\n")
-			bestIndex, score, content := fuzzySearchApplyDiffChunk(resultLines, aggressiveSearchChunk, searchStartIndex, searchEndIndex)
+			bestIndex, score, _ := fuzzySearchApplyDiffChunk(resultLines, aggressiveSearchChunk, searchStartIndex, searchEndIndex)
 			if bestIndex != -1 && score >= applyDiffFuzzyThreshold {
 				matchIndex = bestIndex
 				bestMatchScore = score
-				bestMatchContent = content
 				searchContent = aggressiveSearchContent
 				replaceContent = aggressiveReplaceContent
 				searchLines = aggressiveSearchLines

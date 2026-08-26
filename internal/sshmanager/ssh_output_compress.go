@@ -6,9 +6,6 @@ import (
 	"unicode/utf8"
 )
 
-const defaultTerminalOutputLineLimit = 500
-const defaultTerminalOutputCharacterLimit = 35000
-
 func compressTerminalOutput(input string, lineLimit int, characterLimit int) string {
 	processed := normalizeTerminalOutputScreen(input)
 	return truncateTerminalOutput(applyRunLengthEncoding(processed), lineLimit, characterLimit)

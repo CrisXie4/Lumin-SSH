@@ -253,7 +253,7 @@ func (a *Service) runAIChatMCPClientToolExecution(execution *aiToolExecutionStat
 		a.failAIChatToolPreview(execution.RequestID, execution.Batch, execution.Tool, "缺少服务名")
 		return
 	}
-	source := resolveAIMCPServerSourceByName(serverName, execution.Tool.Params["source"])
+	var source mcp.ServerSource
 	profile := resolveAIExecutionProfile(execution)
 	statusText := "已执行"
 	uiResultText := ""
