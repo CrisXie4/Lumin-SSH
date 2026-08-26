@@ -2556,7 +2556,7 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 			}
 
 			if !hasAIChatRoundProducedOutput(roundResult) {
-				if a.recoverAIChatAfterRequestFailure(ctx, requestID, payload, profile, requestMessages, autoApprovalSettings, assistantMessageID, assistantRetryCount, collaborationRetryCount, err) {
+				if a.recoverAIChatAfterRequestFailure(ctx, requestID, payload, profile, autoApprovalSettings, assistantMessageID, assistantRetryCount, collaborationRetryCount, err) {
 					return
 				}
 			}

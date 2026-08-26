@@ -134,7 +134,6 @@ func (c *ConfigManager) TestR2Connection(accessKeyId, secretAccessKey, bucket, e
 		if obj.Err != nil {
 			return obj.Err
 		}
-		break
 	}
 	return nil
 }

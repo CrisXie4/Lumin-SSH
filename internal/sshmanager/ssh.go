@@ -1302,7 +1302,6 @@ func (m *SSHManager) OpenTerminal(sessionId string) (string, error) {
 		return "", fmt.Errorf("client not found for session")
 	}
 	connKey := existing.ConnKey
-	remoteHistoryActive := existing.RemoteHistoryActive
 	terminalEncoding := existing.TerminalEncoding
 	m.mu.RUnlock()
 

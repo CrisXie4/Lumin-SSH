@@ -244,7 +244,7 @@ func (a *Service) failAIAutoRecovery(requestID string, err error, fallbackText s
 	return true
 }
 
-func (a *Service) recoverAIChatAfterRequestFailure(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage, autoApprovalSettings AIConversationTaskSettings, assistantMessageID string, assistantRetryCount int, collaborationRetryCount int, requestErr error) bool {
+func (a *Service) recoverAIChatAfterRequestFailure(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, autoApprovalSettings AIConversationTaskSettings, assistantMessageID string, assistantRetryCount int, collaborationRetryCount int, requestErr error) bool {
 	trimmedSourceRequestID := strings.TrimSpace(requestID)
 	if a == nil || strings.TrimSpace(payload.ConversationID) == "" || trimmedSourceRequestID == "" || ctx == nil || ctx.Err() != nil {
 		return false
@@ -284,8 +284,8 @@ func (a *Service) recoverAIChatAfterRequestFailure(ctx context.Context, requestI
 		if snapshotErr != nil {
 			return a.failAIAutoRecovery(activeRecoveryRequestID, snapshotErr, "")
 		}
-		requestMessages = buildAIChatRequestMessagesFromConversationAPI(snapshot.APIMessages)
-		if len(requestMessages) == 0 {
+		rebuiltRequestMessages := buildAIChatRequestMessagesFromConversationAPI(snapshot.APIMessages)
+		if len(rebuiltRequestMessages) == 0 {
 			return a.failAIAutoRecovery(activeRecoveryRequestID, nil, "压缩后的上下文为空")
 		}
 		a.emitAIAutoRecoveryStatus(activeRecoveryRequestID, "协同小助手正在切换到统一的全量摘要流程", "")

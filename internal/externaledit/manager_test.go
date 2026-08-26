@@ -41,13 +41,18 @@ func (o *fakeOpener) OpenWith(_ string, path string) error {
 }
 
 func TestExternalEditKeyAndHash(t *testing.T) {
-	if externalEditKey("s1", "/tmp/a.txt") != externalEditKey("s1", "/tmp/a.txt") {
+	keyA := externalEditKey("s1", "/tmp/a.txt")
+	keyB := externalEditKey("s1", "/tmp/a.txt")
+	if keyA != keyB {
 		t.Fatal("same session and path produced different key")
 	}
-	if externalEditKey("s1", "/tmp/a.txt") == externalEditKey("s2", "/tmp/a.txt") {
+	if keyA == externalEditKey("s2", "/tmp/a.txt") {
 		t.Fatal("different sessions produced same key")
 	}
-	if hashBytes([]byte("hello")) != hashBytes([]byte("hello")) || hashBytes([]byte("hello")) == hashBytes([]byte("world")) {
+	hashHello := hashBytes([]byte("hello"))
+	hashHelloAgain := hashBytes([]byte("hello"))
+	hashWorld := hashBytes([]byte("world"))
+	if hashHello != hashHelloAgain || hashHello == hashWorld {
 		t.Fatal("hash stability contract failed")
 	}
 }
