@@ -107,7 +107,7 @@ export function ServerTableItem({
         <span key={`name-${nameToken || 'stable'}`} className={cn('save-flow-target', Boolean(nameToken) && 'save-flow-target-active')}>
           {server.name || server.host}
         </span>
-        {connected && <span className="ml-1.5 text-[10px] text-success py-0.5 px-1 bg-success-dim rounded-sm">{t('已连接')}</span>}
+        {connected && <span className="ml-1.5 text-[10px] text-success py-0.5 px-1.5 bg-success-dim rounded-full">{t('已连接')}</span>}
       </td>
       <td data-edit-source-field="hostPort" className="text-base text-secondary font-mono">
         <span key={`host-${hostToken || 'stable'}`} className={cn('save-flow-target', Boolean(hostToken) && 'save-flow-target-active')}>
@@ -121,24 +121,21 @@ export function ServerTableItem({
       </td>
       <td>
         {ping?.online && ping?.latency !== undefined && ping?.latency !== null ? (
-          <div className="flex items-center gap-1.5">
-            <div className={cn(
-              'w-2 h-2 rounded-full',
-              latClass === 'good' ? 'bg-success' : (latClass === 'warn' ? 'bg-warning' : 'bg-danger'),
-            )} />
-            <span className={cn(
-              'text-sm font-mono',
-              latClass === 'good' ? 'text-success' : (latClass === 'warn' ? 'text-warning' : 'text-danger'),
-            )}>
+          <span className={cn(
+            'inline-flex items-center gap-1.5 rounded-full py-[2px] pl-[7px] pr-[9px] text-xs font-medium',
+            latClass === 'good' ? 'bg-success-dim text-success' : (latClass === 'warn' ? 'bg-warning-dim text-warning' : 'bg-danger-dim text-danger'),
+          )}>
+            <span className="w-[7px] h-[7px] rounded-full bg-current" />
+            <span className="font-mono">
               {ping.latency === -1 ? t('<1毫秒') : `${ping.latency}${t('毫秒')}`}
             </span>
-          </div>
+          </span>
         ) : (
           ping !== undefined && !ping?.online ? (
-            <div className="flex items-center gap-1.5 text-danger">
-              <X size={14} />
-              <span className="text-sm">{t('离线')}</span>
-            </div>
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-xs font-medium bg-danger-dim text-danger">
+              <X size={11} strokeWidth={3} />
+              {t('离线')}
+            </span>
           ) : <span className="text-tertiary">-</span>
         )}
       </td>

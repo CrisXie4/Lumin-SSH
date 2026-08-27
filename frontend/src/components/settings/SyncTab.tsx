@@ -3,7 +3,7 @@ import { t as $t } from '../../i18n.ts';
 import * as AppGo from '../../../wailsjs/go/wailsapp/App.js';
 import { Cloud, Database, Folder, Lock, RefreshCw, Sparkles } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
-import { Button } from '../ui';
+import { Button, Select } from '../ui';
 import { SettingsPanel, SettingsTabRoot } from './SharedComponents';
 import { settings } from './settingDefinitions';
 import SyncProviderCard, { PROVIDER_ICON_CMP } from './sync/SyncProviderCard';
@@ -247,13 +247,22 @@ export default function SyncTab({
           {tombstoneTotal > 0 ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span>{$t('清理超过')}</span>
-              <select id="sync-tombstone-days" name="sync-tombstone-days" className="input w-[90px] h-8 text-sm py-0 px-2" value={tombstoneDays} disabled={pruningTombstones || syncing || loadingBackups || restoring} onChange={(e) => setTombstoneDays(Number(e.target.value))}>
-                <option value={7}>7</option>
-                <option value={30}>30</option>
-                <option value={90}>90</option>
-                <option value={180}>180</option>
-                <option value={0}>{$t('全部')}</option>
-              </select>
+              <div className="w-[90px]">
+                <Select
+                  id="sync-tombstone-days"
+                  name="sync-tombstone-days"
+                  value={String(tombstoneDays)}
+                  disabled={pruningTombstones || syncing || loadingBackups || restoring}
+                  onChange={(val) => setTombstoneDays(Number(val))}
+                  options={[
+                    { value: '7', label: '7' },
+                    { value: '30', label: '30' },
+                    { value: '90', label: '90' },
+                    { value: '180', label: '180' },
+                    { value: '0', label: $t('全部') },
+                  ]}
+                />
+              </div>
               <span>{$t('天的删除记录')}</span>
               <button
                 type="button"

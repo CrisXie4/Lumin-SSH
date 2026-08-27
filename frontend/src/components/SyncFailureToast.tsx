@@ -45,7 +45,7 @@ export default function SyncFailureToast({ syncFailed, setSyncFailed, setSetting
   };
   return (
     <div
-      className="fixed bottom-6 right-6 w-[400px] max-w-[calc(100vw_-_32px)] bg-raised border border-line rounded-lg shadow-lg py-4 px-5 animate-[slideUp_0.18s_ease]"
+      className="fixed bottom-6 right-6 w-[400px] max-w-[calc(100vw_-_32px)] bg-raised border border-line rounded-[var(--radius-md)] shadow-lg py-4 px-5 animate-[slideUp_0.18s_ease]"
       style={{ zIndex: Z.TOAST }}
     >
       <div className="flex items-start gap-[14px]">
@@ -53,7 +53,7 @@ export default function SyncFailureToast({ syncFailed, setSyncFailed, setSetting
         <div className="flex-1 min-w-0">
           <div className="text-lg font-semibold text-primary mb-1">{t('云端同步失败')}</div>
           <div className="text-base text-secondary leading-normal mb-[6px]">{syncFailed.category === 'trust' ? t('服务器身份信息已变化，请前往“设置 → 同步与云”核对后恢复同步。') : t('数据未能上传到云端，本地数据不受影响。')}</div>
-          <div className="text-sm text-danger leading-normal break-all bg-[rgba(var(--danger-rgb),0.10)] border border-[rgba(var(--danger-rgb),0.22)] rounded-lg py-[6px] px-2.5 mb-[14px]">{String(syncFailed.error ?? '')}</div>
+          <div className="text-sm text-danger leading-normal break-all bg-[rgba(var(--danger-rgb),0.10)] border border-[rgba(var(--danger-rgb),0.22)] rounded-[var(--radius-sm)] py-[6px] px-2.5 mb-[14px]">{String(syncFailed.error ?? '')}</div>
           <div className="flex justify-end flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setSyncFailed(null)}>{t('忽略')}</Button>
             {canRecreateRemoteDir && <Button variant="secondary" title={t('在云端重建同步目录后再次同步')} onClick={() => runRetry(true)}>{t('重新创建并重试')}</Button>}

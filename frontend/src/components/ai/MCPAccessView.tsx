@@ -99,28 +99,28 @@ export default function MCPAccessView({
         {showNotice && <div className="text-xs text-tertiary leading-[1.5]">{t('该面板可在设置中关闭, 仅影响前端展示层, 不影响 MCP 服务的启动, 监听绑定或生命周期管理.')}</div>}
       </div>
       <div className="grid gap-2.5">
-        <div className="p-3.5 rounded-xl bg-canvas border border-line flex justify-between items-center gap-4">
+        <div className="p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line flex justify-between items-center gap-4">
           <div className="min-w-0">
             <div className="text-primary text-base font-bold">{t('启用 MCP 服务')}</div>
             <div className="text-tertiary text-sm leading-[1.6]">{t('控制本地 MCP 服务是否监听本机回环地址并提供工具能力')}</div>
           </div>
           <ToggleSwitch checked={mcpEnabled} onChange={onToggleMcpEnabled} />
         </div>
-        <div className={`p-3.5 rounded-xl bg-canvas border border-line flex justify-between items-center gap-4 ${mcpEnabled ? 'opacity-100' : 'opacity-65'}`}>
+        <div className={`p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line flex justify-between items-center gap-4 ${mcpEnabled ? 'opacity-100' : 'opacity-65'}`}>
           <div className="min-w-0">
             <div className="text-primary text-base font-bold">{t('允许浏览器调用')}</div>
             <div className="text-tertiary text-sm leading-[1.6]">{t('允许带 Origin 的浏览器请求访问本地 MCP 服务。关闭后仅允许无 Origin 的本机客户端调用')}</div>
           </div>
           <ToggleSwitch checked={mcpAllowBrowserCalls} onChange={onToggleMcpAllowBrowserCalls} disabled={!mcpEnabled} />
         </div>
-        <div className={`p-3.5 rounded-xl bg-canvas border border-line flex justify-between items-center gap-4 ${mcpEnabled ? 'opacity-100' : 'opacity-65'}`}>
+        <div className={`p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line flex justify-between items-center gap-4 ${mcpEnabled ? 'opacity-100' : 'opacity-65'}`}>
           <div className="min-w-0">
             <div className="text-primary text-base font-bold">{t('外部 MCP 操作弹窗')}</div>
             <div className="text-tertiary text-sm leading-[1.6]">{t('默认关闭。开启后弹出 MCP 活动弹窗，实时显示外部客户端（如 Claude Code）的操作痕迹：服务器、命令、状态、输出')}</div>
           </div>
           <ToggleSwitch checked={mcpActivityVisible} onChange={onToggleMcpActivityVisible} disabled={!mcpEnabled} />
         </div>
-        <div className={`p-3.5 rounded-xl bg-canvas border border-line flex justify-between items-center gap-4 ${mcpEnabled ? 'opacity-100' : 'opacity-65'}`}>
+        <div className={`p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line flex justify-between items-center gap-4 ${mcpEnabled ? 'opacity-100' : 'opacity-65'}`}>
           <div className="min-w-0">
             <div className="text-primary text-base font-bold">{t('外部 MCP 写操作需审批')}</div>
             <div className="text-tertiary text-sm leading-[1.6]">{t('开启后，外部客户端的写操作（is_mutating）需在活动弹窗中手动批准才执行（会同时开启活动弹窗）。关闭则自动执行。')}</div>
@@ -128,7 +128,7 @@ export default function MCPAccessView({
           <ToggleSwitch checked={mcpRequireApproval} onChange={onToggleMcpRequireApproval} disabled={!mcpEnabled} />
         </div>
       </div>
-      <div className="grid gap-2.5 p-3.5 bg-canvas border border-line rounded-xl">
+      <div className="grid gap-2.5 p-3.5 bg-canvas border border-line rounded-[var(--radius-md)]">
         <div className="grid gap-1">
           <div className="text-xs text-tertiary">{t('传输方式')}</div>
           <div className="text-base font-semibold text-primary">{mcpInfo.transport || 'streamable-http'}</div>
@@ -138,7 +138,7 @@ export default function MCPAccessView({
           <div className="text-sm text-primary break-all font-mono">{mcpInfo.url || '-'}</div>
         </div>
       </div>
-      <div className="p-3.5 rounded-xl bg-canvas border border-line">
+      <div className="p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line">
         <div className="text-xs text-tertiary mb-2">{t('MCP 配置片段')}</div>
         <textarea
           id="mcp-access-config"
@@ -147,22 +147,22 @@ export default function MCPAccessView({
           value={configText}
           rows={configRows}
           spellCheck={false}
-          className="w-full resize-none overflow-x-auto overflow-y-hidden whitespace-pre border border-line rounded-lg bg-raised text-primary px-3 py-2 box-border text-sm leading-[19px] font-mono outline-none block"
+          className="w-full resize-none overflow-x-auto overflow-y-hidden whitespace-pre border border-line rounded-[var(--radius-sm)] bg-raised text-primary px-3 py-2 box-border text-sm leading-[19px] font-mono outline-none block"
           style={{ height: `${configRows * 19 + 18}px` }}
         />
       </div>
-      <div className="p-3.5 rounded-xl bg-canvas border border-line">
+      <div className="p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line">
         <div className="flex items-center gap-2 mb-2">
           <div className="text-xs text-tertiary flex-1 min-w-0">{t('您可以将这一句话发送给您的 AI Agent')}</div>
           <button
             type="button"
             onClick={copyAgentPrompt}
-            className={`text-xs py-[3px] px-2.5 rounded-md border border-line text-secondary cursor-pointer whitespace-nowrap transition-colors duration-[80ms] ${agentPromptCopied ? 'bg-raised' : 'bg-overlay'}`}
+            className={`text-xs py-[3px] px-2.5 rounded-[var(--radius-sm)] border border-line text-secondary cursor-pointer whitespace-nowrap transition-colors duration-[80ms] ${agentPromptCopied ? 'bg-raised' : 'bg-overlay'}`}
           >
             {agentPromptCopied ? t('已复制') : t('复制')}
           </button>
         </div>
-        <div className="border border-line rounded-lg bg-raised px-3 py-2 text-sm leading-[19px] font-mono text-primary whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
+        <div className="border border-line rounded-[var(--radius-sm)] bg-raised px-3 py-2 text-sm leading-[19px] font-mono text-primary whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
           {agentPromptText}
         </div>
       </div>

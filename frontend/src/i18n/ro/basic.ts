@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Chineză tradițională",
   "日文": "Japoneză",
   "韩文": "Coreeană",
+  "数据": "Date",
+  "独立子 Shell 执行 (已开启)": "Executare în subshell izolat (activat)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "Comenzile multiline/complex rulează într-un subproces izolat fără să polueze sesiunea terminalului",
+  "直接在当前会话执行 (默认)": "Execută direct în sesiunea curentă (implicit)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "Comenzile sunt trimise direct către sesiunea curentă a terminalului; variabilele și mediul definite rămân active pe durata sesiunii",
 } satisfies I18nDict;

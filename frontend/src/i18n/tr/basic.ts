@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Geleneksel Çince",
   "日文": "Japonca",
   "韩文": "Korece",
+  "数据": "Veri",
+  "独立子 Shell 执行 (已开启)": "İzole alt kabuk yürütme (açık)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "Çok satırlı/karmaşık komutlar izole bir alt süreçte çalışır, terminal oturumunu kirletmez",
+  "直接在当前会话执行 (默认)": "Doğrudan geçerli oturumda çalıştır (varsayılan)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "Komutlar doğrudan geçerli terminal oturumuna gönderilir; tanımlanan değişkenler ve ortam tüm oturum boyunca geçerli kalır",
 } satisfies I18nDict;

@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Mandarin Tradisional",
   "日文": "Jepang",
   "韩文": "Korea",
+  "数据": "Data",
+  "独立子 Shell 执行 (已开启)": "Eksekusi subshell terisolasi (aktif)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "Perintah multi-baris/kompleks dijalankan di subproses terisolasi tanpa mencemari sesi terminal",
+  "直接在当前会话执行 (默认)": "Jalankan langsung di sesi saat ini (bawaan)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "Perintah dikirim langsung ke sesi terminal saat ini; variabel dan lingkungan yang ditentukan tetap berlaku selama sesi",
 } satisfies I18nDict;

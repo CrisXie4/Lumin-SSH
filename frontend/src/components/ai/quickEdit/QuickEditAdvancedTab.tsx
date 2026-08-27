@@ -18,7 +18,7 @@ export default function QuickEditAdvancedTab({
 
   return (
     <div className={`${active ? 'grid' : 'hidden'} gap-1.5 py-0.5`}>
-      <div className="grid gap-1 py-2 px-2.5 border border-line rounded-lg bg-overlay">
+      <div className="grid gap-1 py-2 px-2.5 border border-line rounded-[var(--radius-md)] bg-overlay">
         <div className="flex items-center justify-between gap-2">
           <label htmlFor="ai-provider-temperature" className="text-sm font-semibold text-primary">Temperature</label>
           <StyledCheckbox
@@ -43,13 +43,13 @@ export default function QuickEditAdvancedTab({
               ...prev,
               modelTemperature: normalizeOptionalNumber(event.target.value),
             }))}
-            className="h-[34px] w-full rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+            className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none"
           />
         ) : (
           <div className="text-xs leading-[1.25] text-tertiary">{t('关闭后不发送该参数')}</div>
         )}
       </div>
-      <div className="grid gap-1 py-2 px-2.5 border border-line rounded-lg bg-overlay">
+      <div className="grid gap-1 py-2 px-2.5 border border-line rounded-[var(--radius-md)] bg-overlay">
         <div className="flex items-center justify-between gap-2">
           <label htmlFor="ai-provider-top-p" className="text-sm font-semibold text-primary">{t('Top P')}</label>
           <StyledCheckbox
@@ -74,7 +74,7 @@ export default function QuickEditAdvancedTab({
               ...prev,
               modelTopP: normalizeOptionalNumber(event.target.value),
             }))}
-            className="h-[34px] w-full rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+            className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none"
           />
         ) : (
           <div className="text-xs leading-[1.25] text-tertiary">{t('关闭后不发送该参数')}</div>

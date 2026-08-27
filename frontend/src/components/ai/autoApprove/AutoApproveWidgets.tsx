@@ -12,10 +12,10 @@ export function OptionButton({ active, icon: Icon, label, onClick }: OptionButto
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-9 flex items-center justify-between gap-2.5 px-2.5 rounded-lg border text-sm transition-colors duration-[80ms] ${
+      className={`h-[34px] flex items-center justify-between gap-2.5 px-2.5 rounded-[var(--radius-sm)] border text-xs transition-colors duration-[80ms] cursor-pointer ${
         active
-          ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-primary font-bold'
-          : 'border-line bg-canvas text-secondary font-medium'
+          ? 'border-accent-border bg-accent-dim text-primary font-bold'
+          : 'border-line bg-canvas text-secondary font-medium hover:bg-hover hover:text-primary'
       }`}>
       <span className="inline-flex items-center gap-2 min-w-0">
         <Icon size={13} />
@@ -36,7 +36,7 @@ export function CommandChip({ text, onRemove }: CommandChipProps) {
     <button
       type="button"
       onClick={onRemove}
-      className="min-h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-full border border-line bg-canvas text-primary text-sm transition-colors duration-[80ms] cursor-pointer">
+      className="h-[26px] inline-flex items-center gap-1.5 px-2 rounded-[var(--radius-sm)] border border-line bg-canvas text-primary text-xs font-medium hover:bg-hover hover:border-line-subtle transition-colors duration-[80ms] cursor-pointer">
       <span>{text}</span>
       <X size={12} />
     </button>

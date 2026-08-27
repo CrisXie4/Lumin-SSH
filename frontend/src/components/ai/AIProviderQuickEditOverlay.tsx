@@ -117,7 +117,7 @@ export default function AIProviderQuickEditOverlay({
             <button
               type="button"
               onClick={onClose}
-              className="w-[30px] h-[30px] inline-flex items-center justify-center rounded-full border-none bg-transparent text-secondary transition-colors duration-[120ms]">
+              className="w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border-none bg-transparent text-secondary hover:bg-hover hover:text-primary transition-colors duration-[120ms]">
               <ArrowLeft size={16} />
             </button>
             <div className="min-w-0 grid gap-0">
@@ -131,14 +131,14 @@ export default function AIProviderQuickEditOverlay({
               <button
                 type="button"
                 onClick={() => { if (provider) onDelete?.(provider); }}
-                className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-transparent bg-transparent text-danger transition-colors duration-[120ms]">
+                className="w-8 h-8 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-transparent bg-transparent text-danger hover:bg-danger/15 transition-colors duration-[120ms]">
                 <Trash2 size={15} />
               </button>
             ) : null}
             <button
               type="button"
               onClick={handleSave}
-              className="h-[34px] inline-flex items-center justify-center gap-2 px-3 rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent text-sm font-bold transition-colors duration-[120ms]">
+              className="h-[34px] inline-flex items-center justify-center gap-2 px-3 rounded-[var(--radius-sm)] border border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent text-sm font-bold transition-colors duration-[120ms] hover:bg-[rgba(var(--accent-rgb),0.22)]">
               <Save size={14} />
               {t('保存')}
             </button>

@@ -127,7 +127,7 @@ export default function QuickEditBasicTab({
             onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
             onMouseLeave={handleInputDragSelectAll}
             placeholder={t('输入配置名')}
-            className="h-[34px] w-full rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+            className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none"
           />
         </div>
 
@@ -174,7 +174,7 @@ export default function QuickEditBasicTab({
           </div>
           <div
             style={{ gridTemplateColumns: `repeat(${Math.max(promptCacheOptions.length, 1)}, minmax(0, 1fr))` }}
-            className="grid border border-line rounded-lg overflow-hidden">
+            className="grid border border-line rounded-[var(--radius-sm)] overflow-hidden">
             {promptCacheOptions.map((option: { value: string; labelKey: I18nKey }, index: number) => {
               const selected = selectedPromptCacheStrategy === option.value;
               return (
@@ -206,7 +206,7 @@ export default function QuickEditBasicTab({
           onChange={(event) => setDraft((prev) => ({ ...prev, baseUrl: event.target.value }))}
           onMouseLeave={handleInputDragSelectAll}
           placeholder="https://api.example.com/v1"
-          className="h-[34px] w-full rounded-none border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+          className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none"
         />
       </div>
 
@@ -222,7 +222,7 @@ export default function QuickEditBasicTab({
           onChange={(event) => setDraft((prev) => ({ ...prev, apiKey: event.target.value }))}
           onMouseLeave={handleInputDragSelectAll}
           placeholder={t('输入 API Key')}
-          className="h-[34px] w-full rounded-none border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+          className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none"
         />
       </div>
 

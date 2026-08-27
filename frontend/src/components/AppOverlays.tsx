@@ -62,6 +62,8 @@ export default function AppOverlays({ dialogs, importExport, notifications, menu
     sessionListPos,
     sessionListQuery,
     sessionListRef,
+    servers,
+    connectServer,
     sessions,
     setExportSelectedIds,
     setIsUpdateModalVisible,
@@ -246,6 +248,8 @@ export default function AppOverlays({ dialogs, importExport, notifications, menu
           setSessionListQuery={setSessionListQuery}
           t={t}
           sessions={sessions}
+          servers={servers}
+          connectServer={connectServer}
           activeSessionId={activeSessionId}
           sessionAuthPrompts={sessionAuthPrompts}
           handleTabClick={handleTabClick}

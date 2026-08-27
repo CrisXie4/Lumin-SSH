@@ -87,7 +87,7 @@ export function renderInactiveFileManagerPane(fm: FileManagerController, paneSta
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          borderRight: paneState.key === 'left' ? '1px solid var(--border)' : 'none',
+          borderRight: paneState.key === 'left' ? '1px solid var(--border-subtle)' : 'none',
           overflow: 'hidden',
           background: isDropTarget ? 'var(--accent-dim)' : 'var(--surface-raised)',
           position: 'relative',
@@ -115,7 +115,7 @@ export function renderInactiveFileManagerPane(fm: FileManagerController, paneSta
           void handleDualPaneTransferDrop(event, paneState);
         }}
       >
-        <div className="flex items-center gap-2 px-3 py-2 border-t-2 border-t-transparent border-b border-line bg-canvas">
+        <div className="flex items-center gap-2 px-3 py-2 border-t-2 border-t-transparent border-b border-line-subtle bg-canvas">
           <span className="text-sm font-semibold text-primary">{String(paneState.label ?? '')}</span>
           <span className="text-xs text-secondary truncate">{String(paneState.path || '/')}</span>
         </div>

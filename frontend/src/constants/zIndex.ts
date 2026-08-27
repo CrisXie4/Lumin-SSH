@@ -39,20 +39,20 @@ export const Z = {
   FLOATING_EDITOR: 9001,
   FLOATING_EDITOR_MENU: 9002,
 
-  // ── Global modals ──
-  MODAL: 9500,
-  GLOBAL_DIALOG: 9800,
-  SETTINGS: 9999,
-
   // ── Chrome / search ──
-  TOPBAR: 30000,
+  TOPBAR: 1000,
   SEARCH_PANEL: 10000,
 
+  // ── Global modals ──
+  MODAL: 35000,
+  GLOBAL_DIALOG: 38000,
+  SETTINGS: 39000,
+
   // ── Critical app dialogs ──
-  SETTINGS_DIALOG: 20001,
-  SYSTEM_DIALOG: 20002,
+  SETTINGS_DIALOG: 39001,
+  SYSTEM_DIALOG: 39002,
 
   // ── Absolute top (toasts / system notices) ──
-  TOAST: 20003,
+  TOAST: 40000,
 } as const;
 

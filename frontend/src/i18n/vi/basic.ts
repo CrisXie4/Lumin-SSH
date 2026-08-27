@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Tiếng Trung phồn thể",
   "日文": "Tiếng Nhật",
   "韩文": "Tiếng Hàn",
+  "数据": "Dữ liệu",
+  "独立子 Shell 执行 (已开启)": "Thực thi subshell cô lập (bật)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "Lệnh nhiều dòng/phức tạp chạy trong tiến trình con cô lập, không làm bẩn phiên terminal",
+  "直接在当前会话执行 (默认)": "Chạy trực tiếp trong phiên hiện tại (mặc định)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "Lệnh được gửi trực tiếp đến phiên terminal hiện tại; biến và môi trường đã định nghĩa có hiệu lực trong suốt phiên",
 } satisfies I18nDict;

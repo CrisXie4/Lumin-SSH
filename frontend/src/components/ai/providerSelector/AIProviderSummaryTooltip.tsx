@@ -79,7 +79,7 @@ export function AIProviderQuickModelMenu({
 
   return (
     <div
-      className="fixed min-w-[180px] max-w-[320px] max-h-[320px] p-1 rounded-lg border border-line bg-overlay shadow-xl grid gap-0.5 overflow-y-auto"
+      className="fixed min-w-[180px] max-w-[320px] max-h-[320px] p-1 rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl grid gap-0.5 overflow-y-auto"
       style={{
         right: Math.max(16, window.innerWidth - modelTriggerRect.right),
         bottom: window.innerHeight - modelTriggerRect.top + 8,
@@ -103,8 +103,8 @@ export function AIProviderQuickModelMenu({
             key={option}
             type="button"
             onClick={() => void handleQuickModelSelect(option)}
-            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-lg border-none text-left text-sm transition-colors duration-[80ms] ${
-              active ? 'bg-accent-dim text-primary font-bold' : 'bg-transparent text-secondary font-medium'
+            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-[6px] border-none text-left text-sm transition-colors duration-[80ms] cursor-pointer ${
+              active ? 'bg-accent-dim text-accent font-semibold' : 'bg-transparent text-secondary hover:bg-hover hover:text-primary font-medium'
             }`}
           >
             <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{option}</span>
@@ -137,7 +137,7 @@ export function AIProviderQuickReasoningMenu({
 
   return (
     <div
-      className="fixed min-w-[92px] p-1 rounded-lg border border-line bg-overlay shadow-xl grid gap-0.5"
+      className="fixed min-w-[92px] p-1 rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl grid gap-0.5"
       style={{
         right: Math.max(16, window.innerWidth - triggerRect.right),
         bottom: window.innerHeight - triggerRect.top + 8,
@@ -151,8 +151,8 @@ export function AIProviderQuickReasoningMenu({
             key={option}
             type="button"
             onClick={() => void handleQuickReasoningSelect(option)}
-            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-lg border-none text-left text-sm transition-colors duration-[80ms] ${
-              active ? 'bg-accent-dim text-primary font-bold' : 'bg-transparent text-secondary font-medium'
+            className={`min-h-[30px] flex items-center justify-between gap-3 px-2.5 rounded-[6px] border-none text-left text-sm transition-colors duration-[80ms] cursor-pointer ${
+              active ? 'bg-accent-dim text-accent font-semibold' : 'bg-transparent text-secondary hover:bg-hover hover:text-primary font-medium'
             }`}
           >
             <span>{getReasoningEffortLabel(t, option) || t('无')}</span>

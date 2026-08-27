@@ -20,7 +20,7 @@ export default function UpdateModal({ visible, updateInfo, downloadProgress, t, 
 
   return (
     <div
-      className="fixed bottom-6 right-6 w-[340px] bg-raised border border-line rounded-lg shadow-md py-4 px-5 animate-[slideUp_0.18s_ease]"
+      className="fixed bottom-6 right-6 w-[340px] bg-raised border border-line rounded-[var(--radius-lg)] shadow-xl py-4 px-5 animate-[slideUp_0.18s_ease]"
       style={{ zIndex: Z.MODAL }}
     >
       <div className="flex items-start gap-[14px]">

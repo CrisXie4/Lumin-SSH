@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Cinese tradizionale",
   "日文": "Giapponese",
   "韩文": "Coreano",
+  "数据": "Dati",
+  "独立子 Shell 执行 (已开启)": "Esecuzione in sottoshell isolata (attiva)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "I comandi multilinea/complessi vengono eseguiti in un sottoprocesso isolato senza inquinare la sessione terminale",
+  "直接在当前会话执行 (默认)": "Esegui direttamente nella sessione corrente (predefinito)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "I comandi vengono inviati direttamente alla sessione terminale corrente; le variabili e l'ambiente definiti restano attivi per tutta la sessione",
 } satisfies I18nDict;

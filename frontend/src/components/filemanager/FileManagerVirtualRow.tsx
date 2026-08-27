@@ -70,9 +70,9 @@ export function renderFileManagerVirtualRow(fm: FileManagerController, row: VRow
             <span className="file-icon"><FolderUp size={16} /></span>
             <span className="file-name is-dir">..</span>
           </div>
-          <span className="file-col-size" />
-          <span className="file-col-permission" />
-          <span className="file-col-modified" />
+          <span className="file-col-size font-mono tabular-nums" />
+          <span className="file-col-permission font-mono tabular-nums" />
+          <span className="file-col-modified font-mono tabular-nums" />
           <span className="file-col-actions" />
         </div>
       );
@@ -247,9 +247,9 @@ export function renderFileManagerVirtualRow(fm: FileManagerController, row: VRow
           )}
         </div>
 
-        <span className="file-size file-col-size">{item.isDirectory ? '-' : fmtSize(item.size)}</span>
+        <span className="file-size file-col-size font-mono tabular-nums">{item.isDirectory ? '-' : fmtSize(item.size)}</span>
         <span
-          className="file-permission file-col-permission"
+          className="file-permission file-col-permission font-mono tabular-nums"
           title={permissionDisplay}
           onClick={isInteractive ? (event) => {
             if (isDeletedPlaceholder) return;
@@ -259,7 +259,7 @@ export function renderFileManagerVirtualRow(fm: FileManagerController, row: VRow
         >
           {permissionDisplay}
         </span>
-        <span className="file-date file-col-modified">{fmtDate(item.modifyTime)}</span>
+        <span className="file-date file-col-modified font-mono tabular-nums">{fmtDate(item.modifyTime)}</span>
 
         {isInteractive ? (
           <div className="file-actions file-col-actions">

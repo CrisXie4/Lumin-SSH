@@ -63,10 +63,11 @@ export default function AppAIPanelHost({
     <div
       style={{
         width: aiPanelWidth,
-        minWidth: aiPanelWidth,
+        minWidth: 0,
+        maxWidth: '100%',
         height: '100%',
         display: showAIPanel && isActiveSessionConnected ? 'flex' : 'none',
-        flexShrink: 0,
+        flexShrink: 1,
         position: 'relative',
         overflow: 'hidden',
       }}

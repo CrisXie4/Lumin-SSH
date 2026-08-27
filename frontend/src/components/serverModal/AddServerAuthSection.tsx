@@ -2,7 +2,8 @@ import { Eye, EyeOff, FolderOpen, Key, KeyRound } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import type { config } from '../../../wailsjs/go/models.ts';
 import { useTranslation } from '../../i18n.ts';
-import { Button } from '../ui';
+import { cn } from '../../utils/cn.ts';
+import { Button, Select } from '../ui';
 import type { ServerEditorForm } from './serverModalTypes.ts';
 
 export interface AddServerAuthSectionProps {
@@ -47,15 +48,37 @@ export function AddServerAuthSection({
       </div>
       <div className="server-editor-fields">
         <div className="server-editor-auth-row">
-          <div className="server-editor-segment">
-            <button type="button" className={authMode === 'custom' ? 'active' : ''} onClick={() => setAuthMode('custom')}>
+          <div className="inline-flex h-8.5 flex-1 items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5">
+            <button
+              type="button"
+              className={cn(
+                'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                authMode === 'custom'
+                  ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                  : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+              )}
+              onClick={() => setAuthMode('custom')}
+            >
               {t('自定义')}
             </button>
-            <button type="button" className={authMode === 'credential' ? 'active' : ''} onClick={() => setAuthMode('credential')}>
+            <button
+              type="button"
+              className={cn(
+                'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                authMode === 'credential'
+                  ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                  : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+              )}
+              onClick={() => setAuthMode('credential')}
+            >
               {t('使用凭据')}
             </button>
           </div>
-          <button type="button" className="server-editor-credential-button" onClick={onOpenCredentials}>
+          <button
+            type="button"
+            className="inline-flex h-8.5 shrink-0 items-center justify-center gap-1.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken px-3 text-xs font-medium text-secondary hover:bg-hover hover:text-primary hover:border-line transition-colors"
+            onClick={onOpenCredentials}
+          >
             <KeyRound size={13} /> {t('凭据管理')}
           </button>
         </div>
@@ -69,12 +92,20 @@ export function AddServerAuthSection({
             <>
               <div className="form-group">
                 <label className="form-label" htmlFor="server-credential">{t('选择凭据')} *</label>
-                <select id="server-credential" name="credentialId" className="select" value={selectedCredId} onChange={(e) => setSelectedCredId(e.target.value)}>
-                  <option value="">{t('请选择凭据')}</option>
-                  {credentials.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.username})</option>
-                  ))}
-                </select>
+                <Select
+                  id="server-credential"
+                  name="credentialId"
+                  value={selectedCredId}
+                  onChange={(val) => setSelectedCredId(val)}
+                  placeholder={t('请选择凭据')}
+                  options={[
+                    { value: '', label: t('请选择凭据') },
+                    ...credentials.map((c) => ({
+                      value: c.id,
+                      label: `${c.name} (${c.username})`,
+                    })),
+                  ]}
+                />
               </div>
               {selectedCredId && (() => {
                 const sel = credentials.find((c) => c.id === selectedCredId);
@@ -91,10 +122,16 @@ export function AddServerAuthSection({
           <>
             <div className="form-group">
               <label className="form-label" htmlFor="server-auth-type">{t('认证方式')}</label>
-              <select id="server-auth-type" name="authType" className="select" value={form.authType} onChange={set('authType')}>
-                <option value="password">{t('密码认证')}</option>
-                <option value="key">{t('私钥认证')}</option>
-              </select>
+              <Select
+                id="server-auth-type"
+                name="authType"
+                value={form.authType}
+                onChange={(val) => set('authType')({ target: { value: val } } as ChangeEvent<HTMLSelectElement>)}
+                options={[
+                  { value: 'password', label: t('密码认证') },
+                  { value: 'key', label: t('私钥认证') },
+                ]}
+              />
             </div>
 
             {form.authType === 'password' ? (

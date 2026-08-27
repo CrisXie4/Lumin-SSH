@@ -1,6 +1,8 @@
 import { Eye, EyeOff, Globe } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useTranslation } from '../../i18n.ts';
+import { cn } from '../../utils/cn.ts';
+import { Select } from '../ui';
 import type { ProxyNode, ServerEditorForm } from './serverModalTypes.ts';
 
 export interface AddServerProxySectionProps {
@@ -27,12 +29,45 @@ export function AddServerProxySection({
       </div>
       <div className="server-editor-fields">
         <div className="form-group">
-          <label className="form-label" htmlFor="server-proxy-mode">{t('代理模式')}</label>
-          <select id="server-proxy-mode" name="proxyMode" className="select" value={form.proxyMode || 'direct'} onChange={set('proxyMode')}>
-            <option value="direct">{t('直连')}</option>
-            <option value="node">{t('选择代理节点')}</option>
-            <option value="custom">{t('自定义代理')}</option>
-          </select>
+          <label className="form-label">{t('代理模式')}</label>
+          <div className="inline-flex h-8.5 w-full items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5">
+            <button
+              type="button"
+              className={cn(
+                'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                (!form.proxyMode || form.proxyMode === 'direct')
+                  ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                  : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+              )}
+              onClick={() => set('proxyMode')({ target: { value: 'direct', name: 'proxyMode' } } as unknown as ChangeEvent<HTMLSelectElement>)}
+            >
+              {t('直连')}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                form.proxyMode === 'node'
+                  ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                  : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+              )}
+              onClick={() => set('proxyMode')({ target: { value: 'node', name: 'proxyMode' } } as unknown as ChangeEvent<HTMLSelectElement>)}
+            >
+              {t('代理节点')}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                form.proxyMode === 'custom'
+                  ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                  : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+              )}
+              onClick={() => set('proxyMode')({ target: { value: 'custom', name: 'proxyMode' } } as unknown as ChangeEvent<HTMLSelectElement>)}
+            >
+              {t('自定义代理')}
+            </button>
+          </div>
         </div>
         {form.proxyMode === 'node' ? (
           proxyNodes.length === 0 ? (
@@ -42,18 +77,24 @@ export function AddServerProxySection({
           ) : (
             <div className="form-group">
               <label className="form-label" htmlFor="server-proxy-node">{t('代理节点')} *</label>
-              <select id="server-proxy-node" name="proxyNodeId" className="select" value={form.proxyNodeId || ''} onChange={set('proxyNodeId')}>
-                <option value="">{t('请选择代理节点')}</option>
-                {proxyNodes.map((node) => (
-                  <option key={node.id} value={node.id}>
-                    {[
+              <Select
+                id="server-proxy-node"
+                name="proxyNodeId"
+                value={form.proxyNodeId || ''}
+                onChange={(val) => set('proxyNodeId')({ target: { value: val } } as ChangeEvent<HTMLSelectElement>)}
+                placeholder={t('请选择代理节点')}
+                options={[
+                  { value: '', label: t('请选择代理节点') },
+                  ...proxyNodes.map((node) => ({
+                    value: node.id || '',
+                    label: [
                       node.name || t('未命名节点'),
                       node.type === 'http' ? t('HTTP 代理') : t('SOCKS5 代理'),
                       `${node.host}:${node.port}`,
-                    ].join(' · ')}
-                  </option>
-                ))}
-              </select>
+                    ].join(' · '),
+                  })),
+                ]}
+              />
             </div>
           )
         ) : null}
@@ -61,10 +102,16 @@ export function AddServerProxySection({
           <>
             <div className="form-group">
               <label className="form-label" htmlFor="server-proxy-type">{t('协议类型')}</label>
-              <select id="server-proxy-type" name="proxyType" className="select" value={form.proxyType || 'socks5'} onChange={set('proxyType')}>
-                <option value="socks5">{t('SOCKS5 代理')}</option>
-                <option value="http">{t('HTTP 代理')}</option>
-              </select>
+              <Select
+                id="server-proxy-type"
+                name="proxyType"
+                value={form.proxyType || 'socks5'}
+                onChange={(val) => set('proxyType')({ target: { value: val } } as ChangeEvent<HTMLSelectElement>)}
+                options={[
+                  { value: 'socks5', label: t('SOCKS5 代理') },
+                  { value: 'http', label: t('HTTP 代理') },
+                ]}
+              />
             </div>
             <div className="form-row">
               <div className="form-group">

@@ -42,12 +42,12 @@ export default function AIAutoApproveExecuteSection({
 
   return (
     <div className="px-3 pb-3 grid gap-3 overflow-x-hidden">
-      <div className="p-3 rounded-lg border border-line bg-canvas grid gap-3 overflow-x-hidden">
+      <div className="p-3 rounded-[var(--radius-md)] border border-line bg-canvas grid gap-3 overflow-x-hidden">
         <div className="text-primary text-sm font-bold">{t('执行')}</div>
         <div className="grid gap-1.5">
           <div className="text-primary text-sm font-semibold">{t('执行规则')}</div>
-          <div role="group" className="grid grid-cols-3 overflow-hidden border border-line rounded-lg bg-sunken">
-            {EXECUTE_APPROVAL_MODE_OPTIONS.map((option, index) => {
+          <div role="group" className="grid grid-cols-3 p-0.5 gap-0.5 border border-line-subtle rounded-[var(--radius-sm)] bg-sunken">
+            {EXECUTE_APPROVAL_MODE_OPTIONS.map((option) => {
               const active = normalizedSettings.executeApprovalMode === option.value;
               return (
                 <button
@@ -55,12 +55,10 @@ export default function AIAutoApproveExecuteSection({
                   type="button"
                   aria-pressed={active}
                   onClick={() => handleExecuteApprovalModeChange(option.value)}
-                  className={`min-w-0 h-[30px] inline-flex items-center justify-center px-1.5 border-0 text-sm transition-colors duration-[80ms] cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${
-                    index === 0 ? '' : 'border-l border-line'
-                  } ${
+                  className={`min-w-0 h-7 rounded-[6px] text-xs font-medium flex items-center justify-center transition-colors cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${
                     active
-                      ? 'bg-accent text-white font-semibold'
-                      : 'bg-transparent text-secondary font-medium'
+                      ? 'bg-accent text-white font-semibold shadow-xs'
+                      : 'bg-transparent text-secondary hover:text-primary hover:bg-hover/60'
                   }`}>
                   {t(option.labelKey)}
                 </button>

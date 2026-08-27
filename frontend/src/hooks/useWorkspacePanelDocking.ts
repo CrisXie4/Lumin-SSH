@@ -4,7 +4,7 @@ import { clampPanelWidth } from '../utils/probeFormatting.ts';
 const FILE_MANAGER_LEFT_MIN = 180;
 const FILE_MANAGER_BOTTOM_MIN = 100;
 const PROBE_PANEL_MIN = 280;
-const AI_PANEL_MIN = 450;
+const AI_PANEL_MIN = 280;
 const COLLAPSE_ARMED_SIZE = 52;
 
 export type FileManagerDockPosition = 'tab' | 'left' | 'right' | 'bottom';

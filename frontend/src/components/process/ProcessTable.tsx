@@ -148,7 +148,7 @@ export function ProcessTable({
                 onContextMenu={(e) => onRowContextMenu(e, p)}
                 style={{ gridTemplateColumns: tableColumns }}
                 className={cn(
-                  'grid gap-0 border-b border-line-light text-[12.5px] font-mono text-primary cursor-pointer',
+                  'grid gap-0 border-b border-line-light text-[12.5px] font-mono tabular-nums text-primary cursor-pointer',
                   selectedPids.has(p.pid) || contextMenu?.process?.pid === p.pid || activePid === p.pid
                     ? 'bg-active'
                     : 'bg-transparent',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { RotateCcw } from 'lucide-react';
 import { t as $t } from '../../../i18n.ts';
 import { Button } from '../../ui';
 import { Switch } from '../../ui/Switch';
@@ -18,20 +19,34 @@ export interface BackgroundPanelProps {
   onGlobalIconOpacityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-function OpacityRow({ label, value, min, max, step, onChange }: {
+function OpacityRow({ label, value, min, max, step, defaultValue, onChange }: {
   label: string;
   value: number;
   min: string;
   max: string;
   step: string;
+  /** 出厂默认值：偏离时显示一键重置徽标 */
+  defaultValue?: number;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const deviates = defaultValue !== undefined && Math.round(value * 100) !== Math.round(defaultValue * 100);
   return (
     <div className="flex justify-between items-center">
       <div className="text-base text-primary">{label}</div>
       <div className="flex items-center gap-3">
         <input type="range" min={min} max={max} step={step} value={value} onChange={onChange} />
         <span className="text-base w-8 text-right text-primary">{Math.round(value * 100)}%</span>
+        {deviates ? (
+          <button
+            type="button"
+            title={$t('恢复默认') + ` ${Math.round(defaultValue * 100)}%`}
+            aria-label={`${label} ${$t('恢复默认')} ${Math.round(defaultValue * 100)}%`}
+            onClick={() => onChange({ target: { value: String(defaultValue) } } as React.ChangeEvent<HTMLInputElement>)}
+            className="w-5 h-5 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-accent-border bg-accent-dim text-accent hover:bg-hover cursor-pointer transition-colors duration-[80ms] shrink-0"
+          >
+            <RotateCcw size={10} strokeWidth={2.5} />
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -75,7 +90,7 @@ export default function BackgroundPanel({
       {/* ── 终端背景 ── */}
       {renderHeader('terminal', Boolean(termBgImage), $t('终端背景'), $t('设置终端显示区域的背景图片'))}
       <SettingsDivider />
-      <OpacityRow label={$t('终端背景可见度')} value={termBgOpacity} min="0" max="1" step="0.05" onChange={(e) => onBgOpacityChange('terminal', e)} />
+      <OpacityRow label={$t('终端背景可见度')} value={termBgOpacity} min="0" max="1" step="0.05" defaultValue={0.15} onChange={(e) => onBgOpacityChange('terminal', e)} />
       <SettingsDivider />
 
       {/* ── 全局背景 ── */}
@@ -92,9 +107,9 @@ export default function BackgroundPanel({
         ) : undefined,
       )}
       <SettingsDivider />
-      <OpacityRow label={$t('全局背景可见度')} value={globalBgOpacity} min="0" max="0.5" step="0.02" onChange={(e) => onBgOpacityChange('global', e)} />
+      <OpacityRow label={$t('全局背景可见度')} value={globalBgOpacity} min="0" max="0.5" step="0.02" defaultValue={0.12} onChange={(e) => onBgOpacityChange('global', e)} />
       <SettingsDivider />
-      <OpacityRow label={$t('图标透明度')} value={globalIconOpacity} min="0.4" max="1" step="0.05" onChange={onGlobalIconOpacityChange} />
+      <OpacityRow label={$t('图标透明度')} value={globalIconOpacity} min="0.4" max="1" step="0.05" defaultValue={1} onChange={onGlobalIconOpacityChange} />
     </>
   );
 }

@@ -21,10 +21,10 @@ export default function ConnectingCard({ connectingServer, t, onCancel }: Connec
       className="absolute inset-0 flex items-center justify-center bg-scrim"
       style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
     >
-      <div className="w-[380px] rounded-[16px] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">
+      <div className="w-[380px] rounded-[var(--radius-lg)] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">
         {/* 标题行：图标 + 名称 + 按钮 */}
         <div className="flex items-start gap-3.5 mb-[18px]">
-          <div className="w-[42px] h-[42px] rounded-[10px] shrink-0 bg-[rgba(var(--danger-rgb),0.85)] flex items-center justify-center">
+          <div className="w-[42px] h-[42px] rounded-[var(--radius-md)] shrink-0 bg-[rgba(var(--danger-rgb),0.85)] flex items-center justify-center">
             <Monitor size={22} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
@@ -37,7 +37,7 @@ export default function ConnectingCard({ connectingServer, t, onCancel }: Connec
           </div>
           <div className="flex gap-2 shrink-0">
             <button
-              className="px-3.5 py-[5px] text-sm rounded-lg cursor-pointer bg-sunken hover:bg-hover border border-line text-secondary transition-colors duration-[80ms]"
+              className="px-3.5 py-[5px] text-sm rounded-[var(--radius-sm)] cursor-pointer bg-sunken hover:bg-hover border border-line text-secondary transition-colors duration-[80ms]"
               onClick={onCancel}
             >
               {t('取消')}

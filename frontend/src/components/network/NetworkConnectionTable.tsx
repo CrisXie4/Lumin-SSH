@@ -66,7 +66,7 @@ export function NetworkConnectionTable({
         <div className="relative flex-[1_1_240px] max-w-[420px] min-w-[180px]">
           <Search size={13} className="absolute left-[9px] top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
           <input
-            className={cn('input w-full h-7 py-1 pl-7 text-xs', connectionSearchQuery ? 'pr-[30px]' : 'pr-2')}
+            className={cn('input w-full h-[30px] py-1 pl-7 text-xs rounded-[var(--radius-sm)]', connectionSearchQuery ? 'pr-[30px]' : 'pr-2')}
             type="search"
             name="network-connection-search"
             autoComplete="off"
@@ -148,7 +148,7 @@ export function NetworkConnectionTable({
                 onClick={() => onOpenConnectionDetail(item, key)}
                 style={{ gridTemplateColumns: connectionTableColumns, minWidth: connectionTableMinWidth }}
                 className={cn(
-                  'grid gap-0 border-b border-line-subtle items-center text-[12.5px]',
+                  'grid gap-0 border-b border-line-subtle items-center text-[12.5px] tabular-nums',
                   peers.length > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-[0.72]',
                   active && 'bg-active',
                 )}

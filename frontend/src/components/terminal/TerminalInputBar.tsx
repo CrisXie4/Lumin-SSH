@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type * as React from 'react';
 import { Clipboard, Clock, Play, Zap } from 'lucide-react';
 import Tiptop from '../Tiptop.tsx';
+import { cn } from '../../utils/cn.ts';
 import type { CommandAutocompleteState } from '../../utils/terminalCommandAutocomplete.ts';
 import type { AutocompleteItem } from '../../utils/terminalCommandAutocomplete.ts';
 import type { I18nKey } from '../../i18n.ts';
@@ -347,11 +348,25 @@ export function TerminalInputBar({
         </button>
       </Tiptop>
 
-      <Tiptop text={multiLineWrapEnabled ? t('函数/变量作用域:命令内部') : t('函数/变量作用域:终端会话')}>
+      <Tiptop
+        text={
+          multiLineWrapEnabled ? (
+            <div className="flex flex-col gap-0.5 text-center">
+              <div className="font-semibold text-primary">{t('独立子 Shell 执行 (已开启)')}</div>
+              <div className="text-secondary text-xs">{t('多行/复杂命令在隔离子进程中执行，不污染终端会话')}</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5 text-center">
+              <div className="font-semibold text-primary">{t('直接在当前会话执行 (默认)')}</div>
+              <div className="text-secondary text-xs">{t('命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效')}</div>
+            </div>
+          )
+        }
+      >
         <button
           onClick={toggleMultiLineWrap}
-          aria-label={multiLineWrapEnabled ? t('函数/变量作用域:命令内部') : t('函数/变量作用域:终端会话')}
-          className={`term-btn${multiLineWrapEnabled ? ' active' : ''} p-0 w-9 min-w-9 h-9 min-h-9 justify-center`}
+          aria-label={multiLineWrapEnabled ? t('独立子 Shell 执行 (已开启)') : t('直接在当前会话执行 (默认)')}
+          className={cn('term-btn-icon', multiLineWrapEnabled ? 'active enabled border-accent text-accent bg-accent-dim font-bold' : 'enabled')}
         >
           <span className="inline-flex items-center justify-center w-3.5 font-mono text-xs font-bold">
             &gt;_

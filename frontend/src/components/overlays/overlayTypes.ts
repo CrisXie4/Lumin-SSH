@@ -7,6 +7,7 @@ import type { SessionLike } from '../../utils/sessionWorkspace.ts';
 import type { TopbarSession } from '../AppTopbar.tsx';
 import type { SerialFormConfig } from '../SerialConfigModal.tsx';
 import type { SyncFailureState } from '../SyncFailureToast.tsx';
+import type { config } from '../../../wailsjs/go/models.ts';
 
 /** 标签栏右键菜单 */
 export interface TabContextMenuState {
@@ -109,6 +110,9 @@ export interface AppOverlaysProps {
     sessionListQuery: string;
     sessionListRef: React.RefObject<HTMLDivElement | null>;
     sessions: TopbarSession[];
+    /** 完整服务器目录：快连面板的直连数据源 */
+    servers: config.Connection[];
+    connectServer: (server: config.Connection) => Promise<void>;
     setSessionListQuery: (q: string) => void;
     setShowSessionList: (v: boolean) => void;
     setTabContextMenu: (menu: TabContextMenuState | null) => void;

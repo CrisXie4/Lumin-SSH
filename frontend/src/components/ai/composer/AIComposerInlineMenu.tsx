@@ -38,7 +38,7 @@ export function AIComposerInlineMenu({
   return (
     <div
       onMouseDown={(event) => event.preventDefault()}
-      className="absolute left-3 right-[58px] bottom-[calc(100%-12px)] rounded-xl border border-line bg-overlay shadow-lg overflow-hidden"
+      className="absolute left-3 right-[58px] bottom-[calc(100%-12px)] rounded-[var(--radius-md)] border border-line bg-overlay shadow-lg overflow-hidden"
       style={{ zIndex: Z.POPUP }}>
       <div className="flex items-center justify-between gap-2.5 px-2.5 py-2 border-b border-line text-xs text-tertiary">
         <div className="flex items-center gap-2 min-w-0">

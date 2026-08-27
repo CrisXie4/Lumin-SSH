@@ -1,7 +1,11 @@
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../i18n.ts';
 import { cn } from '../../utils/cn.ts';
+import Tiptop from '../Tiptop.tsx';
 import { Button } from '../ui';
+import useTabStripWheelScroll from '../../hooks/useTabStripWheelScroll.ts';
 import { formatTransferTotal } from '../../utils/probeFormatting.ts';
 import type { NetworkConnection } from './networkTypes.ts';
 
@@ -25,6 +29,26 @@ export function NetworkDetailDrawer({
   onStartDetailDrag,
 }: NetworkDetailDrawerProps) {
   const { t } = useTranslation();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [nav, setNav] = useState({ left: false, right: false });
+  // 端口明细标签条：普通滚轮直接滚动切换（与终端/进程标签条统一）
+  useTabStripWheelScroll(scrollRef, detailConnections.length > 0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setNav({
+      left: el.scrollLeft > 1,
+      right: el.scrollWidth - el.clientWidth - el.scrollLeft > 1,
+    });
+  }, [detailConnections.length]);
+  const updateNav = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setNav({
+      left: el.scrollLeft > 1,
+      right: el.scrollWidth - el.clientWidth - el.scrollLeft > 1,
+    });
+  };
 
   if (detailConnections.length === 0) {
     return null;
@@ -38,36 +62,57 @@ export function NetworkDetailDrawer({
     <>
       <div className="split-resizer-h hotzone-bottom" onMouseDown={onStartDetailDrag} />
       <div style={{ height: detailHeight }} className="shrink-0 border-t border-line flex flex-col overflow-hidden bg-sunken">
-        <div className="flex justify-between items-center px-2 py-1 border-b border-line-light bg-raised gap-1">
-          <div className="flex gap-[3px] overflow-hidden flex-1">
-            {detailConnections.map(({ key, item }) => {
+        <div className="flex justify-between items-end px-2 pt-1 border-b border-line bg-sunken gap-1">
+          <div className="flex items-end min-w-0 flex-1">
+            {nav.left && (
+              <button type="button" className="terminal-sub-tab-nav mb-0.5" aria-label={t('向左滚动标签')} onClick={() => scrollRef.current?.scrollBy({ left: -180, behavior: 'smooth' })}>
+                <ChevronLeft size={14} />
+              </button>
+            )}
+            <div ref={scrollRef} className="flex gap-0 items-end min-w-0 flex-1 overflow-x-auto tab-row-scroll-x px-2" onScroll={updateNav}>
+              {detailConnections.map(({ key, item }) => {
               const isActive = activeDetailKey === key;
               return (
                 <div
                   key={key}
                   onClick={() => setActiveDetailKey(key)}
-                  className={cn(
-                    'flex items-center gap-[5px] px-2.5 py-[3px] text-sm rounded-sm cursor-pointer font-mono select-none whitespace-nowrap border',
-                    isActive ? 'border-accent bg-active text-primary' : 'border-line bg-sunken text-secondary',
-                  )}
+                  className={cn('drawer-detail-tab font-mono no-drag', isActive && 'active')}
                 >
                   <span>{item.listenIP || '*'}:{item.port || '-'}</span>
                   <span className="text-tertiary max-w-[100px] truncate">{item.name || '-'}</span>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCloseConnectionDetail(key);
-                    }}
-                    className="border-none bg-transparent text-tertiary cursor-pointer p-0 text-base leading-none"
-                  >
-                    ×
-                  </button>
+                  <Tiptop text={t('关闭')} placement="bottom">
+                    <span
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCloseConnectionDetail(key);
+                      }}
+                      aria-label={t('关闭')}
+                      className="drawer-detail-tab-close"
+                    >
+                      ×
+                    </span>
+                  </Tiptop>
                 </div>
               );
             })}
+            </div>
+            {nav.right && (
+              <button type="button" className="terminal-sub-tab-nav mb-0.5" aria-label={t('向右滚动标签')} onClick={() => scrollRef.current?.scrollBy({ left: 180, behavior: 'smooth' })}>
+                <ChevronRight size={14} />
+              </button>
+            )}
           </div>
-          <Button variant="ghost" size="sm" onClick={onCloseAllDetails}>{t('关闭全部')}</Button>
+          <Tiptop text={t('关闭全部')} placement="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCloseAllDetails}
+              className="p-0.5 text-tertiary shrink-0 mb-0.5"
+              aria-label={t('关闭全部')}
+            >
+              <X size={14} />
+            </Button>
+          </Tiptop>
         </div>
         <div className="flex-1 min-h-0 overflow-auto p-3">
           <div className="text-tertiary text-sm mb-2">

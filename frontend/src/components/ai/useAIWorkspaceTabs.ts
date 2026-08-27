@@ -205,18 +205,6 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
   const handleAIWorkspaceTabScroll = useCallback(() => {
     syncAIWorkspaceTabScrollState()
   }, [syncAIWorkspaceTabScrollState])
-  const handleAIWorkspaceTabWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    const element = aiWorkspaceTabScrollRef.current
-    if (!element || element.scrollWidth <= element.clientWidth) {
-      return
-    }
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-    if (!delta) {
-      return
-    }
-    element.scrollBy({ left: delta, behavior: 'auto' })
-    event.preventDefault()
-  }, [])
   useEffect(() => {
     if (tabGroup.tabs.length > 0) {
       if (!tabGroup.tabs.some((tab) => tab.id === tabGroup.activeTabId)) {
@@ -542,7 +530,6 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
     scrollActiveAIWorkspaceTabIntoView,
     scrollAIWorkspaceTabs,
     handleAIWorkspaceTabScroll,
-    handleAIWorkspaceTabWheel,
     dismissTabPanels,
     createWorkspaceTab,
     returnWorkspaceTabHome,

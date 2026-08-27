@@ -52,7 +52,7 @@ export default function QuickEditModelSection({
       {modelRefreshError ? (
         <div
           role="alert"
-          className="grid grid-cols-[18px_minmax(0,1fr)] items-start gap-2 py-[7px] px-[9px] border border-[rgba(var(--danger-rgb),0.28)] rounded-lg bg-danger-dim text-danger">
+          className="grid grid-cols-[18px_minmax(0,1fr)] items-start gap-2 py-[7px] px-[9px] border border-[rgba(var(--danger-rgb),0.28)] rounded-[var(--radius-sm)] bg-danger-dim text-danger">
           <span
             aria-hidden="true"
             className="w-[18px] h-[18px] inline-flex items-center justify-center rounded-full bg-[rgba(var(--danger-rgb),0.16)] text-sm font-extrabold leading-none">
@@ -75,10 +75,10 @@ export default function QuickEditModelSection({
         onChange={(event) => setModelQuery(event.target.value)}
         onMouseLeave={handleInputDragSelectAll}
         placeholder={t('筛选模型或输入以指定模型')}
-        className="h-[34px] w-full rounded-none border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+        className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none"
       />
 
-      <div className="min-h-[200px] border border-line bg-canvas flex flex-col">
+      <div className="min-h-[200px] rounded-[var(--radius-sm)] border border-line bg-canvas flex flex-col overflow-hidden">
         {filteredModels.length > 0 || modelQuery.trim() ? (
           <>
             {filteredModels.map((item) => {

@@ -4,7 +4,7 @@ import { clampPanelWidth } from '../utils/probeFormatting.ts';
 const FILE_MANAGER_LEFT_MIN = 180;
 const FILE_MANAGER_BOTTOM_MIN = 100;
 const PROBE_PANEL_MIN = 280;
-const AI_PANEL_MIN = 450;
+const AI_PANEL_MIN = 280;
 
 type ProbePanelPosition = 'left' | 'right';
 
@@ -35,7 +35,7 @@ export default function usePanelLayout(): UsePanelLayoutResult {
   const [probePanelWidth, setProbePanelWidth] = useState(() => clampPanelWidth(localStorage.getItem('probePanelWidth') || '320', PROBE_PANEL_MIN));
   const [probePanelPosition, setProbePanelPositionState] = useState<ProbePanelPosition>(() => localStorage.getItem('probePanelPosition') === 'right' ? 'right' : 'left');
   const [probePanelCollapsed, setProbePanelCollapsedState] = useState(() => localStorage.getItem('probePanelCollapsed') === 'true');
-  const [aiPanelWidth, setAiPanelWidth] = useState(() => clampPanelWidth(localStorage.getItem('aiPanelWidth') || '450', AI_PANEL_MIN));
+  const [aiPanelWidth, setAiPanelWidth] = useState(() => clampPanelWidth(localStorage.getItem('aiPanelWidth') || '400', AI_PANEL_MIN));
   const [showAIPanel, setShowAIPanel] = useState(() => localStorage.getItem('showAIPanel') !== 'false');
   const leftSplitWidthRef = useRef(leftSplitWidth);
   const bottomSplitHeightRef = useRef(bottomSplitHeight);

@@ -168,7 +168,7 @@ export default function AIPanelHeader({
                 aria-label={condenseButtonTooltip}
                 disabled={!canOpenCondenseActions}
                 onClick={handleCondenseButtonClick}
-                className={`inline-flex items-center justify-center w-fit min-w-0 max-w-full h-7 px-2.5 rounded-full border text-sm font-bold transition-colors duration-[80ms] whitespace-nowrap leading-none tabular-nums ${
+                className={`inline-flex items-center justify-center w-fit min-w-0 max-w-full h-7 px-2.5 rounded-[var(--radius-sm)] border text-sm font-bold transition-colors duration-[80ms] whitespace-nowrap leading-none tabular-nums ${
                   isCondensingContext
                     ? 'border-accent-border bg-accent-dim text-accent'
                     : 'border-line bg-transparent text-secondary'
@@ -179,7 +179,7 @@ export default function AIPanelHeader({
             </Tiptop>
             {condenseActionsVisible && canOpenCondenseActions ? (
               <div
-                className="absolute top-[calc(100%+2px)] left-1/2 -translate-x-1/2 grid gap-1.5 min-w-[156px] p-2 rounded-xl border border-line bg-raised shadow-[0_12px_28px_rgba(0,0,0,0.18)] z-20"
+                className="absolute top-[calc(100%+2px)] left-1/2 -translate-x-1/2 grid gap-1.5 min-w-[156px] p-2 rounded-[var(--radius-md)] border border-line bg-raised shadow-[0_12px_28px_rgba(0,0,0,0.18)] z-20"
                 onMouseEnter={showCondenseActions}
                 onMouseLeave={hideCondenseActionsWithDelay}
               >
@@ -187,7 +187,7 @@ export default function AIPanelHeader({
                   type="button"
                   onClick={handleTriggerQuickCondense}
                   disabled={!canQuickCondenseContext}
-                  className={`h-[30px] px-2.5 rounded-full border border-accent-border bg-accent-dim text-accent text-sm font-bold whitespace-nowrap transition-colors duration-[80ms] ${
+                  className={`h-[30px] px-2.5 rounded-[var(--radius-sm)] border border-accent-border bg-accent-dim text-accent text-sm font-bold whitespace-nowrap transition-colors duration-[80ms] ${
                     canQuickCondenseContext ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
                   }`}
                 >
@@ -197,7 +197,7 @@ export default function AIPanelHeader({
                   type="button"
                   onClick={handleTriggerFullSummaryCondense}
                   disabled={!canSummaryCondenseContext}
-                  className={`h-[30px] px-2.5 rounded-full border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap transition-colors duration-[80ms] ${
+                  className={`h-[30px] px-2.5 rounded-[var(--radius-sm)] border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap transition-colors duration-[80ms] ${
                     canSummaryCondenseContext ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
                   }`}
                 >
@@ -209,7 +209,7 @@ export default function AIPanelHeader({
           <Tiptop text={t('当前对话节点数')} placement="top">
             <span
               aria-label={t('当前对话节点数')}
-              className="inline-flex items-center justify-center gap-1 w-fit min-w-0 h-7 px-2.5 rounded-full border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap leading-none tabular-nums cursor-default select-none"
+              className="inline-flex items-center justify-center gap-1 w-fit min-w-0 h-7 px-2.5 rounded-[var(--radius-sm)] border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap leading-none tabular-nums cursor-default select-none"
             >
               <MessagesSquare size={12} />
               <span>{normalizedApiMessageCount}</span>

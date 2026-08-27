@@ -36,14 +36,14 @@ export default function QuickEditReasoningSection({
     return (
       <div className="grid gap-2">
         {!modelCapability.requiredReasoningBudget ? (
-          <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-xl bg-overlay">
+          <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-[var(--radius-md)] bg-overlay">
             <span className="text-sm text-primary font-semibold">{t('启用推理')}</span>
             <Switch checked={draft.enableReasoningEffort} size="sm" onChange={() => setDraft((prev) => ({ ...prev, enableReasoningEffort: !prev.enableReasoningEffort }))} />
           </div>
         ) : null}
 
         {budgetEnabled ? (
-          <div className="grid gap-2.5 px-3 pt-3 pb-3.5 border border-line rounded-xl bg-overlay">
+          <div className="grid gap-2.5 px-3 pt-3 pb-3.5 border border-line rounded-[var(--radius-md)] bg-overlay">
             <div className="grid gap-1">
               <div className="text-sm font-semibold text-primary">{t('最大输出 Token')}</div>
               <div className="grid grid-cols-[1fr_auto] items-center gap-2.5">
@@ -92,7 +92,7 @@ export default function QuickEditReasoningSection({
   switch (modelCapability.reasoningMode) {
     case 'binary':
       return (
-        <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-xl bg-overlay">
+        <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-[var(--radius-md)] bg-overlay">
           <span className="text-sm text-primary font-semibold">{t('启用推理')}</span>
           <Switch checked={draft.enableReasoningEffort} size="sm" onChange={() => setDraft((prev) => ({ ...prev, enableReasoningEffort: !prev.enableReasoningEffort }))} />
         </div>
@@ -138,7 +138,7 @@ export default function QuickEditReasoningSection({
             </div>
           </div>
           {draft.provider === 'Messages' ? (
-            <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-xl bg-overlay">
+            <div className="flex items-center justify-between gap-2.5 py-2.5 px-3 border border-line rounded-[var(--radius-md)] bg-overlay">
               <div className="min-w-0 grid gap-0.5">
                 <div className="text-sm text-primary font-semibold">{t('旧推理格式')}</div>
                 <div className="text-xs text-tertiary leading-[1.4]">{t('为 Messages 使用旧式 thinking budget 负载，而不是 adaptive effort。')}</div>

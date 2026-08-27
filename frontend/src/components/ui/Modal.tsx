@@ -76,7 +76,7 @@ export function Modal({
       }}
     >
       <div
-        className={`relative w-full overflow-y-auto bg-raised border border-line rounded-md shadow-lg animate-[slideUp_0.12s_ease] ${align === 'top' ? '' : 'max-h-[90vh]'} ${SIZE_CLASS[size]} ${panelClassName}`}
+        className={`relative w-full overflow-y-auto bg-raised border border-line rounded-[var(--radius-lg)] shadow-xl animate-[slideUp_0.12s_ease] ${align === 'top' ? '' : 'max-h-[90vh]'} ${SIZE_CLASS[size]} ${panelClassName}`}
         style={panelStyle}
       >
         {hasHeader && (

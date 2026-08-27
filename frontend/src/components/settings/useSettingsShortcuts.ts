@@ -9,6 +9,7 @@ const defaultShortcuts = {
   pasteSelection: 'Ctrl+Shift+V',
   clear: 'Ctrl+L',
   newTab: 'Ctrl+T',
+  serverSearch: 'Ctrl+K',
   find: 'Ctrl+F',
   sigint: 'Ctrl+C',
   eof: 'Ctrl+D',

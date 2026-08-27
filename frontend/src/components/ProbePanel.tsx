@@ -127,7 +127,7 @@ export default function ProbePanel(props: ProbePanelProps) {
           <div className="probe-state-title">{t('写入失败，请重试')}</div>
           <div className="probe-state-desc">{t('监控脚本写入服务器失败，请检查连接或权限')}</div>
           {probeErrorDetail ? (
-            <div className="mt-2.5 max-w-[360px] px-3 py-2.5 rounded-lg border border-line bg-overlay text-secondary text-sm leading-[1.6] whitespace-pre-wrap [word-break:break-word] text-left">
+            <div className="mt-2.5 max-w-[360px] px-3 py-2.5 rounded-[var(--radius-md)] border border-line bg-overlay text-secondary text-sm leading-[1.6] whitespace-pre-wrap [word-break:break-word] text-left">
               {probeErrorDetail}
             </div>
           ) : null}

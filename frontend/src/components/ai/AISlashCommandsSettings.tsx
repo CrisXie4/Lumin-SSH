@@ -175,11 +175,11 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
         <button
           type="button"
           onClick={handleAddCommand}
-          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas text-primary text-lg font-bold cursor-pointer">
+          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-primary text-lg font-bold cursor-pointer">
           <Plus size={16} />
           <span>{t('新增命令')}</span>
         </button>
-        <div className="rounded-xl border border-line bg-canvas overflow-hidden">
+        <div className="rounded-[var(--radius-md)] border border-line bg-canvas overflow-hidden">
           {draftCommands.length === 0 ? (
             <div className="p-4 text-tertiary text-base leading-[1.7]">
               {t('当前还没有斜杠命令.新增后即可在输入框中通过')} <code>{t('斜杠命令占位符')}</code> {t('进行选择.')}
@@ -197,7 +197,7 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
         </div>
       </div>
       {editingCommand ? (
-        <div className="grid grid-rows-[auto_auto_1fr_auto] gap-3 min-h-[420px] p-3.5 rounded-xl border border-line bg-canvas">
+        <div className="grid grid-rows-[auto_auto_1fr_auto] gap-3 min-h-[420px] p-3.5 rounded-[var(--radius-md)] border border-line bg-canvas">
           <div className="text-base font-bold text-primary">
             {`${t('编辑')} /${normalizeSlashCommandName(editingCommand.name) || t('未命名命令')}`}
           </div>
@@ -212,7 +212,7 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
               onChange={(event) => handlePatchEditingCommand({ name: event.target.value })}
               onMouseLeave={handleInputDragSelectAll}
               placeholder={t('例如 summarize')}
-              className="w-full h-9 px-3 rounded-lg border border-line bg-overlay text-primary text-base outline-none"
+              className="w-full h-9 px-3 rounded-[var(--radius-sm)] border border-line bg-overlay text-primary text-base outline-none"
             />
             <div className="text-tertiary text-xs leading-[1.5]">
               {t('仅允许字母,数字,点,下划线和中横线.输入时显示为')} <code>{t('斜杠命令占位符')}</code>{sentenceEnd}
@@ -226,7 +226,7 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
               value={editingCommand.prompt}
               onChange={(event) => handlePatchEditingCommand({ prompt: event.target.value })}
               placeholder={t('填写实际注入给 AI 的提示词内容')}
-              className="w-full min-h-0 h-full resize-none p-3 rounded-lg border border-line bg-overlay text-primary text-base leading-[1.6] outline-none whitespace-pre-wrap"
+              className="w-full min-h-0 h-full resize-none p-3 rounded-[var(--radius-sm)] border border-line bg-overlay text-primary text-base leading-[1.6] outline-none whitespace-pre-wrap"
             />
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -237,9 +237,9 @@ export default function AISlashCommandsSettings({ slashCommands, onSaveGlobalAIS
               type="button"
               onClick={() => void handleSaveCommands()}
               disabled={!hasPendingChanges}
-              className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-accent-border text-base font-bold transition-colors duration-[80ms] ${
+              className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-[var(--radius-sm)] border border-accent-border text-base font-bold transition-colors duration-[80ms] ${
                 hasPendingChanges
-                  ? 'bg-[rgba(var(--accent-rgb),0.12)] text-accent cursor-pointer'
+                  ? 'bg-accent-dim text-accent cursor-pointer'
                   : 'bg-overlay text-muted cursor-not-allowed'
               }`}>
               <Save size={14} />

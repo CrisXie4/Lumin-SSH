@@ -53,7 +53,7 @@ export default function FollowUpOptionList({
           value={currentTextAnswer}
           onChange={(event) => handleFreeTextChange(currentQuestion, event.target.value)}
           disabled={submitting || isFrozen}
-          className="min-h-[140px] resize-y rounded-xl border border-line bg-overlay px-3.5 py-3 text-base leading-[1.6] text-primary outline-none"
+          className="min-h-[140px] resize-y rounded-[var(--radius-md)] border border-line bg-overlay px-3.5 py-3 text-base leading-[1.6] text-primary outline-none"
         />
       ) : (
         currentQuestion.options.map((option) => {
@@ -79,7 +79,7 @@ export default function FollowUpOptionList({
                 <div className="min-w-0 text-md leading-[1.5] text-primary">
                   {option.recommended ? (
                     <span
-                      className="mr-2 inline-flex items-center whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,var(--border-subtle))] bg-[rgba(var(--accent-rgb),0.12)] px-2 py-0.5 align-text-top text-[10px] font-bold leading-[1.4] text-accent"
+                      className="mr-2 inline-flex items-center whitespace-nowrap rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--accent)_35%,var(--border-subtle))] bg-[rgba(var(--accent-rgb),0.12)] px-2 py-0.5 align-text-top text-[10px] font-bold leading-[1.4] text-accent"
                     >
                       {t('推荐')}
                     </span>
@@ -89,7 +89,7 @@ export default function FollowUpOptionList({
                 {option.mode ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span
-                      className="inline-flex items-center whitespace-nowrap rounded-full border border-line-subtle bg-overlay px-2 py-0.5 text-[10px] font-bold uppercase leading-[1.4] tracking-[0.4px] text-tertiary"
+                      className="inline-flex items-center whitespace-nowrap rounded-[var(--radius-sm)] border border-line-subtle bg-overlay px-2 py-0.5 text-[10px] font-bold uppercase leading-[1.4] tracking-[0.4px] text-tertiary"
                     >
                       {option.mode}
                     </span>

@@ -54,7 +54,7 @@ export default function AIChatContextCondenseCard({ message }: AIChatContextCond
   const title = isDerivedSubtask ? t('已创建摘要子任务') : t('上下文已智能压缩')
 
   return (
-    <div className="grid w-full gap-2.5 rounded-xl border border-line bg-overlay px-3.5 py-3">
+    <div className="grid w-full gap-2.5 rounded-[var(--radius-md)] border border-line bg-overlay px-3.5 py-3">
       <div className="flex items-center justify-between gap-2.5">
         <div className="inline-flex min-w-0 items-center gap-2">
           <Scissors size={14} color="var(--accent)" />

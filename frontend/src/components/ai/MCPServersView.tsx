@@ -117,7 +117,7 @@ export default function MCPServersView({
         ) : null}
       </div>
 
-      <div className="grid gap-2 p-3.5 rounded-xl bg-canvas border border-line">
+      <div className="grid gap-2 p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line">
         <div className="text-primary text-base font-bold">{t('完整MCP Json配置')}</div>
         <textarea
           id="mcp-servers-config"
@@ -131,10 +131,10 @@ export default function MCPServersView({
           }}
           rows={14}
           spellCheck={false}
-          className={`w-full resize-y min-h-[260px] p-3 rounded-lg bg-overlay text-primary text-sm leading-[1.65] font-mono outline-none whitespace-pre ${errorText ? 'border border-[rgba(var(--danger-rgb),0.38)]' : 'border border-line'}`}
+          className={`w-full resize-y min-h-[260px] p-3 rounded-[var(--radius-sm)] bg-overlay text-primary text-sm leading-[1.65] font-mono outline-none whitespace-pre ${errorText ? 'border border-[rgba(var(--danger-rgb),0.38)]' : 'border border-line'}`}
         />
         {errorText ? (
-          <div className="py-2.5 px-3 rounded-lg border border-[rgba(var(--danger-rgb),0.28)] bg-[rgba(var(--danger-rgb),0.08)] text-danger text-sm leading-[1.65] whitespace-pre-wrap break-words">
+          <div className="py-2.5 px-3 rounded-[var(--radius-sm)] border border-[rgba(var(--danger-rgb),0.28)] bg-[rgba(var(--danger-rgb),0.08)] text-danger text-sm leading-[1.65] whitespace-pre-wrap break-words">
             <span className="font-bold">{t('错误')}：</span>
             <span>{errorText}</span>
           </div>
@@ -144,7 +144,7 @@ export default function MCPServersView({
             type="button"
             onClick={() => void handleReload()}
             disabled={saving || reloading}
-            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-line bg-transparent text-secondary text-base font-bold transition-colors duration-[80ms] ${
+            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-[var(--radius-sm)] border border-line bg-transparent text-secondary text-base font-bold transition-colors duration-[80ms] ${
               saving || reloading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
             }`}
           >
@@ -155,7 +155,7 @@ export default function MCPServersView({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || reloading}
-            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.12)] text-accent text-base font-bold transition-colors duration-[80ms] ${
+            className={`h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-[var(--radius-sm)] border border-accent-border bg-accent-dim text-accent text-base font-bold transition-colors duration-[80ms] ${
               saving || reloading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
             }`}
           >
@@ -167,7 +167,7 @@ export default function MCPServersView({
 
       <div className="grid gap-2.5">
         {sortedServers.length === 0 ? (
-          <div className="p-4 rounded-xl border border-line bg-canvas text-tertiary text-base leading-[1.7]">
+          <div className="p-4 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base leading-[1.7]">
             {t('当前还没有可用的 MCP 服务器。')}
           </div>
         ) : sortedServers.map((server) => {
@@ -176,7 +176,7 @@ export default function MCPServersView({
           const canManageToolPrompts = server.source === 'global' || server.source === 'embedded'
           const timeoutValue = Number.isFinite(Number(server.timeout)) ? Number(server.timeout) : 0
           return (
-            <div key={`${server.source}-${server.name}`} className="p-3.5 rounded-xl border border-line bg-canvas grid gap-3">
+            <div key={`${server.source}-${server.name}`} className="p-3.5 rounded-[var(--radius-md)] border border-line bg-canvas grid gap-3">
               <div className="flex justify-between gap-3 items-start flex-wrap">
                 <div className="min-w-0 grid gap-1.5 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">

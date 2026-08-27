@@ -4,7 +4,7 @@ import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
 import { cn } from '../../utils/cn.ts';
 import Tiptop from '../Tiptop.tsx';
-import { Button } from '../ui';
+import { Button, Select } from '../ui';
 import { preferredExternalAppLabel, type FileEditorFile } from './fileEditorTypes.ts';
 
 export interface FileEditorToolbarProps {
@@ -81,34 +81,36 @@ export function FileEditorToolbar({
 
         {mode === 'split' && (
           <Tiptop text={t('分栏位置')} placement="bottom">
-            <select
+            <Select
               id="file-editor-split-position"
               name="file-editor-split-position"
+              size="sm"
               value={splitPosition}
-              onChange={(e) => onSplitPositionChange && onSplitPositionChange(e.target.value)}
+              onChange={(val) => onSplitPositionChange?.(val)}
               aria-label={t('分栏位置')}
-              className="px-1.5 py-1 text-xs cursor-pointer border-none bg-overlay text-primary rounded-md shrink-0 outline-none transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
-            >
-              <option value="left">{t('左侧分栏')}</option>
-              <option value="right">{t('右侧分栏')}</option>
-              <option value="bottom">{t('底部分栏')}</option>
-            </select>
+              options={[
+                { value: 'left', label: t('左侧分栏') },
+                { value: 'right', label: t('右侧分栏') },
+                { value: 'bottom', label: t('底部分栏') },
+              ]}
+            />
           </Tiptop>
         )}
 
         <Tiptop text={t('编辑模式')} placement="bottom">
-          <select
+          <Select
             id="file-editor-edit-mode"
             name="file-editor-edit-mode"
+            size="sm"
             value={mode}
-            onChange={(e) => onModeChange && onModeChange(e.target.value)}
+            onChange={(val) => onModeChange?.(val)}
             aria-label={t('编辑模式')}
-            className="px-1.5 py-1 text-xs cursor-pointer border-none bg-overlay text-primary rounded-md shrink-0 outline-none transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
-          >
-            <option value="modal">{t('全屏弹窗')}</option>
-            <option value="popup">{t('浮动面板')}</option>
-            <option value="split">{t('分栏编辑')}</option>
-          </select>
+            options={[
+              { value: 'modal', label: t('全屏弹窗') },
+              { value: 'popup', label: t('浮动面板') },
+              { value: 'split', label: t('分栏编辑') },
+            ]}
+          />
         </Tiptop>
 
         <Tiptop text={t('使用系统编辑器')} placement="bottom">

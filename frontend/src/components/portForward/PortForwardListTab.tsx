@@ -48,14 +48,14 @@ export function PortForwardListTab({
             return (
               <div
                 key={info.ID}
-                className="p-3 border border-line rounded-xl grid grid-cols-[1fr_auto] gap-3 items-center"
+                className="p-3 border border-line rounded-[var(--radius-md)] grid grid-cols-[1fr_auto] gap-3 items-center"
                 style={{ opacity: stopped ? 0.65 : 1 }}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="font-semibold">{renderMappingLabel(info)}</span>
                     {stopped && (
-                      <span className="shrink-0 text-xs px-2 py-px rounded-full bg-[color-mix(in_srgb,var(--text-tertiary)_18%,transparent)] text-tertiary">{t('已停止')}</span>
+                      <span className="shrink-0 text-xs px-2 py-px rounded-[var(--radius-sm)] bg-[color-mix(in_srgb,var(--text-tertiary)_18%,transparent)] text-tertiary">{t('已停止')}</span>
                     )}
                   </div>
                   <div className="text-secondary text-sm">{info.ID}</div>

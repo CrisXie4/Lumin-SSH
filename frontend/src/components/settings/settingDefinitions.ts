@@ -382,6 +382,7 @@ const settingsTreeSource = rootNode(
   tabNode('shortcuts', '快捷键', 'Keyboard', [
     sectionNode('shortcuts', 'terminal', '终端快捷键', [
       panelNode('shortcuts.panel.terminal', [
+        fieldNode('shortcuts.server-search', 'serverSearch', '搜索服务器', '', { control: 'shortcut' }),
         fieldNode('shortcuts.copy', 'copy', '从终端复制', '', { control: 'shortcut' }),
         fieldNode('shortcuts.paste', 'paste', '粘贴到终端', '', { control: 'shortcut' }),
         fieldNode('shortcuts.paste-selection', 'pasteSelection', '粘贴所选项', '', { control: 'shortcut' }),

@@ -46,8 +46,8 @@ export function renderFileManagerContent(fm: FileManagerController) {
               </Button>
             </div>
             {fileManagerSidebarOpen && (
-              <div className="w-[220px] min-w-[220px] border border-line rounded-md bg-raised flex flex-col overflow-hidden">
-                <div className="py-2.5 px-3 border-b border-line text-sm font-semibold text-primary">{t('历史标签')}</div>
+              <div className="w-[220px] min-w-[220px] border border-line-subtle rounded-md bg-raised flex flex-col overflow-hidden">
+                <div className="py-2.5 px-3 border-b border-line-subtle text-sm font-semibold text-primary">{t('历史标签')}</div>
                 <div className="flex flex-col gap-1.5 p-2 overflow-y-auto">
                   {fileManagerWorkspace.tabs.map((tab) => {
                     const isSidebarActive = tab.id === currentPaneTabId;
@@ -72,9 +72,9 @@ export function renderFileManagerContent(fm: FileManagerController) {
                           padding: isPinnedTab ? '8px 10px 8px 8px' : '8px 10px',
                           borderRadius: 'var(--radius-sm)',
                           border: '1px solid',
-                          borderColor: isSidebarActive ? 'var(--accent)' : 'var(--border)',
-                          background: isSidebarActive ? 'var(--surface-overlay)' : 'transparent',
-                          color: isSidebarActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          borderColor: isSidebarActive ? 'var(--accent)' : 'transparent',
+                          background: isSidebarActive ? 'var(--accent-dim)' : 'transparent',
+                          color: isSidebarActive ? 'var(--accent)' : 'var(--text-secondary)',
                           cursor: 'pointer',
                           textAlign: 'left',
                         }}
@@ -109,7 +109,7 @@ export function renderFileManagerContent(fm: FileManagerController) {
             display: 'flex',
             flexDirection: 'column',
             border: 'none',
-            borderRight: isDualPaneLayout && activePaneKey === 'left' ? '1px solid var(--border)' : 'none',
+            borderRight: isDualPaneLayout && activePaneKey === 'left' ? '1px solid var(--border-subtle)' : 'none',
             borderRadius: 0,
             overflow: 'hidden',
             background: isDualPaneLayout ? 'var(--surface-raised)' : 'transparent',
@@ -122,7 +122,7 @@ export function renderFileManagerContent(fm: FileManagerController) {
           }}
         >
           {isDualPaneLayout && (
-            <div className="flex items-center gap-2 px-3 py-2 border-t-2 border-accent border-b border-line bg-canvas">
+            <div className="flex items-center gap-2 px-3 py-2 border-t-2 border-accent border-b border-line-subtle bg-canvas">
               <span className="text-sm font-semibold text-accent">{activePaneLabel}</span>
               <span className="text-xs text-secondary truncate">{currentPath || '/'}</span>
             </div>

@@ -51,12 +51,12 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
           </span>
           <div className="inline-flex shrink-0 items-center gap-2">
             {response ? (
-              <span className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[color-mix(in_srgb,var(--success)_8%,var(--surface-overlay))] px-2 py-0.5 text-xs font-semibold text-success">
+              <span className="whitespace-nowrap rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[color-mix(in_srgb,var(--success)_8%,var(--surface-overlay))] px-2 py-0.5 text-xs font-semibold text-success">
                 {t('completed')}
               </span>
             ) : null}
             {resultTokenEstimateDisplay ? (
-              <div className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
+              <div className="whitespace-nowrap rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
                 {resultTokenEstimateDisplay}
               </div>
             ) : null}
@@ -76,17 +76,17 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
           </div>
         </div>
         {isRequestExpanded ? (
-          <div className="w-full overflow-hidden rounded-xl border border-line bg-overlay">
+          <div className="w-full overflow-hidden rounded-[var(--radius-md)] border border-line bg-overlay">
             <div className="grid gap-2.5 p-3">
               <div className="grid gap-1.5">
                 <div className="text-xs uppercase tracking-[0.4px] text-tertiary">{t('arguments')}</div>
-                <pre className="m-0 max-h-[260px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg border border-line bg-canvas px-3 py-2.5 font-mono text-sm leading-[1.65] text-secondary [word-break:break-word]">{args}</pre>
+                <pre className="m-0 max-h-[260px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-[var(--radius-sm)] border border-line bg-canvas px-3 py-2.5 font-mono text-sm leading-[1.65] text-secondary [word-break:break-word]">{args}</pre>
               </div>
             </div>
           </div>
         ) : null}
         {response ? (
-          <div className="w-full overflow-hidden rounded-xl border border-line bg-overlay">
+          <div className="w-full overflow-hidden rounded-[var(--radius-md)] border border-line bg-overlay">
             <button
               type="button"
               onClick={() => setIsResponseExpanded((previous) => !previous)}

@@ -1,0 +1,398 @@
+/* ============================================================
+   Terminal Command Bar, Search & Palettes Styles
+   ============================================================ */
+
+/* ── 终端主题选择卡片 ────────────────────────────────────────── */
+.theme-palette-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); margin-top: var(--space-1); }
+.theme-palette-card {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--surface-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.theme-palette-card:hover { border-color: var(--border-focus); background: var(--surface-hover); }
+.theme-palette-card.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+  box-shadow:
+    inset 0 -2px 0 var(--accent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.theme-palette-name { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); text-align: center; }
+.theme-palette-card.active .theme-palette-name {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+/* 迷你终端预览：用真实主题色，不是装饰色点 */
+.theme-palette-term-preview {
+  border-radius: 6px;
+  border: 1px solid transparent;
+  overflow: hidden;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.theme-palette-term-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-size: 10px;
+  line-height: 1.2;
+  border-bottom: 1px solid transparent;
+  opacity: 0.95;
+}
+.theme-palette-term-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.theme-palette-term-host {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.theme-palette-term-body {
+  flex: 1;
+  padding: 6px 8px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.theme-palette-term-cursor {
+  display: inline-block;
+  width: 1.5px;
+  height: 1.1em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  border-radius: 0;
+}
+
+
+/* ── 终端命令栏按钮 ── */
+.term-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 9px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-fast);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.term-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+.term-btn.active {
+  color: var(--text-primary);
+  background: var(--surface-active);
+  border-color: var(--accent);
+}
+.term-btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.term-btn-icon.enabled {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.term-btn-icon.enabled:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+.term-btn-icon.success.enabled,
+.term-btn-icon.accent.enabled {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.term-btn-icon.active,
+.term-btn-icon.active.enabled {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* ── 终端顶部状态栏 ── */
+.term-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--term-status-bg);
+  border-bottom: var(--term-status-border);
+  font-size: 12px;
+  color: var(--term-status-color);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.term-reconnect-btn {
+  padding: 2px 7px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition-fast);
+}
+.term-reconnect-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* ── 终端固定命令条（输入框上方，横向滚动 + 右侧搜索） ── */
+.term-quick-cmd-bar {
+  display: flex;
+  align-items: flex-start; /* 顶部对齐，确保按钮和搜索按钮完美对齐 */
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--term-input-bar-bg);
+  border-top: var(--term-input-bar-border);
+  flex-shrink: 0;
+}
+.term-quick-cmd-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* 底部留白：在按钮下方预留滚动条空间。不使用负 margin，防止滚动条被下方输入栏遮挡 */
+  padding-bottom: 6px;
+  /* 右侧边界渐隐：滚动时药丸淡出，而不是被搜索框硬切 */
+  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent 100%);
+}
+.term-quick-cmd-list::-webkit-scrollbar {
+  height: 8px;
+  background: transparent;
+}
+.term-quick-cmd-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.term-quick-cmd-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-full);
+}
+.term-quick-cmd-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+.term-quick-cmd-empty {
+  font-size: 11px;
+  color: var(--term-muted);
+  white-space: nowrap;
+  user-select: none;
+}
+.term-quick-cmd-btn {
+  height: 24px;
+  max-width: 120px;
+  padding: 0 10px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: var(--transition-fast);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.term-quick-cmd-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+.term-quick-cmd-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 命令条搜索：默认只一个图标按钮，点击展开输入框 */
+/* 搜索区与命令列表之间的分隔，避免看着像最后一颗药丸 */
+.term-quick-cmd-search-area {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 6px;
+  border-left: 1px solid var(--term-separator);
+}
+.term-quick-cmd-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--term-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: var(--transition-fast);
+}
+.term-quick-cmd-search-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+.term-quick-cmd-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-focus);
+  background: var(--term-input-bg);
+  color: var(--term-muted);
+  flex-shrink: 0;
+}
+.term-quick-cmd-search input {
+  width: 96px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--term-input-color);
+}
+.term-quick-cmd-search input::placeholder {
+  color: var(--term-input-placeholder, var(--term-muted));
+}
+.term-quick-cmd-search button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--term-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.term-quick-cmd-search button:hover {
+  color: var(--text-primary);
+}
+
+/* ── 快捷命令确认框：最终命令预览（弹窗骨架复用 .modal） ── */
+.term-quick-cmd-preview {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  padding: 8px 10px;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── 终端底部命令输入栏 ── */
+.term-input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 5px 8px;
+  background: var(--term-input-bar-bg);
+  border-top: var(--term-input-bar-border);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.term-input-bar > .tiptop {
+  align-self: flex-end;
+}
+
+.term-command-input {
+  resize: none;
+  min-height: 36px;
+  max-height: 132px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  line-height: 20px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  white-space: pre-wrap;
+  scrollbar-width: thin;
+  color: var(--term-input-color);
+  background: var(--term-input-bg);
+}
+.term-command-input::placeholder {
+  color: var(--term-input-placeholder, var(--term-muted));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: inherit;
+}
+.term-search-input::placeholder {
+  color: var(--term-input-placeholder, var(--term-muted));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ── 终端弹窗通用样式 ── */
+.term-popup {
+  position: fixed;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 100; /* Z.POPUP — below menus/modals/file editor */
+}
+.term-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+}
+
+/* ── 历史条目 hover ── */
+.history-item:hover {
+  background: var(--surface-hover);
+}

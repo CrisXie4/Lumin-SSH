@@ -238,19 +238,55 @@ export default function AppearanceTab({
                 aria-pressed={showThemeQuickEntry}
                 aria-label={$t('快捷入口')}
                 className={cn(
-                  'inline-flex items-center gap-2.5 min-h-[34px] px-3 rounded-full cursor-pointer select-none whitespace-nowrap transition-colors duration-[80ms] border',
+                  'inline-flex items-center gap-2 h-8.5 px-3 rounded-[var(--radius-sm)] cursor-pointer select-none whitespace-nowrap transition-colors duration-[80ms] border',
                   showThemeQuickEntry
-                    ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)] text-primary shadow-[inset_0_0_0_1px_rgba(var(--accent-rgb),0.12)]'
-                    : 'border-line bg-raised text-secondary',
+                    ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                    : 'border-line bg-raised text-secondary hover:text-primary hover:bg-hover/60',
                 )}
               >
-                <span className="text-sm font-semibold">{$t('快捷入口')}</span>
+                <span className="text-xs font-semibold">{$t('快捷入口')}</span>
                 <Switch indicator checked={showThemeQuickEntry} size="sm" />
               </button>
-              <div className="flex bg-raised rounded-xl p-1 border border-line">
-                <Button size="sm" variant={themeMode === 'light' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'light'} onClick={() => onThemeChange('light')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Sun size={14} />{$t('浅色')}</Button>
-                <Button size="sm" variant={themeMode === 'system' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'system'} onClick={() => onThemeChange('system')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Monitor size={14} />{$t('系统')}</Button>
-                <Button size="sm" variant={themeMode === 'dark' ? 'secondary' : 'ghost'} aria-pressed={themeMode === 'dark'} onClick={() => onThemeChange('dark')} className="rounded-xl gap-1 aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line"><Moon size={14} />{$t('深色')}</Button>
+              <div className="inline-flex h-8.5 items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5">
+                <button
+                  type="button"
+                  aria-pressed={themeMode === 'light'}
+                  onClick={() => onThemeChange('light')}
+                  className={cn(
+                    'h-7 px-2.5 rounded-[6px] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer',
+                    themeMode === 'light'
+                      ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                      : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+                  )}
+                >
+                  <Sun size={14} />{$t('浅色')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={themeMode === 'system'}
+                  onClick={() => onThemeChange('system')}
+                  className={cn(
+                    'h-7 px-2.5 rounded-[6px] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer',
+                    themeMode === 'system'
+                      ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                      : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+                  )}
+                >
+                  <Monitor size={14} />{$t('系统')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={themeMode === 'dark'}
+                  onClick={() => onThemeChange('dark')}
+                  className={cn(
+                    'h-7 px-2.5 rounded-[6px] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer',
+                    themeMode === 'dark'
+                      ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                      : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+                  )}
+                >
+                  <Moon size={14} />{$t('深色')}
+                </button>
               </div>
             </div>
           </div>
@@ -296,9 +332,33 @@ export default function AppearanceTab({
           <SettingRow
             definition={appearanceSettings.fields.monitorPanel}
             action={(
-              <div className="flex bg-raised rounded-xl p-1 border border-line">
-                <Button size="sm" variant={probePanelPosition === 'left' ? 'secondary' : 'ghost'} aria-pressed={probePanelPosition === 'left'} onClick={() => onProbePanelPositionChange('left')} className="rounded-xl aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line">{$t('左侧')}</Button>
-                <Button size="sm" variant={probePanelPosition === 'right' ? 'secondary' : 'ghost'} aria-pressed={probePanelPosition === 'right'} onClick={() => onProbePanelPositionChange('right')} className="rounded-xl aria-pressed:bg-sunken aria-pressed:text-secondary aria-pressed:border-line">{$t('右侧')}</Button>
+              <div className="inline-flex h-8.5 items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5">
+                <button
+                  type="button"
+                  aria-pressed={probePanelPosition === 'left'}
+                  onClick={() => onProbePanelPositionChange('left')}
+                  className={cn(
+                    'inline-flex h-7 px-3 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                    probePanelPosition === 'left'
+                      ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                      : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+                  )}
+                >
+                  {$t('左侧')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={probePanelPosition === 'right'}
+                  onClick={() => onProbePanelPositionChange('right')}
+                  className={cn(
+                    'inline-flex h-7 px-3 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
+                    probePanelPosition === 'right'
+                      ? 'border border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                      : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60',
+                  )}
+                >
+                  {$t('右侧')}
+                </button>
               </div>
             )}
           />

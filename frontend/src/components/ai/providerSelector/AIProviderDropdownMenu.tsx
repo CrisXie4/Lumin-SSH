@@ -70,7 +70,7 @@ export default function AIProviderDropdownMenu({
 
   return (
     <div
-      className="fixed rounded-lg border border-line bg-overlay shadow-xl flex flex-col overflow-hidden box-border"
+      className="fixed rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl flex flex-col overflow-hidden box-border"
       style={{
         ...(panelBounds ? { left: panelBounds.left } : (expandLeft ? { right: window.innerWidth - triggerRect.right } : { left: triggerRect.left })),
         bottom: window.innerHeight - triggerRect.top + 8,
@@ -89,7 +89,7 @@ export default function AIProviderDropdownMenu({
                 type="button"
                 aria-label={t('添加供应商')}
                 onClick={() => handleOpenEditor('create', null)}
-                className="w-7 h-7 inline-flex items-center justify-center rounded-none border border-line bg-transparent text-secondary transition-colors duration-[80ms]"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-line bg-sunken hover:bg-hover hover:text-primary text-secondary transition-colors duration-[80ms]"
               >
                 <Plus size={14} />
               </button>
@@ -106,7 +106,7 @@ export default function AIProviderDropdownMenu({
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
             placeholder={t('搜索...')}
-            className="w-full h-9 rounded-none border border-line bg-canvas text-primary pt-0 pb-0 pr-2.5 pl-8 box-border outline-none"
+            className="w-full h-8.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken text-primary pt-0 pb-0 pr-2.5 pl-8 box-border outline-none transition-colors focus:border-focus focus:bg-raised focus:ring-2 focus:ring-accent/20"
           />
         </div>
       </div>

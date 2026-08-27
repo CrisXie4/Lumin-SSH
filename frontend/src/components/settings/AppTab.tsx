@@ -169,7 +169,7 @@ export default function AppTab({ CURRENT_VERSION, BUILD_TIME, updateInfo, checki
               <span
                 onClick={onApplyUpdate}
                 className={cn(
-                  'relative flex items-center justify-center gap-1 min-w-20 rounded-xl px-2 py-0.5 text-sm font-semibold shadow-none overflow-hidden',
+                  'relative flex items-center justify-center gap-1 min-w-20 rounded-[var(--radius-sm)] px-2 py-0.5 text-sm font-semibold shadow-none overflow-hidden',
                   downloadProgress >= 0
                     ? 'bg-accent-dim text-accent cursor-default'
                     : 'bg-[rgba(var(--success-rgb),0.12)] text-success cursor-pointer',

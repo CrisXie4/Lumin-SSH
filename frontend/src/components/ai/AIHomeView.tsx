@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, CheckSquare, FolderPlus, Search, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, CheckSquare, FolderPlus, Search, Trash2 } from 'lucide-react'
 import { Z } from '../../constants/zIndex'
 import { Button } from '../ui'
 import { cn } from '../../utils/cn.ts'
@@ -22,23 +22,23 @@ export interface AIHomeViewDeps {
   conversationList: ConversationSummary[]
   conversationOrganizer: AIConversationOrganizerState
   conversationFilter: string
-  setConversationFilter: React.Dispatch<React.SetStateAction<string>>
+  setConversationFilter: (filter: string) => void
   conversationSelectionMode: boolean
-  setConversationSelectionMode: React.Dispatch<React.SetStateAction<boolean>>
+  setConversationSelectionMode: (mode: boolean) => void
   selectedConversationIds: Set<string>
   moveToGroupOpen: boolean
   setMoveToGroupOpen: React.Dispatch<React.SetStateAction<boolean>>
   editingConversationGroupId: string
   editingConversationGroupName: string
-  setEditingConversationGroupName: React.Dispatch<React.SetStateAction<string>>
+  setEditingConversationGroupName: (name: string) => void
   draggingConversationGroupId: string
   dragOverConversationGroupId: string
-  setDraggingConversationGroupId: React.Dispatch<React.SetStateAction<string>>
-  setDragOverConversationGroupId: React.Dispatch<React.SetStateAction<string>>
+  setDraggingConversationGroupId: (groupId: string) => void
+  setDragOverConversationGroupId: (groupId: string) => void
   panelState: PanelState
   globalSearchOpen: boolean
   globalSearchQuery: string
-  setGlobalSearchQuery: React.Dispatch<React.SetStateAction<string>>
+  setGlobalSearchQuery: (query: string) => void
   normalizedGlobalSearchQuery: string
   globalSearchLoading: boolean
   globalSearchResults: AIConversationMessageSearchResult[]
@@ -58,7 +58,7 @@ export interface AIHomeViewDeps {
   beginRenameConversationGroup: (groupId: string) => void
   cancelRenameConversationGroup: () => void
   commitRenameConversationGroup: () => void
-  reorderConversationGroup: (sourceGroupId: string, targetGroupId: string) => void
+  reorderConversationGroup: (sourceId: string, targetId: string) => void
   showSystemGroupRenameUnsupported: () => void
   handleDeleteConversationGroup: (groupId: string) => Promise<void>
   handleMoveSelectedConversations: (groupId: string) => void
@@ -114,7 +114,6 @@ export function renderAIHomeView({
   handleSetSelectedArchived,
   handleDeleteSelectedConversations,
 }: AIHomeViewDeps) {
-    let content = null
     const getConversationGroupId = (item: ConversationSummary) => {
       const ownerId = item.rootConversationId || item.parentConversationId || item.id
       return conversationOrganizer.assignments[item.id] || conversationOrganizer.assignments[ownerId] || ''
@@ -127,6 +126,7 @@ export function renderAIHomeView({
       return conversationFilter === 'ungrouped' ? !groupId : groupId === conversationFilter
     })
     const displayConversationList = buildAIConversationDisplayList(visibleConversationList)
+    let content: React.ReactNode = null
 
     if (globalSearchOpen) {
       content = (
@@ -147,14 +147,14 @@ export function renderAIHomeView({
                   }
                 }}
                 placeholder={t('输入关键词搜索全部对话')}
-                className="h-[34px] w-full rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none"
+                className="h-[34px] w-full rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none transition-colors focus:border-focus focus:bg-raised focus:ring-2 focus:ring-accent/20"
               />
               <button
                 type="button"
                 title={t('关闭搜索')}
                 aria-label={t('关闭搜索')}
                 onClick={resetGlobalSearchState}
-                className="w-[34px] h-[34px] inline-flex items-center justify-center rounded-lg border border-line bg-canvas text-tertiary cursor-pointer"
+                className="w-[34px] h-[34px] inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-line bg-canvas hover:bg-hover text-tertiary hover:text-primary cursor-pointer transition-colors"
               >
                 ×
               </button>
@@ -174,27 +174,56 @@ export function renderAIHomeView({
                 {globalSearchResults.map((result) => {
                   const historyTimeParts = buildAIHistoryDisplayTimeParts(result.updatedAt || 0, getLanguage() || 'zh-CN')
                   const historyRelativeToneStyle = getAIHistoryRelativeTimeToneStyle(result.updatedAt || 0)
+                  const isSelected = selectedConversationIds.has(result.conversationId)
                   return (
-                  <button
-                    key={`${result.conversationId}:${result.messageId}`}
-                    type="button"
-                    onClick={() => {
-                      void handleSelectGlobalSearchResult(result)
-                    }}
-                    className="w-full grid gap-2 py-3 px-3.5 border-0 border-b border-line bg-transparent text-left cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 text-md font-bold text-primary whitespace-nowrap overflow-hidden text-ellipsis">{result.conversationTitle}</div>
-                      <div className="shrink-0 text-xs text-tertiary">{result.role === 'user' ? t('用户') : t('AI')}</div>
-                    </div>
-                    <div className="text-xs text-muted flex items-center gap-0 flex-wrap">
-                      <span>{historyTimeParts.absoluteText}</span>
-                      {historyTimeParts.relativeText ? (
-                        <span style={historyRelativeToneStyle}>({historyTimeParts.relativeText})</span>
+                    <div
+                      key={`${result.conversationId}:${result.messageId}`}
+                      className="w-full flex items-center border-0 border-b border-line transition-colors duration-[120ms]"
+                      style={{
+                        background: isSelected ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+                      }}
+                    >
+                      {conversationSelectionMode ? (
+                        <button
+                          type="button"
+                          aria-label={isSelected ? t('取消选择') : t('选择')}
+                          aria-pressed={isSelected}
+                          onClick={() => toggleConversationSelection(result.conversationId)}
+                          className={cn(
+                            'w-[34px] self-stretch inline-flex items-center justify-center border-0 bg-transparent cursor-pointer shrink-0 transition-colors',
+                            'hover:bg-hover focus-visible:text-accent',
+                            isSelected ? 'text-accent' : 'text-muted',
+                          )}
+                        >
+                          <div className={cn('custom-checkbox', isSelected && 'checked')}>
+                            {isSelected && <Check size={10} strokeWidth={4} />}
+                          </div>
+                        </button>
                       ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (conversationSelectionMode) {
+                            toggleConversationSelection(result.conversationId)
+                          } else {
+                            void handleSelectGlobalSearchResult(result)
+                          }
+                        }}
+                        className="flex-1 min-w-0 grid gap-2 py-3 px-3.5 border-0 bg-transparent text-left cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 text-md font-bold text-primary whitespace-nowrap overflow-hidden text-ellipsis">{result.conversationTitle}</div>
+                          <div className="shrink-0 text-xs text-tertiary">{result.role === 'user' ? t('用户') : t('AI')}</div>
+                        </div>
+                        <div className="text-xs text-muted flex items-center gap-0 flex-wrap">
+                          <span>{historyTimeParts.absoluteText}</span>
+                          {historyTimeParts.relativeText ? (
+                            <span style={historyRelativeToneStyle}>({historyTimeParts.relativeText})</span>
+                          ) : null}
+                        </div>
+                        <div className="text-sm text-secondary leading-[1.6] whitespace-pre-wrap break-words">{result.snippet}</div>
+                      </button>
                     </div>
-                    <div className="text-sm text-secondary leading-[1.6] whitespace-pre-wrap break-words">{result.snippet}</div>
-                  </button>
                   )
                 })}
               </div>
@@ -214,44 +243,48 @@ export function renderAIHomeView({
           </div>
         </div>
       )
-    } else {      content = displayConversationList.map((item) => renderAIConversationListRow({ t, panelState, selectedConversationIds, conversationSelectionMode, toggleConversationSelection, handleOpenConversation, handleMakeConversationPermanent, handleOpenConversationFolder, handleRenameConversationTitle, handleDeleteConversation }, item))
+    } else {      content = (
+        <div className="flex flex-col gap-[4px] px-1 pb-1">
+          {displayConversationList.map((item) => renderAIConversationListRow({ t, panelState, selectedConversationIds, conversationSelectionMode, toggleConversationSelection, handleOpenConversation, handleMakeConversationPermanent, handleOpenConversationFolder, handleRenameConversationTitle, handleDeleteConversation }, item))}
+        </div>
+      )
     }
 
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto bg-canvas">
-        <div className="px-2.5 py-2 border-b border-line-subtle bg-raised sticky top-0 grid gap-2" style={{ zIndex: Z.STACK }}>
-          <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold text-secondary">{conversationSelectionMode ? t('已选择 {count} 项').replace('{count}', String(selectedConversationIds.size)) : t('对话历史')}</div>
-          <div className="flex items-center gap-1.5">
-          <button type="button" title={conversationSelectionMode ? t('退出多选') : t('多选')} aria-label={conversationSelectionMode ? t('退出多选') : t('多选')} onClick={() => conversationSelectionMode ? clearConversationSelection() : setConversationSelectionMode(true)} className={cn(
-            'w-7 h-7 inline-flex items-center justify-center rounded-md border cursor-pointer',
-            conversationSelectionMode
-              ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)] text-accent'
-              : 'border-line-subtle bg-sunken text-tertiary',
-          )}><CheckSquare size={14} /></button>
-          <button type="button" title={t('新建分组')} aria-label={t('新建分组')} onClick={() => void handleCreateConversationGroup()} className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-line-subtle bg-sunken text-tertiary cursor-pointer"><FolderPlus size={14} /></button>
-          <button
-            type="button"
-            title={t('全局搜索对话')}
-            aria-label={t('全局搜索对话')}
-            onClick={handleOpenGlobalSearch}
-            className={cn(
-              'w-7 h-7 inline-flex items-center justify-center rounded-md border cursor-pointer shrink-0 transition-[color,background-color,border-color,opacity] duration-[80ms]',
-              globalSearchOpen
-                ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)] text-accent'
-                : 'border-line-subtle bg-sunken text-tertiary',
-            )}
-          >
-            <Search size={14} />
-          </button>
-          </div>
+      <div className="flex-1 min-h-0 flex flex-col bg-canvas relative">
+        <div className="px-2.5 py-2 border-b border-line-subtle bg-raised shrink-0 grid gap-2" style={{ zIndex: Z.STACK }}>
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="text-sm font-semibold text-secondary min-w-0 truncate">{conversationSelectionMode ? t('已选择 {count} 项').replace('{count}', String(selectedConversationIds.size)) : t('对话历史')}</div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button type="button" title={conversationSelectionMode ? t('退出多选') : t('多选')} aria-label={conversationSelectionMode ? t('退出多选') : t('多选')} onClick={() => conversationSelectionMode ? clearConversationSelection() : setConversationSelectionMode(true)} className={cn(
+                'w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border cursor-pointer transition-colors',
+                conversationSelectionMode
+                  ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                  : 'border-line-subtle bg-sunken text-tertiary hover:text-primary hover:bg-hover',
+              )}><CheckSquare size={14} /></button>
+              <button type="button" title={t('新建分组')} aria-label={t('新建分组')} onClick={() => void handleCreateConversationGroup()} className="w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-line-subtle bg-sunken text-tertiary hover:text-primary hover:bg-hover cursor-pointer transition-colors"><FolderPlus size={14} /></button>
+              <button
+                type="button"
+                title={t('全局搜索对话')}
+                aria-label={t('全局搜索对话')}
+                onClick={handleOpenGlobalSearch}
+                className={cn(
+                  'w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border cursor-pointer shrink-0 transition-colors',
+                  globalSearchOpen
+                    ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                    : 'border-line-subtle bg-sunken text-tertiary hover:text-primary hover:bg-hover',
+                )}
+              >
+                <Search size={14} />
+              </button>
+            </div>
           </div>
           <div role="tablist" aria-label={t('分组')} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] pb-px">
             <button role="tab" aria-selected={conversationFilter === 'all'} type="button" onClick={() => { setConversationFilter('all'); clearConversationSelection(); cancelRenameConversationGroup() }} onDoubleClick={showSystemGroupRenameUnsupported} className={cn(
-              'h-[26px] px-[9px] rounded-md border text-xs whitespace-nowrap cursor-pointer shrink-0',
+              'h-[26px] px-[9px] rounded-[var(--radius-sm)] border text-xs whitespace-nowrap cursor-pointer shrink-0 transition-colors font-medium',
               conversationFilter === 'all'
-                ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)] text-accent'
-                : 'border-line-subtle bg-transparent text-secondary',
+                ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                : 'border-line-subtle bg-transparent text-secondary hover:text-primary hover:bg-hover/60',
             )}>{t('全部')}</button>
             {conversationOrganizer.groups.map((group) => {
               const selected = conversationFilter === group.id
@@ -270,7 +303,7 @@ export function renderAIHomeView({
                     if (event.key === 'Enter') { event.preventDefault(); commitRenameConversationGroup() }
                     if (event.key === 'Escape') { event.preventDefault(); cancelRenameConversationGroup() }
                   }}
-                  className="h-[26px] px-2 rounded-md border border-accent-border bg-sunken text-primary text-xs outline-2 outline-[rgba(var(--accent-rgb),0.16)] shrink-0"
+                  className="h-[26px] px-2 rounded-[var(--radius-sm)] border border-accent-border bg-sunken text-primary text-xs outline-2 outline-accent/20 shrink-0"
                   style={{ width: Math.max(72, Math.min(150, editingConversationGroupName.length * 12 + 24)) }}
                 />
               ) : (
@@ -288,13 +321,12 @@ export function renderAIHomeView({
                   onDrop={(event) => { event.preventDefault(); reorderConversationGroup(draggingConversationGroupId || event.dataTransfer.getData('text/plain'), group.id); setDraggingConversationGroupId(''); setDragOverConversationGroupId('') }}
                   onDragEnd={() => { setDraggingConversationGroupId(''); setDragOverConversationGroupId('') }}
                   className={cn(
-                    'h-[26px] px-[9px] rounded-md border text-xs whitespace-nowrap shrink-0 transition-[color,background-color,border-color,opacity] duration-[80ms]',
+                    'h-[26px] px-[9px] rounded-[var(--radius-sm)] border text-xs whitespace-nowrap shrink-0 transition-colors font-medium',
                     dragOver
-                      ? 'border-accent'
+                      ? 'border-accent ring-2 ring-accent/20'
                       : (selected
-                        ? 'border-accent-border'
-                        : 'border-line-subtle'),
-                    selected ? 'bg-[rgba(var(--accent-rgb),0.10)] text-accent' : 'bg-transparent text-secondary',
+                        ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                        : 'border-line-subtle bg-transparent text-secondary hover:text-primary hover:bg-hover/60'),
                   )}
                   style={{
                     cursor: dragging ? 'grabbing' : 'grab',
@@ -306,26 +338,39 @@ export function renderAIHomeView({
               )
             })}
             <button role="tab" aria-selected={conversationFilter === 'archived'} type="button" onClick={() => { setConversationFilter('archived'); clearConversationSelection(); cancelRenameConversationGroup() }} onDoubleClick={showSystemGroupRenameUnsupported} className={cn(
-              'h-[26px] px-[9px] rounded-md border text-xs whitespace-nowrap cursor-pointer shrink-0',
+              'h-[26px] px-[9px] rounded-[var(--radius-sm)] border text-xs whitespace-nowrap cursor-pointer shrink-0 transition-colors font-medium',
               conversationFilter === 'archived'
-                ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)] text-accent'
-                : 'border-line-subtle bg-transparent text-secondary',
+                ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
+                : 'border-line-subtle bg-transparent text-secondary hover:text-primary hover:bg-hover/60',
             )}>{t('已归档')}</button>
           </div>
         </div>
-        {content}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {content}
+        </div>
         {conversationSelectionMode && selectedConversationIds.size > 0 ? (
-          <div className="sticky bottom-0 grid gap-1.5 p-2 border-t border-line bg-raised" style={{ zIndex: Z.STACK + 1 }}>
+          <div className="shrink-0 p-2 border-t border-line bg-raised grid gap-1.5" style={{ zIndex: Z.STACK + 1 }}>
             {moveToGroupOpen ? (
               <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-                <Button variant="ghost" size="sm" onClick={() => handleMoveSelectedConversations('')} className="shrink-0">{t('移出分组')}</Button>
-                {conversationOrganizer.groups.map((group) => <Button key={group.id} variant="ghost" size="sm" onClick={() => handleMoveSelectedConversations(group.id)} className="shrink-0">{group.name}</Button>)}
+                <Button variant="ghost" size="sm" onClick={() => handleMoveSelectedConversations('')} className="shrink-0 h-7 text-xs rounded-[var(--radius-sm)]">{t('移出分组')}</Button>
+                {conversationOrganizer.groups.map((group) => <Button key={group.id} variant="ghost" size="sm" onClick={() => handleMoveSelectedConversations(group.id)} className="shrink-0 h-7 text-xs rounded-[var(--radius-sm)]">{group.name}</Button>)}
               </div>
             ) : null}
-            <div className="flex gap-1.5">
-              <Button variant="ghost" size="sm" onClick={() => setMoveToGroupOpen((current) => !current)} className="flex-1">{t('移动到分组')}</Button>
-              <Button variant="ghost" size="sm" onClick={() => void handleSetSelectedArchived(conversationFilter !== 'archived')} className="flex-1 gap-[5px]">{conversationFilter === 'archived' ? <ArchiveRestore size={13} /> : <Archive size={13} />}{conversationFilter === 'archived' ? t('恢复') : t('归档')}</Button>
-              <Button variant="danger" size="sm" onClick={() => void handleDeleteSelectedConversations()} aria-label={t('删除')} className="w-[34px] p-0"><Trash2 size={13} /></Button>
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 pl-1 pr-1.5 shrink-0 text-xs font-semibold text-primary">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-white text-[11px] font-bold">
+                  {selectedConversationIds.size}
+                </span>
+                <span>{t('项')}</span>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => setMoveToGroupOpen((current) => !current)} className="flex-1 h-7 text-xs rounded-[var(--radius-sm)]">{t('移动到分组')}</Button>
+              <Button variant="secondary" size="sm" onClick={() => void handleSetSelectedArchived(conversationFilter !== 'archived')} className="flex-1 h-7 text-xs gap-1.5 rounded-[var(--radius-sm)]">
+                {conversationFilter === 'archived' ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                {conversationFilter === 'archived' ? t('恢复') : t('归档')}
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => void handleDeleteSelectedConversations()} aria-label={t('删除')} className="w-7 h-7 p-0 shrink-0 rounded-[var(--radius-sm)]">
+                <Trash2 size={13} />
+              </Button>
             </div>
           </div>
         ) : null}

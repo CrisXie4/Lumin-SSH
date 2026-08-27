@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Cpu } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { useTranslation } from '../i18n.ts';
-import { Button } from './ui';
+import { Button, Select } from './ui';
 
 /** 串口连接配置（与 App.ConnectSerial 的参数对应） */
 export interface SerialFormConfig {
@@ -38,12 +38,13 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
         if (cancelled) return;
         setPorts(list || []);
         if (list && list.length > 0) {
-          setForm((f) => ({ ...f, port: list[0] }));
+          setForm((prev) => ({ ...prev, port: list[0] }));
         }
-        setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load serial ports:', err);
+        console.error('Failed to list serial ports', err);
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
       });
 
@@ -52,7 +53,7 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
     };
   }, []);
 
-  const handleConnect = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.port) return;
     onConnect(form);
@@ -71,7 +72,7 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
           </Button>
         </div>
 
-        <form onSubmit={handleConnect}>
+        <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-group">
               <label className="form-label" htmlFor="serial-config-port">{t('串口设备')}</label>
@@ -94,89 +95,76 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
                   </div>
                 </div>
               ) : (
-                <select
+                <Select
                   id="serial-config-port"
                   name="serial-config-port"
-                  className="select w-full"
                   value={form.port}
-                  onChange={(e) => setForm({ ...form, port: e.target.value })}
-                  required
-                >
-                  {ports.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm((prev) => ({ ...prev, port: val }))}
+                  options={ports.map((p) => ({ value: p, label: p }))}
+                />
               ))}
             </div>
 
             <div className="form-group">
               <label className="form-label" htmlFor="serial-config-baud-rate">{t('波特率')}</label>
-              <select
+              <Select
                 id="serial-config-baud-rate"
                 name="serial-config-baud-rate"
-                className="select w-full"
-                value={form.baudRate}
-                onChange={(e) => setForm({ ...form, baudRate: parseInt(e.target.value) })}
-              >
-                {[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
+                value={String(form.baudRate)}
+                onChange={(val) => setForm((prev) => ({ ...prev, baudRate: parseInt(val, 10) }))}
+                options={[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map((b) => ({
+                  value: String(b),
+                  label: String(b),
+                }))}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="form-group">
                 <label className="form-label" htmlFor="serial-config-data-bits">{t('数据位')}</label>
-                <select
+                <Select
                   id="serial-config-data-bits"
                   name="serial-config-data-bits"
-                  className="select w-full"
-                  value={form.dataBits}
-                  onChange={(e) => setForm({ ...form, dataBits: parseInt(e.target.value) })}
-                >
-                  {[8, 7, 6, 5].map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                  value={String(form.dataBits)}
+                  onChange={(val) => setForm((prev) => ({ ...prev, dataBits: parseInt(val, 10) }))}
+                  options={[8, 7, 6, 5].map((d) => ({
+                    value: String(d),
+                    label: String(d),
+                  }))}
+                />
               </div>
 
               <div className="form-group">
                 <label className="form-label" htmlFor="serial-config-stop-bits">{t('停止位')}</label>
-                <select
+                <Select
                   id="serial-config-stop-bits"
                   name="serial-config-stop-bits"
-                  className="select w-full"
-                  value={form.stopBits}
-                  onChange={(e) => setForm({ ...form, stopBits: parseFloat(e.target.value) })}
-                >
-                  <option value="1">1</option>
-                  <option value="1.5">1.5</option>
-                  <option value="2">2</option>
-                </select>
+                  value={String(form.stopBits)}
+                  onChange={(val) => setForm((prev) => ({ ...prev, stopBits: parseFloat(val) }))}
+                  options={[
+                    { value: '1', label: '1' },
+                    { value: '1.5', label: '1.5' },
+                    { value: '2', label: '2' },
+                  ]}
+                />
               </div>
             </div>
 
             <div className="form-group">
               <label className="form-label" htmlFor="serial-config-parity">{t('校验位')}</label>
-              <select
+              <Select
                 id="serial-config-parity"
                 name="serial-config-parity"
-                className="select w-full"
                 value={form.parity}
-                onChange={(e) => setForm({ ...form, parity: e.target.value })}
-              >
-                <option value="none">{t('无校验')}</option>
-                <option value="odd">{t('奇校验')}</option>
-                <option value="even">{t('偶校验')}</option>
-                <option value="mark">{t('标记校验')}</option>
-                <option value="space">{t('空格校验')}</option>
-              </select>
+                onChange={(val) => setForm((prev) => ({ ...prev, parity: val }))}
+                options={[
+                  { value: 'none', label: t('无校验') },
+                  { value: 'odd', label: t('奇校验') },
+                  { value: 'even', label: t('偶校验') },
+                  { value: 'mark', label: t('标记校验') },
+                  { value: 'space', label: t('空格校验') },
+                ]}
+              />
             </div>
           </div>
 

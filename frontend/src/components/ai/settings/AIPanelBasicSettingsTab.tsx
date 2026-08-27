@@ -1,7 +1,7 @@
 import { FolderOpen, Loader2, RotateCcw } from 'lucide-react';
 import type React from 'react';
 import { useTranslation } from '../../../i18n.ts';
-import { Button } from '../../ui';
+import { Button, Select } from '../../ui';
 import { handleInputDragSelectAll } from '../inputDragSelect.ts';
 import {
   formatTokenCountInMillions,
@@ -57,7 +57,7 @@ export default function AIPanelBasicSettingsTab({
       <div className="grid gap-1">
         <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('基本')}</div>
       </div>
-      <div className="bg-canvas p-4 rounded-xl border border-line grid gap-3">
+      <div className="bg-canvas p-4 rounded-[var(--radius-md)] border border-line grid gap-3">
         <div className="flex justify-between items-center gap-4">
           <div className="min-w-0">
             <div className="text-primary text-base font-bold">{t('终端隔离')}</div>
@@ -148,7 +148,7 @@ export default function AIPanelBasicSettingsTab({
           <div className="grid gap-1.5">
             <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
               <div className="text-primary text-base font-bold">{t('工具阈值')}</div>
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-primary text-sm font-bold tabular-nums font-mono">{toolResultTokenThresholdDisplay}</span>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-[var(--radius-sm)] border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-primary text-sm font-bold tabular-nums font-mono">{toolResultTokenThresholdDisplay}</span>
             </div>
             <div className="text-tertiary text-sm leading-[1.6]">{t('当工具返回结果的预估 Token 数超过此阈值时,原始内容将被省略,并显示“结果过大”的提示.调高可保留更多原始输出,但也会增加上下文膨胀风险.')}</div>
           </div>
@@ -167,7 +167,7 @@ export default function AIPanelBasicSettingsTab({
               }
             }}
             onMouseLeave={handleInputDragSelectAll}
-            className="w-full rounded-lg border border-line bg-canvas text-primary px-2.5 py-2 text-base font-mono box-border"
+            className="w-full rounded-[var(--radius-sm)] border border-line bg-canvas text-primary px-2.5 py-2 text-base font-mono box-border outline-none transition-colors focus:border-focus"
           />
         </div>
         <div className="border-t border-line" />
@@ -176,34 +176,30 @@ export default function AIPanelBasicSettingsTab({
             <div className="text-primary text-base font-bold">{t('AI 请求代理')}</div>
             <div className="text-tertiary text-sm leading-[1.6]">{t('选择 AI 请求使用的代理节点，首项为不使用。')}</div>
           </div>
-          <select
+          <Select
             id="ai-panel-proxy"
             name="ai-panel-proxy"
             value={aiRequestProxyId}
-            onChange={(event) => onSaveGlobalAISettings?.({ aiRequestProxyId: event.target.value })}
-            className="w-full min-h-[30px] py-[5px] pl-2.5 pr-8 bg-sunken border border-line rounded-sm text-primary text-sm outline-none cursor-pointer appearance-none bg-no-repeat transition-colors duration-[80ms] focus:border-focus focus:shadow-[0_0_0_2px_var(--accent-dim)]"
-            style={{
-              backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%236e7681\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")',
-              backgroundPosition: 'right 12px center',
-            }}
-          >
-            <option value="">{t('不使用')}</option>
-            {proxyNodes.map((node) => (
-              <option key={node.id} value={node.id}>
-                {[
+            onChange={(val) => onSaveGlobalAISettings?.({ aiRequestProxyId: val })}
+            placeholder={t('不使用')}
+            options={[
+              { value: '', label: t('不使用') },
+              ...proxyNodes.map((node) => ({
+                value: node.id || '',
+                label: [
                   node.name || t('未命名节点'),
                   node.type === 'http' ? t('HTTP 代理') : t('SOCKS5 代理'),
                   `${node.host}:${node.port}`,
-                ].join(' · ')}
-              </option>
-            ))}
-          </select>
+                ].join(' · '),
+              })),
+            ]}
+          />
         </div>
       </div>
       <div className="grid gap-1 mt-1">
         <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('数据存储')}</div>
       </div>
-      <div className="bg-canvas p-4 rounded-xl border border-line grid gap-3">
+      <div className="bg-canvas p-4 rounded-[var(--radius-md)] border border-line grid gap-3">
         <div className="grid gap-2">
           <div className="min-w-0">
             <div className="text-primary text-base font-bold">{t('对话存储目录')}</div>
@@ -215,14 +211,14 @@ export default function AIPanelBasicSettingsTab({
             type="text"
             value={tasksDir || ''}
             readOnly
-            className="w-full min-h-[30px] px-2.5 py-[5px] bg-sunken border border-line rounded-sm text-primary text-sm outline-none cursor-default transition-colors duration-[80ms] focus:border-focus focus:shadow-[0_0_0_2px_var(--accent-dim)]"
+            className="w-full min-h-[30px] px-2.5 py-[5px] bg-sunken border border-line rounded-[var(--radius-sm)] text-primary text-sm outline-none cursor-default transition-colors duration-[80ms] focus:border-focus"
           />
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="secondary"
               onClick={handleChangeTasksDir}
               disabled={tasksDirMigrating}
-              className="h-[30px] px-3.5 gap-1.5"
+              className="h-[30px] px-3.5 gap-1.5 rounded-[var(--radius-sm)]"
             >
               {tasksDirMigrating ? <Loader2 size={14} className="spin" /> : <FolderOpen size={14} />}
               {tasksDirMigrating ? t('迁移中...') : t('更改目录')}
@@ -232,7 +228,7 @@ export default function AIPanelBasicSettingsTab({
                 variant="secondary"
                 onClick={handleResetTasksDir}
                 disabled={tasksDirMigrating}
-                className="h-[30px] px-3.5 gap-1.5 text-secondary hover:text-secondary"
+                className="h-[30px] px-3.5 gap-1.5 text-secondary hover:text-secondary rounded-[var(--radius-sm)]"
               >
                 <RotateCcw size={14} />
                 {t('恢复默认')}

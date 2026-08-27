@@ -103,7 +103,7 @@ export function buildTriggerLabel(t: (key: I18nKey, vars?: Record<string, unknow
   return `${t('自动批准')} ${approvalCount}`;
 }
 
-export const PANEL_SHELL_CLASS = 'border border-line rounded-lg bg-overlay shadow-xl overflow-hidden overflow-x-hidden box-border';
+export const PANEL_SHELL_CLASS = 'border border-line rounded-[var(--radius-md)] bg-overlay shadow-xl overflow-hidden overflow-x-hidden box-border';
 export const SECTION_HINT_CLASS = 'text-xs text-tertiary leading-[1.5]';
-export const COMMAND_INPUT_CLASS = 'flex-1 min-w-0 h-[34px] rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none text-sm';
-export const ADD_BUTTON_CLASS = 'h-[34px] px-3 rounded-lg border border-line bg-canvas text-primary text-sm font-semibold transition-colors duration-[80ms] cursor-pointer';
+export const COMMAND_INPUT_CLASS = 'flex-1 min-w-0 h-[32px] rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none text-xs';
+export const ADD_BUTTON_CLASS = 'h-[32px] px-3 rounded-[var(--radius-sm)] border border-line bg-canvas text-primary text-xs font-semibold transition-colors duration-[80ms] cursor-pointer hover:bg-hover hover:border-line-subtle';

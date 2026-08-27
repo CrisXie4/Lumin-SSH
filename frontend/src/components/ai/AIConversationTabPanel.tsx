@@ -237,12 +237,13 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
         data-ai-panel-root="true"
       data-ai-devil-mode={isDevilMode ? 'true' : 'false'}
       style={{
-        width,
-        minWidth: width,
+        width: width || '100%',
+        minWidth: 0,
+        maxWidth: '100%',
         height: '100%',
         minHeight: 0,
         background: isDevilMode ? 'rgba(10, 0, 2, 0.96)' : 'var(--surface-raised)',
-        flexShrink: 0,
+        flexShrink: 1,
         borderRight: side === 'right' ? '1px solid var(--border)' : 'none',
         borderLeft: side === 'left' ? '1px solid var(--border)' : 'none',
         display: 'flex',

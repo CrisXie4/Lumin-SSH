@@ -281,6 +281,7 @@ export default function useAppOrchestrator() {
     tabsOverflow: topbarState.tabsOverflow,
     tabActionsRef: topbarState.tabActionsRef,
     sessionListBtnRef: topbarState.sessionListBtnRef,
+    showSessionList: topbarState.showSessionList,
     toggleSessionList: topbarState.toggleSessionList,
     closeAllSessions: sessionState.closeAllSessions,
     showThemeQuickEntry: globalEvents.showThemeQuickEntry,
@@ -316,7 +317,7 @@ export default function useAppOrchestrator() {
   };
 
   const menusProps = {
-    activeSessionId: sessionState.activeSessionId, canCopySessionPassword: sessionState.canCopySessionPassword, canMoveTerminalToDockTarget: sessionState.canMoveTerminalToDockTarget, closeAllSessions: sessionState.closeAllSessions, closeSession: sessionState.closeSession, closeTerminal: sessionState.closeTerminal, closeTerminalGroup: sessionState.closeTerminalGroup, forceCloseSession: sessionState.forceCloseSession, handleCopySessionPassword: sessionState.handleCopySessionPassword, handleRenameTerminalTab: sessionState.handleRenameTerminalTab, handleTabClick: sessionState.handleTabClick, isTerminalDockTargetOccupied: sessionState.isTerminalDockTargetOccupied, moveTerminalToDockTarget: sessionState.moveTerminalToDockTarget, sessionAuthPrompts: sessionState.sessionAuthPrompts, sessionListPos: topbarState.sessionListPos, sessionListQuery: topbarState.sessionListQuery, sessionListRef: topbarState.sessionListRef, sessions: sessions as TopbarSession[], setSessionListQuery: topbarState.setSessionListQuery, setShowSessionList: topbarState.setShowSessionList, setTabContextMenu: sessionState.setTabContextMenu, setTerminalTabContextMenu: sessionState.setTerminalTabContextMenu, showSessionList: topbarState.showSessionList, tabContextMenu: sessionState.tabContextMenu, terminalTabContextMenu: sessionState.terminalTabContextMenu,
+    activeSessionId: sessionState.activeSessionId, canCopySessionPassword: sessionState.canCopySessionPassword, canMoveTerminalToDockTarget: sessionState.canMoveTerminalToDockTarget, closeAllSessions: sessionState.closeAllSessions, closeSession: sessionState.closeSession, closeTerminal: sessionState.closeTerminal, closeTerminalGroup: sessionState.closeTerminalGroup, connectServer: sessionState.connectServer, forceCloseSession: sessionState.forceCloseSession, handleCopySessionPassword: sessionState.handleCopySessionPassword, handleRenameTerminalTab: sessionState.handleRenameTerminalTab, handleTabClick: sessionState.handleTabClick, isTerminalDockTargetOccupied: sessionState.isTerminalDockTargetOccupied, moveTerminalToDockTarget: sessionState.moveTerminalToDockTarget, servers, sessionAuthPrompts: sessionState.sessionAuthPrompts, sessionListPos: topbarState.sessionListPos, sessionListQuery: topbarState.sessionListQuery, sessionListRef: topbarState.sessionListRef, sessions: sessions as TopbarSession[], setSessionListQuery: topbarState.setSessionListQuery, setShowSessionList: topbarState.setShowSessionList, setTabContextMenu: sessionState.setTabContextMenu, setTerminalTabContextMenu: sessionState.setTerminalTabContextMenu, showSessionList: topbarState.showSessionList, tabContextMenu: sessionState.tabContextMenu, terminalTabContextMenu: sessionState.terminalTabContextMenu,
   };
 
   const animationProps = {

@@ -1,0 +1,377 @@
+/* ============================================================
+   Session Tabs Component Styles
+   ============================================================ */
+
+/* ── 标签栏（会话标签） ─────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  align-items: flex-end;
+  background: transparent;
+  border-bottom: none;
+  padding: 0 4px;
+  gap: 0;
+  height: var(--topbar-h);
+  flex: 1;
+  flex-shrink: 0;
+  min-width: 0;
+}
+.tab-scroll {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tab-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.tab-list {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  height: 100%;
+  min-width: max-content;
+  padding: 0 10px;
+}
+
+.tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 18px;
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+  align-self: center;
+}
+
+.tab-actions:empty {
+  display: none;
+  border-left: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px 0 12px;
+  font-size: var(--text-sm);
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  white-space: nowrap;
+  position: relative;
+  max-width: 180px;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 32%, var(--text-secondary));
+  border: 1px solid transparent;
+  border-bottom: none;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.tab-item.tab-home-item {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.tab-item.tab-home-item.active {
+  color: var(--accent);
+}
+
+/* 标签行首固定「搜索服务器」入口（快连面板触发钮） */
+.tab-search-item {
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+.tab-search-item:hover {
+  color: var(--text-primary);
+}
+.tab-search-item.active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* 标签行内「新建」圆钮：静默无底，悬停浮现圆形灰底（对齐浏览器范式） */
+.tab-create-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.tab-create-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.tab-create-btn:active {
+  background: var(--surface-active);
+  color: var(--text-primary);
+}
+
+.tab-item:not(.active)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  opacity: 0.75;
+  transition: opacity var(--transition-fast);
+}
+
+.tab-item:hover {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-hover));
+  color: var(--text-primary);
+  border-radius: 10px 10px 0 0;
+}
+
+.tab-item:not(.active):hover::after,
+.tab-item:not(.active):has(+ .tab-item.active)::after,
+.tab-item:not(.active):has(+ .tab-item:hover)::after,
+.tab-item:not(.active):last-child::after {
+  opacity: 0;
+}
+
+.tab-item.active {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-subtle));
+  border-bottom: 1px solid var(--surface-canvas);
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* 激活标签：Chrome 经典外凹圆弧（带连续 1px 边框线，10px 弧度） */
+.tab-item.active::before,
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 3;
+  background-size: 10px 10px;
+  background-repeat: no-repeat;
+}
+
+/* 深色模式左/右连续外凹圆弧
+   曲线用缓出三次贝塞尔（控制臂 6.4 > 圆弧值 5.52），端点切线仍严格水平/垂直，
+   中段比正圆略平，消除正圆弧与直线相接处的曲率突变感；
+   描边色 = 标签边框 color-mix 叠加标签底色的最终渲染色，接缝无亮度差 */
+.tab-item.active::before {
+  left: -10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0 L10 10 Z' fill='%230d1117'/%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0' fill='none' stroke='%232a4160' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+.tab-item.active::after {
+  right: -10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0 L0 10 Z' fill='%230d1117'/%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0' fill='none' stroke='%232a4160' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+body.theme-light .tab-item.active {
+  background: #faf9f9;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-subtle));
+  border-bottom: 1px solid #faf9f9;
+}
+
+/* 浅色模式左/右连续外凹圆弧（#faf9f9 填充 + 与标签边框精确同色的连续描边） */
+body.theme-light .tab-item.active::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0 L10 10 Z' fill='%23faf9f9'/%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0' fill='none' stroke='%23c1cce6' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+body.theme-light .tab-item.active::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0 L0 10 Z' fill='%23faf9f9'/%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0' fill='none' stroke='%23c1cce6' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* 壁纸模式下保留外凹反弧：填充改用激活标签的半透明磨砂配方（canvas 92%/浅色 .94），
+   与磨砂标签连为一体而非实心浮块；描边沿用各主题标签边框渲染色 */
+.has-global-wallpaper .tab-item.active::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0 L10 10 Z' fill='rgba(13,17,23,0.92)'/%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0' fill='none' stroke='%232a4160' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+.has-global-wallpaper .tab-item.active::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0 L0 10 Z' fill='rgba(13,17,23,0.92)'/%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0' fill='none' stroke='%232a4160' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+body.theme-light.has-global-wallpaper .tab-item.active::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0 L10 10 Z' fill='rgba(250,249,249,0.94)'/%3E%3Cpath d='M0 10 C6.4 10 10 6.4 10 0' fill='none' stroke='%23c1cce6' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+body.theme-light.has-global-wallpaper .tab-item.active::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0 L0 10 Z' fill='rgba(250,249,249,0.94)'/%3E%3Cpath d='M10 10 C3.6 10 0 6.4 0 0' fill='none' stroke='%23c1cce6' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+.topbar-home-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px 10px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 32%, var(--text-secondary));
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.topbar-home-btn:not(.active)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 14px;
+  background: color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+}
+
+.topbar-home-btn:hover {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-hover));
+  color: var(--text-primary);
+  border-radius: 10px 10px 0 0;
+}
+
+.topbar-home-btn:not(.active):hover::after,
+.tab-bar:has(.tab-item:first-child.active) .topbar-home-btn::after,
+.tab-bar:has(.tab-item:first-child:hover) .topbar-home-btn::after {
+  opacity: 0;
+}
+
+.topbar-home-btn.active {
+  background: var(--surface-canvas);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-subtle));
+  border-bottom: 1px solid var(--surface-canvas);
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+  color: var(--accent);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+  z-index: 2;
+}
+
+body.theme-light .topbar-home-btn.active {
+  background: #faf9f9;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-subtle));
+  border-bottom: 1px solid #faf9f9;
+}
+
+.tab-close {
+  margin-left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.tab-item:hover .tab-close {
+  opacity: 0.7;
+}
+.tab-item.active .tab-close {
+  opacity: 0.75;
+}
+.tab-close:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+
+.tab-reconnect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.tab-item:hover .tab-reconnect {
+  opacity: 0.7;
+}
+.tab-item.active .tab-reconnect {
+  opacity: 0.75;
+}
+.tab-reconnect:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+
+/* ── 标签右键菜单 ───────────────────────────────────────────── */
+.tab-context-menu {
+  position: fixed;
+  z-index: 200; /* Z.MENU */
+  background: var(--surface-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) 0;
+  min-width: 140px;
+  box-shadow: var(--shadow-md);
+  animation: contextMenuIn 0.14s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.tab-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-base);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+.tab-context-menu-item:hover { background: var(--surface-sunken); color: var(--text-primary); }
+.tab-context-menu-item.occupied { color: var(--warning); }
+.tab-context-menu-state {
+  width: 16px;
+  text-align: center;
+  font-size: var(--text-sm);
+  line-height: 1;
+}

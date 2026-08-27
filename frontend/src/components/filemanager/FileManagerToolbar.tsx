@@ -87,7 +87,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
             <Tiptop text={t('取消')} placement="bottom">
               <Button
                 variant="ghost"
-                className="file-toolbar-outline-btn"
+                className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
                 aria-label={t('取消')}
                 onClick={() => updateClipboard(null)}
               >
@@ -166,7 +166,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
               <Tiptop text={t('上一个命中')} placement="bottom">
                 <Button
                   variant="ghost"
-                  className="file-toolbar-outline-btn"
+                  className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
                   aria-label={t('上一个命中')}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => navigateFileLocatorMatch(-1)}
@@ -178,7 +178,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
               <Tiptop text={t('下一个命中')} placement="bottom">
                 <Button
                   variant="ghost"
-                  className="file-toolbar-outline-btn"
+                  className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
                   aria-label={t('下一个命中')}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => navigateFileLocatorMatch(1)}
@@ -195,7 +195,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
           <Tiptop text={t('新建文件')} placement="bottom">
             <Button
               variant="ghost"
-              className="file-toolbar-outline-btn"
+              className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
               aria-label={t('新建文件')}
               onClick={() => { void handleNewFile(); }}
             >
@@ -205,7 +205,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
           <Tiptop text={t('新建文件夹')} placement="bottom">
             <Button
               variant="ghost"
-              className="file-toolbar-outline-btn"
+              className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
               aria-label={t('新建文件夹')}
               onClick={() => { void handleMkdir(); }}
             >
@@ -215,7 +215,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
           <Tiptop text={t('上传文件或右键上传文件夹')} placement="bottom">
             <Button
               variant="ghost"
-              className="file-toolbar-outline-btn"
+              className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
               aria-label={t('上传文件或右键上传文件夹')}
               onClick={handleUpload}
               onContextMenu={(e) => {
@@ -230,13 +230,12 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
           <Tiptop text={t('传输队列')} placement="bottom">
             <Button
               variant="ghost"
-              size="icon"
               aria-pressed={uploadPanelState.uploadOpen}
               aria-label={t('传输队列')}
               onClick={toggleUploadPanel}
-              className="relative"
+              className="file-toolbar-outline-btn relative !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
             >
-                <ClipboardList size={14} />
+              <ClipboardList size={14} />
               {activeUploadCount > 0 && (
                 <span
                   className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-accent text-white text-[10px] font-bold leading-[15px] text-center"
@@ -250,7 +249,6 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
             <Tiptop text={tKey('返回上级')} placement="bottom">
               <Button
                 variant="ghost"
-                size="icon"
                 aria-label={tKey('返回上级')}
                 onClick={() => {
                   const parent = currentPath.substring(0, currentPath.lastIndexOf('/')) || '/';
@@ -260,6 +258,7 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
                     showLoading: true,
                   });
                 }}
+                className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
               >
                 <FolderUp size={14} />
               </Button>
@@ -268,9 +267,9 @@ export function renderFileManagerToolbar(fm: FileManagerController) {
           <Tiptop text={t('刷新')} placement="bottom">
             <Button
               variant="ghost"
-              size="icon"
               aria-label={t('刷新')}
               onClick={() => { void loadDir(currentPath); }}
+              className="file-toolbar-outline-btn !w-[30px] !min-w-[30px] !h-[30px] !min-h-[30px] !p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center"
             >
               <RefreshCw size={14} />
             </Button>

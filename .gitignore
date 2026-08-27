@@ -46,3 +46,6 @@
 .env*
 *.bat
 配置目录/
+
+# ── Superpowers 临时会话 ──
+.superpowers/

@@ -86,7 +86,7 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
           target="_blank"
           rel="noreferrer"
           onClick={(event) => openExternalLink(event, image)}
-          className="block overflow-hidden rounded-xl border border-line bg-canvas">
+          className="block overflow-hidden rounded-[var(--radius-md)] border border-line bg-canvas">
           <img
             src={image}
             alt=""
@@ -105,7 +105,7 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
       <div
         title={requestModelTitle || requestModelLabel}
         aria-label={requestModelTitle || requestModelLabel}
-        className="inline-flex h-6 min-w-0 max-w-[52%] items-center gap-1.5 box-border overflow-hidden rounded-full border border-[rgba(var(--accent-rgb),0.16)] bg-[rgba(var(--accent-rgb),0.08)] px-2 text-accent"
+        className="inline-flex h-6 min-w-0 max-w-[52%] items-center gap-1.5 box-border overflow-hidden rounded-[var(--radius-sm)] border border-[rgba(var(--accent-rgb),0.16)] bg-[rgba(var(--accent-rgb),0.08)] px-2 text-accent"
       >
         <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold">
           {requestModelLabel}
@@ -118,7 +118,7 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
     return (
       <div className="flex w-full">
         <div className="grid w-full gap-0">
-          <div className={cn('grid w-full gap-0 overflow-hidden rounded-xl border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease]', editingCardClass)}>
+          <div className={cn('grid w-full gap-0 overflow-hidden rounded-[var(--radius-md)] border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease]', editingCardClass)}>
             {hasContent ? (
               <div className={cn('grid px-3 py-2.5', hasText && hasImages ? 'gap-2' : 'gap-0')}>
                 {hasText ? (
@@ -145,7 +145,7 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
           {renderActionBar()}
         </div>
         {hasText ? (
-          <div className={cn('whitespace-pre-wrap rounded-xl border border-line bg-overlay px-3 py-2.5 text-base leading-[1.6] text-primary shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease] [word-break:break-word] [overflow-wrap:anywhere]', editingCardClass)}>
+          <div className={cn('whitespace-pre-wrap rounded-[var(--radius-md)] border border-line bg-overlay px-3 py-2.5 text-base leading-[1.6] text-primary shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease] [word-break:break-word] [overflow-wrap:anywhere]', editingCardClass)}>
             {text}
           </div>
         ) : null}

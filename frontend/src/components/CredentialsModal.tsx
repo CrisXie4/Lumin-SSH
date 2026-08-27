@@ -4,7 +4,7 @@ import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import type { config } from '../../wailsjs/go/models.ts';
 import { useTranslation } from '../i18n.ts';
 import Tiptop from './Tiptop.tsx';
-import { Button, Modal } from './ui';
+import { Button, Modal, Select } from './ui';
 
 /** 凭据表单（保存时补齐 id 即为 config.Credential） */
 interface CredentialForm {
@@ -201,22 +201,22 @@ export default function CredentialsModal({ onClose, onChange, addToast }: Creden
 
             <div className="form-group">
               <label className="form-label" htmlFor="cred-auth-method">{t('认证方式')}</label>
-              <select
+              <Select
                 id="cred-auth-method"
                 name="cred-auth-method"
-                className="select"
                 value={form.authMethod}
-                onChange={(e) => setForm((f) => ({
+                onChange={(val) => setForm((f) => ({
                   ...f,
-                  authMethod: e.target.value,
+                  authMethod: val,
                   password: '',
                   privateKey: '',
                   passphrase: '',
                 }))}
-              >
-                <option value="password">{t('密码认证')}</option>
-                <option value="privateKey">{t('私钥认证')}</option>
-              </select>
+                options={[
+                  { value: 'password', label: t('密码认证') },
+                  { value: 'privateKey', label: t('私钥认证') },
+                ]}
+              />
             </div>
 
             <div className="form-group">

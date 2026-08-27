@@ -82,7 +82,7 @@ export default function ProcessPage({ sessionId, addToast, active }: ProcessPage
 
       <div className="data-toolbar">
         <input
-          className="input"
+          className="input h-[30px] rounded-[var(--radius-sm)]"
           type="search"
           autoComplete="off"
           name="processSearch"

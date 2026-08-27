@@ -76,7 +76,7 @@ export default function QuickEditWebSearchSection({
   return (
     <>
       {supportsWebSearch ? (
-        <div className="grid py-2.5 px-3 border border-line rounded-xl bg-overlay">
+        <div className="grid py-2.5 px-3 border border-line rounded-[var(--radius-md)] bg-overlay">
           <div className="grid grid-cols-[1fr_auto] items-start gap-2">
             <div className="flex items-center justify-between gap-2.5 min-h-8">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -100,7 +100,7 @@ export default function QuickEditWebSearchSection({
               onClick={handleValidateWebSearch}
               disabled={!canValidateWebSearch || validatingWebSearch}
               style={{ opacity: canValidateWebSearch ? 1 : 0.6 }}
-              className={`min-w-[74px] min-h-10 px-2.5 rounded-xl border text-sm font-semibold inline-flex items-center justify-center gap-1.5 ${validationButtonVariant === 'success'
+              className={`min-w-[74px] h-[30px] min-h-[30px] px-2.5 rounded-[var(--radius-sm)] border text-sm font-semibold inline-flex items-center justify-center gap-1.5 ${validationButtonVariant === 'success'
                 ? 'border-[rgba(var(--success-rgb),0.35)] bg-[rgba(var(--success-rgb),0.10)] text-success'
                 : validationButtonVariant === 'error'
                   ? 'border-[rgba(var(--danger-rgb),0.30)] bg-[rgba(var(--danger-rgb),0.08)] text-danger'
@@ -130,7 +130,7 @@ export default function QuickEditWebSearchSection({
                   setDedicatedProviderMenuOpen((prev) => !prev);
                 }}
                 style={{ opacity: draft.webSearchEnabled ? 1 : 0.6 }}
-                className={`h-[30px] w-full flex items-center justify-between gap-2 px-2.5 rounded-full box-border border text-sm text-secondary transition-[color,background-color,border-color] duration-[120ms] ${dedicatedProviderMenuOpen ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'} ${draft.webSearchEnabled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                className={`h-[30px] w-full flex items-center justify-between gap-2 px-2.5 rounded-[var(--radius-sm)] box-border border text-sm text-secondary transition-[color,background-color,border-color] duration-[120ms] ${dedicatedProviderMenuOpen ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'} ${draft.webSearchEnabled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                 <span className="min-w-0 truncate">
                   {currentDedicatedProviderOption?.label || t('自身')}
                 </span>
@@ -139,7 +139,7 @@ export default function QuickEditWebSearchSection({
               {dedicatedProviderMenuOpen && draft.webSearchEnabled ? (
                 <div
                   style={{ zIndex: Z.POPUP }}
-                  className="absolute right-0 top-[calc(100%_+_8px)] w-[320px] max-w-[min(100%,320px)] max-h-[320px] rounded-none border border-accent-border bg-overlay shadow-xl overflow-hidden">
+                  className="absolute right-0 top-[calc(100%_+_8px)] w-[320px] max-w-[min(100%,320px)] max-h-[320px] rounded-[var(--radius-md)] border border-accent-border bg-overlay shadow-xl overflow-hidden">
                   <div className="relative border-b border-line-subtle">
                     <Search size={14} className="absolute left-2.5 top-[9px] text-tertiary" />
                     <input
@@ -184,7 +184,7 @@ export default function QuickEditWebSearchSection({
       <div className="grid gap-1.5">
         <div
           style={{ gridTemplateColumns: draft.dedicatedProxyEnabled ? '1fr auto auto' : '1fr auto' }}
-          className="grid items-center gap-2.5 py-2.5 px-3 border border-line rounded-xl bg-overlay">
+          className="grid items-center gap-2.5 py-2.5 px-3 border border-line rounded-[var(--radius-md)] bg-overlay">
           <span className="text-sm text-primary">{t('专属代理服务器')}</span>
 
           {draft.dedicatedProxyEnabled ? (
@@ -192,7 +192,7 @@ export default function QuickEditWebSearchSection({
               <button
                 type="button"
                 onClick={() => setProxyMenuOpen((prev) => !prev)}
-                className={`h-[30px] min-w-[220px] max-w-[320px] flex items-center justify-between gap-2 px-2.5 rounded-full box-border border text-sm text-secondary cursor-pointer transition-colors duration-[120ms] ${proxyMenuOpen ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}>
+                className={`h-[30px] min-w-[220px] max-w-[320px] flex items-center justify-between gap-2 px-2.5 rounded-[var(--radius-sm)] box-border border text-sm text-secondary cursor-pointer transition-colors duration-[120ms] ${proxyMenuOpen ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}>
                 <span className="min-w-0 truncate">
                   {currentDedicatedProxyOption?.label || t('不使用')}
                 </span>
@@ -201,7 +201,7 @@ export default function QuickEditWebSearchSection({
               {proxyMenuOpen ? (
                 <div
                   style={{ zIndex: Z.POPUP }}
-                  className="absolute right-0 top-[calc(100%_+_8px)] w-[320px] max-w-[320px] max-h-[320px] rounded-none border border-accent-border bg-overlay shadow-xl overflow-hidden">
+                  className="absolute right-0 top-[calc(100%_+_8px)] w-[320px] max-w-[320px] max-h-[320px] rounded-[var(--radius-md)] border border-accent-border bg-overlay shadow-xl overflow-hidden">
                   <div className="max-h-[285px] overflow-y-auto">
                     {dedicatedProxyOptions.map((option) => {
                       const active = option.value === draft.dedicatedProxyId;

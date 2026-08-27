@@ -47,6 +47,32 @@ export default function useAppTopbarState({ sessions }: UseAppTopbarStateOptions
     setShowSessionList(true);
   }, [showSessionList]);
 
+  // Ctrl+K（可在设置-快捷键中改绑，键名 serverSearch）：全局唤起服务器快连面板。
+  // 焦点在输入框 / 终端模拟器内时不抢占。
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.shiftKey || e.altKey) return;
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (e.key.toLowerCase() !== 'k') return;
+      const target = e.target as HTMLElement | null;
+      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable || target.closest('.xterm'))) return;
+      let combo = 'Ctrl+K';
+      try {
+        const saved = JSON.parse(localStorage.getItem('appShortcuts') || '{}');
+        if (typeof saved.serverSearch === 'string' && saved.serverSearch) combo = saved.serverSearch;
+        if (combo === '无' || combo === 'none') return;
+      } catch { /* 使用默认 */ }
+      const want = combo.toLowerCase();
+      const modOk = want.startsWith('ctrl+') ? (e.ctrlKey || e.metaKey) : true;
+      const mainKey = want.includes('+') ? want.split('+').pop() : want;
+      if (mainKey !== 'k' || !modOk) return;
+      e.preventDefault();
+      toggleSessionList();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [toggleSessionList]);
+
   useEffect(() => {
     const scroll = tabScrollRef.current;
     const list = tabListRef.current;

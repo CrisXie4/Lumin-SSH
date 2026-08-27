@@ -217,7 +217,7 @@ export default function AIChatRequestStatusRow({ assistant, reasoning = [] }: AI
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold [transition:var(--transition)]',
+        'inline-flex items-center gap-2 whitespace-nowrap rounded-[var(--radius-sm)] border px-2 py-0.5 text-xs font-bold [transition:var(--transition)]',
         isLive
           ? 'border-accent-border bg-accent-dim shadow-[0_0_14px_rgba(var(--accent-rgb),0.12)]'
           : 'border-line-subtle bg-overlay shadow-none',

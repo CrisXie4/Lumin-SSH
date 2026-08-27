@@ -3,7 +3,7 @@ import type React from 'react';
 import { Rocket } from 'lucide-react';
 import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
-import { Button } from '../ui';
+import { Button, Select } from '../ui';
 import { inputClass } from './quickCommandTypes.ts';
 
 export interface QuickCommandEditorProps {
@@ -78,7 +78,7 @@ export function QuickCommandEditor({
           {cmdEditorShowOpts && (
             <div
               onMouseDown={(e) => e.stopPropagation()}
-              className="absolute left-0 bottom-[calc(100%+6px)] min-w-[190px] px-2.5 py-2 bg-overlay border border-line rounded-md shadow-md flex flex-col gap-2"
+              className="absolute left-0 bottom-[calc(100%+6px)] min-w-[190px] px-2.5 py-2 bg-overlay border border-line rounded-[var(--radius-md)] shadow-md flex flex-col gap-2"
               style={{ zIndex: Z.STACK }}
             >
               <div className="text-xs text-muted select-none">
@@ -109,18 +109,20 @@ export function QuickCommandEditor({
         </div>
         <div className="flex-1" />
         <span className="text-xs text-muted">{t('发送到')}</span>
-        <select
-          id="qc-send-target-editor"
-          name="qc-send-target-editor"
-          value={sendTarget}
-          onChange={(e) => setSendTarget(e.target.value as 'current' | 'all')}
-          className="text-xs px-2 py-[3px] rounded-xs bg-sunken border border-line text-primary outline-none cursor-pointer"
-        >
-          <option value="current">{t('当前会话')}</option>
-          {connectedSessions.length > 1 && (
-            <option value="all">{t('全部会话')} ({connectedSessions.length})</option>
-          )}
-        </select>
+        <div className="w-[120px]">
+          <Select
+            id="qc-send-target-editor"
+            name="qc-send-target-editor"
+            value={sendTarget}
+            onChange={(val) => setSendTarget(val as 'current' | 'all')}
+            options={[
+              { value: 'current', label: t('当前会话') },
+              ...(connectedSessions.length > 1
+                ? [{ value: 'all', label: `${t('全部会话')} (${connectedSessions.length})` }]
+                : []),
+            ]}
+          />
+        </div>
         <Button
           variant="primary"
           size="sm"

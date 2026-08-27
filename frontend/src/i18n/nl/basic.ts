@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Traditioneel Chinees",
   "日文": "Japans",
   "韩文": "Koreaans",
+  "数据": "Gegevens",
+  "独立子 Shell 执行 (已开启)": "Geïsoleerde subshell-uitvoering (aan)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "Meerregelige/complexere opdrachten draaien in een geïsoleerd subproces zonder de terminalsessie te vervuilen",
+  "直接在当前会话执行 (默认)": "Rechtstreeks in huidige sessie uitvoeren (standaard)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "Opdrachten worden rechtstreeks naar de huidige terminalsessie gestuurd; gedefinieerde variabelen en omgeving blijven gedurende de sessie van kracht",
 } satisfies I18nDict;

@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import { t as $t } from '../../i18n.ts';
+import { Select } from '../ui';
 import { RadioOption, ToggleSwitch, SettingRow, SettingsField, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, type SettingsDefinitionNode } from './SharedComponents';
 import { settings } from './settingDefinitions';
 
@@ -44,7 +45,7 @@ interface GeneralTabProps {
 
 interface SelectBinding {
   value: string;
-  onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  onChange: (value: string) => void;
   width: number;
   options: Array<{ value: string; label: string }>;
 }
@@ -112,13 +113,15 @@ export default function GeneralTab({
   const selectBindings: Record<string, SelectBinding> = {
     language: {
       value: language,
-      onChange: onLanguageChange,
+      onChange: (val) => {
+        onLanguageChange({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>);
+      },
       width: 200,
       options: availableLanguages.map((item) => ({ value: item.code, label: item.label })),
     },
     windowCloseAction: {
       value: windowCloseAction,
-      onChange: (event) => onWindowCloseActionChange(event.target.value),
+      onChange: (val) => onWindowCloseActionChange(val),
       width: 160,
       options: [
         { value: 'ask', label: $t('每次询问') },
@@ -157,11 +160,14 @@ export default function GeneralTab({
       }
       const selectId = `general-${(node.stateKey || '').replace(/[A-Z]/g, (m: string) => m.toLowerCase())}`;
       return (
-        <select id={selectId} name={selectId} className="select" style={{ width: binding.width }} value={binding.value} onChange={binding.onChange}>
-          {binding.options.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+        <Select
+          id={selectId}
+          name={selectId}
+          width={binding.width}
+          value={binding.value}
+          onChange={binding.onChange}
+          options={binding.options}
+        />
       );
     }
     return null;

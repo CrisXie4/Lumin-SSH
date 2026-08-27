@@ -1870,4 +1870,9 @@ export default {
   "繁体中文": "Tradiční čínština",
   "日文": "Japonština",
   "韩文": "Korejština",
+  "数据": "Data",
+  "独立子 Shell 执行 (已开启)": "Spuštění v izolovaném podshellu (zapnuto)",
+  "多行/复杂命令在隔离子进程中执行，不污染终端会话": "Víceřádkové/složité příkazy běží v izolovaném podprocesu a neznečišťují relaci terminálu",
+  "直接在当前会话执行 (默认)": "Spustit přímo v aktuální relaci (výchozí)",
+  "命令直接发送至当前终端会话，定义的变量与环境在会话中持续生效": "Příkazy se odesílají přímo do aktuální relace terminálu; definované proměnné a prostředí zůstávají aktivní po celou relaci",
 } satisfies I18nDict;

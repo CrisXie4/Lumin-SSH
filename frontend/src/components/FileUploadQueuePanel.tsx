@@ -112,9 +112,9 @@ export default function FileUploadQueuePanel({
             ))}
 
             {hiddenItems.length > 0 && hiddenMeta && (
-              <div className="rounded-lg border border-dashed border-line bg-canvas p-3 flex flex-col gap-2">
+              <div className="rounded-[var(--radius-md)] border border-dashed border-line bg-canvas p-3 flex flex-col gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-lg inline-flex items-center justify-center shrink-0" style={{ background: hiddenMeta.bg, color: hiddenMeta.color }}>
+                  <div className="w-7 h-7 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0" style={{ background: hiddenMeta.bg, color: hiddenMeta.color }}>
                     <hiddenMeta.Icon size={14} />
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
@@ -126,7 +126,7 @@ export default function FileUploadQueuePanel({
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: hiddenMeta.bg, color: hiddenMeta.color }}>
+                    <div className="px-2 py-0.5 rounded-[var(--radius-sm)] text-xs font-semibold" style={{ background: hiddenMeta.bg, color: hiddenMeta.color }}>
                       {hiddenPhaseLabel}
                     </div>
                     {hiddenActiveItems.length > 0

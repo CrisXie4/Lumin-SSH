@@ -7,7 +7,7 @@ import {
   renderFileManagerTabTitle,
 } from '../../utils/fileManagerHelpers.tsx';
 import Tiptop from '../Tiptop.tsx';
-import { Button } from '../ui';
+
 import type { FileManagerController } from './fileManagerController.ts';
 import type { FileManagerTabDropIndicator } from './fileManagerTypes.ts';
 
@@ -266,6 +266,15 @@ export function renderFileManagerTabBar(fm: FileManagerController) {
               className="flex-[1_0_24px] min-w-6 self-stretch"
             />
           )}
+          <button
+            type="button"
+            className="tab-create-btn ml-[10px]"
+            onClick={() => { void handleCreateFileManagerTab(); }}
+            aria-label={t('新建标签')}
+            title={t('新建标签')}
+          >
+            <Plus size={14} />
+          </button>
         </div>
         {fileManagerTabOverflow && (
           <button
@@ -279,20 +288,6 @@ export function renderFileManagerTabBar(fm: FileManagerController) {
             <ChevronRight size={14} />
           </button>
         )}
-        <div className="terminal-sub-tab-actions">
-          {/* terminal-create-btn 为 terminal 标签栏系统类，保留并去掉 .btn 基类 */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="terminal-create-btn"
-            onClick={() => { void handleCreateFileManagerTab(); }}
-            aria-label={t('新建标签')}
-            title={t('新建标签')}
-          >
-            <Plus size={14} />
-            {t('新建标签')}
-          </Button>
-        </div>
       </div>
   );
 }

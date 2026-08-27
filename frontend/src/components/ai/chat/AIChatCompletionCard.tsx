@@ -50,13 +50,13 @@ export default function AIChatCompletionCard({ title = completionTitleKey, summa
         {normalizedStatus ? (
           <div
             style={statusPalette}
-            className="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold">
+            className="whitespace-nowrap rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-semibold">
             {/* 同 title：动态状态文案兜底 */}
             {t(normalizedStatus as I18nKey)}
           </div>
         ) : null}
       </div>
-      <div className="w-full overflow-hidden rounded-lg border border-[var(--ai-chat-completion-card-border)] bg-[var(--ai-chat-completion-card-bg)]">
+      <div className="w-full overflow-hidden rounded-[var(--radius-md)] border border-[var(--ai-chat-completion-card-border)] bg-[var(--ai-chat-completion-card-bg)]">
         <div className={cn('grid p-2.5 bg-[var(--ai-chat-completion-card-header-bg)]', normalizedSummary ? 'gap-1.5' : 'gap-0')}>
           {normalizedSummary ? (
             <div className="text-sm leading-[1.7] [word-break:break-word] text-secondary">

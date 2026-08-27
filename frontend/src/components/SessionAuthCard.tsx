@@ -134,10 +134,10 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
       className="absolute inset-0 flex items-center justify-center bg-scrim"
       style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
     >
-      <div className="w-[440px] max-w-[calc(100%-32px)] rounded-[16px] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">
+      <div className="w-[440px] max-w-[calc(100%-32px)] rounded-[var(--radius-lg)] overflow-hidden bg-overlay border border-line shadow-xl pt-5 px-6 pb-[22px]">
         {/* 标题行 */}
         <div className="flex items-center gap-3.5 mb-4">
-          <div className={`w-[42px] h-[42px] rounded-[10px] shrink-0 flex items-center justify-center ${isPassword || !prompt.danger ? 'bg-[rgba(var(--warning-rgb),0.85)]' : 'bg-[rgba(var(--danger-rgb),0.85)]'}`}>
+          <div className={`w-[42px] h-[42px] rounded-[var(--radius-md)] shrink-0 flex items-center justify-center ${isPassword || !prompt.danger ? 'bg-[rgba(var(--warning-rgb),0.85)]' : 'bg-[rgba(var(--danger-rgb),0.85)]'}`}>
             <Icon size={22} className="text-white" />
           </div>
           <div className="text-lg font-bold text-primary min-w-0">
@@ -158,7 +158,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                 id="session-auth-password"
                 name="session-auth-password"
                 autoComplete="off"
-                className="input"
+                className="input rounded-[var(--radius-sm)]"
                 type={showPassword ? 'text' : 'password'}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
@@ -170,14 +170,14 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? t('隐藏密码') : t('显示密码')}
                 title={showPassword ? t('隐藏密码') : t('显示密码')}
-                className="absolute right-[38px] top-1/2 -translate-y-1/2 bg-transparent border-0 text-muted cursor-pointer p-1 flex items-center rounded-sm"
+                className="absolute right-[38px] top-1/2 -translate-y-1/2 bg-transparent border-0 text-muted cursor-pointer p-1 flex items-center rounded-[var(--radius-sm)]"
               >{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
               <button
                 type="button"
                 onClick={pasteFromClipboard}
                 aria-label={t('粘贴')}
                 title={t('粘贴')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-0 text-muted cursor-pointer p-1 flex items-center rounded-sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-0 text-muted cursor-pointer p-1 flex items-center rounded-[var(--radius-sm)]"
               ><Clipboard size={16} /></button>
             </div>
             {prompt.checkboxLabel && (
@@ -207,7 +207,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                 disabled={disabled}
                 onClick={() => submit(btn.value)}
                 onMouseEnter={() => setFocusIdx(i)}
-                className={`flex-1 py-[9px] text-[12.5px] rounded-lg whitespace-nowrap ${
+                className={`flex-1 py-[9px] text-[12.5px] rounded-[var(--radius-sm)] whitespace-nowrap ${
                   btn.primary
                     ? 'bg-accent text-white border border-accent'
                     : 'bg-sunken hover:bg-hover text-secondary border border-line'

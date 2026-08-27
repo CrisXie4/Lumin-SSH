@@ -12,3 +12,4 @@ export {
 } from './ContextMenu.tsx';
 export { Card, type CardProps } from './Card.tsx';
 export { Switch, type SwitchProps, type SwitchSize } from './Switch.tsx';
+export { Select, type SelectProps, type SelectOption } from './Select.tsx';

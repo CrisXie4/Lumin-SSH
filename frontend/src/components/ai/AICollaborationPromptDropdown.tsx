@@ -61,7 +61,7 @@ function IconButton({ title, onClick, children, danger = false }: IconButtonProp
   )
 }
 
-const PANEL_SHELL_CLASS = 'border border-line rounded-lg bg-overlay shadow-xl overflow-hidden overflow-x-hidden box-border'
+const PANEL_SHELL_CLASS = 'border border-line rounded-[var(--radius-md)] bg-overlay shadow-xl overflow-hidden overflow-x-hidden box-border'
 const SECTION_HINT_CLASS = 'text-xs text-tertiary leading-[1.5]'
 
 export interface AICollaborationPromptDropdownProps {
@@ -256,10 +256,10 @@ export default function AICollaborationPromptDropdown({
             onChange={(event) => onExtraPromptChange?.(event.target.value)}
             placeholder={t('例如: 能自己判断的就别问我,遇到删文件这种事一定要先问我')}
             spellCheck={false}
-            className="w-full min-h-[84px] resize-y rounded-lg border border-line bg-sunken text-primary px-2.5 py-2 box-border outline-none text-sm leading-[1.5] [font-family:inherit]"
+            className="w-full min-h-[84px] resize-y rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 py-2 box-border outline-none text-sm leading-[1.5] [font-family:inherit]"
           />
         </div>
-        <div className="p-3 rounded-lg border border-line bg-canvas grid gap-2.5 overflow-x-hidden">
+        <div className="p-3 rounded-[var(--radius-md)] border border-line bg-canvas grid gap-2.5 overflow-x-hidden">
           <div className="flex items-center justify-between gap-2.5">
             <div className="text-primary text-sm font-bold">{t('常用要求')}</div>
             <IconButton title={t('新增一条')} onClick={handleStartCreate}>
@@ -275,7 +275,7 @@ export default function AICollaborationPromptDropdown({
                 value={draftTitle}
                 onChange={(event) => setDraftTitle(event.target.value)}
                 placeholder={t('起个短名字,留空就用下面的内容')}
-                className="w-full h-8 rounded-lg border border-line bg-sunken text-primary px-2.5 box-border outline-none text-sm"
+                className="w-full h-8 rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 box-border outline-none text-sm"
               />
               <textarea
                 id="ai-collab-draft-text"
@@ -284,14 +284,14 @@ export default function AICollaborationPromptDropdown({
                 onChange={(event) => setDraftText(event.target.value)}
                 placeholder={t('这条要求的具体内容')}
                 spellCheck={false}
-                className="w-full min-h-16 resize-y rounded-lg border border-line bg-sunken text-primary px-2.5 py-2 box-border outline-none text-sm leading-[1.5] [font-family:inherit]"
+                className="w-full min-h-16 resize-y rounded-[var(--radius-sm)] border border-line bg-sunken text-primary px-2.5 py-2 box-border outline-none text-sm leading-[1.5] [font-family:inherit]"
               />
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleSubmitEdit}
                   disabled={!draftText.trim()}
-                  className={`flex-1 h-[30px] rounded-lg border border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent text-sm font-semibold transition-colors duration-[80ms] ${
+                  className={`flex-1 h-[30px] rounded-[var(--radius-sm)] border border-accent-border bg-accent-dim text-accent text-sm font-semibold transition-colors duration-[80ms] ${
                     draftText.trim() ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
                   }`}>
                   {t('保存')}
@@ -299,7 +299,7 @@ export default function AICollaborationPromptDropdown({
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="flex-1 h-[30px] rounded-lg border border-line bg-transparent text-secondary text-sm font-semibold transition-colors duration-[80ms] cursor-pointer">
+                  className="flex-1 h-[30px] rounded-[var(--radius-sm)] border border-line bg-transparent hover:bg-hover text-secondary text-sm font-semibold transition-colors duration-[80ms] cursor-pointer">
                   {t('取消')}
                 </button>
               </div>
@@ -315,7 +315,7 @@ export default function AICollaborationPromptDropdown({
               {normalizedPresets.map((preset) => (
                 <div
                   key={preset.id}
-                  className="flex items-center gap-2 min-w-0 px-2 py-1.5 rounded-lg border border-line-subtle bg-sunken">
+                  className="flex items-center gap-2 min-w-0 px-2 py-1.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken">
                   <button
                     type="button"
                     onClick={() => handleApplyPreset(preset)}

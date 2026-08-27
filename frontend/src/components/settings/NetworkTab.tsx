@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { t as $t } from '../../i18n.ts';
 import { Lightbulb } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
-import { Button } from '../ui';
+import { Button, Select } from '../ui';
 import { ToggleSwitch, RadioOption, SettingRow, SettingsPanel, SettingsSectionTitle, SettingsTabRoot } from './SharedComponents';
 import { settings } from './settingDefinitions';
 import { getAIGlobalSettings, saveAIGlobalSettings } from '../ai/aiGlobalSettingsBridge.ts';
@@ -331,10 +331,16 @@ export default function NetworkTab({ pingEnabled, onTogglePingEnabled, pingMode,
               </div>
               <div className="form-group" data-settings-field-id={settingsData.fields.proxyType.id}>
                 <label className="form-label" htmlFor="network-proxy-type">{$t('协议类型')}</label>
-                <select id="network-proxy-type" name="network-proxy-type" className="select" value={proxyForm.type} onChange={setProxyField('type')}>
-                  <option value="socks5">{$t('SOCKS5 代理')}</option>
-                  <option value="http">{$t('HTTP 代理')}</option>
-                </select>
+                <Select
+                  id="network-proxy-type"
+                  name="network-proxy-type"
+                  value={proxyForm.type}
+                  onChange={(val) => setProxyForm((current) => ({ ...current, type: val }))}
+                  options={[
+                    { value: 'socks5', label: $t('SOCKS5 代理') },
+                    { value: 'http', label: $t('HTTP 代理') },
+                  ]}
+                />
               </div>
               <div className="form-group" data-settings-field-id={settingsData.fields.proxyHost.id}>
                 <label className="form-label" htmlFor="network-proxy-host">{$t('主机地址')}</label>

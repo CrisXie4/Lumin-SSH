@@ -145,7 +145,7 @@ export default function FileEditor(props: FileEditorProps) {
     return createPortal(
       <div
         onClick={() => setMinimized(false)}
-        className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-overlay border border-line rounded-lg shadow-md cursor-pointer select-none pointer-events-auto animate-[fadeIn_0.12s_ease]"
+        className="fixed bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-overlay border border-line rounded-[var(--radius-md)] shadow-md cursor-pointer select-none pointer-events-auto animate-[fadeIn_0.12s_ease]"
         style={{ zIndex: Z.FLOATING_EDITOR }}
       >
         <SquarePen size={14} className="shrink-0" />
@@ -153,7 +153,7 @@ export default function FileEditor(props: FileEditorProps) {
           {activeFile ? activeFile.name : t('编辑器')}
         </span>
         {files.length > 1 && (
-          <span className="text-xs text-tertiary bg-sunken px-1.5 py-px rounded-sm">
+          <span className="text-xs text-tertiary bg-sunken px-1.5 py-px rounded-[var(--radius-sm)]">
             {files.length}
           </span>
         )}
@@ -168,7 +168,7 @@ export default function FileEditor(props: FileEditorProps) {
     return createPortal(
       <div
         data-modal-overlay="true"
-        className="fixed flex flex-col bg-raised border border-line rounded-lg shadow-md overflow-hidden pointer-events-auto"
+        className="fixed flex flex-col bg-raised border border-line rounded-[var(--radius-md)] shadow-md overflow-hidden pointer-events-auto"
         style={{
           left: popupPos.x,
           top: popupPos.y,

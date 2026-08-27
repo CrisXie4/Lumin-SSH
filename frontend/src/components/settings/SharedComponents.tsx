@@ -7,7 +7,7 @@ const SETTINGS_TAB_GAP = 14;
 
 const SETTINGS_SECTION_TITLE_CLASS = 'text-base text-primary mb-1.5 font-semibold';
 
-const SETTINGS_PANEL_CLASS = 'flex flex-col gap-1 bg-overlay p-2.5 rounded-md border border-line';
+const SETTINGS_PANEL_CLASS = 'flex flex-col gap-1 bg-overlay p-3 rounded-[var(--radius-md)] border border-line-subtle shadow-sm';
 
 /** 设置定义节点（来自 settingDefinitions.ts 的数据结构，字段按需取用） */
 export interface SettingsDefinitionNode {
@@ -124,10 +124,10 @@ export function RadioOption({ selected, label, description, onClick, definition 
       data-settings-field-id={definition?.id}
       onClick={onClick}
       className={cn(
-        'px-2.5 py-2 rounded-md cursor-pointer transition-all duration-[120ms] border',
+        'px-2.5 py-2 rounded-[var(--radius-sm)] cursor-pointer transition-all duration-[120ms] border',
         selected
           ? 'bg-accent-dim border-accent-border shadow-[inset_0_0_0_1px_var(--accent-border)]'
-          : 'bg-overlay border-line',
+          : 'bg-overlay border-line hover:bg-hover hover:border-line',
       )}
     >
       <div className="min-w-0">
@@ -150,7 +150,7 @@ export function AboutLink({ icon, title, url, definition }: AboutLinkProps) {
     <div
       data-settings-field-id={definition?.id}
       onClick={() => window.runtime?.BrowserOpenURL?.(url)}
-      className="flex flex-col items-center justify-center gap-2.5 px-3 py-4 min-h-24 rounded-md cursor-pointer transition-all duration-[200ms] text-center border border-line hover:border-accent-border hover:bg-sunken"
+      className="flex flex-col items-center justify-center gap-2.5 px-3 py-4 min-h-24 rounded-[var(--radius-md)] cursor-pointer transition-all duration-[200ms] text-center border border-line hover:border-accent-border hover:bg-sunken shadow-sm hover:shadow-md"
     >
       <div className="flex items-center justify-center w-10 h-10 text-secondary">
         {icon}

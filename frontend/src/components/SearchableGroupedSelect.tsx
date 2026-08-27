@@ -130,7 +130,7 @@ export default function SearchableGroupedSelect({
           setOpen((prev) => !prev);
         }}
         className={cn(
-          'w-full min-h-9 flex items-center justify-between gap-2.5 py-2 px-3 rounded-lg border text-left box-border [transition:var(--transition)] text-primary',
+          'w-full min-h-9 flex items-center justify-between gap-2.5 py-2 px-3 rounded-[var(--radius-sm)] border text-left box-border [transition:var(--transition)] text-primary',
           open ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.08)]' : 'border-line bg-canvas',
           disabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer',
         )}
@@ -146,7 +146,7 @@ export default function SearchableGroupedSelect({
 
       {open ? (
         <div
-          className="absolute top-[calc(100%+6px)] left-0 right-0 rounded-lg border border-line bg-overlay shadow-xl overflow-hidden"
+          className="absolute top-[calc(100%+6px)] left-0 right-0 rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl overflow-hidden"
           style={{ zIndex: Z.POPUP }}
         >
           <div className="relative p-2 border-b border-line-subtle">
@@ -159,7 +159,7 @@ export default function SearchableGroupedSelect({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full h-[34px] pt-0 pb-0 pl-8 pr-2.5 rounded-lg border border-line bg-sunken text-primary box-border outline-none"
+              className="w-full h-[34px] pt-0 pb-0 pl-8 pr-2.5 rounded-[var(--radius-sm)] border border-line bg-sunken text-primary box-border outline-none"
             />
           </div>
 
@@ -168,7 +168,7 @@ export default function SearchableGroupedSelect({
               filteredGroups.map((group) => (
                 <div key={group.label} className="grid gap-1.5 pt-1.5">
                   <div
-                    className="flex items-center gap-2 py-2 px-2.5 rounded-lg border border-line-subtle bg-sunken shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] pointer-events-none select-none"
+                    className="flex items-center gap-2 py-2 px-2.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] pointer-events-none select-none"
                   >
                     <span className="w-[3px] h-3.5 rounded-full bg-accent shrink-0 opacity-90" />
                     <span className="text-xs font-extrabold tracking-[0.04em] text-tertiary uppercase leading-[1.2]">
@@ -187,7 +187,7 @@ export default function SearchableGroupedSelect({
                             setOpen(false);
                           }}
                           className={cn(
-                            'min-h-8 flex items-center justify-between gap-3 px-2.5 border-none rounded-lg text-left text-base cursor-pointer [transition:var(--transition)]',
+                            'min-h-8 flex items-center justify-between gap-3 px-2.5 border-none rounded-[var(--radius-sm)] text-left text-base cursor-pointer [transition:var(--transition)]',
                             active ? 'bg-[rgba(var(--accent-rgb),0.14)] text-primary' : 'bg-transparent text-secondary',
                           )}
                         >

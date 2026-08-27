@@ -29,7 +29,7 @@ export function useTerminalHistory(deps: {
   useEffect(() => { historyListRef.current = historyList; }, [historyList]);
   const [historyMode, setHistoryMode]         = useState<'server' | 'global'>('server'); // 'server' | 'global'
   const [searchQuery, setSearchQuery]         = useState('');
-  const [historySelectedIndex, setHistorySelectedIndex] = useState(0);
+  const [historySelectedIndex, setHistorySelectedIndex] = useState(-1);
   const historyBtnRef                         = useRef<HTMLButtonElement | null>(null);
   const historySearchInputRef                 = useRef<HTMLInputElement | null>(null);
   const historyScrollRef                      = useRef<HTMLDivElement | null>(null);
@@ -127,8 +127,8 @@ export function useTerminalHistory(deps: {
   const displayHistory = useMemo(() => [...filteredHistory].reverse(), [filteredHistory]);
 
   useEffect(() => {
-    setHistorySelectedIndex(displayHistory.length - 1);
-  }, [displayHistory, showHistory]);
+    setHistorySelectedIndex(-1);
+  }, [searchQuery, showHistory, historyMode]);
 
   useEffect(() => {
     if (!showHistory || historySelectedIndex < 0) return;
@@ -148,19 +148,23 @@ export function useTerminalHistory(deps: {
     if (displayHistory.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setHistorySelectedIndex((current) => (current + 1) % displayHistory.length);
+      setHistorySelectedIndex((current) => (
+        current < 0 ? 0 : (current + 1) % displayHistory.length
+      ));
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       setHistorySelectedIndex((current) => (
-        current <= 0 ? displayHistory.length - 1 : current - 1
+        current < 0 ? displayHistory.length - 1 : (current <= 0 ? displayHistory.length - 1 : current - 1)
       ));
       return;
     }
     if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      const selectedItem = displayHistory[historySelectedIndex] || displayHistory[0];
+      const selectedItem = historySelectedIndex >= 0
+        ? displayHistory[historySelectedIndex]
+        : displayHistory[displayHistory.length - 1];
       if (selectedItem) selectHistoryCmd(selectedItem.command);
     }
   };

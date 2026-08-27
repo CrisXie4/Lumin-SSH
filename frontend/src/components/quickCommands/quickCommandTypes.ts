@@ -143,4 +143,4 @@ export const collectGroups = (list: QuickCommandItem[], basePath = '') => {
 };
 
 export const inputClass =
-  'w-full box-border px-2 py-[5px] text-xs rounded-xs bg-sunken border border-line text-primary outline-none font-[inherit]';
+  'w-full box-border px-2.5 py-1.5 text-xs rounded-[var(--radius-sm)] bg-sunken border border-line text-primary outline-none font-[inherit] focus:border-focus focus:ring-1 focus:ring-accent/30';

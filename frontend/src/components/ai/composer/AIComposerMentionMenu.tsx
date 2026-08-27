@@ -26,7 +26,7 @@ export function AIComposerMentionMenu({
       <div
         ref={mentionMenuListRef}
         style={{ zIndex: Z.POPUP }}
-        className="absolute bottom-[calc(100%+8px)] left-0 min-w-[240px] max-w-[360px] max-h-[260px] p-1 rounded-xl border border-line bg-overlay shadow-xl overflow-y-auto grid gap-0.5"
+        className="absolute bottom-[calc(100%+8px)] left-0 min-w-[240px] max-w-[360px] max-h-[260px] p-1 rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl overflow-y-auto grid gap-0.5"
       >
         <div className="px-2.5 py-1 text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-line-subtle mb-0.5">
           {t('斜杠命令')}
@@ -39,7 +39,7 @@ export function AIComposerMentionMenu({
               type="button"
               onClick={() => onSelectSlashCommandItem(item)}
               className={cn(
-                'min-h-[32px] flex items-center justify-between gap-2 px-2.5 rounded-lg border-none text-left cursor-pointer transition-colors',
+                'min-h-[32px] flex items-center justify-between gap-2 px-2.5 rounded-[var(--radius-sm)] border-none text-left cursor-pointer transition-colors',
                 active ? 'bg-[rgba(var(--accent-rgb),0.14)] text-primary font-bold' : 'bg-transparent text-secondary hover:bg-hover',
               )}
             >
@@ -61,7 +61,7 @@ export function AIComposerMentionMenu({
       <div
         ref={mentionMenuListRef}
         style={{ zIndex: Z.POPUP }}
-        className="absolute bottom-[calc(100%+8px)] left-0 min-w-[260px] max-w-[380px] max-h-[280px] p-1 rounded-xl border border-line bg-overlay shadow-xl overflow-y-auto grid gap-0.5"
+        className="absolute bottom-[calc(100%+8px)] left-0 min-w-[260px] max-w-[380px] max-h-[280px] p-1 rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl overflow-y-auto grid gap-0.5"
       >
         {mentionMenu.loading ? (
           <div className="p-3 text-center text-xs text-tertiary">
@@ -88,7 +88,7 @@ export function AIComposerMentionMenu({
                 type="button"
                 onClick={() => onSelectMentionItem(item)}
                 className={cn(
-                  'min-h-[36px] flex items-center justify-between gap-2.5 px-2.5 py-1 rounded-lg border-none text-left cursor-pointer transition-colors',
+                  'min-h-[36px] flex items-center justify-between gap-2.5 px-2.5 py-1 rounded-[var(--radius-sm)] border-none text-left cursor-pointer transition-colors',
                   active ? 'bg-[rgba(var(--accent-rgb),0.14)] text-primary font-bold' : 'bg-transparent text-secondary hover:bg-hover',
                 )}
               >

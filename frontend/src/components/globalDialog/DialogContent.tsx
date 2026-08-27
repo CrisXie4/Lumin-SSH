@@ -237,7 +237,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
           value={messageText}
           spellCheck={false}
           onFocus={(event) => event.currentTarget.select()}
-          className="w-full min-h-[220px] max-h-[45vh] mb-7 px-3.5 py-3 resize-y rounded-lg border border-line bg-sunken text-primary text-base leading-[1.6] box-border"
+          className="w-full min-h-[220px] max-h-[45vh] mb-7 px-3.5 py-3 resize-y rounded-md border border-line bg-sunken text-primary text-base leading-[1.6] box-border focus:border-focus focus:outline-none focus:ring-2 focus:ring-accent-dim"
         />
       ) : (
         <div
@@ -278,7 +278,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
                   type="button"
                   aria-label={showPassword ? t('隐藏密码') : t('显示密码')}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-xs transition-colors duration-[120ms] hover:bg-accent-dim"
+                  className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-sm transition-colors duration-[120ms] hover:bg-accent-dim"
                 >{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
               </Tiptop>
             )}
@@ -309,7 +309,7 @@ export function DialogContent({ current, active, onClose, onConfirm, onChoice }:
                   }
                 }}
                 aria-label={t('粘贴')}
-                className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-xs transition-colors duration-[120ms] hover:bg-accent-dim"
+                className="bg-transparent border-none text-tertiary cursor-pointer p-1 flex items-center justify-center text-[16px] leading-none rounded-sm transition-colors duration-[120ms] hover:bg-accent-dim"
               ><Clipboard size={16} /></button>
             </Tiptop>
           </div>

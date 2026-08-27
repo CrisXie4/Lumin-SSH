@@ -1,10 +1,11 @@
 import { useRef } from 'react';
 import { House, Minus, Square, X, Bot, Settings, RefreshCw, Rocket, Sun, Moon, ChevronDown } from 'lucide-react';
 import Tiptop from './Tiptop.tsx';
-import { Button } from './ui';
+
 import { WindowMinimise } from '../../wailsjs/runtime/runtime.js';
 import { Z } from '../constants/zIndex.ts';
 import { cn } from '../utils/cn.ts';
+import useTabStripWheelScroll from '../hooks/useTabStripWheelScroll.ts';
 import type { SessionAuthPrompt, SshChannelUsage } from '../hooks/useSessionConnections.ts';
 import type { SessionLike } from '../utils/sessionWorkspace.ts';
 
@@ -37,8 +38,9 @@ export interface AppTopbarProps {
   sshChannelUsage: Record<string, SshChannelUsage>;
   tabsOverflow: boolean;
   tabActionsRef: React.RefObject<HTMLDivElement | null>;
-  sessionListBtnRef: React.RefObject<HTMLButtonElement | null>;
-  toggleSessionList: () => void;
+    sessionListBtnRef: React.RefObject<HTMLButtonElement | null>;
+    showSessionList: boolean;
+    toggleSessionList: () => void;
   closeAllSessions: () => Promise<void>;
   showThemeQuickEntry: boolean;
   activeAIDevilMode: boolean;
@@ -64,7 +66,7 @@ export default function AppTopbar({
   logoImg, showTopbarRefreshedLogo, topbarLogoTransitionImg,
   sessions, tabScrollRef, tabListRef, activeSessionId, handleTabClick,
   closeSession, setTabContextMenu, sessionAuthPrompts, sshChannelUsage,
-  tabsOverflow, tabActionsRef, sessionListBtnRef, toggleSessionList,
+  tabActionsRef, sessionListBtnRef, showSessionList, toggleSessionList,
   closeAllSessions, showThemeQuickEntry, activeAIDevilMode,
   resolvedQuickThemeMode, handleQuickThemeToggle, isActiveSessionConnected,
   showAIPanel, setAIPanelVisibility, startupUpdateInfo, showUpdateBubble,
@@ -73,6 +75,8 @@ export default function AppTopbar({
   handleCloseWindow, reconnectSession,
 }: AppTopbarProps) {
   const topbarRef = useRef<HTMLDivElement | null>(null);
+  // 顶栏会话标签条：普通滚轮直接横向滚动（与其他标签条统一，不依赖 Shift）
+  useTabStripWheelScroll(tabScrollRef, sessions.length > 0);
 
   return (
     <>
@@ -115,19 +119,31 @@ export default function AppTopbar({
 
           {sessions.length > 0 && (
             <div className="tab-bar">
-              <Tiptop text={t('返回主页')} placement="bottom">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="no-drag shrink-0 rounded-sm!"
-                  onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); }}
-                  aria-label={t('返回主页')}
+              <Tiptop text={t('搜索服务器')} placement="bottom">
+                <button
+                  ref={sessionListBtnRef}
+                  type="button"
+                  className={`tab-item tab-search-item no-drag shrink-0${showSessionList ? ' active' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); toggleSessionList(); }}
+                  aria-label={t('搜索服务器')}
+                  aria-haspopup="dialog"
+                  aria-expanded={showSessionList}
                 >
-                  <House size={14} />
-                </Button>
+                  <ChevronDown size={14} />
+                </button>
               </Tiptop>
               <div className="tab-scroll" ref={tabScrollRef}>
                 <div ref={tabListRef} className="tab-list">
+                  <Tiptop text={t('返回主页')} placement="bottom">
+                    <button
+                      type="button"
+                      className={cn('tab-item tab-home-item no-drag shrink-0', activeSessionId === null ? 'active' : '')}
+                      onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); }}
+                      aria-label={t('返回主页')}
+                    >
+                      <House size={14} />
+                    </button>
+                  </Tiptop>
                   {sessions.map((s) => (
                     <div
                       key={s.id}
@@ -220,29 +236,16 @@ export default function AppTopbar({
                 </div>
               </div>
               <div ref={tabActionsRef} className="tab-actions">
-                {tabsOverflow && (
-                  <Tiptop text={t('服务器列表')} placement="bottom">
-                    <button
-                      ref={sessionListBtnRef}
-                      className="no-drag w-[26px]! min-w-[26px]! h-[26px]! p-0 rounded-sm!"
-                      onClick={toggleSessionList}
-                      aria-label={t('服务器列表')}
-                    >
-                      <ChevronDown size={14} />
-                    </button>
-                  </Tiptop>
-                )}
                 {sessions.length >= 2 && (
                   <Tiptop text={t('关闭全部')} placement="bottom">
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className="no-drag text-danger!"
+                    <button
+                      type="button"
+                      className="no-drag w-[26px] h-[26px] p-0 rounded-sm inline-flex items-center justify-center bg-transparent border-0 cursor-pointer text-tertiary hover:text-danger hover:bg-danger-dim transition-colors duration-[80ms]"
                       onClick={closeAllSessions}
                       aria-label={t('关闭全部')}
                     >
-                      <X size={12} /> {t('关闭全部')}
-                    </Button>
+                      <X size={13} />
+                    </button>
                   </Tiptop>
                 )}
               </div>
@@ -255,7 +258,7 @@ export default function AppTopbar({
               <Tiptop text={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')} placement="bottom">
                 <button
                   type="button"
-                  className="no-drag w-7 h-7 p-0 rounded-xs inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
+                  className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
                   onClick={handleQuickThemeToggle}
                   aria-label={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')}
                 >
@@ -265,16 +268,17 @@ export default function AppTopbar({
             )}
             {activeSessionId !== null && isActiveSessionConnected && sessions.length > 0 && (
               <Tiptop text={showAIPanel ? t('收起 AI 助手面板') : t('打开 AI 助手面板')} placement="bottom">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="no-drag w-7! h-7! rounded-xs!"
+                <button
+                  type="button"
+                  className={cn(
+                    'no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 transition-colors duration-[80ms] hover:bg-hover',
+                    showAIPanel ? 'text-accent hover:text-accent' : 'text-secondary hover:text-primary',
+                  )}
                   onClick={() => setAIPanelVisibility(!showAIPanel)}
                   aria-label={showAIPanel ? t('收起 AI 助手面板') : t('打开 AI 助手面板')}
-                  style={{ color: showAIPanel ? 'var(--accent)' : undefined }}
                 >
                   <Bot size={16} />
-                </Button>
+                </button>
               </Tiptop>
             )}
             {startupUpdateInfo && (
@@ -296,47 +300,68 @@ export default function AppTopbar({
                       <span className="update-bubble-text">{startupUpdateInfo.version}</span>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
+                    type="button"
                     aria-pressed={isUpdateModalVisible}
-                    className="no-drag w-7! h-7! rounded-xs! overflow-visible"
+                    className={cn(
+                      'no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 transition-colors duration-[80ms] hover:bg-hover relative overflow-visible',
+                      isUpdateModalVisible ? 'text-accent hover:text-accent' : 'text-secondary hover:text-primary',
+                    )}
                     onClick={() => {
                       setShowUpdateBubble(false);
                       setIsUpdateModalVisible(true);
                     }}
                     aria-label={`${t('发现新版本')} ${startupUpdateInfo.version}`}
-                    style={{
-                      color: isUpdateModalVisible ? 'var(--accent)' : 'var(--text-secondary)',
-                    }}
                   >
                     <Rocket size={16} />
                     <span className="update-entry-badge absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger shadow-[0_0_0_2px_var(--surface-base)]" />
-                  </Button>
+                  </button>
                 </div>
               </Tiptop>
             )}
             <Tiptop text={t('设置')} placement="bottom">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="no-drag w-7! h-7! rounded-xs!"
+              <button
+                type="button"
+                className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
                 onClick={() => {
                   setSettingsInitialTab('general');
                   setShowSettings(true);
                 }}
                 aria-label={t('设置')}
-              ><Settings size={16} /></Button>
+              >
+                <Settings size={16} />
+              </button>
             </Tiptop>
             <div className="window-divider" />
             <Tiptop text={t('最小化')} placement="bottom">
-              <Button variant="ghost" size="icon" className="no-drag w-7! h-7! rounded-xs!" onClick={WindowMinimise} aria-label={t('最小化')}><Minus size={14} /></Button>
+              <button
+                type="button"
+                className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
+                onClick={WindowMinimise}
+                aria-label={t('最小化')}
+              >
+                <Minus size={14} />
+              </button>
             </Tiptop>
             <Tiptop text={t('最大化')} placement="bottom">
-              <Button variant="ghost" size="icon" className="no-drag w-7! h-7! rounded-xs!" onClick={handleToggleMaximise} aria-label={t('最大化')}><Square size={14} /></Button>
+              <button
+                type="button"
+                className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
+                onClick={handleToggleMaximise}
+                aria-label={t('最大化')}
+              >
+                <Square size={14} />
+              </button>
             </Tiptop>
             <Tiptop text={t('关闭')} placement="bottom">
-              <Button variant="ghost" size="icon" className="no-drag w-7! h-7! rounded-xs!" aria-label={t('关闭')} onClick={handleCloseWindow}><X size={14} /></Button>
+              <button
+                type="button"
+                className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-danger hover:text-white"
+                aria-label={t('关闭')}
+                onClick={handleCloseWindow}
+              >
+                <X size={14} />
+              </button>
             </Tiptop>
           </div>
         </div>

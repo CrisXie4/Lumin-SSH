@@ -89,8 +89,8 @@ function ActionButton({ icon: Icon, label, onClick, disabled = false }: ActionBu
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex-1 min-w-0 h-[34px] inline-flex items-center justify-center gap-1.5 px-3 rounded-lg border border-line text-sm font-bold ${
-        disabled ? 'bg-hover text-muted cursor-not-allowed' : 'bg-raised text-primary cursor-pointer'
+      className={`flex-1 min-w-0 h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-[var(--radius-sm)] border border-line text-xs font-semibold transition-colors ${
+        disabled ? 'bg-hover text-muted cursor-not-allowed' : 'bg-raised text-primary hover:bg-hover cursor-pointer'
       }`}
     >
       <Icon size={14} />
@@ -232,7 +232,7 @@ export default function AIConversationBackupSettings({
   }
 
   const autoBackupControl = (
-    <div className="bg-canvas p-3.5 rounded-xl border border-line flex justify-between items-center gap-4">
+    <div className="bg-canvas p-3.5 rounded-[var(--radius-md)] border border-line flex justify-between items-center gap-4">
       <div className="min-w-0">
         <div className="text-primary text-base font-bold">{t('自动备份对话')}</div>
         <div className="text-tertiary text-sm leading-[1.6]">{t('关闭后不再创建新备份，已有备份仍可查看和恢复。')}</div>
@@ -255,7 +255,7 @@ export default function AIConversationBackupSettings({
             <button
               type="button"
               onClick={() => setSelectedBackup(null)}
-              className="w-fit h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-lg border border-line bg-canvas text-primary text-sm font-bold cursor-pointer"
+              className="w-fit h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-[var(--radius-sm)] border border-line bg-canvas text-primary text-sm font-bold cursor-pointer"
             >
               <ChevronLeft size={14} />
               <span>{t('返回')}</span>
@@ -265,11 +265,11 @@ export default function AIConversationBackupSettings({
           </div>
           <div className="grid gap-3 min-h-0">
             {historyLoading ? (
-              <div className="p-4 rounded-xl border border-line bg-canvas text-tertiary text-base">
+              <div className="p-4 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
                 {t('加载中...')}
               </div>
             ) : (historyEntries.length === 0 ? (
-              <div className="p-4 rounded-xl border border-line bg-canvas text-tertiary text-base">
+              <div className="p-4 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
                 {t('暂无消息')}
               </div>
             ) : (
@@ -279,7 +279,7 @@ export default function AIConversationBackupSettings({
                 return (
                   <div
                     key={`${entry.messageId || index}-${index}`}
-                    className={`w-full min-w-0 grid gap-2.5 px-4 py-3.5 rounded-xl border ${role === 'user' ? 'border-[rgba(var(--accent-rgb),0.35)] bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}
+                    className={`w-full min-w-0 grid gap-2.5 px-4 py-3.5 rounded-[var(--radius-md)] border ${role === 'user' ? 'border-[rgba(var(--accent-rgb),0.35)] bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
@@ -291,7 +291,7 @@ export default function AIConversationBackupSettings({
                         </span>
                       ) : null}
                     </div>
-                    <div className="max-h-[20vh] overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] text-primary text-base leading-[1.6]">
+                    <div className="max-h-[20vh] overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-[var(--radius-sm)] bg-[rgba(255,255,255,0.03)] text-primary text-base leading-[1.6]">
                       <AIChatMarkdown text={markdown || t('暂无消息')} />
                     </div>
                   </div>
@@ -313,12 +313,12 @@ export default function AIConversationBackupSettings({
       {autoBackupControl}
       <div className="grid gap-3 min-h-0">
         {!isLoaded && backups.length === 0 ? (
-          <div className="min-h-40 flex items-center justify-center gap-2 rounded-xl border border-line bg-canvas text-tertiary text-base">
+          <div className="min-h-40 flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
             <History size={18} />
             <span>{isRefreshing ? t('刷新中...') : t('加载备份列表中...')}</span>
           </div>
         ) : (backups.length === 0 ? (
-          <div className="min-h-40 flex flex-col items-center justify-center gap-2 rounded-xl border border-line bg-canvas text-tertiary text-base">
+          <div className="min-h-40 flex flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
             <History size={22} className="opacity-35" />
             <span>{t('暂无自动备份')}</span>
           </div>
@@ -326,7 +326,7 @@ export default function AIConversationBackupSettings({
           backups.map((backup) => (
             <div
               key={backup.id}
-              className="p-3.5 rounded-xl bg-canvas border border-line grid gap-3"
+              className="p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line grid gap-3"
             >
               <div className="grid gap-2 min-w-0">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
@@ -340,7 +340,7 @@ export default function AIConversationBackupSettings({
                     {relativeTimeMap.get(backup.id)}
                   </span>
                 </div>
-                <div className="max-h-44 overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-lg bg-overlay text-primary text-base leading-[1.6]">
+                <div className="max-h-44 overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-[var(--radius-sm)] bg-overlay text-primary text-base leading-[1.6]">
                   <AIChatMarkdown text={backup.message || t('暂无消息')} />
                 </div>
               </div>

@@ -25,8 +25,8 @@ function IconButton({ title, active = false, disabled = false, onClick, children
           }
           onClick?.();
         }}
-        className={`w-7 h-7 inline-flex items-center justify-center rounded-none border border-transparent shrink-0 transition-colors duration-[80ms] ${
-          active ? 'bg-[rgba(var(--accent-rgb),0.10)] text-accent' : 'bg-transparent text-muted'
+        className={`w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-transparent shrink-0 transition-colors duration-[80ms] ${
+          active ? 'bg-accent-dim text-accent' : 'bg-transparent text-muted hover:text-primary hover:bg-hover'
         } ${disabled ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         {children}

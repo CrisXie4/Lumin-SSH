@@ -5,7 +5,7 @@ export type ButtonVariant = 'secondary' | 'primary' | 'ghost' | 'danger' | 'succ
 export type ButtonSize = 'md' | 'sm' | 'icon';
 
 const BASE =
-  'inline-flex items-center justify-center gap-1 rounded-sm text-sm font-medium leading-none whitespace-nowrap border select-none cursor-pointer outline-none transition-colors duration-[80ms] focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-45 disabled:pointer-events-none';
+  'inline-flex items-center justify-center gap-1 rounded-[var(--radius-sm)] text-sm font-medium leading-none whitespace-nowrap border select-none cursor-pointer outline-none transition-colors duration-[80ms] focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-45 disabled:pointer-events-none';
 
 const VARIANTS: Record<ButtonVariant, string> = {
   secondary:

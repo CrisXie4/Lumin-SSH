@@ -168,7 +168,7 @@ export function buildFollowUpResponse(questions: FollowUpQuestion[], answers: Re
 
 export function buildOptionButtonClass(selected: boolean, disabled: boolean): string {
   return cn(
-    'grid min-h-[44px] w-full grid-cols-[34px_minmax(0,1fr)] items-center gap-2.5 rounded-xl px-3 py-[9px] text-left [transition:var(--transition)]',
+    'grid min-h-[44px] w-full grid-cols-[34px_minmax(0,1fr)] items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-[9px] text-left [transition:var(--transition)]',
     selected
       ? 'border border-accent bg-[rgba(var(--accent-rgb),0.08)]'
       : 'border border-line bg-overlay',

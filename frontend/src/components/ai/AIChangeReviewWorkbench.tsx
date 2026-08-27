@@ -38,11 +38,11 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
 
   return (
     <div className="absolute inset-0 z-40 flex items-stretch justify-center p-1.5 bg-scrim/40 backdrop-blur-[4px]">
-      <div className="w-full h-full grid grid-rows-[44px_minmax(0,1fr)] rounded-xl border border-line bg-overlay shadow-xl overflow-hidden">
+      <div className="w-full h-full grid grid-rows-[44px_minmax(0,1fr)] rounded-[var(--radius-md)] border border-line bg-overlay shadow-xl overflow-hidden">
         <div className="min-w-0 flex items-center justify-between gap-3 px-3 border-b border-line bg-raised">
           <div className="min-w-0 flex items-center gap-2">
             {toolName ? (
-              <div className="h-[22px] inline-flex items-center px-2 rounded-md bg-canvas text-secondary text-xs font-semibold shrink-0">
+              <div className="h-[22px] inline-flex items-center px-2 rounded-[var(--radius-sm)] bg-canvas text-secondary text-xs font-semibold shrink-0">
                 {toolName}
               </div>
             ) : null}
@@ -51,7 +51,7 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
               {path ? t(path as I18nKey, pathParams) : t('修改')}
             </div>
             {!previewOnly && queueLength > 1 ? (
-              <div className="h-[22px] inline-flex items-center px-2 rounded-md bg-[rgba(var(--warning-rgb),0.12)] text-warning text-xs font-bold shrink-0">
+              <div className="h-[22px] inline-flex items-center px-2 rounded-[var(--radius-sm)] bg-[rgba(var(--warning-rgb),0.12)] text-warning text-xs font-bold shrink-0">
                 {`${t('队列')} ${queueLength}`}
               </div>
             ) : null}

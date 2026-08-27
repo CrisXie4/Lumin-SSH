@@ -44,7 +44,7 @@ export default function SettingsSidebar({
             id="settings-modal-search"
             name="settings-modal-search"
             autoComplete="off"
-            className="input w-full h-[30px] text-sm"
+            className="input w-full h-[30px] text-sm rounded-[var(--radius-sm)]"
             value={settingsSearchQuery}
             onChange={(event) => setSettingsSearchQuery(event.target.value)}
             placeholder={$t('搜索...')}
@@ -70,8 +70,8 @@ export default function SettingsSidebar({
               key={`${result.id}:${result.targetId}`}
               onClick={() => handleSelectSettingsSearchResult(result)}
               className={cn(
-                'flex flex-col gap-1 w-full py-[9px] px-2.5 rounded-sm border border-line text-secondary cursor-pointer text-left',
-                result.tab === activeTab ? 'bg-overlay' : 'bg-raised',
+                'flex flex-col gap-1 w-full py-[9px] px-2.5 rounded-[var(--radius-sm)] border border-line text-secondary cursor-pointer text-left transition-colors duration-[120ms]',
+                result.tab === activeTab ? 'bg-accent-dim border-accent-border text-accent' : 'bg-raised hover:bg-hover hover:text-primary',
               )}
             >
               <div className="text-sm font-semibold text-primary leading-[1.4]">{result.title}</div>
@@ -79,7 +79,7 @@ export default function SettingsSidebar({
               <div className="text-[10px] text-tertiary leading-[1.5]">{result.breadcrumbLabels.length > 0 ? result.breadcrumbLabels.join(' / ') : result.tabLabel}</div>
             </button>
           )) : (
-            <div className="py-2.5 px-3 rounded-sm border border-dashed border-line bg-raised">
+            <div className="py-2.5 px-3 rounded-[var(--radius-sm)] border border-dashed border-line bg-raised">
               <div className="text-sm font-semibold text-primary">{$t('未找到结果')}</div>
               <div className="mt-1 text-xs text-tertiary">{$t('尝试其他关键词')}</div>
             </div>
@@ -90,8 +90,10 @@ export default function SettingsSidebar({
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
           className={cn(
-            'flex items-center gap-2 py-[7px] px-2.5 rounded-sm cursor-pointer text-base transition-colors duration-[120ms]',
-            activeTab === tab.id ? 'bg-accent-dim text-accent font-semibold' : 'text-secondary',
+            'flex items-center gap-2 py-[7px] px-2.5 rounded-[var(--radius-sm)] cursor-pointer text-base transition-colors duration-[120ms]',
+            activeTab === tab.id
+              ? 'bg-accent-dim text-accent font-semibold'
+              : 'text-secondary hover:bg-hover hover:text-primary',
           )}
         >
           <span className="inline-flex items-center">{(() => { const IC = TAB_ICON[tab.id]; return IC ? <IC size={15} /> : null; })()}</span> {$t(TAB_LABELS[tab.id])}

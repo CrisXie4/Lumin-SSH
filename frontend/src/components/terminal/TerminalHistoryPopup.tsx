@@ -111,14 +111,14 @@ export function TerminalHistoryPopup({
                     console.error('[Terminal] 清空历史失败:', error);
                   }
                 }}
-                className="inline-flex items-center justify-center gap-1 border border-line bg-raised text-danger rounded-xs px-2 py-[2px] text-xs cursor-pointer select-none transition-colors duration-[80ms] hover:bg-hover"
+                className="inline-flex items-center justify-center gap-1 border border-line bg-raised text-danger rounded-[var(--radius-sm)] px-2 py-[2px] text-xs cursor-pointer select-none transition-colors duration-[80ms] hover:bg-hover"
               >
                 {t('清空列表')}
               </button>
               <button
                 onClick={() => { setShowHistory(false); setHistoryPopupPos(null); }}
                 aria-label={t('关闭')}
-                className="inline-flex items-center justify-center gap-1 border border-line bg-raised text-danger rounded-xs px-2 py-[3px] cursor-pointer select-none transition-colors duration-[80ms] hover:bg-hover"
+                className="inline-flex items-center justify-center gap-1 border border-line bg-raised text-danger rounded-[var(--radius-sm)] px-2 py-[3px] cursor-pointer select-none transition-colors duration-[80ms] hover:bg-hover"
               >
                 <X size={12} />
               </button>
@@ -131,62 +131,69 @@ export function TerminalHistoryPopup({
             <div className="p-5 text-center text-[var(--term-muted)] text-sm">
               {searchQuery ? t('无匹配结果') : t('暂无历史记录')}
             </div>
-          ) : displayHistory.map((item, index) => (
-            <div
-              key={item.id}
-              data-history-index={index}
-              role="option"
-              aria-selected={historySelectedIndex === index}
-              onClick={() => selectHistoryCmd(item.command)}
-              className={`flex items-center justify-between px-2.5 py-1.5 cursor-pointer border-b border-[var(--term-separator)] transition-colors duration-[80ms] ${historySelectedIndex === index ? 'bg-active' : 'hover:bg-hover'}`}
-            >
-              <span
-                className="flex-1 min-w-0 text-[var(--term-input-color)] truncate pr-2"
-                title={item.command}
+          ) : displayHistory.map((item, index) => {
+            const isSelected = historySelectedIndex >= 0 && historySelectedIndex === index;
+            return (
+              <div
+                key={item.id}
+                data-history-index={index}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => selectHistoryCmd(item.command)}
+                className={`flex items-center justify-between px-2.5 py-1.5 cursor-pointer border-b border-[var(--term-separator)] transition-colors duration-[80ms] ${
+                  isSelected
+                    ? 'bg-accent-dim text-accent font-medium'
+                    : 'hover:bg-hover text-[var(--term-input-color)]'
+                }`}
               >
-                {item.command}
-              </span>
-              <div className="flex items-center gap-[3px] shrink-0">
-                {/* 执行（绿色） */}
-                <Tiptop text={t('执行')}>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); executeCommand(item.command); }}
-                    aria-label={t('执行')}
-                    className="inline-flex items-center justify-center w-6 h-6 border border-line bg-raised rounded-xs text-secondary cursor-pointer transition-colors duration-[80ms] hover:text-primary"
-                  >
-                    <Play size={12} />
-                  </button>
-                </Tiptop>
-                {/* 复制（蓝色） */}
-                <Tiptop text={t('复制')}>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item.command).catch(() => {}); }}
-                    aria-label={t('复制')}
-                    className="inline-flex items-center justify-center w-6 h-6 border border-line bg-raised rounded-xs text-secondary cursor-pointer transition-colors duration-[80ms] hover:text-primary"
-                  >
-                    <Clipboard size={12} />
-                  </button>
-                </Tiptop>
-                {/* 删除（红色） */}
-                <Tiptop text={t('删除')}>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
-                    aria-label={t('删除')}
-                    className="inline-flex items-center justify-center w-6 h-6 border border-line bg-[rgba(255,123,114,0.15)] rounded-xs text-danger cursor-pointer transition-colors duration-[80ms] hover:bg-danger-dim"
-                  >
-                    <X size={12} />
-                  </button>
-                </Tiptop>
+                <span
+                  className="flex-1 min-w-0 truncate pr-2"
+                  title={item.command}
+                >
+                  {item.command}
+                </span>
+                <div className="flex items-center gap-[3px] shrink-0">
+                  {/* 执行（绿色） */}
+                  <Tiptop text={t('执行')}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); executeCommand(item.command); }}
+                      aria-label={t('执行')}
+                      className="inline-flex items-center justify-center w-6 h-6 border border-line bg-raised rounded-[var(--radius-sm)] text-secondary cursor-pointer transition-colors duration-[80ms] hover:text-primary"
+                    >
+                      <Play size={12} />
+                    </button>
+                  </Tiptop>
+                  {/* 复制（蓝色） */}
+                  <Tiptop text={t('复制')}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item.command).catch(() => {}); }}
+                      aria-label={t('复制')}
+                      className="inline-flex items-center justify-center w-6 h-6 border border-line bg-raised rounded-[var(--radius-sm)] text-secondary cursor-pointer transition-colors duration-[80ms] hover:text-primary"
+                    >
+                      <Clipboard size={12} />
+                    </button>
+                  </Tiptop>
+                  {/* 删除（红色） */}
+                  <Tiptop text={t('删除')}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
+                      aria-label={t('删除')}
+                      className="inline-flex items-center justify-center w-6 h-6 border border-line bg-[rgba(255,123,114,0.15)] rounded-[var(--radius-sm)] text-danger cursor-pointer transition-colors duration-[80ms] hover:bg-danger-dim"
+                    >
+                      <X size={12} />
+                    </button>
+                  </Tiptop>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           </div>
 
           {/* 搜索 + 模式切换 */}
-          <div className="flex gap-1.5 items-center px-2.5 py-1.5 border-t border-[var(--term-separator)] shrink-0">
+          <div className="flex gap-2 items-center px-3 py-2 border-t border-[var(--term-separator)] shrink-0 bg-canvas">
             <input
               ref={historySearchInputRef}
               name="terminal-history-search"
@@ -196,13 +203,29 @@ export function TerminalHistoryPopup({
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleHistorySearchKeyDown}
               placeholder={t('搜索命令...')}
-              className="flex-1 px-2 py-1 bg-[var(--term-input-bg)] border border-[var(--term-btn-border)] rounded-sm text-sm text-[var(--term-input-color)] outline-none"
+              className="flex-1 h-8.5 px-2.5 bg-sunken border border-line rounded-[var(--radius-sm)] text-xs text-primary outline-none focus:border-focus focus:ring-1 focus:ring-accent/30"
             />
-            <div className="server-editor-segment">
-              <button className={historyMode === 'server' ? 'active' : ''} onClick={() => setHistoryMode('server')}>
+            <div className="inline-flex h-8.5 items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5 shrink-0">
+              <button
+                type="button"
+                className={`h-7 px-3 rounded-[6px] text-xs font-medium transition-colors cursor-pointer ${
+                  historyMode === 'server'
+                    ? 'bg-accent text-white font-semibold shadow-xs'
+                    : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60'
+                }`}
+                onClick={() => setHistoryMode('server')}
+              >
                 {t('当前服务器')}
               </button>
-              <button className={historyMode === 'global' ? 'active' : ''} onClick={() => setHistoryMode('global')}>
+              <button
+                type="button"
+                className={`h-7 px-3 rounded-[6px] text-xs font-medium transition-colors cursor-pointer ${
+                  historyMode === 'global'
+                    ? 'bg-accent text-white font-semibold shadow-xs'
+                    : 'border border-transparent text-secondary hover:text-primary hover:bg-hover/60'
+                }`}
+                onClick={() => setHistoryMode('global')}
+              >
                 {t('全部服务器')}
               </button>
             </div>

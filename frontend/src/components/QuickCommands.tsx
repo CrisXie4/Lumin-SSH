@@ -219,7 +219,7 @@ const QuickCommands = forwardRef<QuickCommandsHandle, QuickCommandsProps>(functi
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   placeholder={t('搜索命令...')}
-                  className={`${inputClass} px-2 py-1 rounded-sm`}
+                  className={inputClass}
                 />
               </div>
               <div

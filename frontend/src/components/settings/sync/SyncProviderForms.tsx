@@ -1,5 +1,5 @@
 import { t as $t } from '../../../i18n.ts';
-import { Button } from '../../ui';
+import { Button, Select } from '../../ui';
 import { FolderOpen } from 'lucide-react';
 import { settings } from '../settingDefinitions';
 import type { ProviderForm, FieldSetter } from './syncTabTypes';
@@ -74,10 +74,16 @@ export function FtpFormFields({ ftpForm, setFTPField }: { ftpForm: ProviderForm;
     <>
       <div className="form-group" data-settings-field-id={syncSettings.fields.ftpMode.id}>
         <label htmlFor="sync-ftp-mode" className="form-label">{$t('连接模式')}</label>
-        <select id="sync-ftp-mode" name="sync-ftp-mode" className="input" value={ftpForm.mode || 'explicit_tls'} onChange={setFTPField('mode')}>
-          <option value="explicit_tls">{$t('显式 FTPS（推荐）')}</option>
-          <option value="plain">{$t('普通 FTP（不安全）')}</option>
-        </select>
+        <Select
+          id="sync-ftp-mode"
+          name="sync-ftp-mode"
+          value={String(ftpForm.mode || 'explicit_tls')}
+          onChange={(val) => setFTPField('mode')({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>)}
+          options={[
+            { value: 'explicit_tls', label: $t('显式 FTPS（推荐）') },
+            { value: 'plain', label: $t('普通 FTP（不安全）') },
+          ]}
+        />
       </div>
       {ftpForm.mode === 'plain' ? (
         <div className="px-3.5 py-2.5 rounded-lg bg-[rgba(var(--warning-rgb),0.12)] border border-[rgba(var(--warning-rgb),0.28)] text-warning text-sm leading-[1.6]">
@@ -129,10 +135,16 @@ export function SftpFormFields({ sftpForm, setSFTPField, onLoadPrivateKey }: { s
       </div>
       <div className="form-group" data-settings-field-id={syncSettings.fields.authMethod.id}>
         <label htmlFor="sync-sftp-auth-method" className="form-label">{$t('认证方式')}</label>
-        <select id="sync-sftp-auth-method" name="sync-sftp-auth-method" className="input" value={sftpForm.authMethod} onChange={setSFTPField('authMethod')}>
-          <option value="password">{$t('密码认证')}</option>
-          <option value="key">{$t('密钥认证')}</option>
-        </select>
+        <Select
+          id="sync-sftp-auth-method"
+          name="sync-sftp-auth-method"
+          value={String(sftpForm.authMethod || 'password')}
+          onChange={(val) => setSFTPField('authMethod')({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>)}
+          options={[
+            { value: 'password', label: $t('密码认证') },
+            { value: 'key', label: $t('密钥认证') },
+          ]}
+        />
       </div>
       {sftpForm.authMethod === 'password' ? (
         <div className="form-group" data-settings-field-id={syncSettings.fields.sftpPassword.id}>

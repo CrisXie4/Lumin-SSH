@@ -1,4 +1,4 @@
-import { Plus, SquarePen } from 'lucide-react';
+import { Check, Plus, SquarePen } from 'lucide-react';
 import type { config } from '../../wailsjs/go/models.ts';
 import type { ServerFormData } from '../hooks/useServerCatalog.ts';
 import { useTranslation } from '../i18n.ts';
@@ -121,10 +121,19 @@ export default function AddServerModal({
     </>
   ) : (
     <>
-      <label className="server-editor-clear-check" htmlFor="server-clear-after-add" title={t('添加成功后清空表单，方便连续添加多台服务器')}>
-        <input id="server-clear-after-add" name="clearAfterAdd" type="checkbox" checked={clearAfterAdd} onChange={(e) => setClearAfterAdd(e.target.checked)} />
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={clearAfterAdd}
+        title={t('添加成功后清空表单，方便连续添加多台服务器')}
+        onClick={() => setClearAfterAdd((current) => !current)}
+        className="server-editor-clear-check"
+      >
+        <span className={'custom-checkbox' + (clearAfterAdd ? ' checked' : '')}>
+          {clearAfterAdd && <Check size={10} strokeWidth={4} />}
+        </span>
         {t('添加后清空')}
-      </label>
+      </button>
       {server && (
         <Button variant="secondary" onClick={handleCancel}>
           {t('取消')}

@@ -175,7 +175,7 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
 
   return (
     <div
-      className="flex flex-col bg-raised rounded-lg overflow-hidden border border-line-subtle"
+      className="flex flex-col bg-raised rounded-[var(--radius-md)] overflow-hidden border border-line-subtle"
       style={{ height }}
     >
       {/* Header（可拖动弹窗的把手） */}
@@ -189,7 +189,7 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
         <span className="text-md font-semibold text-primary">
           {t('MCP 活动')}
         </span>
-        <span className="text-xs px-1.5 py-[2px] rounded-sm bg-accent-dim text-accent">
+        <span className="text-xs px-1.5 py-[2px] rounded-[var(--radius-sm)] bg-accent-dim text-accent">
           {cards.length}
         </span>
         <div className="flex-1" />
@@ -198,7 +198,7 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
             onClick={onClose}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
-            className="bg-transparent border-none text-secondary cursor-pointer text-[16px] px-1.5 py-[2px] rounded-sm hover:bg-hover hover:text-primary transition-colors duration-[80ms]"
+            className="bg-transparent border-none text-secondary cursor-pointer text-[16px] px-1.5 py-[2px] rounded-[var(--radius-sm)] hover:bg-hover hover:text-primary transition-colors duration-[80ms]"
             title={t('关闭')}
           >
             ✕
@@ -227,13 +227,13 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
             return (
               <div
                 key={first.requestId}
-                className={`mb-2 px-3 py-2.5 rounded-lg bg-overlay border ${needsApproval ? '' : 'border-line-subtle'}`}
+                className={`mb-2 px-3 py-2.5 rounded-[var(--radius-md)] bg-overlay border ${needsApproval ? '' : 'border-line-subtle'}`}
                 style={needsApproval ? { borderColor: color } : undefined}
               >
                 {/* Card header */}
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span
-                    className="text-[10px] font-semibold px-1.5 py-[2px] rounded-sm uppercase tracking-[0.5px]"
+                    className="text-[10px] font-semibold px-1.5 py-[2px] rounded-[var(--radius-sm)] uppercase tracking-[0.5px]"
                     style={{ background: `${clientColor}22`, color: clientColor }}
                   >
                     {first.clientName || 'unknown'}
@@ -252,7 +252,7 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
 
                 {/* Command display */}
                 {first.command && (
-                  <div className="text-xs font-mono text-secondary bg-black/25 px-2 py-1 rounded-sm mb-1 whitespace-pre-wrap break-all">
+                  <div className="text-xs font-mono text-secondary bg-black/25 px-2 py-1 rounded-[var(--radius-sm)] mb-1 whitespace-pre-wrap break-all">
                     {first.cwd ? `$ cd ${first.cwd}\n` : ''}$ {first.command}
                   </div>
                 )}
@@ -282,7 +282,7 @@ export default function MCPActivityPanel({ height = '100%', onClose, onApprovalR
                     <summary className="text-[10px] text-tertiary cursor-pointer">
                       {t('输出预览')}
                     </summary>
-                    <pre className="text-[10px] font-mono text-secondary bg-black/30 px-2 py-1.5 rounded-sm mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all">
+                    <pre className="text-[10px] font-mono text-secondary bg-black/30 px-2 py-1.5 rounded-[var(--radius-sm)] mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all">
                       {latest.output}
                     </pre>
                   </details>

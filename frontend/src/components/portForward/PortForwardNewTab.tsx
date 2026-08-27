@@ -189,7 +189,7 @@ export function PortForwardNewTab({
               type="button"
               onClick={() => setKind(option.value)}
               className={cn(
-                'text-left px-3.5 py-3 rounded-xl border cursor-pointer transition-colors duration-[80ms] flex flex-col gap-1.5',
+                'text-left px-3.5 py-3 rounded-[var(--radius-md)] border cursor-pointer transition-colors duration-[80ms] flex flex-col gap-1.5',
                 selected
                   ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]'
                   : 'border-line bg-raised',
@@ -208,11 +208,11 @@ export function PortForwardNewTab({
       </div>
 
       <div className="flex items-center justify-center gap-3 py-1.5 text-secondary text-sm">
-        <span className="px-2.5 py-[3px] rounded-full border border-line bg-raised">
+        <span className="px-2.5 py-[3px] rounded-[var(--radius-sm)] border border-line bg-raised">
           {kind === 'local' ? t('本地监听') : t('远程监听')}
         </span>
         <ArrowRight size={16} className="text-accent" />
-        <span className="px-2.5 py-[3px] rounded-full border border-line bg-raised">
+        <span className="px-2.5 py-[3px] rounded-[var(--radius-sm)] border border-line bg-raised">
           {kind === 'local' ? t('远程目标') : t('本机目标')}
         </span>
       </div>

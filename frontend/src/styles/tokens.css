@@ -1,0 +1,473 @@
+/* ============================================================
+   Lumin SSH — Design Tokens & Theme System
+   ============================================================ */
+
+/* 浅色主题变体：默认深色，body.theme-light 时启用 light: 前缀 */
+@custom-variant light (&:where(body.theme-light, body.theme-light *));
+
+/* ── Tailwind 语义色映射（引用既有 token，深浅色切换自动生效）──
+   注意：颜色名不得与字号刻度同名（xs/sm/base/md/lg…），
+   否则 text-base 会同时生成「字号 13px」和「颜色 surface-base」
+   两条规则导致文字隐身。应用底色因此命名为 canvas 而不是 base。 */
+@theme inline {
+  /* 表面层级 */
+  --color-canvas: var(--surface-base);
+  --color-raised: var(--surface-raised);
+  --color-overlay: var(--surface-overlay);
+  --color-sunken: var(--surface-sunken);
+  --color-hover: var(--surface-hover);
+  --color-active: var(--surface-active);
+
+  /* 边框 */
+  --color-line: var(--border);
+  --color-line-light: var(--border-light);
+  --color-line-subtle: var(--border-subtle);
+  --color-focus: var(--border-focus);
+
+  /* 文本 */
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-tertiary: var(--text-tertiary);
+  --color-muted: var(--text-muted);
+
+  /* 强调 / 语义 */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-border: var(--accent-border);
+  --color-success: var(--success);
+  --color-success-dim: var(--success-dim);
+  --color-danger: var(--danger);
+  --color-danger-dim: var(--danger-dim);
+  --color-warning: var(--warning);
+  --color-warning-dim: var(--warning-dim);
+  --color-info: var(--info);
+  --color-info-dim: var(--info-dim);
+
+  /* 弹窗/浮层遮罩 */
+  --color-scrim: var(--overlay-scrim);
+}
+
+/* ── Tailwind 静态刻度：对齐设计 token（字号/圆角/阴影/字体）── */
+@theme {
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-2xl: 20px;
+  --text-3xl: 22px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-sm: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.05);
+  --shadow-md: 0 4px 12px rgba(16,24,40,.08), 0 2px 6px rgba(16,24,40,.06);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.38);
+  --shadow-xl: 0 12px 28px rgba(0, 0, 0, 0.44);
+  --shadow-card: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-card-hover: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --space-1_5: 6px;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* 字体随安装包提供，纯内网与联网环境保持相同字形和布局。 */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('../assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('../assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Lucide 图标全局垂直居中对齐 */
+svg[class*="lucide"] {
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* ── 设计 Token：深色模式（默认） ──────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  /* ── 语义化背景层级（冷蓝色调，层级收敛） ── */
+  --surface-base:      #0f1319;  /* 应用底色 */
+  --surface-raised:    #141a23;  /* 顶栏/面板 */
+  --surface-overlay:   #1a2130;  /* 卡片/模态框 */
+  --surface-sunken:    #1b2230;  /* 输入框/凹陷区 */
+  --surface-hover:     #243042;  /* hover 态 */
+  --surface-active:    #2c384c;  /* active/选中态 */
+  --surface-canvas:    #0d1117;  /* 激活标签融入内容区的底色（须与外凹反弧 SVG 填充一致） */
+
+  /* ── 边框 ── */
+  --overlay-scrim: rgba(0, 0, 0, 0.42);
+  --border:        rgba(72, 86, 110, 0.55);
+  --border-light:  rgba(72, 86, 110, 0.28);
+  --border-subtle: rgba(72, 86, 110, 0.32);
+  --border-focus:  #4d9eff;
+
+  /* ── 文本层级（primary > secondary > tertiary > muted） ── */
+  --text-primary:    #eef3f9;
+  --text-secondary:  #c8d1dd;
+  --text-tertiary:   #a0aabc;
+  --text-muted:      #7a8698;
+
+  /* ── 监控面板专用文字（比全局更清晰） ── */
+  --probe-label:     #d8e0ea;
+  --probe-detail:    #b9c4d2;
+  --probe-faint:     #93a0b2;
+
+  /* ── 语义化强调色 ── */
+  --accent:         #4d9eff;
+  --accent-rgb:     77, 158, 255;
+  --accent-hover:   #69adff;
+  --accent-dim:     rgba(77, 158, 255, 0.12);
+  --accent-border:  rgba(77, 158, 255, 0.28);
+
+  --success-rgb:   63, 185, 80;
+  --danger-rgb:    248, 113, 113;
+  --warning-rgb:   217, 164, 52;
+
+  --success:        #3fb950;
+  --success-dim:    rgba(63, 185, 80, 0.12);
+
+  --danger:         #f87171;
+  --danger-dim:     rgba(248, 113, 113, 0.12);
+
+  --warning:        #d9a434;
+  --warning-dim:    rgba(217, 164, 52, 0.12);
+
+  --info:           #a78bfa;
+  --info-rgb:       167, 139, 250;
+  --info-dim:       rgba(167, 139, 250, 0.12);
+
+  --ai-chat-risk-danger-border: rgba(var(--danger-rgb), 0.28);
+  --ai-chat-risk-danger-bg: rgba(var(--danger-rgb), 0.08);
+  --ai-chat-risk-danger-fg: #fecdd3;
+  --ai-chat-risk-danger-stripe-strong: rgba(var(--danger-rgb), 0.18);
+  --ai-chat-risk-danger-stripe-soft: rgba(var(--danger-rgb), 0.08);
+  --ai-chat-risk-warning-border: rgba(var(--warning-rgb), 0.28);
+  --ai-chat-risk-warning-bg: rgba(var(--warning-rgb), 0.08);
+  --ai-chat-risk-warning-fg: #fde68a;
+  --ai-chat-risk-warning-stripe-strong: rgba(var(--warning-rgb), 0.16);
+  --ai-chat-risk-warning-stripe-soft: rgba(var(--warning-rgb), 0.08);
+  --ai-chat-command-read-card-border: rgba(var(--accent-rgb), 0.28);
+  --ai-chat-command-read-card-bg: rgba(var(--accent-rgb), 0.03);
+  --ai-chat-command-read-card-shadow: none;
+  --ai-chat-command-read-header-bg: rgba(var(--accent-rgb), 0.06);
+  --ai-chat-command-read-badge-border: rgba(var(--accent-rgb), 0.24);
+  --ai-chat-command-read-badge-bg: rgba(var(--accent-rgb), 0.10);
+  --ai-chat-command-read-badge-fg: #bfdbfe;
+  --ai-chat-command-read-panel-border: rgba(var(--accent-rgb), 0.20);
+  --ai-chat-command-read-panel-bg: rgba(var(--accent-rgb), 0.04);
+  --ai-chat-command-write-card-border: rgba(var(--warning-rgb), 0.34);
+  --ai-chat-command-write-card-bg: rgba(var(--warning-rgb), 0.04);
+  --ai-chat-command-write-card-shadow: none;
+  --ai-chat-command-write-header-bg: rgba(var(--warning-rgb), 0.08);
+  --ai-chat-command-write-badge-border: rgba(var(--warning-rgb), 0.30);
+  --ai-chat-command-write-badge-bg: rgba(var(--warning-rgb), 0.12);
+  --ai-chat-command-write-badge-fg: #fde68a;
+  --ai-chat-command-write-panel-border: rgba(var(--warning-rgb), 0.24);
+  --ai-chat-command-write-panel-bg: rgba(var(--warning-rgb), 0.05);
+  --ai-chat-completion-card-border: rgba(var(--success-rgb), 0.22);
+  --ai-chat-completion-card-bg: var(--surface-overlay);
+  --ai-chat-completion-card-header-bg: rgba(var(--success-rgb), 0.05);
+
+  /* ── 阴影（更克制） ── */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-sm:  0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.05);
+  --shadow-md:  0 4px 12px rgba(16,24,40,.08), 0 2px 6px rgba(16,24,40,.06);
+  --shadow-lg:  0 8px 20px rgba(0, 0, 0, 0.38);
+  --shadow-xl:  0 12px 28px rgba(0, 0, 0, 0.44);
+  --shadow-card: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-card-hover: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  /* ── 间距 Token（4px 基准） ── */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-1\.5: 6px; /* 供 Tailwind gap-1.5 映射 */
+  --space-1_5: 6px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+
+  /* ── 字号 Token ── */
+  --text-xs:    11px;
+  --text-sm:    12px;
+  --text-base:  13px;
+  --text-md:    14px;
+  --text-lg:    15px;
+  --text-xl:    17px;
+  --text-2xl:   20px;
+  --text-3xl:   22px;
+
+  /* ── 圆角 Token ── */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ── 过渡 ── */
+  --ease-spring:        cubic-bezier(0.16, 1, 0.3, 1);
+  --transition:         color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+  --transition-fast:    color 0.08s ease, background-color 0.08s ease, border-color 0.08s ease, opacity 0.08s ease;
+  --transition-slow:    color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  --transition-spring:  transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.12s ease, border-color 0.12s ease;
+
+  /* ── 字体 ── */
+  --font-ui:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-terminal: 'JetBrains Mono', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Fira Code', monospace;
+  --font-ai-panel: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* ── 布局 ── */
+  --topbar-h:  40px;
+  --probe-w:   300px;
+
+  /* ── 通用标签态语义变量 ── */
+  /* 中间档：未选中再亮一档；选中淡 accent 底 + 主色字 + 底线（非实心蓝按钮） */
+  --tab-inactive-bg: var(--surface-active);
+  --tab-inactive-bg-hover: color-mix(in srgb, var(--surface-active) 82%, var(--accent) 8%);
+  --tab-inactive-border: color-mix(in srgb, var(--border) 88%, #6b7a90);
+  --tab-inactive-text: var(--text-primary);
+  --tab-active-bg: color-mix(in srgb, var(--accent) 18%, var(--surface-raised));
+  --tab-active-border: color-mix(in srgb, var(--accent) 48%, var(--border));
+  --tab-active-text: var(--text-primary);
+  --tab-radius: 0;
+
+  --file-manager-panel-bg: var(--surface-base);
+  --file-manager-toolbar-bg: var(--surface-raised);
+  --file-manager-border-color: var(--border-subtle);
+  --file-manager-row-hover-bg: var(--surface-hover);
+  --file-manager-row-selected-bg: color-mix(in srgb, var(--accent) 15%, var(--surface-base));
+  --file-manager-text-color: var(--text-primary);
+  --file-manager-secondary-text-color: var(--text-secondary);
+  --file-manager-muted-text-color: var(--text-muted);
+  --file-manager-header-text-color: var(--text-tertiary);
+  --file-manager-path-bg: var(--surface-sunken);
+  --file-manager-path-text-color: var(--text-primary);
+  --file-manager-folder-text-color: var(--accent);
+  --topbar-bg: var(--surface-raised);
+  --topbar-border-color: var(--border-subtle);
+  --topbar-title-color: var(--text-primary);
+
+  /* File icons (dark: keep brand-ish hues, slightly lifted for dark bg) */
+  --file-icon-folder: #facc15;
+  --file-icon-default: #9ca3af;
+  --file-icon-js: #f7df1e;
+  --file-icon-ts: #60a5fa;
+  --file-icon-vue: #42b883;
+  --file-icon-python: #60a5fa;
+  --file-icon-ruby: #f87171;
+  --file-icon-go: #38bdf8;
+  --file-icon-rust: #fbbf77;
+  --file-icon-java: #f59e0b;
+  --file-icon-c: #9ca3af;
+  --file-icon-cpp: #f472b6;
+  --file-icon-csharp: #34d399;
+  --file-icon-html: #fb7185;
+  --file-icon-css: #a78bfa;
+  --file-icon-scss: #f472b6;
+  --file-icon-less: #93c5fd;
+  --file-icon-config: #9ca3af;
+  --file-icon-toml: #f59e0b;
+  --file-icon-markdown: #60a5fa;
+  --file-icon-image: #c084fc;
+  --file-icon-archive: #facc15;
+  --file-icon-shell: #89e051;
+  --file-icon-pdf: #f87171;
+  --file-icon-sql: #fbbf24;
+  --file-icon-xml: #fb923c;
+  --file-icon-php: #a5b4fc;
+  --file-icon-video: #818cf8;
+  --file-icon-audio: #34d399;
+  --file-icon-lua: #7dd3fc;
+  --file-icon-powershell: #60a5fa;
+  --file-icon-perl: #c4b5fd;
+  --file-icon-diff: #94a3b8;
+}
+
+/* ── 设计 Token：浅色模式 ───────────────────────── */
+body.theme-light {
+  color-scheme: light;
+
+  /* ── 中性浅色表面层 ── */
+  --surface-base:      #f3f4f6;
+  --surface-raised:    #ffffff;
+  --surface-overlay:   #ffffff;
+  --surface-sunken:    #e9ecef;
+  --surface-hover:     #e2e6eb;
+  --surface-active:    #d6dbe2;
+  --surface-canvas:    #faf9f9;  /* 激活标签融入内容区的底色（须与外凹反弧 SVG 填充一致） */
+
+  --overlay-scrim: rgba(28, 35, 45, 0.32);
+  --border:        rgba(28, 35, 45, 0.14);
+  --border-light:  rgba(28, 35, 45, 0.08);
+  --border-subtle: rgba(28, 35, 45, 0.10);
+  --border-focus:  #2563eb;
+
+  --text-primary:    #111827;
+  --text-secondary:  #334155;
+  --text-tertiary:   #526176;
+  --text-muted:      #6b7a8f;
+
+  /* File icons (light: deeper/saturated for contrast on light bg) */
+  --file-icon-folder: #ca8a04;
+  --file-icon-default: #4b5563;
+  --file-icon-js: #a16207;
+  --file-icon-ts: #1d4ed8;
+  --file-icon-vue: #15803d;
+  --file-icon-python: #1d4ed8;
+  --file-icon-ruby: #b91c1c;
+  --file-icon-go: #0369a1;
+  --file-icon-rust: #b45309;
+  --file-icon-java: #b45309;
+  --file-icon-c: #4b5563;
+  --file-icon-cpp: #be185d;
+  --file-icon-csharp: #047857;
+  --file-icon-html: #c2410c;
+  --file-icon-css: #6d28d9;
+  --file-icon-scss: #be185d;
+  --file-icon-less: #1e3a8a;
+  --file-icon-config: #4b5563;
+  --file-icon-toml: #9a3412;
+  --file-icon-markdown: #1e40af;
+  --file-icon-image: #7e22ce;
+  --file-icon-archive: #a16207;
+  --file-icon-shell: #15803d;
+  --file-icon-pdf: #dc2626;
+  --file-icon-sql: #b45309;
+  --file-icon-xml: #c2410c;
+  --file-icon-php: #4338ca;
+  --file-icon-video: #4f46e5;
+  --file-icon-audio: #047857;
+  --file-icon-lua: #0369a1;
+  --file-icon-powershell: #1d4ed8;
+  --file-icon-perl: #6d28d9;
+  --file-icon-diff: #475569;
+
+  /* ── 监控面板专用文字（比全局更清晰） ── */
+  --probe-label:     #1f2937;
+  --probe-detail:    #334155;
+  --probe-faint:     #526176;
+
+  --accent:         #2563eb;
+  --accent-rgb:     37, 99, 235;
+  --accent-hover:   #1d4ed8;
+  --accent-dim:     rgba(37, 99, 235, 0.08);
+  --accent-border:  rgba(37, 99, 235, 0.22);
+
+  --success-rgb:   22, 163, 74;
+  --danger-rgb:    220, 38, 38;
+  --warning-rgb:   202, 138, 4;
+
+  --success:        #16a34a;
+  --success-dim:    rgba(22, 163, 74, 0.08);
+
+  --danger:         #dc2626;
+  --danger-dim:     rgba(220, 38, 38, 0.08);
+
+  --warning:        #ca8a04;
+  --warning-dim:    rgba(202, 138, 4, 0.08);
+
+  --info:           #7c3aed;
+  --info-rgb:       124, 58, 237;
+  --info-dim:       rgba(124, 58, 237, 0.08);
+
+  --ai-chat-risk-danger-border: rgba(var(--danger-rgb), 0.24);
+  --ai-chat-risk-danger-bg: rgba(var(--danger-rgb), 0.08);
+  --ai-chat-risk-danger-fg: var(--danger);
+  --ai-chat-risk-danger-stripe-strong: rgba(var(--danger-rgb), 0.16);
+  --ai-chat-risk-danger-stripe-soft: rgba(var(--danger-rgb), 0.06);
+  --ai-chat-risk-warning-border: rgba(var(--warning-rgb), 0.24);
+  --ai-chat-risk-warning-bg: rgba(var(--warning-rgb), 0.08);
+  --ai-chat-risk-warning-fg: var(--warning);
+  --ai-chat-risk-warning-stripe-strong: rgba(var(--warning-rgb), 0.16);
+  --ai-chat-risk-warning-stripe-soft: rgba(var(--warning-rgb), 0.06);
+  --ai-chat-command-read-card-border: rgba(var(--accent-rgb), 0.18);
+  --ai-chat-command-read-card-bg: rgba(var(--accent-rgb), 0.02);
+  --ai-chat-command-read-card-shadow: none;
+  --ai-chat-command-read-header-bg: rgba(var(--accent-rgb), 0.04);
+  --ai-chat-command-read-badge-border: rgba(var(--accent-rgb), 0.16);
+  --ai-chat-command-read-badge-bg: rgba(var(--accent-rgb), 0.08);
+  --ai-chat-command-read-badge-fg: var(--accent);
+  --ai-chat-command-read-panel-border: rgba(var(--accent-rgb), 0.12);
+  --ai-chat-command-read-panel-bg: color-mix(in srgb, var(--surface-raised) 98%, rgba(var(--accent-rgb), 0.03));
+  --ai-chat-command-write-card-border: rgba(var(--warning-rgb), 0.22);
+  --ai-chat-command-write-card-bg: rgba(var(--warning-rgb), 0.02);
+  --ai-chat-command-write-card-shadow: none;
+  --ai-chat-command-write-header-bg: rgba(var(--warning-rgb), 0.05);
+  --ai-chat-command-write-badge-border: rgba(var(--warning-rgb), 0.18);
+  --ai-chat-command-write-badge-bg: rgba(var(--warning-rgb), 0.08);
+  --ai-chat-command-write-badge-fg: var(--warning);
+  --ai-chat-command-write-panel-border: rgba(var(--warning-rgb), 0.14);
+  --ai-chat-command-write-panel-bg: color-mix(in srgb, var(--surface-raised) 98%, rgba(var(--warning-rgb), 0.03));
+  --ai-chat-completion-card-border: rgba(var(--success-rgb), 0.18);
+  --ai-chat-completion-card-bg: var(--surface-overlay);
+  --ai-chat-completion-card-header-bg: rgba(var(--success-rgb), 0.04);
+
+  --shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm:  0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.05);
+  --shadow-md:  0 4px 12px rgba(16,24,40,.08), 0 2px 6px rgba(16,24,40,.06);
+  --shadow-lg:  0 6px 16px rgba(15, 23, 42, 0.10);
+  --shadow-xl:  0 10px 24px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-spring: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.12s ease, border-color 0.12s ease;
+
+  --space-1\.5: 6px; /* 供 Tailwind gap-1.5 映射 */
+  --space-1_5: 6px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* 浅色中间档：未选中再亮；选中淡蓝底 + 深字 + 底线 */
+  --tab-inactive-bg: #e4e8ee;
+  --tab-inactive-bg-hover: #d8dee6;
+  --tab-inactive-border: rgba(28, 35, 45, 0.16);
+  --tab-inactive-text: #1f2937;
+  --tab-active-bg: color-mix(in srgb, var(--accent) 14%, #ffffff);
+  --tab-active-border: color-mix(in srgb, var(--accent) 42%, var(--border));
+  --tab-active-text: #0f172a;
+  --tab-radius: 0;
+}
+
+.mention-context-textarea-highlight {
+  background-color: color-mix(in srgb, var(--info) 26%, transparent);
+  border-radius: 3px;
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--info) 34%, transparent);
+  color: transparent;
+}

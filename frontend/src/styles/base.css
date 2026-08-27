@@ -1,0 +1,83 @@
+/* ============================================================
+   Lumin SSH — Base Reset & Global System UI
+   ============================================================ */
+
+/* ── Reset（base 层）──────────────────────────────────────────
+   元素级 reset 放入 base 层：utilities 可正常覆盖（否则未分层规则
+   永远压过工具类）；存量 class 规则仍未分层，优先级不受影响。 */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button { cursor: pointer; border: none; background: none; font-family: inherit; font-size: inherit; color: inherit; }
+  input, textarea, select { font-family: inherit; }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* ── 键盘焦点环（仅键盘导航时显示） ──────────────────────── */
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+  button:focus:not(:focus-visible),
+  a:focus:not(:focus-visible),
+  input:focus:not(:focus-visible),
+  select:focus:not(:focus-visible),
+  textarea:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* ── 滚动条 ──────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  button svg,
+  [role='button'] svg,
+  .codicon {
+    opacity: var(--app-icon-opacity, 1);
+  }
+}
+
+/* ── 主布局 ─────────────────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--surface-base);
+  overflow: hidden;
+  position: relative;
+  color: var(--text-secondary);
+  border-radius: 0;
+  border: none;
+}
+
+/* ── 主区域 ─────────────────────────────────────────────────── */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-base);
+}
+
+/* 全局背景图层由 utils/globalAppearance.ts 动态创建
+   （#global-wallpaper-layer，fixed + z-index:10000 + 内联样式），
+   不再使用 CSS 变量 + ::after 伪元素方案 */

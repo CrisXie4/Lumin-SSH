@@ -197,7 +197,7 @@ export default function AIChatToolCard({
                 type="button"
                 onClick={handleCopyFullContent}
                 className={cn(
-                  'inline-flex h-[22px] shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-xs font-bold',
+                  'inline-flex h-[22px] shrink-0 cursor-pointer items-center gap-1 rounded-[var(--radius-sm)] px-2 text-xs font-bold',
                   copied
                     ? 'border border-[color-mix(in_srgb,var(--success)_32%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,var(--surface-overlay))] text-success'
                     : 'border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] text-secondary',
@@ -225,7 +225,7 @@ export default function AIChatToolCard({
                   void handleApplyRestore();
                 }}
                 className={cn(
-                  'inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-full px-2 text-xs font-bold',
+                  'inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-[var(--radius-sm)] px-2 text-xs font-bold',
                   restored
                     ? 'cursor-default border border-[color-mix(in_srgb,var(--success)_32%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,var(--surface-overlay))] text-success'
                     : 'cursor-pointer border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] text-secondary',
@@ -238,14 +238,14 @@ export default function AIChatToolCard({
         </div>
         <div className="inline-flex shrink-0 items-center gap-2">
           {status ? (
-            <div style={{ border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold">
+            <div style={{ border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }} className="inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-semibold">
               {statusPalette.tone === 'success' ? <Check size={11} color="currentColor" strokeWidth={2.5} /> : null}
               {statusPalette.tone === 'danger' ? <X size={11} color="currentColor" strokeWidth={2.5} /> : null}
               <span>{t(normalizedStatus as I18nKey)}</span>
             </div>
           ) : null}
           {resultTokenEstimateDisplay ? (
-            <div className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
+            <div className="whitespace-nowrap rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
               {resultTokenEstimateDisplay}
             </div>
           ) : null}
@@ -264,7 +264,7 @@ export default function AIChatToolCard({
           </button>
         </div>
       </div>
-      <div className="w-full overflow-hidden rounded-xl border border-line bg-overlay">
+      <div className="w-full overflow-hidden rounded-[var(--radius-md)] border border-line bg-overlay">
         <div
           className={cn(
             'grid gap-1 bg-overlay px-3 py-2.5',
@@ -272,7 +272,7 @@ export default function AIChatToolCard({
           )}>
           {showRemainingFileEdits ? (
             <div
-              className="inline-flex w-full min-w-0 items-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-1 text-xs font-bold text-primary">
+              className="inline-flex w-full min-w-0 items-center gap-1.5 rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-1 text-xs font-bold text-primary">
               <SquarePen size={12} color="var(--accent)" />
               <span>{t('预计剩余 {count} 个编辑文件').replace('{count}', String(normalizedRemainingFileEdits))}</span>
             </div>
@@ -298,7 +298,7 @@ export default function AIChatToolCard({
             {result ? (
               <div className="grid gap-1.5">
                 <div className="text-xs uppercase tracking-[0.4px] text-tertiary">{t('result')}</div>
-                <pre className="m-0 max-h-[320px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg border border-line-subtle bg-canvas px-3 py-2.5 font-mono text-sm leading-[1.65] text-primary [word-break:break-word]">{t(result as I18nKey)}</pre>
+                <pre className="m-0 max-h-[320px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-[var(--radius-sm)] border border-line-subtle bg-canvas px-3 py-2.5 font-mono text-sm leading-[1.65] text-primary [word-break:break-word]">{t(result as I18nKey)}</pre>
               </div>
             ) : null}
           </div>

@@ -61,7 +61,7 @@ export default function AIPanelAppearanceSettingsTab({
         })}
         toggleLabel={t('交换位置')}
       />
-      <div className="bg-canvas p-3.5 rounded-xl border border-line flex justify-between items-center gap-4">
+      <div className="bg-canvas p-3.5 rounded-[var(--radius-md)] border border-line flex justify-between items-center gap-4">
         <div className="min-w-0">
           <div className="text-primary text-base font-bold">{t('消息操作条置底')}</div>
           <div className="text-tertiary text-sm leading-[1.6]">{t('启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.')}</div>
@@ -73,7 +73,7 @@ export default function AIPanelAppearanceSettingsTab({
           })}
         />
       </div>
-      <div className="bg-canvas p-3.5 rounded-xl border border-line flex justify-between items-center gap-4">
+      <div className="bg-canvas p-3.5 rounded-[var(--radius-md)] border border-line flex justify-between items-center gap-4">
         <div className="min-w-0">
           <div className="text-primary text-base font-bold">{t('用户消息导航')}</div>
           <div className="text-tertiary text-sm leading-[1.6]">{t('启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.')}</div>

@@ -73,9 +73,9 @@ export default function UploadQueueCard({ item, isAbortable, onAbortItem, onRemo
   const showOpenCompletedDownload = direction === 'download' && item.status === 'completed' && item.localPath;
 
   return (
-    <div key={item.id} className="rounded-lg border border-line bg-canvas p-3 flex flex-col gap-2">
+    <div key={item.id} className="rounded-[var(--radius-md)] border border-line bg-canvas p-3 flex flex-col gap-2">
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-7 h-7 rounded-lg inline-flex items-center justify-center shrink-0" style={{ background: meta.bg, color: meta.color }}>
+        <div className="w-7 h-7 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0" style={{ background: meta.bg, color: meta.color }}>
           <Icon size={14} />
         </div>
         <div className="flex flex-col min-w-0 flex-1">
@@ -89,13 +89,13 @@ export default function UploadQueueCard({ item, isAbortable, onAbortItem, onRemo
                 type="button"
                 aria-label={t('打开所在目录')}
                 onClick={() => handleOpenCompletedDownload(item)}
-                className="w-[30px] h-6 inline-flex items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--success)_44%,var(--border))] bg-success-dim text-success cursor-pointer"
+                className="w-[30px] h-6 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--success)_44%,var(--border))] bg-success-dim text-success cursor-pointer"
               >
                 <FolderOpen size={14} />
               </button>
             </Tiptop>
           ) : (
-            <div className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: meta.bg, color: meta.color }}>
+            <div className="px-2 py-0.5 rounded-[var(--radius-sm)] text-xs font-semibold" style={{ background: meta.bg, color: meta.color }}>
               {statusLabel}
             </div>
           )}
@@ -106,7 +106,7 @@ export default function UploadQueueCard({ item, isAbortable, onAbortItem, onRemo
       </div>
 
       {isCompressed ? (
-        <div className="rounded-lg border border-line-subtle bg-sunken p-2 flex flex-col gap-[7px]">
+        <div className="rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-2 flex flex-col gap-[7px]">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 text-xs text-tertiary">
               <span>{t('当前阶段')}: <span className={cn(item.status === 'failed' && 'text-danger', item.status === 'completed' && 'text-success', item.status !== 'failed' && item.status !== 'completed' && 'text-accent')}>{phaseLabel}</span></span>
               <span className="text-center font-mono truncate">

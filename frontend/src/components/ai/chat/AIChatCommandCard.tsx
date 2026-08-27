@@ -326,19 +326,19 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
         </div>
         <div className="inline-flex shrink-0 items-center gap-2">
           {riskBadgePalette ? (
-            <div style={riskBadgePalette} className="rounded-full px-2 py-0.5 text-xs font-bold uppercase whitespace-nowrap">
+            <div style={riskBadgePalette} className="rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-bold uppercase whitespace-nowrap">
               {/* severity 在 riskBadgePalette 非空时必为 danger/warning，此处断言 */}
               {t((riskState.severity || '') as I18nKey)}
             </div>
           ) : null}
-          <div style={{ border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold">
+          <div style={{ border: statusPalette.border, background: statusPalette.background, color: statusPalette.color }} className="inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-semibold">
             {statusPalette.tone === 'success' ? <Check size={11} color="currentColor" strokeWidth={2.5} /> : null}
             {statusPalette.tone === 'danger' ? <X size={11} color="currentColor" strokeWidth={2.5} /> : null}
             {/* status 为后端返回的动态文案（可能不在翻译表），t() 内部有兜底 */}
             <span>{t(normalizedStatus as I18nKey)}</span>
           </div>
           {resultTokenEstimateDisplay ? (
-            <div className="whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
+            <div className="whitespace-nowrap rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 py-0.5 font-mono text-xs font-bold tabular-nums text-secondary">
               {resultTokenEstimateDisplay}
             </div>
           ) : null}
@@ -359,7 +359,7 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
           ) : null}
         </div>
       </div>
-      <div style={{ border: mutationPalette.cardBorder, background: mutationPalette.cardBackground, boxShadow: mutationPalette.cardBoxShadow }} className="w-full overflow-hidden rounded-lg">
+      <div style={{ border: mutationPalette.cardBorder, background: mutationPalette.cardBackground, boxShadow: mutationPalette.cardBoxShadow }} className="w-full overflow-hidden rounded-[var(--radius-md)]">
         <div style={{ background: mutationPalette.headerBackground }} className="border-b border-b-line-subtle px-2.5 py-2">
           <div className="grid min-w-0 gap-[5px]">
             <div className="min-w-0 text-sm font-semibold leading-[1.5] text-primary [word-break:break-word]">

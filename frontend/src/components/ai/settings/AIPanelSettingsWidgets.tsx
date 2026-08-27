@@ -14,9 +14,9 @@ export interface PreviewPillProps {
 export function PreviewPill({ label, primary = false }: PreviewPillProps) {
   return (
     <div
-      className={`min-h-[34px] w-full px-3 rounded-lg border text-base font-semibold inline-flex items-center justify-center box-border ${
+      className={`min-h-[34px] w-full px-3 rounded-[var(--radius-sm)] border text-base font-semibold inline-flex items-center justify-center box-border ${
         primary
-          ? 'border-accent-border bg-[rgba(var(--accent-rgb),0.14)] text-accent'
+          ? 'border-accent-border bg-accent-dim text-accent'
           : 'border-line bg-transparent text-secondary'
       }`}
     >
@@ -41,7 +41,7 @@ export interface PositionSelectorCardProps {
 
 export function PositionSelectorCard({ title, description, items, onToggle, toggleLabel }: PositionSelectorCardProps) {
   return (
-    <div className="p-3.5 rounded-xl bg-canvas border border-line grid gap-3">
+    <div className="p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line grid gap-3">
       <div className="grid gap-1">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1 text-base font-bold text-primary">{title}</div>
@@ -50,7 +50,7 @@ export function PositionSelectorCard({ title, description, items, onToggle, togg
               type="button"
               onClick={onToggle}
               aria-label={toggleLabel}
-              className="w-[34px] h-[34px] rounded-lg border border-line bg-transparent text-secondary inline-flex items-center justify-center transition-colors duration-[80ms] shrink-0 cursor-pointer"
+              className="w-[34px] h-[34px] rounded-[var(--radius-sm)] border border-line bg-transparent hover:bg-hover text-secondary hover:text-primary inline-flex items-center justify-center transition-colors duration-[80ms] shrink-0 cursor-pointer"
             >
               <ArrowRightLeft size={14} />
             </button>
@@ -59,7 +59,7 @@ export function PositionSelectorCard({ title, description, items, onToggle, togg
         <div className="text-sm text-tertiary leading-[1.6]">{description}</div>
       </div>
       <div
-        className="min-h-[58px] p-3 rounded-xl bg-overlay border border-line grid gap-2.5 items-center"
+        className="min-h-[58px] p-3 rounded-[var(--radius-sm)] bg-overlay border border-line grid gap-2.5 items-center"
         style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => (
           <PreviewPill key={item.key} label={item.label} primary={item.primary} />

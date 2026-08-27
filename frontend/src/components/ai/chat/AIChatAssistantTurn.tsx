@@ -84,7 +84,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
         {renderActionBar(true)}
       </div>
       <div className={cn(
-        'grid w-full gap-0 rounded-xl border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)]',
+        'grid w-full gap-0 rounded-[var(--radius-md)] border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)]',
         messageActionBarAtBottom ? 'px-3 pt-2.5' : 'px-3 py-2.5',
       )}>
         {hasError ? <AIChatErrorBlock text={assistantErrorText} /> : null}

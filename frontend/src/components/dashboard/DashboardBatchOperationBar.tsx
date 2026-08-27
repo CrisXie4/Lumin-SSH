@@ -46,6 +46,7 @@ export function DashboardBatchOperationBar({
         <span>{t('已选择服务器')}</span>
       </div>
       <div style={{ flex: 1 }} />
+      <div className="w-px self-stretch bg-line-subtle rounded-[var(--radius-sm)] mx-1" />
 
       <button
         onClick={() => {
@@ -119,7 +120,7 @@ export function DashboardBatchOperationBar({
                   value={groupSearchQuery}
                   onChange={(e) => setGroupSearchQuery(e.target.value)}
                   autoFocus
-                  className="input-compact w-full h-[26px] text-xs px-1.5 rounded-xs border border-line bg-sunken text-primary"
+                  className="input-compact w-full h-[26px] text-xs px-1.5 rounded-[var(--radius-sm)] border border-line bg-sunken text-primary"
                 />
               </div>
 
@@ -162,7 +163,7 @@ export function DashboardBatchOperationBar({
                 )}
               </div>
 
-              <div className="context-menu-divider my-1" />
+              <div className="context-menu-divider my-1 rounded-[var(--radius-sm)]" />
               <div
                 onClick={() => {
                   onBatchMoveGroup(selectedIds, '');
