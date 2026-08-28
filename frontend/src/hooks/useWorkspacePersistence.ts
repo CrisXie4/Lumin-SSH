@@ -29,11 +29,11 @@ export interface SnapshotOverrides {
 }
 
 export interface UseWorkspaceSessionPersistenceOptions {
-  activeSessionIdRef: React.MutableRefObject<string | null>;
-  activeTerminalIdRef: React.MutableRefObject<string | null>;
-  contentTabRef: React.MutableRefObject<WorkspaceContentTab>;
-  lastContentTabRef: React.MutableRefObject<Record<string, WorkspaceContentTab>>;
-  lastTerminalRef: React.MutableRefObject<Record<string, string>>;
+  activeSessionIdRef: React.RefObject<string | null>;
+  activeTerminalIdRef: React.RefObject<string | null>;
+  contentTabRef: React.RefObject<WorkspaceContentTab>;
+  lastContentTabRef: React.RefObject<Record<string, WorkspaceContentTab>>;
+  lastTerminalRef: React.RefObject<Record<string, string>>;
   rememberWorkspace: boolean;
   resolveSessionRootTerminalId: (
     session: SessionLike,
@@ -42,7 +42,7 @@ export interface UseWorkspaceSessionPersistenceOptions {
     label?: string,
   ) => string | null;
   t: (key: string, vars?: Record<string, unknown>) => string;
-  terminalPaneLayoutsRef: React.MutableRefObject<Record<string, TerminalPaneLayout>>;
+  terminalPaneLayoutsRef: React.RefObject<Record<string, TerminalPaneLayout>>;
   workspacePersistenceLevel: 'program' | 'session';
 }
 
@@ -192,12 +192,12 @@ interface WorkspaceTab {
 export interface UseWorkspacePersistenceOptions {
   activeSessionId: string | null;
   activeTerminalId: string | null;
-  activeSessionIdRef: React.MutableRefObject<string | null>;
-  activeTerminalIdRef: React.MutableRefObject<string | null>;
+  activeSessionIdRef: React.RefObject<string | null>;
+  activeTerminalIdRef: React.RefObject<string | null>;
   contentTab: WorkspaceContentTab;
   getSessionWorkspaceTabs: (session: SessionLike, layouts?: Record<string, TerminalPaneLayout>) => WorkspaceTab[];
-  lastTerminalRef: React.MutableRefObject<Record<string, string>>;
-  lastContentTabRef: React.MutableRefObject<Record<string, WorkspaceContentTab>>;
+  lastTerminalRef: React.RefObject<Record<string, string>>;
+  lastContentTabRef: React.RefObject<Record<string, WorkspaceContentTab>>;
   persistServerWorkspaceSessionSnapshot: (session: SessionLike, overrides?: SnapshotOverrides) => void;
   rememberWorkspace: boolean;
   rememberWorkspaceLoaded: boolean;
@@ -208,13 +208,13 @@ export interface UseWorkspacePersistenceOptions {
     label?: string,
   ) => string | null;
   sessions: SessionLike[];
-  sessionsRef: React.MutableRefObject<SessionLike[]>;
+  sessionsRef: React.RefObject<SessionLike[]>;
   terminalPaneLayouts: Record<string, TerminalPaneLayout>;
-  terminalPaneLayoutsRef: React.MutableRefObject<Record<string, TerminalPaneLayout>>;
+  terminalPaneLayoutsRef: React.RefObject<Record<string, TerminalPaneLayout>>;
   workspacePersistenceLevel: 'program' | 'session';
   workspaceRestoreReady: boolean;
-  restoringWorkspaceRef: React.MutableRefObject<boolean>;
-  persistWorkspaceSnapshotRef: React.MutableRefObject<((overrides?: Record<string, unknown>) => void) | null>;
+  restoringWorkspaceRef: React.RefObject<boolean>;
+  persistWorkspaceSnapshotRef: React.RefObject<((overrides?: Record<string, unknown>) => void) | null>;
 }
 
 export default function useWorkspacePersistence({

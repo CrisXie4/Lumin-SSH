@@ -92,7 +92,7 @@ export interface SessionWorkspaceSessionProps {
     cloneFileManagerWorkspace?: boolean;
     cloneCwd?: boolean;
   }) => Promise<void>;
-  persistWorkspaceSnapshotRef: React.MutableRefObject<((overrides?: Record<string, unknown>) => void) | null>;
+  persistWorkspaceSnapshotRef: React.RefObject<((overrides?: Record<string, unknown>) => void) | null>;
   rememberSessionActiveTerminal: (sessionId: string, terminalId: string, label: string) => void;
   resolveHostKeyChoice: (sessionId: string, chosen: number) => Promise<void>;
   resolvePasswordPrompt: (sessionId: string, connId: string, result: { value: string; persist: boolean } | null) => Promise<void>;
@@ -113,7 +113,7 @@ export interface SessionWorkspaceFileManagerProps {
   fileManagerDockConfirmTarget: unknown;
   fileManagerDockDropzones: Array<{ target: string; style: { left: string; top: string; width: string; height: string } }>;
   fileManagerDockPreview: unknown;
-  fileManagerDockTabAnchorRef: React.MutableRefObject<HTMLElement | null>;
+  fileManagerDockTabAnchorRef: React.RefObject<HTMLElement | null>;
   fileManagerPosition: string;
   leftSplitWidth: number;
   probePanelCollapsed: boolean;

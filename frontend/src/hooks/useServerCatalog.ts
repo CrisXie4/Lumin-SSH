@@ -15,7 +15,7 @@ export interface ServerFormData {
 
 export interface UseServerCatalogOptions {
   servers: config.Connection[];
-  serversRef: React.MutableRefObject<config.Connection[]>;
+  serversRef: React.RefObject<config.Connection[]>;
   searchQuery: string;
   selectedServerIds: string[];
   loadServers: () => Promise<void> | void;

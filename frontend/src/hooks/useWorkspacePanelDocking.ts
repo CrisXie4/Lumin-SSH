@@ -21,18 +21,18 @@ export interface DockRect {
 
 export interface UseWorkspacePanelDockingOptions {
   bottomSplitHeight: number;
-  bottomSplitHeightRef: React.MutableRefObject<number>;
+  bottomSplitHeightRef: React.RefObject<number>;
   contentTab: string;
   fileManagerPosition: FileManagerDockPosition;
   leftSplitWidth: number;
-  leftSplitWidthRef: React.MutableRefObject<number>;
-  aiPanelWidthRef: React.MutableRefObject<number>;
+  leftSplitWidthRef: React.RefObject<number>;
+  aiPanelWidthRef: React.RefObject<number>;
   probePanelPosition: 'left' | 'right';
-  probePanelWidthRef: React.MutableRefObject<number>;
+  probePanelWidthRef: React.RefObject<number>;
   setAIPanelVisibility: (value: unknown) => void;
   setContentTab: (tab: string) => void;
   setProbePanelCollapsedPersistent: (value: unknown) => void;
-  showQuickCommandsRef: React.MutableRefObject<boolean>;
+  showQuickCommandsRef: React.RefObject<boolean>;
   updateAiPanelWidth: (value: unknown) => void;
   updateBottomSplitHeight: (value: unknown) => void;
   updateLeftSplitWidth: (value: unknown) => void;
@@ -44,7 +44,7 @@ export interface UseWorkspacePanelDockingResult {
   fileManagerCollapsed: boolean;
   fileManagerDockConfirmTarget: FileManagerDockPosition | null;
   fileManagerDockPreview: PanelResizeDirection | null;
-  fileManagerDockTabAnchorRef: React.MutableRefObject<HTMLElement | null>;
+  fileManagerDockTabAnchorRef: React.RefObject<HTMLElement | null>;
   fileManagerPosition: FileManagerDockPosition;
   getFileManagerDockConfirmRect: (target: FileManagerDockPosition) => DockRect | null;
   getFileManagerDockPreviewRect: (target: string) => DockRect | null;

@@ -40,7 +40,7 @@ export interface WorkspaceSubTabBarProps {
   terminalSubTabActionsRef: React.RefObject<HTMLDivElement | null>;
   terminalSubTabOverflow: boolean;
   fileManagerDockPreview: unknown;
-  fileManagerDockTabAnchorRef: React.MutableRefObject<HTMLElement | null>;
+  fileManagerDockTabAnchorRef: React.RefObject<HTMLElement | null>;
   fileManagerDockConfirmTarget: unknown;
   terminalToolbarIconOnly: boolean;
   startDrag: (event: React.MouseEvent<HTMLElement> | MouseEvent, direction: PanelResizeDirection) => void;

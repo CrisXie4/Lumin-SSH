@@ -191,7 +191,7 @@ export interface RenameInputProps {
   isDirectory: boolean
   onConfirm: (value: string, refocus: boolean) => void
   onCancel: () => void
-  mountedRef?: React.MutableRefObject<HTMLInputElement | null>
+  mountedRef?: React.RefObject<HTMLInputElement | null>
 }
 
 export interface ContextMenuProps {

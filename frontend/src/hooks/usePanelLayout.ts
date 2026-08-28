@@ -16,10 +16,10 @@ export interface UsePanelLayoutResult {
   probePanelCollapsed: boolean;
   aiPanelWidth: number;
   showAIPanel: boolean;
-  leftSplitWidthRef: React.MutableRefObject<number>;
-  bottomSplitHeightRef: React.MutableRefObject<number>;
-  probePanelWidthRef: React.MutableRefObject<number>;
-  aiPanelWidthRef: React.MutableRefObject<number>;
+  leftSplitWidthRef: React.RefObject<number>;
+  bottomSplitHeightRef: React.RefObject<number>;
+  probePanelWidthRef: React.RefObject<number>;
+  aiPanelWidthRef: React.RefObject<number>;
   updateLeftSplitWidth: (value: unknown) => void;
   updateBottomSplitHeight: (value: unknown) => void;
   updateProbePanelWidth: (value: unknown) => void;

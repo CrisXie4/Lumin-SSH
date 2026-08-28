@@ -5,6 +5,7 @@ import {
   buildAIWorkspaceTerminalPanelKey,
   resolveAIWorkspaceTerminalBindingByTerminalId,
 } from '../utils/sessionWorkspace.ts';
+import { warnDev } from '../utils/devLog.ts';
 
 /** AI 变更审查（reviewId/requestId 为必填标识） */
 interface AIChangeReview {
@@ -57,7 +58,7 @@ interface AIBridgeLike {
 }
 
 export interface UseAIReviewOptions {
-  sessionsRef: React.MutableRefObject<unknown[]>;
+  sessionsRef: React.RefObject<unknown[]>;
   addToast: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number;
   t: (key: string, vars?: Record<string, unknown>) => string;
 }
@@ -83,10 +84,11 @@ export interface UseAIReviewResult {
   }) => Promise<void>;
 }
 
+// 审阅/恢复预览/对话差异三类状态的读取方（useAppOrchestrator）只按
+// 「会话::终端::标签」三级键查找，因此写入侧必须使用同一严格语义：
+// tabId 为空时返回空串并丢弃写入，而不是回退到读取方永远看不到的终端级键。
 function buildAIReviewPanelKey(sessionId: string, terminalId: string, tabId = ''): string {
-  return tabId
-    ? buildAIWorkspaceTabPanelKey(sessionId, terminalId, tabId)
-    : buildAIWorkspaceTerminalPanelKey(sessionId, terminalId);
+  return buildAIWorkspaceTabPanelKey(sessionId, terminalId, tabId);
 }
 
 export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOptions): UseAIReviewResult {
@@ -96,14 +98,17 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
 
   const enqueueChangeReview = useCallback((review: AIChangeReview, tabId = '') => {
     if (!review || typeof review !== 'object' || !review.reviewId || !review.requestId) {
+      warnDev('审阅事件被丢弃：review 缺少 reviewId/requestId', review);
       return;
     }
     const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, review.sessionId || '');
     if (!binding) {
+      warnDev('审阅事件被丢弃：无法按 terminalId 解析会话绑定', { terminalId: review.sessionId });
       return;
     }
     const panelKey = buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId);
     if (!panelKey) {
+      warnDev('审阅事件被丢弃：tabId 为空，无法定位面板键', { terminalId: binding.terminalId, tabId });
       return;
     }
     setChangeReviewQueues((prev) => {
@@ -155,16 +160,18 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
   const removeChangeReviewsBySessionId = useCallback((terminalId: string, tabId = '') => {
     const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, terminalId);
     if (!binding) {
+      warnDev('审阅状态清理被跳过：无法按 terminalId 解析会话绑定', { terminalId });
       return;
     }
     const basePanelKey = buildAIWorkspaceTerminalPanelKey(binding.sessionId, binding.terminalId);
-    const panelKey = buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId);
-    if (!basePanelKey || !panelKey) {
+    if (!basePanelKey) {
       return;
     }
+    // 带.tabId 时精确清理单个标签；不带时清理该终端全部标签（含历史遗留的终端级键）
+    const tabPanelKey = buildAIWorkspaceTabPanelKey(binding.sessionId, binding.terminalId, tabId);
     const matchesPanelKey = (currentKey: string) => (
-      tabId
-        ? currentKey === panelKey
+      tabPanelKey
+        ? currentKey === tabPanelKey
         : currentKey === basePanelKey || currentKey.startsWith(`${basePanelKey}::`)
     );
     setChangeReviewQueues((prev) => {
@@ -188,6 +195,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
       const terminalId = typeof detail.terminalId === 'string' ? detail.terminalId.trim() : '';
       const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
       if (!review || typeof review !== 'object' || !terminalId || !tabId) {
+        warnDev('审阅事件被丢弃：事件载荷缺少 review/terminalId/tabId', { hasReview: Boolean(review), terminalId, tabId });
         return;
       }
       enqueueChangeReview({
@@ -221,14 +229,17 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
       const terminalId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
       const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
       if (!review || typeof review !== 'object') {
+        warnDev('恢复预览事件被丢弃：事件载荷缺少 review', detail);
         return;
       }
       const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, terminalId);
       if (!binding) {
+        warnDev('恢复预览事件被丢弃：无法按 terminalId 解析会话绑定', { terminalId, tabId });
         return;
       }
       const panelKey = buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId);
       if (!panelKey) {
+        warnDev('恢复预览事件被丢弃：tabId 为空，无法定位面板键', { terminalId: binding.terminalId, tabId });
         return;
       }
       setRestorePreviewReviews((prev) => ({
@@ -247,13 +258,27 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
       const reviewId = typeof detail.reviewId === 'string' ? detail.reviewId.trim() : '';
       const terminalId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
       const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
+      // 无任何作用域的清除事件直接忽略，避免把其它会话的预览状态一并清掉
+      if (!reviewId && !terminalId) {
+        warnDev('恢复预览清除事件被忽略：缺少 reviewId/sessionId 作用域', detail);
+        return;
+      }
       const binding = terminalId ? resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, terminalId) : null;
       const panelKey = binding ? buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId) : '';
+      if (terminalId && !binding) {
+        warnDev('恢复预览清除：无法按 terminalId 解析会话绑定，回退按事件 terminalId 匹配', { terminalId, tabId });
+      }
       setRestorePreviewReviews((prev) => {
         let changed = false;
         const next: Record<string, RestorePreviewState> = {};
         Object.entries(prev).forEach(([currentKey, reviewState]) => {
-          if (panelKey && currentKey !== panelKey) {
+          // 作用域过滤：优先精确面板键；绑定解析失败时回退按终端匹配；仅有 reviewId 时才扫描全部
+          if (panelKey) {
+            if (currentKey !== panelKey) {
+              next[currentKey] = reviewState;
+              return;
+            }
+          } else if (terminalId && reviewState.terminalId !== terminalId) {
             next[currentKey] = reviewState;
             return;
           }
@@ -333,6 +358,8 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
           }
           return { ...prev, [panelKey]: { ...panel, items: nextItems } };
         });
+      } else {
+        warnDev('还原状态标记被跳过：无法解析面板键', { targetSessionId, targetTerminalId, tabId });
       }
       return true;
     } catch (error) {
@@ -359,6 +386,7 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
     const shouldSetActive = options?.setActive !== false;
     const panelKey = buildAIReviewPanelKey(sessionId, terminalId, tabId);
     if (!artifactPath || !panelKey) {
+      warnDev('对话差异选择被跳过：artifactPath 为空或无法构建面板键', { artifactPath, sessionId, terminalId, tabId });
       return;
     }
     setConversationDiffPanels((prev) => {

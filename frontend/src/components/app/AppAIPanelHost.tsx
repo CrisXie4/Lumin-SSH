@@ -22,7 +22,7 @@ export interface AppAIPanelHostProps {
   addToast: (message: string | Error, type?: string, duration?: number) => number;
   setAIPanelDevilModes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setActiveAIWorkspaceTabs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  sessionsRef: React.MutableRefObject<SessionLike[]>;
+  sessionsRef: React.RefObject<SessionLike[]>;
   markWorkspaceRestoreNavigationOverride: () => void;
   setAIPanelVisibility: (visible: boolean) => void;
   setActiveSessionId: (id: string | null) => void;

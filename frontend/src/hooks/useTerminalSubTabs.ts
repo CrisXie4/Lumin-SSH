@@ -49,15 +49,15 @@ export interface TerminalSubTabDeps {
   handleTerminalPaneDrop: (session: SubTabSessionLike, terminalId: string, target: string) => void;
   setTerminalDockDragPreview: React.Dispatch<React.SetStateAction<TerminalDockDragPreview | null>>;
   setTerminalSubTabOverflow: (overflow: boolean) => void;
-  terminalDockClickSuppressUntilRef: React.MutableRefObject<number>;
-  terminalDockLongPressTimerRef: React.MutableRefObject<number | null>;
-  terminalDockPointerCleanupRef: React.MutableRefObject<(() => void) | null>;
-  terminalSubTabDragSuppressUntilRef: React.MutableRefObject<number>;
-  terminalSubTabDraggingRef: React.MutableRefObject<boolean>;
-  terminalSubTabScrollBySessionRef: React.MutableRefObject<Record<string, number>>;
-  terminalSubTabScrollFrameRef: React.MutableRefObject<number>;
-  terminalSubTabScrollRef: React.MutableRefObject<HTMLElement | null>;
-  terminalSubTabScrollTargetRef: React.MutableRefObject<number>;
+  terminalDockClickSuppressUntilRef: React.RefObject<number>;
+  terminalDockLongPressTimerRef: React.RefObject<number | null>;
+  terminalDockPointerCleanupRef: React.RefObject<(() => void) | null>;
+  terminalSubTabDragSuppressUntilRef: React.RefObject<number>;
+  terminalSubTabDraggingRef: React.RefObject<boolean>;
+  terminalSubTabScrollBySessionRef: React.RefObject<Record<string, number>>;
+  terminalSubTabScrollFrameRef: React.RefObject<number>;
+  terminalSubTabScrollRef: React.RefObject<HTMLElement | null>;
+  terminalSubTabScrollTargetRef: React.RefObject<number>;
   terminalSubTabTheme: { xterm?: { cursor?: string; blue?: string } } | null;
 }
 

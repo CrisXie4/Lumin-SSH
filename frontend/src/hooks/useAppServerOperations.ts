@@ -1,4 +1,4 @@
-import { useCallback, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import type { config } from '../../wailsjs/go/models.ts';
 import useServerCatalog, { type ServerFormData } from './useServerCatalog.ts';
@@ -7,7 +7,7 @@ import type { SessionLike, WorkspaceContentTab } from '../utils/sessionWorkspace
 
 export interface UseAppServerOperationsOptions {
   servers: config.Connection[];
-  serversRef: MutableRefObject<config.Connection[]>;
+  serversRef: RefObject<config.Connection[]>;
   searchQuery: string;
   loadServers: () => Promise<void>;
   addToast: (message: string | Error, type?: string, duration?: number) => number;
@@ -19,7 +19,7 @@ export interface UseAppServerOperationsOptions {
   connectServer: (server: config.Connection) => Promise<void>;
   t: (key: string, vars?: Record<string, unknown>) => string;
   markWorkspaceRestoreNavigationOverride: () => void;
-  sessionsRef: MutableRefObject<SessionLike[]>;
+  sessionsRef: RefObject<SessionLike[]>;
   setSessions: Dispatch<SetStateAction<SessionLike[]>>;
   setActiveSessionId: Dispatch<SetStateAction<string | null>>;
   setActiveTerminalId: Dispatch<SetStateAction<string | null>>;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type MutableRefObject } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
 import type { config } from '../../wailsjs/go/models.ts';
 import type { ProbeSnapshot } from '../components/ProbePanel.tsx';
 import type { TopbarSession } from '../components/AppTopbar.tsx';
@@ -8,6 +8,7 @@ import type { AppOverlaysProps } from '../components/AppOverlays.tsx';
 import {
   buildAIWorkspaceTabPanelKey,
   buildAIWorkspaceTerminalPanelKey,
+  type SessionLike,
 } from '../utils/sessionWorkspace.ts';
 
 import { useTranslation } from '../i18n.ts';
@@ -37,6 +38,9 @@ export default function useAppOrchestrator() {
   const [credentials, setCredentials] = useState<config.Credential[]>([]);
   const serversRef = useRef<config.Connection[]>([]);
   useEffect(() => { serversRef.current = servers; }, [servers]);
+  // 会话列表 ref：与 serversRef 同为由编排层统一持有，供 useAppSessionHub（写入）
+  // 与 useAIReview（按 terminalId 路由预览/审阅事件时读取）共用同一份实时数据
+  const sessionsRef = useRef<SessionLike[]>([]);
   const [serversLoaded, setServersLoaded] = useState(false);
   const [serverEditor, setServerEditor] = useState<config.Connection | Record<string, unknown> | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -110,11 +114,12 @@ export default function useAppOrchestrator() {
     handleReapplyConversationDiffItem,
     handleApplyConversationDiffRestore,
     handleSelectConversationDiffItem,
-  } = useAIReview({ sessionsRef: useRef([]), addToast: looseAddToast, t: looseT });
+  } = useAIReview({ sessionsRef, addToast: looseAddToast, t: looseT });
 
   const sessionState = useAppSessionHub({
     servers,
     serversRef,
+    sessionsRef,
     credentials,
     setCredentials,
     serversLoaded,
@@ -146,10 +151,11 @@ export default function useAppOrchestrator() {
     t: looseT,
   });
 
-  const { sessionsRef, sessions } = sessionState;
+  // sessionsRef 已由编排层统一持有并传入 useAppSessionHub，此处无需再从其返回值解构
+  const { sessions } = sessionState;
 
   const { pings, pingEnabled, isRefreshingPing, pingCounts, handleRefreshPing } = useServerPing({
-    serversRef: serversRef as unknown as MutableRefObject<PingServerLike[] | null>,
+    serversRef: serversRef as unknown as RefObject<PingServerLike[] | null>,
     activeSessionId: sessionState.activeSessionId,
     dashboardHostPageMode,
   });

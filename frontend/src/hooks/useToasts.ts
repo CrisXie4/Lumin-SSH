@@ -31,7 +31,7 @@ export default function useToasts(): UseToastsResult {
   const autoDismissTimersRef = useRef(new Map<number, number>());
   const exitTimersRef = useRef(new Map<number, number>());
 
-  const clearTimer = useCallback((timersRef: React.MutableRefObject<Map<number, number>>, id: number) => {
+  const clearTimer = useCallback((timersRef: React.RefObject<Map<number, number>>, id: number) => {
     const timer = timersRef.current.get(id);
     if (!timer) return;
     window.clearTimeout(timer);

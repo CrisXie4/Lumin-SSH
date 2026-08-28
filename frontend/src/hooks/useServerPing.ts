@@ -17,7 +17,7 @@ export interface PingServerLike {
 }
 
 export interface UseServerPingOptions {
-  serversRef: React.MutableRefObject<PingServerLike[] | null>;
+  serversRef: React.RefObject<PingServerLike[] | null>;
   activeSessionId: string | null;
   dashboardHostPageMode: string;
 }

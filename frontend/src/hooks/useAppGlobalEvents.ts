@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { EventsOn } from '../../wailsjs/runtime/runtime.js';
 import { getAIGlobalSettings } from '../components/ai/aiGlobalSettingsBridge.ts';
 import { formatAIQuotedSelection, type SessionLike, type WorkspaceContentTab } from '../utils/sessionWorkspace.ts';
@@ -6,11 +6,11 @@ import type { TerminalPaneLayout } from '../utils/terminalPaneLayout.ts';
 
 export interface UseAppGlobalEventsOptions {
   activeAIDevilMode: boolean;
-  activeSessionIdRef: MutableRefObject<string | null>;
-  activeTerminalIdRef: MutableRefObject<string | null>;
-  lastTerminalRef: MutableRefObject<Record<string, string>>;
-  sessionsRef: MutableRefObject<SessionLike[]>;
-  terminalPaneLayoutsRef: MutableRefObject<Record<string, TerminalPaneLayout>>;
+  activeSessionIdRef: RefObject<string | null>;
+  activeTerminalIdRef: RefObject<string | null>;
+  lastTerminalRef: RefObject<Record<string, string>>;
+  sessionsRef: RefObject<SessionLike[]>;
+  terminalPaneLayoutsRef: RefObject<Record<string, TerminalPaneLayout>>;
   markWorkspaceRestoreNavigationOverride: () => void;
   resolveSessionRootTerminalId: (session: SessionLike, preferredId: string | null | undefined, layoutSource?: Record<string, TerminalPaneLayout>, preferredLabel?: string) => string | null;
   setAIPanelVisibility: (visible: boolean) => void;

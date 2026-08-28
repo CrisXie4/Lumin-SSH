@@ -38,18 +38,18 @@ export interface SshChannelUsage {
 }
 
 export interface UseSessionConnectionsDeps {
-  activeSessionIdRef: React.MutableRefObject<string | null>;
-  activeTerminalIdRef: React.MutableRefObject<string | null>;
+  activeSessionIdRef: React.RefObject<string | null>;
+  activeTerminalIdRef: React.RefObject<string | null>;
   addToast: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number;
-  authPromptTokenRef: React.MutableRefObject<number>;
+  authPromptTokenRef: React.RefObject<number>;
   awaitDisconnectTerminals: (ids: string[]) => Promise<unknown>;
   buildTerminalCloneCwdCommand: (cwd: string) => string;
-  cancelledConnectionsRef: React.MutableRefObject<Set<string>>;
+  cancelledConnectionsRef: React.RefObject<Set<string>>;
   clearSessionAuthPrompt: (sessionId: string) => void;
   cloneSessionFileManagerWorkspaceState: (workspace: unknown) => FileManagerWorkspaceState | null;
-  connectingServersRef: React.MutableRefObject<ConnectingServer[]>;
-  contentTabRef: React.MutableRefObject<string>;
-  creatingTerminalRef: React.MutableRefObject<string | null>;
+  connectingServersRef: React.RefObject<ConnectingServer[]>;
+  contentTabRef: React.RefObject<string>;
+  creatingTerminalRef: React.RefObject<string | null>;
   credentials: config.Credential[];
   disconnectSessionConnection: (sessionId: string, terminalIds?: string[]) => Promise<unknown>;
   disconnectSessionTerminals: (ids: string[]) => Promise<unknown>;
@@ -59,14 +59,14 @@ export interface UseSessionConnectionsDeps {
   getSessionFileManagerWorkspace: (terminalId: string) => FileManagerWorkspaceState;
   isRecoveryPasswordError: (error: unknown) => boolean;
   isUnsupportedMonitorSession: (session: SessionLike | null | undefined) => boolean;
-  lastContentTabRef: React.MutableRefObject<Record<string, string>>;
-  lastTerminalRef: React.MutableRefObject<Record<string, string>>;
+  lastContentTabRef: React.RefObject<Record<string, string>>;
+  lastTerminalRef: React.RefObject<Record<string, string>>;
   loadServerWorkspaceSessionSnapshot: (serverId: string) => Promise<WorkspaceSessionSnapshot | null>;
   markWorkspaceRestoreNavigationOverride: () => void;
-  mountedRef: React.MutableRefObject<boolean>;
+  mountedRef: React.RefObject<boolean>;
   normalizeWorkspaceContentTab: (value: unknown) => WorkspaceContentTab;
   persistServerWorkspaceSessionSnapshot: (session: SessionLike, overrides?: SnapshotOverrides) => void;
-  persistWorkspaceSnapshotRef: React.MutableRefObject<((overrides?: Record<string, unknown>) => void) | null>;
+  persistWorkspaceSnapshotRef: React.RefObject<((overrides?: Record<string, unknown>) => void) | null>;
   recordRecentConnection: (serverId: string) => void;
   registerServerDisconnect: (serverId: string, promise: Promise<unknown>) => void;
   remapSessionFileManagerWorkspaceMap: (workspaces: Record<string, unknown> | null | undefined, idMap: Record<string, string> | null | undefined) => Record<string, unknown>;
@@ -95,11 +95,11 @@ export interface UseSessionConnectionsDeps {
     layouts?: Record<string, TerminalPaneLayout>,
     label?: string,
   ) => string | null;
-  restoringWorkspaceRef: React.MutableRefObject<boolean>;
+  restoringWorkspaceRef: React.RefObject<boolean>;
   restoringWorkspaceSessionIds: Set<string>;
   serversLoaded: boolean;
-  serversRef: React.MutableRefObject<config.Connection[]>;
-  sessionsRef: React.MutableRefObject<SessionLike[]>;
+  serversRef: React.RefObject<config.Connection[]>;
+  sessionsRef: React.RefObject<SessionLike[]>;
   setActiveSessionId: (id: string | null) => void;
   setActiveTerminalId: (id: string | null) => void;
   setConnectingServers: React.Dispatch<React.SetStateAction<ConnectingServer[]>>;
@@ -133,15 +133,15 @@ export interface UseSessionConnectionsDeps {
     t: (key: string, vars?: Record<string, unknown>) => string;
   }) => Promise<{ result: TResult | null; cancelled: boolean }>;
   t: (key: string, vars?: Record<string, unknown>) => string;
-  terminalPaneLayoutsRef: React.MutableRefObject<Record<string, TerminalPaneLayout>>;
-  terminalSubTabScrollBySessionRef: React.MutableRefObject<Record<string, number>>;
-  terminalSubTabScrollRef: React.MutableRefObject<HTMLElement | null>;
-  terminalSubTabScrollTargetRef: React.MutableRefObject<number>;
+  terminalPaneLayoutsRef: React.RefObject<Record<string, TerminalPaneLayout>>;
+  terminalSubTabScrollBySessionRef: React.RefObject<Record<string, number>>;
+  terminalSubTabScrollRef: React.RefObject<HTMLElement | null>;
+  terminalSubTabScrollTargetRef: React.RefObject<number>;
   updateSessionStatus: (sessionId: string, status: string) => void;
   waitForServerDisconnect: (serverId: string) => Promise<unknown>;
   workspacePersistenceLevel: 'program' | 'session';
-  workspaceRestoreNavigationOverrideRef: React.MutableRefObject<boolean>;
-  workspaceRestoreStartedRef: React.MutableRefObject<boolean>;
+  workspaceRestoreNavigationOverrideRef: React.RefObject<boolean>;
+  workspaceRestoreStartedRef: React.RefObject<boolean>;
 }
 
 interface ReconnectSessionResult {

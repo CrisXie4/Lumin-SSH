@@ -3,6 +3,7 @@ import type * as React from 'react'
 import { approveAIChatTools, assignAIChatToolTerminal, cancelAIChat, continueAIChatTool, disableAIChatCollaboration, listAIChatCommandTerminalCandidates, previewAIChatToolDiff, previewAIChatToolRestore, rejectAIChatTools, rejectAIChatToolsForQueuedSubmission, restoreAIChatTool, setAIChatSkipNextAutomaticRequest, terminateAIChatTool } from './aiChatBridge.ts'
 import type { AIConversationSnapshot, AIPanelProps, PanelState } from './aiChatLogic.ts'
 import { t as translate, type I18nKey } from '../../i18n.ts'
+import { warnDev } from '../../utils/devLog.ts'
 import type { AIGlobalSettings } from './aiGlobalSettingsBridge.ts'
 
 // AI 请求动作 hook：取消/停止并恢复/恢复任务、工具批准/拒绝/继续/终止、
@@ -95,6 +96,9 @@ export function useAIChatActions({ addToast, terminalId, workspaceTabId, activeC
         window.dispatchEvent(new CustomEvent('ai-change-review-preview', {
           detail: { sessionId: terminalId, tabId: workspaceTabId, review },
         }))
+      } else {
+        // 后端成功但载荷不可用：不派发事件会导致预览窗口无任何表现，开发期必须可见
+        warnDev('还原预览未派发：后端未返回有效的 review 载荷', { restoreArtifactPath, review })
       }
     } catch (error) {
       // error.message 为后端动态文案（可能不在翻译表），translate() 内部有兜底

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import {
   getEntryKey,
@@ -11,9 +11,9 @@ export interface UseConversationScrollOptions {
   groupedMessages: GroupedConversationEntry[];
   conversationId: string;
   scrollToBottomSignal: number;
-  containerRef: MutableRefObject<HTMLDivElement | null>;
-  virtuosoRef: MutableRefObject<VirtuosoHandle | null>;
-  scrollerElementRef: MutableRefObject<HTMLElement | null>;
+  containerRef: RefObject<HTMLDivElement | null>;
+  virtuosoRef: RefObject<VirtuosoHandle | null>;
+  scrollerElementRef: RefObject<HTMLElement | null>;
 }
 
 export function useConversationScroll({

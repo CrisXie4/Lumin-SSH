@@ -9,9 +9,9 @@ import { normalizeWorkspaceContentTab } from '../utils/sessionWorkspace.ts';
 import type { SnapshotOverrides } from './useWorkspacePersistence.ts';
 
 export interface TerminalDockingDeps {
-  activeSessionIdRef: React.MutableRefObject<string | null>;
-  activeTerminalIdRef: React.MutableRefObject<string | null>;
-  contentTabRef: React.MutableRefObject<string>;
+  activeSessionIdRef: React.RefObject<string | null>;
+  activeTerminalIdRef: React.RefObject<string | null>;
+  contentTabRef: React.RefObject<string>;
   disconnectSessionTerminals: (ids: string[]) => Promise<unknown>;
   getEffectiveTerminals: (session: SessionLike) => Array<{ id: string }>;
   getSessionGroupedTerminalIds: (sessionId: string, layouts?: Record<string, TerminalPaneLayout>) => Set<string>;
@@ -19,12 +19,12 @@ export interface TerminalDockingDeps {
   getSessionPanes: (layoutId: string, layouts?: Record<string, TerminalPaneLayout>) => TerminalPaneInfo[];
   getSessionRootPaneCells: (layoutId: string, layouts?: Record<string, TerminalPaneLayout>) => TerminalPaneCellId[];
   getSessionRootTerminals: (session: SessionLike, layouts?: Record<string, TerminalPaneLayout>) => Array<{ id: string }>;
-  lastContentTabRef: React.MutableRefObject<Record<string, string>>;
-  lastTerminalRef: React.MutableRefObject<Record<string, string>>;
+  lastContentTabRef: React.RefObject<Record<string, string>>;
+  lastTerminalRef: React.RefObject<Record<string, string>>;
   persistServerWorkspaceSessionSnapshot: (session: SessionLike, overrides?: SnapshotOverrides) => void;
   registerServerDisconnect: (serverId: string, promise: Promise<unknown>) => void;
   resolveSessionRootTerminalId: (session: SessionLike, terminalId: string | null, layouts?: Record<string, TerminalPaneLayout>) => string | null;
-  sessionsRef: React.MutableRefObject<SessionLike[]>;
+  sessionsRef: React.RefObject<SessionLike[]>;
   setActiveTerminalId: (id: string | null) => void;
   setContentTab: (tab: string) => void;
   setMountedSessions: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -33,9 +33,9 @@ export interface TerminalDockingDeps {
   setTerminalTabContextMenu: (menu: unknown) => void;
   setTerminalPaneLayouts: React.Dispatch<React.SetStateAction<Record<string, TerminalPaneLayout>>>;
   switchToNextSession: (sessionId: string) => void;
-  terminalPaneIdRef: React.MutableRefObject<number>;
+  terminalPaneIdRef: React.RefObject<number>;
   terminalPaneLayouts: Record<string, TerminalPaneLayout>;
-  terminalPaneLayoutsRef: React.MutableRefObject<Record<string, TerminalPaneLayout>>;
+  terminalPaneLayoutsRef: React.RefObject<Record<string, TerminalPaneLayout>>;
 }
 
 export interface TerminalDockingResult {

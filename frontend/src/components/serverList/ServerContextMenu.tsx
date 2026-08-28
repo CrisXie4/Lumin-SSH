@@ -20,7 +20,7 @@ export interface ServerContextMenuProps {
   onClone: (server: config.Connection, payload: unknown) => void;
   getEditAnimationPayload: (server: config.Connection, root: HTMLElement | null) => unknown;
   onMoveGroup?: (id: string, group: string) => void;
-  submenuToggleRef: React.MutableRefObject<boolean>;
+  submenuToggleRef: React.RefObject<boolean>;
   setGroupMenu: React.Dispatch<React.SetStateAction<boolean>>;
   onDelete: (id: string) => void;
   groupMenu: boolean;

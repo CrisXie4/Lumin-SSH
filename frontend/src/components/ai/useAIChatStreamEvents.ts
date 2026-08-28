@@ -620,7 +620,6 @@ export function useAIChatStreamEvents({
             runtimePhase: 'ready',
             skipNextAutomaticRequest: false,
             resumeAfterCancelRequestId: '',
-            activeChangeReview: null,
             conversation: nextConversation || current.conversation,
             messages: nextMessages,
             lastAssistantTurnId: anchorAssistantMessageId,
@@ -634,10 +633,6 @@ export function useAIChatStreamEvents({
       }
 
       if (payload.kind === 'change_review_required' && payload.review) {
-        setPanelState(matchedPanelKey, (current) => ({
-          ...current,
-          activeChangeReview: payload.review,
-        }))
         if (workspaceTabId && typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('ai-change-review-required', {
             detail: {
@@ -682,7 +677,6 @@ export function useAIChatStreamEvents({
             activeToolExecution: null,
             toolApprovalMode: typeof payload.approvalMode === 'string' ? payload.approvalMode : '',
             requestPhase: 'awaiting_tool_approval',
-            activeChangeReview: typeof payload.approvalMode === 'string' && payload.approvalMode === 'change_review' ? current.activeChangeReview : null,
             conversation: nextConversation,
             messages: nextMessages,
             ...updateAILastAssistantTurnState(current, lastToolMessage, anchorAssistantMessageId),
@@ -700,7 +694,6 @@ export function useAIChatStreamEvents({
           activeToolExecution: null,
           toolApprovalMode: '',
           requestPhase: 'streaming',
-          activeChangeReview: null,
         }))
         return
       }
@@ -713,7 +706,6 @@ export function useAIChatStreamEvents({
             ...current,
             requestPhase: 'running_tool',
             toolApprovalMode: '',
-            activeChangeReview: null,
             activeToolExecution: {
               executionId: typeof payload.executionId === 'string' ? payload.executionId.trim() : '',
               allowContinue: false,
@@ -739,7 +731,6 @@ export function useAIChatStreamEvents({
             ...current,
             requestPhase: 'awaiting_terminal_assignment',
             toolApprovalMode: '',
-            activeChangeReview: null,
             activeToolExecution: {
               executionId: typeof payload.executionId === 'string' ? payload.executionId.trim() : '',
               allowContinue: false,
@@ -765,7 +756,6 @@ export function useAIChatStreamEvents({
             ...current,
             requestPhase: 'awaiting_command_action',
             toolApprovalMode: '',
-            activeChangeReview: null,
             activeToolExecution: {
               executionId: typeof payload.executionId === 'string' ? payload.executionId.trim() : '',
               allowContinue: payload.allowContinue === true,
@@ -785,7 +775,6 @@ export function useAIChatStreamEvents({
           activeToolExecution: null,
           toolApprovalMode: '',
           requestPhase: 'streaming',
-          activeChangeReview: null,
         }))
         return
       }
@@ -836,7 +825,6 @@ export function useAIChatStreamEvents({
             runtimePhase: 'ready',
             skipNextAutomaticRequest: false,
             resumeAfterCancelRequestId: '',
-            activeChangeReview: null,
             conversation: nextConversation || current.conversation,
             messages: nextConversation ? nextConversation.messages : current.messages,
             apiMessages: nextConversation ? nextConversation.apiMessages : current.apiMessages,
@@ -898,7 +886,6 @@ export function useAIChatStreamEvents({
             runtimePhase: 'ready',
             skipNextAutomaticRequest: false,
             resumeAfterCancelRequestId: '',
-            activeChangeReview: null,
             conversation: nextConversation || current.conversation,
             messages: nextMessages,
             activeToolExecution: null,
@@ -948,7 +935,6 @@ export function useAIChatStreamEvents({
             toolApprovalMode: '',
             runtimePhase: 'ready',
             skipNextAutomaticRequest: false,
-            activeChangeReview: null,
             conversation: nextConversation || current.conversation,
             recoverableToolStopReason: '',
             collaborationLocked: shouldKeepCollaborationLock,
@@ -1171,7 +1157,6 @@ export function useAIChatStreamEvents({
           runtimePhase: 'ready',
           skipNextAutomaticRequest: false,
           isCondensingContext: false,
-          activeChangeReview: null,
           conversation: nextConversation,
           messages: nextMessages,
           apiMessages: matchedPanel.apiMessages,
@@ -1217,7 +1202,6 @@ export function useAIChatStreamEvents({
           runtimePhase: 'ready',
           skipNextAutomaticRequest: false,
           isCondensingContext: false,
-          activeChangeReview: null,
           conversation: nextConversation,
           messages: nextMessages,
           apiMessages: matchedPanel.apiMessages,

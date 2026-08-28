@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import type { config } from '../../wailsjs/go/models.ts';
 import { isRecoveryPasswordError, syncWithRecoveryPassword } from '../utils/recoveryPasswordSync.ts';
 import {
@@ -56,7 +56,9 @@ interface DockPreviewZone {
 
 export interface UseAppSessionHubOptions {
   servers: config.Connection[];
-  serversRef: MutableRefObject<config.Connection[]>;
+  serversRef: RefObject<config.Connection[]>;
+  /** 由编排层统一持有的会话列表 ref（与 useAIReview 共用），hub 负责保持其与 sessions 状态同步 */
+  sessionsRef: RefObject<SessionLike[]>;
   credentials: config.Credential[];
   setCredentials: Dispatch<SetStateAction<config.Credential[]>>;
   serversLoaded: boolean;
@@ -67,14 +69,14 @@ export interface UseAppSessionHubOptions {
   recordRecentConnection: (id: string) => void;
   setSettingsInitialTab: (t: string) => void;
   setShowSettings: (s: boolean) => void;
-  showQuickCommandsRef: MutableRefObject<boolean>;
+  showQuickCommandsRef: RefObject<boolean>;
   bottomSplitHeight: number;
-  bottomSplitHeightRef: MutableRefObject<number>;
+  bottomSplitHeightRef: RefObject<number>;
   leftSplitWidth: number;
-  leftSplitWidthRef: MutableRefObject<number>;
-  aiPanelWidthRef: MutableRefObject<number>;
+  leftSplitWidthRef: RefObject<number>;
+  aiPanelWidthRef: RefObject<number>;
   probePanelPosition: 'left' | 'right';
-  probePanelWidthRef: MutableRefObject<number>;
+  probePanelWidthRef: RefObject<number>;
   setAIPanelVisibility: (v: boolean) => void;
   setProbePanelCollapsedPersistent: (v: boolean) => void;
   updateAiPanelWidth: (w: number) => void;
@@ -88,6 +90,7 @@ export interface UseAppSessionHubOptions {
 export default function useAppSessionHub({
   servers: _servers,
   serversRef,
+  sessionsRef,
   credentials,
   setCredentials,
   serversLoaded,
@@ -116,7 +119,6 @@ export default function useAppSessionHub({
   t,
 }: UseAppSessionHubOptions) {
   const [sessions, setSessions] = useState<SessionLike[]>([]);
-  const sessionsRef = useRef<SessionLike[]>([]);
   useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   const cancelledConnectionsRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);

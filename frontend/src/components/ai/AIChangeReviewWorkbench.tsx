@@ -1,6 +1,7 @@
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { useRef } from 'react'
 import { useTranslation, type I18nKey } from '../../i18n.ts'
+import { Button } from '../ui'
 import { DiffEditorPair, type DiffNavigateTarget } from './AIDiffViewerPair.tsx'
 
 interface AIChangeReviewWorkbenchProps {
@@ -15,8 +16,6 @@ interface AIChangeReviewWorkbenchProps {
   previewOnly?: boolean;
   onClose?: (() => void) | null;
 }
-
-const NAV_BUTTON_CLASS = 'inline-flex items-center justify-center w-7 h-7 rounded-md border border-line bg-canvas text-secondary cursor-pointer'
 
 export default function AIChangeReviewWorkbench({ review, queueLength = 1, previewOnly = false, onClose = null }: AIChangeReviewWorkbenchProps) {
   const { t } = useTranslation()
@@ -57,30 +56,34 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
             ) : null}
           </div>
           <div className="inline-flex items-center gap-1 shrink-0">
-            <button
-              type="button"
+            {/* 与内置文件编辑器工具栏同款按钮（ghost/icon + lucide 图标），保证全局 UI 一致 */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-7 h-7"
               onClick={() => diffNavigationRef.current?.('previous')}
               title={t('上一个')}
-              aria-label={t('上一个')}
-              className={NAV_BUTTON_CLASS}>
+              aria-label={t('上一个')}>
               <ArrowUp size={14} />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-7 h-7"
               onClick={() => diffNavigationRef.current?.('next')}
               title={t('下一个')}
-              aria-label={t('下一个')}
-              className={NAV_BUTTON_CLASS}>
+              aria-label={t('下一个')}>
               <ArrowDown size={14} />
-            </button>
+            </Button>
             {previewOnly && typeof onClose === 'function' ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7"
                 onClick={onClose}
-                aria-label={t('关闭')}
-                className={NAV_BUTTON_CLASS}>
-                ×
-              </button>
+                aria-label={t('关闭')}>
+                <X size={14} />
+              </Button>
             ) : null}
           </div>
         </div>

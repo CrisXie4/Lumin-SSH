@@ -172,7 +172,6 @@ export interface PanelState {
   lastTurnBusinessMessageKind: string
   contextTokens: number
   isCondensingContext: boolean
-  activeChangeReview: unknown
   collaborationLocked: boolean
   collaborationActive: boolean
   collaborationMode: string
@@ -244,7 +243,6 @@ export function createEmptyPanelState(): PanelState {
     lastTurnBusinessMessageKind: '',
     contextTokens: 0,
     isCondensingContext: false,
-    activeChangeReview: null,
     collaborationLocked: false,
     collaborationActive: false,
     collaborationMode: '',

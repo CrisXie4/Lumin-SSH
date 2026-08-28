@@ -7,7 +7,7 @@ export interface UseSessionWorkspaceModelOptions {
   activeTerminalId: string | null;
   getEffectiveTerminals: (session: SessionLike) => Array<{ id: string }>;
   getSessionWorkspaceTabs: (session: SessionLike) => unknown[];
-  lastTerminalRef: React.MutableRefObject<Record<string, string>>;
+  lastTerminalRef: React.RefObject<Record<string, string>>;
   rememberSessionActiveTerminal: (sessionId: string, terminalId: string, label: string) => void;
   resolveSessionRootTerminalId: (
     session: SessionLike,
@@ -15,9 +15,9 @@ export interface UseSessionWorkspaceModelOptions {
     layouts: Record<string, TerminalPaneLayout>,
     label: string,
   ) => string | null;
-  restoringWorkspaceRef: React.MutableRefObject<boolean>;
+  restoringWorkspaceRef: React.RefObject<boolean>;
   sessions: SessionLike[];
-  sessionsRef: React.MutableRefObject<SessionLike[]>;
+  sessionsRef: React.RefObject<SessionLike[]>;
   setActiveTerminalId: (terminalId: string | null) => void;
   setTerminalPaneLayouts: React.Dispatch<React.SetStateAction<Record<string, TerminalPaneLayout>>>;
   terminalPaneLayouts: Record<string, TerminalPaneLayout>;
