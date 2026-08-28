@@ -126,7 +126,7 @@ function interpolateText(text: string, params?: Record<string, unknown>): string
   return text.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? `{${name}}`));
 }
 
-function translateDynamicText(text: string, table: Record<string, string>): string {
+function translateDynamicText(text: string, table: I18nDict): string {
   if (typeof text !== 'string' || !text) {
     return text;
   }

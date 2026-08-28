@@ -11,10 +11,10 @@
 import type zhCN from './zh-CN/basic.ts';
 
 /** 完整翻译表（键为中文文案，值为对应语言译文） */
-export type I18nDict = typeof zhCN;
+export type I18nDict = Partial<typeof zhCN>;
 
 /** 翻译键集合 */
-export type I18nKey = keyof I18nDict;
+export type I18nKey = keyof typeof zhCN;
 
 /**
  * 支持的语言代码（与 src/i18n/<lang>/basic.ts 目录一一对应，共 28 种）。

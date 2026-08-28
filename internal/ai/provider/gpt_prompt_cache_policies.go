@@ -38,7 +38,7 @@ var (
 	responsesPromptCacheAvailableFormats = []ResponsesPromptCacheFormatPolicy{
 		{
 			Format:    ResponsesPromptCacheFormatOptions,
-			Durations: []string{"30m"},
+			Durations: []string{"30m", "24h"},
 		},
 		{
 			Format:    ResponsesPromptCacheFormatRetention,
@@ -51,7 +51,7 @@ var (
 			MinimumMajor:       5,
 			MinimumMinor:       6,
 			Format:             ResponsesPromptCacheFormatOptions,
-			SupportedDurations: []string{"30m"},
+			SupportedDurations: []string{"30m", "24h"},
 			DefaultDuration:    "30m",
 		},
 		{

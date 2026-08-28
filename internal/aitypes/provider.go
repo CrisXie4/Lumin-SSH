@@ -19,6 +19,7 @@ type AIProviderProfile struct {
 	ModelTopP                              *float64 `json:"modelTopP,omitempty"`
 	CacheStrategy                          string   `json:"cacheStrategy"`
 	OpenAIResponsesUsePromptCacheRetention bool     `json:"openAiResponsesUsePromptCacheRetention"`
+	OpenAIResponsesFinishOnCompletedEvent  bool     `json:"openAiResponsesFinishOnCompletedEvent"`
 	WebSearchEnabled                       bool     `json:"webSearchEnabled"`
 	DedicatedWebSearchEnabled              bool     `json:"dedicatedWebSearchEnabled"`
 	DedicatedWebSearchProviderID           string   `json:"dedicatedWebSearchProviderId,omitempty"`

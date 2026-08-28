@@ -12,9 +12,9 @@ func TestGetResponsesPromptCachePolicy(t *testing.T) {
 		supportedDurations []string
 		defaultDuration    string
 	}{
-		{"gpt-5.6-sol", ResponsesPromptCacheFormatOptions, []string{"30m"}, "30m"},
-		{"gpt-5.6-terra", ResponsesPromptCacheFormatOptions, []string{"30m"}, "30m"},
-		{"gpt-5.6-luna", ResponsesPromptCacheFormatOptions, []string{"30m"}, "30m"},
+		{"gpt-5.6-sol", ResponsesPromptCacheFormatOptions, []string{"30m", "24h"}, "30m"},
+		{"gpt-5.6-terra", ResponsesPromptCacheFormatOptions, []string{"30m", "24h"}, "30m"},
+		{"gpt-5.6-luna", ResponsesPromptCacheFormatOptions, []string{"30m", "24h"}, "30m"},
 		{"gpt-5.5", ResponsesPromptCacheFormatRetention, []string{"24h"}, "24h"},
 		{"gpt-5.4-mini", ResponsesPromptCacheFormatRetention, []string{"in_memory", "24h"}, ""},
 		{"gpt-5.2", ResponsesPromptCacheFormatRetention, []string{"in_memory", "24h"}, ""},
@@ -62,6 +62,7 @@ func TestApplyResponsesPromptCacheSelection(t *testing.T) {
 		{ResponsesPromptCacheSelection{}, map[string]any{}},
 		{ResponsesPromptCacheSelection{UseModelDefault: true}, map[string]any{}},
 		{ResponsesPromptCacheSelection{Format: ResponsesPromptCacheFormatOptions, Duration: "30m"}, map[string]any{"prompt_cache_options": map[string]any{"ttl": "30m"}}},
+		{ResponsesPromptCacheSelection{Format: ResponsesPromptCacheFormatOptions, Duration: "24h"}, map[string]any{"prompt_cache_options": map[string]any{"ttl": "24h"}}},
 		{ResponsesPromptCacheSelection{Format: ResponsesPromptCacheFormatRetention, Duration: "in_memory"}, map[string]any{"prompt_cache_retention": "in_memory"}},
 	}
 	for _, test := range tests {
@@ -76,7 +77,7 @@ func TestApplyResponsesPromptCacheSelection(t *testing.T) {
 func TestResponsesPromptCacheAvailableFormats(t *testing.T) {
 	policy := GetResponsesPromptCachePolicy("gpt-5.6-terra")
 	expected := []ResponsesPromptCacheFormatPolicy{
-		{Format: ResponsesPromptCacheFormatOptions, Durations: []string{"30m"}},
+		{Format: ResponsesPromptCacheFormatOptions, Durations: []string{"30m", "24h"}},
 		{Format: ResponsesPromptCacheFormatRetention, Durations: []string{"in_memory", "24h"}},
 	}
 	if !reflect.DeepEqual(policy.AvailableFormats, expected) {

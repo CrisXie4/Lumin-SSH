@@ -12,6 +12,7 @@ export interface AIProviderLike {
   pinned?: boolean;
   cacheStrategy?: string;
   openAiResponsesUsePromptCacheRetention?: boolean;
+  openAiResponsesFinishOnCompletedEvent?: boolean;
   modelTemperature?: number | null;
   modelTopP?: number | null;
   reasoningEffort?: string;

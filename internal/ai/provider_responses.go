@@ -268,6 +268,7 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	finishedOnCompletedEvent := false
 	trackedOutputItems := make(map[int]map[string]any)
 	includeValues := []string{}
 	if requestBodyInclude, ok := requestBody["include"].([]string); ok {
@@ -354,10 +355,19 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 				result.InputTokens = event.Usage.InputTokens
 				result.OutputTokens = event.Usage.OutputTokens
 			}
+			// 部分中转站在发送终态事件后既不发送 [DONE] 也不关闭连接, scanner.Scan() 会一直阻塞
+			// 到读超时。终态事件已携带完整正文, 用量与缓存对象, 且上面已全部落到 result 与
+			// latestCacheObject, 因此此处跳出只是停止等待冗余的传输层终止标记, 不丢弃任何已接收数据。
+			if profile.OpenAIResponsesFinishOnCompletedEvent {
+				finishedOnCompletedEvent = true
+			}
+		}
+		if finishedOnCompletedEvent {
+			break
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
+	if err := scanner.Err(); err != nil && !finishedOnCompletedEvent {
 		finalizeRoundResult()
 		return result, err
 	}
