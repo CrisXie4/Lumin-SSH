@@ -205,7 +205,9 @@ export default function AIChatConversation({
             element.style.direction = isLeftSide ? 'rtl' : 'ltr';
           }
         }}
-        style={{ height: '100%', overflowX: 'hidden' }}
+        // 滚动条内缩 8px（rtl 时在左、ltr 时在右，均为窗口边缘侧），与窗口缩放抓握带完全错开：
+        // 抓握带 [0,8) 可缩放，滚动条 [8,14) 可拖拽，互不抢占
+        style={{ height: '100%', overflowX: 'hidden', marginInlineEnd: 8 }}
         data={groupedMessages}
         alignToBottom={false}
         increaseViewportBy={{ top: 1200, bottom: 800 }}

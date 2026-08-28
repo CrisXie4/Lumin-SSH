@@ -47,6 +47,11 @@
   .codicon {
     opacity: var(--app-icon-opacity, 1);
   }
+
+  /* ── 窗口边缘缩放时光标强制穿透（边缘状态由 useWindowState 镜像到 data 属性） ── */
+  html[data-wails-resize-edge] * {
+    cursor: inherit !important;
+  }
 }
 
 /* ── 全局滚动条样式（统一现代精致半透明胶囊风格） ── */
@@ -58,6 +63,11 @@
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

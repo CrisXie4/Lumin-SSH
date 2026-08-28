@@ -4,6 +4,7 @@ import AppTopbar from './components/AppTopbar.tsx';
 import AppOverlays from './components/AppOverlays.tsx';
 import AppMCPFloatingOverlay from './components/app/AppMCPFloatingOverlay.tsx';
 import AppWorkspaceView from './components/app/AppWorkspaceView.tsx';
+import WindowResizeBorders from './components/app/WindowResizeBorders.tsx';
 import useAppOrchestrator from './hooks/useAppOrchestrator.ts';
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
       <AppWorkspaceView orchestrator={orchestrator} />
       <AppOverlays {...orchestrator.overlaysProps} />
       <AppMCPFloatingOverlay {...orchestrator.mcpProps} />
+      <WindowResizeBorders />
     </div>
   );
 }

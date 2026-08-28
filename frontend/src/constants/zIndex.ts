@@ -54,5 +54,9 @@ export const Z = {
 
   // ── Absolute top (toasts / system notices) ──
   TOAST: 40000,
+
+  // ── Window frameless resize hotzones（压过所有应用层，含弹层） ──
+  WINDOW_RESIZE_BORDER: 99999,
+  WINDOW_RESIZE_CORNER: 100000,
 } as const;
 
