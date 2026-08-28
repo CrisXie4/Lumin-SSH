@@ -22,6 +22,7 @@ type AIProvider = {
   modelTemperature: number | null
   modelTopP: number | null
   openAiResponsesUsePromptCacheRetention: boolean
+  openAiResponsesFinishOnCompletedEvent: boolean
   pinned: boolean
   updatedAt: number
 }
@@ -180,6 +181,7 @@ function normalizeProvider(provider: unknown, index: number): AIProvider {
     modelTemperature: normalizeOptionalNumber(p.modelTemperature),
     modelTopP: normalizeOptionalNumber(p.modelTopP),
     openAiResponsesUsePromptCacheRetention: p.openAiResponsesUsePromptCacheRetention === true,
+    openAiResponsesFinishOnCompletedEvent: p.openAiResponsesFinishOnCompletedEvent === true,
     pinned: Boolean(p.pinned),
     updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : now,
   }

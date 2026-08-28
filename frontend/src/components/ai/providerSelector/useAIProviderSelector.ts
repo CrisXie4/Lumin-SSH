@@ -375,6 +375,7 @@ export function useAIProviderSelector({
       apiKey: typeof draft.apiKey === 'string' ? draft.apiKey.trim() : '',
       cacheStrategy: typeof draft.cacheStrategy === 'string' ? draft.cacheStrategy : 'model',
       openAiResponsesUsePromptCacheRetention: draft.openAiResponsesUsePromptCacheRetention === true,
+      openAiResponsesFinishOnCompletedEvent: draft.openAiResponsesFinishOnCompletedEvent === true,
       modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
       modelTopP: normalizeOptionalNumber(draft.modelTopP),
       webSearchEnabled: Boolean(draft.webSearchEnabled),
