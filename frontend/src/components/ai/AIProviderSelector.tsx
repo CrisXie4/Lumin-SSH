@@ -121,12 +121,12 @@ export default function AIProviderSelector({
             onMouseLeave={closeTooltip}
             onFocus={handleTriggerMouseEnter}
             onBlur={closeTooltip}
-            className={`h-7 inline-flex items-center gap-1.5 px-2.5 text-sm font-medium transition-colors duration-[80ms] whitespace-nowrap min-w-0 max-w-full flex-none border ${
+            className={`h-7 inline-flex items-center gap-1.5 px-2.5 text-sm font-medium transition-colors duration-[80ms] whitespace-nowrap max-w-full min-w-[56px] shrink border ${
               open ? 'bg-accent-dim border-accent-border' : 'bg-transparent border-line'
             }`}
             style={{
               borderRadius: quickModelConfig.visible || quickReasoningConfig.visible ? '8px 0 0 8px' : 8,
-              ...(providerTriggerWidth > 0 ? { width: providerTriggerWidth } : {}),
+              ...(providerTriggerWidth > 0 ? { maxWidth: providerTriggerWidth } : {}),
             }}
           >
             <span
@@ -141,7 +141,7 @@ export default function AIProviderSelector({
           {quickModelConfig.visible ? (
             <div
               ref={modelButtonRef}
-              className="relative -ml-px min-w-0 max-w-full flex-1"
+              className="relative -ml-px min-w-[48px] max-w-full flex-1"
               style={modelTriggerWidth > 0 ? { maxWidth: modelTriggerWidth } : undefined}>
               <button
                 type="button"
