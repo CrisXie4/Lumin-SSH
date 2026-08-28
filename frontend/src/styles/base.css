@@ -42,17 +42,49 @@
     outline: none;
   }
 
-  /* ── 滚动条 ──────────────────────────────────────────────── */
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
   button svg,
   [role='button'] svg,
   .codicon {
     opacity: var(--app-icon-opacity, 1);
   }
+}
+
+/* ── 全局滚动条样式（统一现代精致半透明胶囊风格） ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb, rgba(120, 140, 165, 0.35)) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, rgba(120, 140, 165, 0.35));
+  border-radius: var(--radius-full);
+  transition: background 0.15s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover, rgba(140, 165, 195, 0.6));
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── 终端视口原生滚动条消除（避免空行显示空白滚动槽） ── */
+.xterm-viewport,
+.xterm .xterm-viewport {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.xterm-viewport::-webkit-scrollbar,
+.xterm .xterm-viewport::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* ── 主布局 ─────────────────────────────────────────────────── */

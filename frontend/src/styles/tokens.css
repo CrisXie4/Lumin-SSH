@@ -120,12 +120,15 @@ svg[class*="lucide"] {
   --surface-active:    #2c384c;  /* active/选中态 */
   --surface-canvas:    #0d1117;  /* 激活标签融入内容区的底色（须与外凹反弧 SVG 填充一致） */
 
-  /* ── 边框 ── */
+  /* ── 边框与滚动条 ── */
   --overlay-scrim: rgba(0, 0, 0, 0.42);
   --border:        rgba(72, 86, 110, 0.55);
   --border-light:  rgba(72, 86, 110, 0.28);
   --border-subtle: rgba(72, 86, 110, 0.32);
   --border-focus:  #4d9eff;
+  --scrollbar-thumb:       rgba(120, 140, 165, 0.35);
+  --scrollbar-thumb-hover: rgba(140, 165, 195, 0.6);
+  --scrollbar-track:       transparent;
 
   /* ── 文本层级（primary > secondary > tertiary > muted） ── */
   --text-primary:    #eef3f9;
@@ -332,6 +335,9 @@ body.theme-light {
   --border-light:  rgba(28, 35, 45, 0.08);
   --border-subtle: rgba(28, 35, 45, 0.10);
   --border-focus:  #2563eb;
+  --scrollbar-thumb:       rgba(100, 116, 139, 0.35);
+  --scrollbar-thumb-hover: rgba(71, 85, 105, 0.6);
+  --scrollbar-track:       transparent;
 
   --text-primary:    #111827;
   --text-secondary:  #334155;

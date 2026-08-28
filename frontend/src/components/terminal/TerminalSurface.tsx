@@ -129,7 +129,7 @@ export function TerminalViewport({
   linkUnderlineLayerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div className="flex-1 min-h-0 flex">
+    <div className="flex-1 min-h-0 flex overflow-hidden">
       <div ref={gutterRef} className="shrink-0 pt-0 overflow-hidden box-border" style={{
         display: (timestampsVisible || commandBlocksVisible) && !alternateBufferActive ? 'block' : 'none',
         // 时间戳约 72px；命令块约 16px；两者同时开约 96px
@@ -137,13 +137,13 @@ export function TerminalViewport({
         width: timestampsVisible && commandBlocksVisible ? 90 : (timestampsVisible ? 75 : 22),
       }} />
       <div
-        className={terminalDefaultMouseCursorEnabled ? 'terminal-output-default-mouse-cursor relative flex-1 min-h-0' : 'relative flex-1 min-h-0'}
+        className={terminalDefaultMouseCursorEnabled ? 'terminal-output-default-mouse-cursor relative flex-1 min-h-0 overflow-hidden' : 'relative flex-1 min-h-0 overflow-hidden'}
         onMouseDownCapture={handleTerminalMouseDownCapture}
         onMouseUpCapture={handleTerminalMouseUpCapture}
       >
         <div
           ref={containerRef}
-          className="h-full min-h-0 p-0 bg-transparent"
+          className="h-full min-h-0 p-0 bg-transparent overflow-hidden"
         />
         {/* 常驻链接下划线（pointer-events:none，不挡点击/选区） */}
         <div

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import type * as React from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import type { IBufferRange, IMarker, ITerminalInitOnlyOptions, ITerminalOptions } from '@xterm/xterm';
@@ -105,6 +105,36 @@ export function useTerminalSession(deps: {
   const statusRef = useRef(status);
   useEffect(() => { statusRef.current = status; }, [status]);
 
+  const userPinnedRef = useRef(false);
+  const lastSentPTYSizeRef = useRef<{ cols: number; rows: number }>({ cols: 0, rows: 0 });
+  const ptyResizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleDebouncedPTYResize = useCallback((cols: number, rows: number, immediate = false) => {
+    const MIN_COLS = 20;
+    const MIN_ROWS = 2;
+    const clampedCols = Math.max(MIN_COLS, cols);
+    const clampedRows = Math.max(MIN_ROWS, rows);
+    // 必须先取消挂起的 resize 再去重：快速拖动窗口回到 earlier size 时，
+    // 去重早退若不清定时器，过期的更大尺寸会在 80ms 后仍发给 PTY，
+    // 造成 shell 折行列数与终端实际列数长期错位
+    if (ptyResizeTimerRef.current) {
+      clearTimeout(ptyResizeTimerRef.current);
+      ptyResizeTimerRef.current = null;
+    }
+    if (lastSentPTYSizeRef.current.cols === clampedCols && lastSentPTYSizeRef.current.rows === clampedRows) {
+      return;
+    }
+    const send = () => {
+      lastSentPTYSizeRef.current = { cols: clampedCols, rows: clampedRows };
+      AppGo.ResizeTerminal(sessionId, clampedCols, clampedRows);
+    };
+    if (immediate) {
+      send();
+    } else {
+      ptyResizeTimerRef.current = setTimeout(send, 80);
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -128,6 +158,7 @@ export function useTerminalSession(deps: {
       cursorStyle:      'bar',
       cursorWidth:      1,
       scrollback:       5000,
+      reflowCursorLine: true,
       // SearchAddon 高亮装饰依赖 proposed API
       allowProposedApi: true,
       fastScrollModifier: 'alt',
@@ -225,12 +256,12 @@ export function useTerminalSession(deps: {
     setAlternateBufferActive(false);
 
     // ── 智能写入：用户手动滚动上时保持位置 ─────────────────────────
-    let userPinned = false; // 用户手动往上滚后锁定
+    userPinnedRef.current = false;
     const onTermScroll = () => {
       const buf = term.buffer.active;
       // 滚到底部时解除锁定
       if (buf.viewportY >= buf.baseY) {
-        userPinned = false;
+        userPinnedRef.current = false;
       }
       scheduleGutterSync();
       scheduleLinkUnderlineSync();
@@ -303,7 +334,7 @@ export function useTerminalSession(deps: {
       // 无论向上还是向下滚动，都检查当前位置并更新锁定状态
       requestAnimationFrame(() => {
         const buf = term.buffer.active;
-        userPinned = buf.viewportY < buf.baseY;
+        userPinnedRef.current = buf.viewportY < buf.baseY;
       });
     };
     containerRef.current?.addEventListener('wheel', wheelHandler, { passive: true });
@@ -328,7 +359,7 @@ export function useTerminalSession(deps: {
       if (keywordHighlightEnabledRef.current && typeof data === 'string') {
         writeData = highlightKeywords(data, hlStateRef.current);
       }
-      if (userPinned) {
+      if (userPinnedRef.current) {
         // xterm.js 在用户不在底部时已经会保持滚动位置。
         // 之前用 scrollToLine(savedY) 在异步回调中执行，会在用户向下滚动后
         // 把视图拉回旧位置，导致用户无法追上最新输出。
@@ -421,7 +452,7 @@ export function useTerminalSession(deps: {
         // 尺寸变化事件被错过，本地 PTY 可能长期停留在出生尺寸；这里主动
         // 同步一次，同时给 SIGWINCH 会重绘提示符的 shell（bash/zsh）兜底自愈机会。
         if (termRef.current) {
-          AppGo.ResizeTerminal(sessionId, termRef.current.cols, termRef.current.rows);
+          scheduleDebouncedPTYResize(termRef.current.cols, termRef.current.rows, true);
         }
       };
 
@@ -499,6 +530,8 @@ export function useTerminalSession(deps: {
       if (out.length > 1 && /[\r\n]/.test(out)) {
         out = normalizeTerminalPasteText(out);
       }
+
+      userPinnedRef.current = false;
 
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(textEncoder.encode(out));
@@ -610,7 +643,7 @@ export function useTerminalSession(deps: {
     });
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
-      AppGo.ResizeTerminal(sessionId, cols, rows);
+      scheduleDebouncedPTYResize(cols, rows, false);
       scheduleGutterSync();
       scheduleLinkUnderlineSync();
     });
@@ -640,6 +673,11 @@ export function useTerminalSession(deps: {
       }
       if (linkUnderlineLayerRef.current) linkUnderlineLayerRef.current.innerHTML = '';
       clearTimeout(fitTimer);
+      // 取消挂起的防抖 PTY resize，避免拆卸后仍向会话发送过期尺寸
+      if (ptyResizeTimerRef.current) {
+        clearTimeout(ptyResizeTimerRef.current);
+        ptyResizeTimerRef.current = null;
+      }
       if (vpEl) vpEl.removeEventListener('scroll', onTermScroll);
       // 移除 wheel 监听器，避免内存泄漏
       containerRef.current?.removeEventListener('wheel', wheelHandler);
@@ -719,52 +757,143 @@ export function useTerminalSession(deps: {
     }
   }, [status]);
 
-  // ── 监听容器大小变化进行自适应 ───────────────────────────────────
+  const safeFit = useCallback((immediate = false) => {
+    if (!termRef.current || !fitAddonRef.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    try {
+      const term = termRef.current;
+      const dims = fitAddonRef.current.proposeDimensions();
+      if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) return;
+      const MIN_COLS = 20;
+      const MIN_ROWS = 2;
+      const cols = Math.max(MIN_COLS, dims.cols);
+      const rows = Math.max(MIN_ROWS, dims.rows);
+      if (term.cols !== cols || term.rows !== rows) {
+        term.resize(cols, rows);
+      }
+      scheduleDebouncedPTYResize(cols, rows, immediate);
+
+      // xterm 5 在后台（display:none）时 IntersectionObserver 会将 RenderService 设为 paused，
+      // 导致尺寸虽然更新但 renderer canvas 仍停留在旧高度，Viewport 因计算出 scrollHeight > height 而误显示滚动条。
+      // 此处主动解除 pause、冲刷任务队列、同步尺寸并触发 Viewport 重新计算，彻底消除切标签后误显滚动条的问题。
+      try {
+        const core = (term as any)._core;
+        if (core?._renderService) {
+          if (core._renderService._isPaused) {
+            core._renderService._isPaused = false;
+            core._renderService._pausedResizeTask?.flush();
+          }
+          core._renderService.handleResize?.(cols, rows);
+          core._renderService.refreshRows?.(0, rows - 1);
+        }
+        const buf = term.buffer.active;
+        const targetLine = userPinnedRef.current ? Math.min(buf.viewportY, buf.baseY) : buf.baseY;
+        if (!userPinnedRef.current) {
+          term.scrollToBottom();
+        }
+        if (core?._viewport) {
+          core._viewport._latestYDisp = targetLine;
+          core._viewport.scrollToLine?.(targetLine, true);
+          core._viewport.queueSync?.(targetLine);
+        }
+      } catch (_) {}
+
+      // 安排下一帧（RAF）再次确认底部同步，防止 xterm 内部异步 refresh 回调覆盖底部位置
+      requestAnimationFrame(() => {
+        try {
+          const t = termRef.current;
+          if (!t) return;
+          const b = t.buffer.active;
+          const c = (t as any)._core;
+          if (!userPinnedRef.current) {
+            t.scrollToBottom();
+            if (c?._viewport) {
+              c._viewport._latestYDisp = b.baseY;
+              c._viewport.scrollToLine?.(b.baseY, true);
+              c._viewport.queueSync?.(b.baseY);
+            }
+          }
+        } catch (_) {}
+      });
+    } catch (e) {
+      console.error('[Terminal] safeFit error:', e);
+    }
+  }, [scheduleDebouncedPTYResize]);
+
+  // ── 监听容器与窗口大小变化以及侧边栏切换进行自适应 ─────────────────
   useEffect(() => {
-    if (!isActive || !containerRef.current || !fitAddonRef.current || !termRef.current) return;
+    if (!isActive || !containerRef.current) return;
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const observer = new ResizeObserver(() => {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        if (!termRef.current || !fitAddonRef.current || !containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) return;
-        try {
-          fitAddonRef.current.fit();
-          const { cols, rows } = termRef.current;
-          AppGo.ResizeTerminal(sessionId, cols, rows);
-        } catch (e) {
-          console.error('[Terminal] Resize error:', e);
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            safeFit(false);
+          }, 30);
         }
-      }, 50);
+      }
     });
 
     observer.observe(containerRef.current);
 
+    let windowResizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleWindowResize = () => {
+      if (windowResizeTimer) clearTimeout(windowResizeTimer);
+      windowResizeTimer = setTimeout(() => {
+        safeFit(false);
+      }, 30);
+    };
+    window.addEventListener('resize', handleWindowResize);
+
+    const handleAIPanelChange = () => {
+      // 侧边栏/AI面板展开或收起时，采用多阶段自适应确保尺寸与底部锚定完全就绪
+      safeFit(true);
+      requestAnimationFrame(() => {
+        safeFit(true);
+        requestAnimationFrame(() => {
+          safeFit(true);
+        });
+      });
+      setTimeout(() => safeFit(true), 60);
+      setTimeout(() => safeFit(true), 150);
+    };
+    window.addEventListener('ai-panel-visibility-changed', handleAIPanelChange);
+
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
+      if (windowResizeTimer) clearTimeout(windowResizeTimer);
       observer.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
+      window.removeEventListener('ai-panel-visibility-changed', handleAIPanelChange);
     };
-  }, [isActive, sessionId]);
+  }, [isActive, safeFit]);
 
-  // ── 终端切换回来时，重新 fit ────────────────────────────────────
+  // ── 终端切换回来时，多阶段重新自适应 ──────────────────────────────
   useEffect(() => {
-    if (!isActive || !termRef.current || !fitAddonRef.current) return;
-    const term = termRef.current;
-    const fitAddon = fitAddonRef.current;
-    const raf = requestAnimationFrame(() => {
-      try {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (rect && rect.width > 0 && rect.height > 0) {
-          fitAddon.fit();
-          const { cols, rows } = term;
-          AppGo.ResizeTerminal(sessionId, cols, rows);
-        }
-      } catch (e) {
-        console.error('[Terminal] activate fit error:', e);
-      }
+    if (!isActive) return;
+
+    // 多阶段重适应：立即执行、RAF 执行、double-RAF 以及 60ms/150ms/300ms 延迟，
+    // 覆盖标签切换后容器 display:flex 恢复、子标签栏渲染以及 CSS 布局完全就绪的各个阶段
+    safeFit(true);
+    const raf1 = requestAnimationFrame(() => {
+      safeFit(true);
+      const raf2 = requestAnimationFrame(() => {
+        safeFit(true);
+      });
+      return () => cancelAnimationFrame(raf2);
     });
-    return () => cancelAnimationFrame(raf);
-  }, [isActive, sessionId]);
+    const t1 = setTimeout(() => safeFit(true), 60);
+    const t2 = setTimeout(() => safeFit(true), 150);
+    const t3 = setTimeout(() => safeFit(true), 300);
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [isActive, safeFit]);
 }

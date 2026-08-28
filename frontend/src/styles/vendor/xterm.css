@@ -1,3 +1,5 @@
+@import "@xterm/xterm/css/xterm.css";
+
 /* ============================================================
    xterm.js Overrides & Terminal Variables
    ============================================================ */
@@ -26,6 +28,45 @@
   --term-context-bg: #131922;
   --term-context-border: 1px solid rgba(56,68,90,0.8);
   --term-context-shadow: 0 8px 32px rgba(0,5,20,0.6), 0 2px 8px rgba(0,5,20,0.4);
+  --term-scrollbar-thumb: rgba(140, 165, 195, 0.28);
+  --term-scrollbar-thumb-hover: rgba(160, 190, 225, 0.55);
+}
+
+/* ── 彻底消除 xterm-viewport 的原生浏览器滚动条，避免空视口常驻滚动条槽位 ── */
+.xterm .xterm-viewport,
+.xterm-viewport {
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar,
+.xterm-viewport::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+
+/* ── xterm 5 自带平滑滚动条（仅在有溢出内容时由 xterm 控制显示） ── */
+.xterm .xterm-scrollable-element > .scrollbar.vertical {
+  width: 6px !important;
+  right: 2px !important;
+  background: transparent !important;
+  z-index: 12 !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
+  width: 6px !important;
+  left: 0 !important;
+  border-radius: var(--radius-full) !important;
+  background: var(--term-scrollbar-thumb, rgba(140, 165, 195, 0.28)) !important;
+  transition: background 0.15s ease, opacity 0.2s ease !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider:hover,
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider.active {
+  background: var(--term-scrollbar-thumb-hover, rgba(160, 190, 225, 0.55)) !important;
 }
 
 .terminal-output-default-mouse-cursor,

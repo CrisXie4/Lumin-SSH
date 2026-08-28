@@ -29,6 +29,8 @@ export interface WorkspaceTerminalGridProps {
   t: (key: string, vars?: Record<string, unknown>) => string;
 }
 
+// 工作区终端网格：按会话保存的分屏布局把各终端渲染到对应网格单元（含分屏头与关闭按钮），
+// 无工作区布局时退化为绝对定位堆叠；非激活终端仅隐藏保活，恢复工作区期间显示遮罩。
 export default function WorkspaceTerminalGrid({
   session: s,
   activeSessionId,
@@ -115,7 +117,7 @@ export default function WorkspaceTerminalGrid({
                   </Button>
                 </div>
               )}
-              <div style={{ flex: 1, minHeight: 0 }}>
+              <div className="flex-1 flex flex-col min-h-0 min-w-0 h-full overflow-hidden">
                 <ErrorBoundary label={t('终端 {id} 渲染出错', { id: term.id })}>
                   <Terminal
                     sessionId={term.id || ''}
@@ -138,7 +140,7 @@ export default function WorkspaceTerminalGrid({
       })() : (getEffectiveTerminals(s).map((term) => {
         const isTermActive = (contentTab === 'terminal' || s.status !== 'connected') && activeTerminalId === term.id;
         return (
-          <div key={term.id} className="absolute inset-0 flex flex-col" data-wallpaper-exempt="true" style={{
+          <div key={term.id} className="absolute inset-0 flex flex-col min-h-0 min-w-0 overflow-hidden" data-wallpaper-exempt="true" style={{
             visibility: isTermActive ? 'visible' : 'hidden',
             pointerEvents: isTermActive ? 'auto' : 'none',
             contain: isTermActive ? 'none' : 'strict',

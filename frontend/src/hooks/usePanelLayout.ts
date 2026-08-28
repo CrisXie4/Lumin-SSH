@@ -29,6 +29,9 @@ export interface UsePanelLayoutResult {
   setAIPanelVisibility: (value: unknown) => void;
 }
 
+// 面板布局 hook：集中管理文件管理器分栏、探测面板与 AI 面板的尺寸/位置/展开状态，
+// 全部持久化到 localStorage 并同步镜像 ref 供拖拽层直接读取；
+// AI 面板显隐变化经 ai-panel-visibility-changed 事件广播给终端等依赖方。
 export default function usePanelLayout(): UsePanelLayoutResult {
   const [leftSplitWidth, setLeftSplitWidth] = useState(() => Number.parseInt(localStorage.getItem('leftSplitWidth') || '320', 10));
   const [bottomSplitHeight, setBottomSplitHeight] = useState(() => Number.parseInt(localStorage.getItem('bottomSplitHeight') || '250', 10));
@@ -82,6 +85,7 @@ export default function usePanelLayout(): UsePanelLayoutResult {
     const next = !!value;
     setShowAIPanel(next);
     localStorage.setItem('showAIPanel', String(next));
+    window.dispatchEvent(new CustomEvent('ai-panel-visibility-changed', { detail: next }));
   }, []);
 
   useEffect(() => {

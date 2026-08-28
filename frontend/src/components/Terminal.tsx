@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from 'react';
 import type { Terminal as XTerm } from '@xterm/xterm';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { SearchAddon } from '@xterm/addon-search';
-import '@xterm/xterm/css/xterm.css';
 import { useTranslation } from '../i18n.ts';
 import { createHighlightState, loadKeywordRulesFromStorage } from '../utils/terminalKeywordHighlight.ts';
 import { Z } from '../constants/zIndex';
@@ -226,7 +225,7 @@ export default function Terminal({
       <TerminalBackground T={T} bgInfo={bgInfo} />
 
       {/* 内容层（置于背景之上) */}
-      <div className="relative flex flex-col h-full" style={{ zIndex: Z.CONTENT }}>
+      <div className="relative flex flex-col flex-1 min-h-0 h-full overflow-hidden" style={{ zIndex: Z.CONTENT }}>
       <TerminalStatusBar status={status} serverName={serverName} sessionId={sessionId} t={t} />
 
       {/* ── 终端内容查找栏 ── */}
