@@ -191,7 +191,7 @@ export function useAIProviderSelector({
       providerFontFamily,
       modelFontFamily,
       fixedWidth: reasoningWidth - overlapWidth,
-      minFontSize: 6,
+      minFontSize: 11,
     });
     setProviderLabelFontSize(layout.providerFontSize);
     setModelLabelFontSize(layout.modelFontSize);
