@@ -91,21 +91,22 @@
   color: var(--accent);
 }
 
-/* 标签行首固定「搜索服务器」入口（快连面板触发钮） */
+/* 搜索服务器入口：与主页按钮同尺寸/位置，但配色走工具类（点击上色同 AI 按钮） */
 .tab-search-item {
-  width: 28px;
-  min-width: 28px;
-  max-width: 28px;
-  padding: 0;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
-}
-.tab-search-item:hover {
-  color: var(--text-primary);
-}
-.tab-search-item.active {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  height: 32px;
+  min-height: 32px;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  user-select: none;
 }
 
 /* 标签行内「新建」圆钮：静默无底，悬停浮现圆形灰底（对齐浏览器范式） */

@@ -64,6 +64,15 @@ export default function SessionListOverlay({
     return [...sessionRows, ...serverRows];
   }, [sessions, servers, sessionListQuery]);
 
+  const sessionGroupById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const v of servers || []) {
+      const g = (v as unknown as Record<string, unknown>).group;
+      if (typeof g === 'string' && g) m.set(String(v.id), g);
+    }
+    return m;
+  }, [servers]);
+
   useEffect(() => {
     setActiveIdx((current) => Math.min(current, Math.max(0, rows.length - 1)));
   }, [rows.length]);
@@ -143,6 +152,9 @@ export default function SessionListOverlay({
               >
                 <span className={`status-dot ${sessionAuthPrompts[s.id] ? 'attention' : s.status === 'connecting' ? 'connecting' : s.status === 'connected' ? 'online' : 'offline'}`} />
                 <span className="flex-1 truncate">{s.serverName}</span>
+                {sessionGroupById.get(String((s as unknown as Record<string, unknown>).serverId)) && (
+                  <span className="text-xs text-muted shrink-0">{sessionGroupById.get(String((s as unknown as Record<string, unknown>).serverId))}</span>
+                )}
                 <Tiptop text={t('关闭')} placement="bottom">
                   <span
                     onClick={(e) => { e.stopPropagation(); void closeSession(s.id, e); }}

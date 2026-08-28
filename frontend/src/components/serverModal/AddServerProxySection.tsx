@@ -29,10 +29,16 @@ export function AddServerProxySection({
       </div>
       <div className="server-editor-fields">
         <div className="form-group">
-          <label className="form-label">{t('代理模式')}</label>
-          <div className="inline-flex h-8.5 w-full items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5">
+          <span id="proxy-mode-label" className="form-label">{t('代理模式')}</span>
+          <div
+            role="radiogroup"
+            aria-labelledby="proxy-mode-label"
+            className="inline-flex h-8.5 w-full items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5"
+          >
             <button
               type="button"
+              role="radio"
+              aria-checked={!form.proxyMode || form.proxyMode === 'direct'}
               className={cn(
                 'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
                 (!form.proxyMode || form.proxyMode === 'direct')
@@ -45,6 +51,8 @@ export function AddServerProxySection({
             </button>
             <button
               type="button"
+              role="radio"
+              aria-checked={form.proxyMode === 'node'}
               className={cn(
                 'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
                 form.proxyMode === 'node'
@@ -57,6 +65,8 @@ export function AddServerProxySection({
             </button>
             <button
               type="button"
+              role="radio"
+              aria-checked={form.proxyMode === 'custom'}
               className={cn(
                 'flex-1 inline-flex h-7 items-center justify-center rounded-[6px] text-xs font-medium transition-colors',
                 form.proxyMode === 'custom'

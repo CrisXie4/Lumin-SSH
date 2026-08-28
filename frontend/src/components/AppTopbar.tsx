@@ -119,11 +119,26 @@ export default function AppTopbar({
 
           {sessions.length > 0 && (
             <div className="tab-bar">
+              <Tiptop text={t('返回主页')} placement="bottom">
+                <button
+                  type="button"
+                  className={cn('tab-item tab-home-item no-drag shrink-0', activeSessionId === null ? 'active' : '')}
+                  onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); }}
+                  aria-label={t('返回主页')}
+                >
+                  <House size={14} />
+                </button>
+              </Tiptop>
+              <div className="tab-scroll" ref={tabScrollRef}>
+                <div ref={tabListRef} className="tab-list">
               <Tiptop text={t('搜索服务器')} placement="bottom">
                 <button
                   ref={sessionListBtnRef}
                   type="button"
-                  className={`tab-item tab-search-item no-drag shrink-0${showSessionList ? ' active' : ''}`}
+                  className={cn(
+                    'tab-search-item no-drag shrink-0 transition-colors duration-[80ms] hover:bg-hover',
+                    showSessionList ? 'text-accent hover:text-accent' : 'text-secondary hover:text-primary',
+                  )}
                   onClick={(e) => { e.stopPropagation(); toggleSessionList(); }}
                   aria-label={t('搜索服务器')}
                   aria-haspopup="dialog"
@@ -132,18 +147,6 @@ export default function AppTopbar({
                   <ChevronDown size={14} />
                 </button>
               </Tiptop>
-              <div className="tab-scroll" ref={tabScrollRef}>
-                <div ref={tabListRef} className="tab-list">
-                  <Tiptop text={t('返回主页')} placement="bottom">
-                    <button
-                      type="button"
-                      className={cn('tab-item tab-home-item no-drag shrink-0', activeSessionId === null ? 'active' : '')}
-                      onClick={() => { markWorkspaceRestoreNavigationOverride(); setActiveSessionId(null); setActiveTerminalId(null); }}
-                      aria-label={t('返回主页')}
-                    >
-                      <House size={14} />
-                    </button>
-                  </Tiptop>
                   {sessions.map((s) => (
                     <div
                       key={s.id}
