@@ -642,7 +642,8 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 
 			go m.watchClient(connKey, client)
 			go func() {
-				_ = client.Wait()
+				waitErr := client.Wait()
+				log.Printf("[disconnect] 共享 transport client.Wait 返回 connKey=%s err=%v（触发 cleanupClientTransport(reason=transport)）", connKey, waitErr)
 				m.cleanupClientTransport(connKey, client, "transport")
 			}()
 		}
@@ -846,7 +847,8 @@ func (m *SSHManager) setupSession(ctx context.Context, client *ssh.Client, connK
 	go m.pipeOutput(sessionId, stdout, historyStream)
 	go m.pipeOutput(sessionId, stderr, nil)
 	go func(expected *ssh.Session) {
-		_ = expected.Wait()
+		waitErr := expected.Wait()
+		log.Printf("[disconnect] session.Wait 返回 sessionId=%s err=%v（shell 结束，触发 session_end）", sessionId, waitErr)
 		m.disconnectAndNotify(sessionId, expected, "session_end")
 	}(session)
 

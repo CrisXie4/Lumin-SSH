@@ -1,6 +1,7 @@
 package wsbuffer
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -158,6 +159,7 @@ func (m *Manager) writeFrame(sessionId string, entry *Entry, data []byte) {
 	entry.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	err := entry.conn.WriteMessage(websocket.BinaryMessage, data)
 	if err != nil {
+		log.Printf("[ws] 向前端写帧失败 sessionId=%s err=%v（移除并关闭连接）", sessionId, err)
 		m.mu.Lock()
 		// 二次校验：可能已被其他 goroutine 替换或移除
 		if cur, ok := m.conns[sessionId]; ok && cur == entry {

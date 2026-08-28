@@ -110,6 +110,7 @@ func (s *Server) Start() error {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
+				log.Printf("[ws] 读取 WebSocket 消息失败 sessionId=%s err=%v（前端连接断开或异常）", sessionId, err)
 				break
 			}
 			s.sink.WriteBytes(sessionId, msg)

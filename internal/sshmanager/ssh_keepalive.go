@@ -3,6 +3,7 @@ package sshmanager
 import (
 	"errors"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -35,6 +36,7 @@ func (m *SSHManager) handleKeepaliveProbeResult(connKey string, client *ssh.Clie
 	}
 	fails++
 	if fails >= sshKeepaliveFailMax {
+		log.Printf("[keepalive] 连续探活失败达上限 connKey=%s fails=%d 触发 cleanupClientTransport(reason=keepalive)", connKey, fails)
 		m.cleanupClientTransport(connKey, client, "keepalive")
 		return fails, true
 	}
@@ -56,7 +58,10 @@ func (m *SSHManager) checkClientKeepalive(connKey string, client *ssh.Client, ti
 
 	done := make(chan error, 1)
 	go func() {
-		_, _, err := client.SendRequest("keepalive@lumin-ssh", true, nil)
+		// 用 OpenSSH 标准保活请求名：绝大多数服务器（含 OpenSSH）会回包，
+		// 既能真正维持空闲连接、又能让探活拿到正常响应。自定义名（如
+		// keepalive@lumin-ssh）会被部分服务器静默丢弃 → 探活 20s 超时 → 误断。
+		_, _, err := client.SendRequest("keepalive@openssh.com", true, nil)
 		done <- err
 	}()
 
@@ -85,10 +90,13 @@ func (m *SSHManager) checkClientKeepalive(connKey string, client *ssh.Client, ti
 		}
 		// 传输层错误（连接已断）→ 计失败；纯协议拒绝在 SendRequest 成功路径已覆盖。
 		if isSSHKeepaliveTransportError(err) {
+			log.Printf("[keepalive] 探活传输层错误 connKey=%s err=%v", connKey, err)
 			return true, false
 		}
+		log.Printf("[keepalive] 探活 request 被拒（非传输错误）connKey=%s err=%v", connKey, err)
 		return true, true
 	case <-timer.C:
+		log.Printf("[keepalive] 探活超时 connKey=%s timeout=%v", connKey, timeout)
 		m.mu.RLock()
 		current, currentOK := m.clients[connKey]
 		alive := currentOK && current.Client == client
@@ -155,6 +163,8 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	if reason == "" {
 		reason = "transport"
 	}
+	log.Printf("[disconnect] cleanupClientTransport connKey=%s reason=%s terminalCount=%d netConn!=nil=%v sftpClient!=nil=%v",
+		connKey, reason, len(terminalIds), netConn != nil, sftpClient != nil)
 	// 静默拆各终端 session，再发一次「整机连接断开」事件，避免 N 次误报。
 	// expected 指针确保旧 transport 的迟到清理不会误删同 ID 的新 session。
 	for _, terminalId := range terminalIds {
