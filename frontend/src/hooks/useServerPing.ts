@@ -44,6 +44,24 @@ function readPingInterval(): number {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_PING_INTERVAL;
 }
 
+/** 限定并发的 map：避免一次性发起大量 Wails RPC 冲垮 dev 桥接的回调表（Callback not registered）。 */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const i = cursor++;
+      results[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 export default function useServerPing({ serversRef, activeSessionId, dashboardHostPageMode }: UseServerPingOptions): UseServerPingResult {
   const [pings, setPings] = useState<Record<string, ServerPingResult>>({});
   const [isRefreshingPing, setIsRefreshingPing] = useState(false);
@@ -84,16 +102,14 @@ export default function useServerPing({ serversRef, activeSessionId, dashboardHo
     if (list.length === 0) return;
     pingInFlightRef.current = true;
     try {
-      const results = await Promise.all(
-        list.map(async (server) => {
-          try {
-            const result = await AppGo.PingServer(server.id, pingModeRef.current);
-            return { id: server.id, ...result };
-          } catch {
-            return { id: server.id, online: false, latency: null };
-          }
-        }),
-      );
+      const results = await mapWithConcurrency(list, 5, async (server) => {
+        try {
+          const result = await AppGo.PingServer(server.id, pingModeRef.current);
+          return { id: server.id, ...result };
+        } catch {
+          return { id: server.id, online: false, latency: null };
+        }
+      });
       const failCounts = pingFailCountRef.current;
       setPings((prev) => {
         const next: Record<string, ServerPingResult> = {};
