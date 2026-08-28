@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Özel sıcaklığı etkinleştir",
   "启用自定义 Top P": "Özel Üst P'yi etkinleştir",
   "关闭后不发送该参数": "Bu parametre kapatıldıktan sonra gönderilmez",
+  "不等待[Done]流": "[Bitti] akışını beklemeyin",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Bazı yukarı akış uç noktaları, answer.completed son olayını gönderdikten sonra ne [DONE] nöbetçi çerçeveler yayınlar ne de SSE bağlantısını kapatır, bu da yanıt akışının okuma zaman aşımına uğrayana kadar sonunda boşta kalmasına neden olur. Etkinleştirildikten sonra son olay, akış sonu kriteri olarak kullanılır ve bu turda alınan metin, gerekçe ve kullanım göstergeleri yine de tamamen sonraki işleme aktarılacak ve atılmayacaktır.",
   "30分钟": "30 dakika",
   "内存缓存": "bellek önbelleği",
   "24小时": "24 saat",

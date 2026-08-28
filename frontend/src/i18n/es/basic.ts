@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Habilitar temperatura personalizada",
   "启用自定义 Top P": "Habilitar P superior personalizada",
   "关闭后不发送该参数": "Este parámetro no se envía después del cierre.",
+  "不等待[Done]流": "No esperes la transmisión [Listo]",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Algunos puntos finales ascendentes no emiten tramas centinela [DONE] ni cierran la conexión SSE después de enviar el evento final respuesta.completado, lo que hace que el flujo de respuesta quede inactivo al final hasta que se agote el tiempo de lectura. Una vez habilitado, el evento final se utiliza como criterio de finalización de la transmisión, y el texto, el razonamiento y los indicadores de uso recibidos en esta ronda aún se entregarán por completo para el procesamiento posterior y no se descartarán.",
   "30分钟": "30 minutos",
   "内存缓存": "caché de memoria",
   "24小时": "24 horas",

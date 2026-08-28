@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Aktifkan suhu khusus",
   "启用自定义 Top P": "Aktifkan P Atas kustom",
   "关闭后不发送该参数": "Parameter ini tidak dikirim setelah penutupan",
+  "不等待[Done]流": "Jangan menunggu streaming [Selesai].",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Beberapa titik akhir upstream tidak mengeluarkan bingkai sentinel [SELESAI] atau menutup koneksi SSE setelah mengirimkan peristiwa akhir respons.selesai, menyebabkan aliran respons menganggur di akhir hingga waktu baca habis. Setelah diaktifkan, acara terakhir digunakan sebagai kriteria akhir aliran, dan teks, indikator penalaran dan penggunaan yang diterima dalam babak ini akan tetap diserahkan sepenuhnya ke pemrosesan selanjutnya dan tidak akan dibuang.",
   "30分钟": "30 menit",
   "内存缓存": "cache memori",
   "24小时": "24 jam",

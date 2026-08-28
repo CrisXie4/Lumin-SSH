@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Schakel aangepaste temperatuur in",
   "启用自定义 Top P": "Schakel aangepaste Top P in",
   "关闭后不发送该参数": "Deze parameter wordt na het sluiten niet verzonden",
+  "不等待[Done]流": "Wacht niet op de [Gereed]-stream",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Sommige upstream-eindpunten geven geen [DONE] Sentinel-frames uit en sluiten de SSE-verbinding niet na het verzenden van de laatste gebeurtenis response.completed, waardoor de responsstroom aan het einde inactief blijft totdat de leestime-out is verstreken. Nadat deze is ingeschakeld, wordt de laatste gebeurtenis gebruikt als het criterium voor het beëindigen van de stream, en de tekst-, redeneer- en gebruiksindicatoren die in deze ronde worden ontvangen, worden nog steeds volledig overgedragen aan daaropvolgende verwerking en worden niet weggegooid.",
   "30分钟": "30 minuten",
   "内存缓存": "geheugencache",
   "24小时": "24 uur",

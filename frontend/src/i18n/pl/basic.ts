@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Włącz niestandardową temperaturę",
   "启用自定义 Top P": "Włącz niestandardowe Top P",
   "关闭后不发送该参数": "Parametr ten nie jest wysyłany po zamknięciu",
+  "不等待[Done]流": "Nie czekaj na transmisję [Gotowe].",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Niektóre nadrzędne punkty końcowe nie wysyłają ramek sygnalizacyjnych [DONE] ani nie zamykają połączenia SSE po wysłaniu zdarzenia końcowego respond.completed, co powoduje, że strumień odpowiedzi staje się bezczynny na końcu aż do upłynięcia limitu czasu odczytu. Po jej włączeniu jako kryterium zakończenia strumienia przyjmuje się zdarzenie końcowe, a otrzymany w tej rundzie tekst, rozumowanie i wskaźniki użycia nadal będą w całości przekazywane do dalszego przetwarzania i nie zostaną odrzucone.",
   "30分钟": "30 minut",
   "内存缓存": "pamięć podręczna",
   "24小时": "24 godziny",
