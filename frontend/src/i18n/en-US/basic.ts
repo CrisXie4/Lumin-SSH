@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Enable custom temperature",
   "启用自定义 Top P": "Enable custom Top P",
   "关闭后不发送该参数": "This parameter is not sent after closing",
+  "不等待[Done]流": "Do not wait for [Done] stream",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Some upstream endpoints neither issue [DONE] sentinel frames nor close the SSE connection after sending the response.completed final event, causing the response stream to idle at the end until the read times out. After it is enabled, the final event is used as the stream end criterion, and the text, reasoning and usage indicators received in this round will still be completely handed over to subsequent processing and will not be discarded.",
   "30分钟": "30 minutes",
   "内存缓存": "memory cache",
   "24小时": "24 hours",

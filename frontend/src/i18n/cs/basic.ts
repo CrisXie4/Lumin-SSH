@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Povolit vlastní teplotu",
   "启用自定义 Top P": "Povolit vlastní horní P",
   "关闭后不发送该参数": "Tento parametr není po zavření odeslán",
+  "不等待[Done]流": "Nečekejte na stream [Hotovo]",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Některé upstream koncové body ani nevydávají [DONE] sentinelové rámce, ani neuzavřou připojení SSE po odeslání poslední události response.completed, což způsobí, že tok odpovědí bude na konci nečinný, dokud nevyprší časový limit čtení. Po jeho aktivaci se jako kritérium ukončení streamu použije závěrečná událost a text, zdůvodnění a indikátory využití obdržené v tomto kole budou stále kompletně předány k následnému zpracování a nebudou zahozeny.",
   "30分钟": "30 minut",
   "内存缓存": "mezipaměť",
   "24小时": "24 hodin",

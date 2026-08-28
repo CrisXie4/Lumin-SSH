@@ -1308,6 +1308,8 @@ export default {
   "启用自定义温度": "Activați temperatura personalizată",
   "启用自定义 Top P": "Activați personalizat Top P",
   "关闭后不发送该参数": "Acest parametru nu este trimis după închidere",
+  "不等待[Done]流": "Nu așteptați fluxul [Terminat].",
+  "部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.": "Unele puncte finale din amonte nici nu emit cadre sentinelă [DONE] și nici nu închid conexiunea SSE după trimiterea evenimentului final response.completed, determinând fluxul de răspuns să rămână inactiv la sfârșit până la expirarea timpului de citire. După ce este activat, evenimentul final este utilizat ca criteriu de încheiere a fluxului, iar textul, raționamentul și indicatorii de utilizare primiți în această rundă vor fi în continuare predați complet procesării ulterioare și nu vor fi aruncați.",
   "30分钟": "30 de minute",
   "内存缓存": "memoria cache",
   "24小时": "24 de ore",
