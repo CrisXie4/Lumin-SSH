@@ -97,6 +97,8 @@ type AIConversationMessage = {
 type AIConversationCacheObject = {
   responseId: string
   output: unknown[]
+  // 紧凑回放元数据：只含 provider 原生字段，正文由 API 消息的 contentBlocks 承载
+  replayState: Record<string, unknown> | null
   include: string[]
   store: boolean
   capturedAt: number
@@ -111,6 +113,8 @@ type AIConversationProviderCacheObjects = {
 type AIConversationAPIMessage = {
   role: string
   content: string
+  // Responses 紧凑回放的权威文本源：按原生 item 顺序排列的内容块
+  contentBlocks: Record<string, unknown>[]
   messageId: string
   uiMessageIds: string[]
   images: string[]
@@ -312,17 +316,22 @@ function normalizeAIConversationOpenAIResponsesCacheObject(cacheObject: unknown)
   const output = Array.isArray(c.output)
     ? c.output.filter((item) => item && typeof item === 'object').map((item) => JSON.parse(JSON.stringify(item)))
     : []
+  // 紧凑回放元数据：只含 provider 原生字段，正文由 contentBlocks 承载
+  const replayState = c.replayState && typeof c.replayState === 'object' && !Array.isArray(c.replayState)
+    ? JSON.parse(JSON.stringify(c.replayState)) as Record<string, unknown>
+    : null
   const include = Array.isArray(c.include)
     ? c.include.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim())
     : []
   const store = c.store === true
   const capturedAt = typeof c.capturedAt === 'number' ? c.capturedAt : 0
-  if (!responseId && output.length === 0 && include.length === 0 && !store && capturedAt === 0) {
+  if (!responseId && output.length === 0 && !replayState && include.length === 0 && !store && capturedAt === 0) {
     return null
   }
   return {
     responseId,
     output,
+    replayState,
     include,
     store,
     capturedAt,
@@ -348,6 +357,11 @@ function normalizeAIConversationAPIMessage(message: unknown): AIConversationAPIM
   return {
     role: typeof m.role === 'string' ? m.role : 'user',
     content: typeof m.content === 'string' ? m.content : '',
+    contentBlocks: Array.isArray(m.contentBlocks)
+      ? m.contentBlocks
+          .filter((block) => block && typeof block === 'object' && !Array.isArray(block))
+          .map((block) => JSON.parse(JSON.stringify(block)) as Record<string, unknown>)
+      : [],
     messageId: typeof m.messageId === 'string' ? m.messageId : '',
     uiMessageIds: Array.isArray(m.uiMessageIds) ? m.uiMessageIds.filter((item) => typeof item === 'string') : [],
     images: Array.isArray(m.images) ? m.images.filter((item) => typeof item === 'string' && item.trim()) : [],

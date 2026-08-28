@@ -33,11 +33,12 @@ func ApplySamplingParameters(requestBody map[string]any, profile Profile) {
 }
 
 type OpenAIResponsesCacheObject struct {
-	ResponseID string
-	Output     []map[string]any
-	Include    []string
-	Store      bool
-	CapturedAt int64
+	ResponseID  string
+	Output      []map[string]any
+	ReplayState map[string]any
+	Include     []string
+	Store       bool
+	CapturedAt  int64
 }
 
 type ProviderCacheObjects struct {
@@ -45,10 +46,11 @@ type ProviderCacheObjects struct {
 }
 
 type ChatMessage struct {
-	Role         string
-	Content      string
-	Images       []string
-	CacheObjects *ProviderCacheObjects
+	Role          string
+	Content       string
+	ContentBlocks []map[string]any
+	Images        []string
+	CacheObjects  *ProviderCacheObjects
 }
 
 func normalizeStringList(values []string) []string {
@@ -100,6 +102,21 @@ func CloneOpenAIResponsesOutputItems(items []map[string]any) []map[string]any {
 	return cloned
 }
 
+func CloneOpenAIResponsesReplayState(state map[string]any) map[string]any {
+	if len(state) == 0 {
+		return nil
+	}
+	cloned, ok := cloneOpenAIResponsesJSONValue(state)
+	if !ok {
+		return nil
+	}
+	clonedState, isRecord := cloned.(map[string]any)
+	if !isRecord {
+		return nil
+	}
+	return clonedState
+}
+
 func cloneAIProviderCacheObjects(cacheObjects *ProviderCacheObjects) *ProviderCacheObjects {
 	if cacheObjects == nil {
 		return nil
@@ -109,11 +126,12 @@ func cloneAIProviderCacheObjects(cacheObjects *ProviderCacheObjects) *ProviderCa
 	}
 	return &ProviderCacheObjects{
 		OpenAIResponses: &OpenAIResponsesCacheObject{
-			ResponseID: strings.TrimSpace(cacheObjects.OpenAIResponses.ResponseID),
-			Output:     CloneOpenAIResponsesOutputItems(cacheObjects.OpenAIResponses.Output),
-			Include:    normalizeStringList(cacheObjects.OpenAIResponses.Include),
-			Store:      cacheObjects.OpenAIResponses.Store,
-			CapturedAt: cacheObjects.OpenAIResponses.CapturedAt,
+			ResponseID:  strings.TrimSpace(cacheObjects.OpenAIResponses.ResponseID),
+			Output:      CloneOpenAIResponsesOutputItems(cacheObjects.OpenAIResponses.Output),
+			ReplayState: CloneOpenAIResponsesReplayState(cacheObjects.OpenAIResponses.ReplayState),
+			Include:     normalizeStringList(cacheObjects.OpenAIResponses.Include),
+			Store:       cacheObjects.OpenAIResponses.Store,
+			CapturedAt:  cacheObjects.OpenAIResponses.CapturedAt,
 		},
 	}
 }
@@ -238,7 +256,12 @@ func ResolvePromptCacheStrategy(profile Profile, capability AIProviderModelCapab
 	}
 }
 
-func BuildResponsesPromptCacheKey(conversationID string, promptCacheBypassTimestamp string, systemPrompt string) string {
+// BuildResponsesPromptCacheKey 生成 Responses 提示缓存键。
+//
+// 会话 ID 是唯一权威来源。系统提示词刻意不参与: 它可能包含每轮变化的动态内容,
+// 一旦进入哈希就会让缓存键逐轮漂移, 前缀缓存全盘失效。
+// bypass 时间戳只在用户或系统显式要求绕过缓存时推进键代次, 属显式意图而非动态噪声。
+func BuildResponsesPromptCacheKey(conversationID string, promptCacheBypassTimestamp string) string {
 	trimmedConversationID := strings.TrimSpace(conversationID)
 	if trimmedConversationID == "" {
 		return ""
@@ -247,10 +270,9 @@ func BuildResponsesPromptCacheKey(conversationID string, promptCacheBypassTimest
 	if bypassSource == "" {
 		bypassSource = "stable"
 	}
-	trimmedSystemPrompt := strings.TrimSpace(systemPrompt)
-	checksum := sha256.Sum256([]byte(bypassSource + "\n" + trimmedSystemPrompt))
+	checksum := sha256.Sum256([]byte(bypassSource))
 	bypassHash := hex.EncodeToString(checksum[:])[:12]
-	cacheKey := "LuminSSH:resp:v2:" + trimmedConversationID + ":" + bypassHash
+	cacheKey := "LuminSSH:resp:v3:" + trimmedConversationID + ":" + bypassHash
 	if len(cacheKey) > 64 {
 		return cacheKey[len(cacheKey)-64:]
 	}
@@ -410,16 +432,31 @@ func buildAIProviderResponsesImageContentParts(images []string) []map[string]any
 	return parts
 }
 
-func BuildResponsesInputMessages(requestMessages []ChatMessage) []map[string]any {
+func BuildResponsesInputMessages(requestMessages []ChatMessage, baseURL string, model string) []map[string]any {
 	input := make([]map[string]any, 0, len(requestMessages))
 	for _, message := range requestMessages {
 		role := strings.ToLower(strings.TrimSpace(message.Role))
 		switch role {
 		case "assistant":
 			cacheObjects := cloneAIProviderCacheObjects(message.CacheObjects)
-			if cacheObjects != nil && cacheObjects.OpenAIResponses != nil && len(cacheObjects.OpenAIResponses.Output) > 0 {
-				input = append(input, cacheObjects.OpenAIResponses.Output...)
-				continue
+			if cacheObjects != nil && cacheObjects.OpenAIResponses != nil {
+				// 紧凑回放优先: 元数据与内容块重建原生 item。
+				if len(cacheObjects.OpenAIResponses.ReplayState) > 0 {
+					if replayed, ok := ReplayOpenAIResponsesCompact(
+						cacheObjects.OpenAIResponses.ReplayState,
+						message.ContentBlocks,
+						baseURL,
+						model,
+					); ok {
+						input = append(input, replayed...)
+						continue
+					}
+				}
+				// 旧数据兼容: 完整原生 output 原样回放。
+				if len(cacheObjects.OpenAIResponses.Output) > 0 {
+					input = append(input, cacheObjects.OpenAIResponses.Output...)
+					continue
+				}
 			}
 			input = append(input, map[string]any{
 				"role": "assistant",

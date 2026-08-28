@@ -180,17 +180,18 @@ func TestPurgeAIProtocolRetryNoiseFromMessages(t *testing.T) {
 		{Role: "user", Content: "<user_message>\n继续\n</user_message>"},
 	}
 	cleaned := purgeAIProtocolRetryNoiseFromMessages(messages)
-	if len(cleaned) != 3 {
-		t.Fatalf("expected 3 messages after purge, got %d", len(cleaned))
-	}
-	if isAIProtocolRetryUserMessage(cleaned[1].Content) {
-		t.Fatal("protocol retry user message was not purged")
+	// Protocol-retry prompts are permanent history now; only assistant XML gets rewritten.
+	if len(cleaned) != 4 {
+		t.Fatalf("expected 4 messages after rewrite, got %d", len(cleaned))
 	}
 	if !strings.HasPrefix(strings.TrimSpace(cleaned[1].Content), "<execute_command>") {
 		t.Fatalf("assistant history not rewritten to clean tool XML: %q", cleaned[1].Content)
 	}
-	if cleaned[2].Content != "<user_message>\n继续\n</user_message>" {
-		t.Fatalf("latest user message changed: %q", cleaned[2].Content)
+	if !strings.HasPrefix(cleaned[2].Content, "[ERROR] Invalid tool protocol in your previous response:") {
+		t.Fatalf("protocol retry user message must be kept: %q", cleaned[2].Content)
+	}
+	if cleaned[3].Content != "<user_message>\n继续\n</user_message>" {
+		t.Fatalf("latest user message changed: %q", cleaned[3].Content)
 	}
 }
 
