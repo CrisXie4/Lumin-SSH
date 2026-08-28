@@ -442,10 +442,12 @@ func buildAIChatRequestMessagesFromConversationAPI(apiMessages []AIConversationA
 			continue
 		}
 		requestMessages = append(requestMessages, AIChatRequestMessage{
-			Role:         role,
-			Content:      strings.TrimSpace(message.Content),
-			Images:       normalizeAIStringList(message.Images),
-			CacheObjects: cloneAIConversationProviderCacheObjects(message.CacheObjects),
+			Role:    role,
+			Content: strings.TrimSpace(message.Content),
+			// 紧凑回放的权威文本源, 必须与 cacheObjects.replayState 一起保留。
+			ContentBlocks: cloneAIConversationOpenAIResponsesOutputItems(message.ContentBlocks),
+			Images:        normalizeAIStringList(message.Images),
+			CacheObjects:  cloneAIConversationProviderCacheObjects(message.CacheObjects),
 		})
 	}
 	return normalizeAIChatRequestMessages(requestMessages)

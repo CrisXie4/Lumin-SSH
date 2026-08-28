@@ -18,10 +18,11 @@ import (
 )
 
 type AIChatRequestMessage struct {
-	Role         string                              `json:"role"`
-	Content      string                              `json:"content"`
-	Images       []string                            `json:"images,omitempty"`
-	CacheObjects *AIConversationProviderCacheObjects `json:"cacheObjects,omitempty"`
+	Role          string                              `json:"role"`
+	Content       string                              `json:"content"`
+	ContentBlocks []map[string]any                    `json:"contentBlocks,omitempty"`
+	Images        []string                            `json:"images,omitempty"`
+	CacheObjects  *AIConversationProviderCacheObjects `json:"cacheObjects,omitempty"`
 }
 
 type AIChatRequestPayload struct {
@@ -206,18 +207,21 @@ func normalizeAIChatRequestMessages(messages []AIChatRequestMessage) []AIChatReq
 			continue
 		}
 		content := strings.TrimSpace(message.Content)
+		// 紧凑回放的权威文本源, 必须与 cacheObjects.replayState 同时保留, 否则块数对不上会强制降级。
+		contentBlocks := cloneAIConversationOpenAIResponsesOutputItems(message.ContentBlocks)
 		images := normalizeAIStringList(message.Images)
 		if role != "user" {
 			images = nil
 		}
-		if content == "" && len(images) == 0 {
+		if content == "" && len(contentBlocks) == 0 && len(images) == 0 {
 			continue
 		}
 		normalized = append(normalized, AIChatRequestMessage{
-			Role:         role,
-			Content:      content,
-			Images:       images,
-			CacheObjects: cloneAIConversationProviderCacheObjects(message.CacheObjects),
+			Role:          role,
+			Content:       content,
+			ContentBlocks: contentBlocks,
+			Images:        images,
+			CacheObjects:  cloneAIConversationProviderCacheObjects(message.CacheObjects),
 		})
 	}
 	return normalized
@@ -437,13 +441,14 @@ func (a *Service) persistAIUserNodeCompensation(requestID string, conversationID
 		"kind":      "api_message_append",
 		"requestId": requestID,
 		"message": map[string]interface{}{
-			"messageId":    updatedMessage.MessageID,
-			"role":         updatedMessage.Role,
-			"content":      updatedMessage.Content,
-			"uiMessageIds": updatedMessage.UIMessageIDs,
-			"images":       updatedMessage.Images,
-			"cacheObjects": updatedMessage.CacheObjects,
-			"ts":           updatedMessage.Ts,
+			"messageId":     updatedMessage.MessageID,
+			"role":          updatedMessage.Role,
+			"content":       updatedMessage.Content,
+			"contentBlocks": updatedMessage.ContentBlocks,
+			"uiMessageIds":  updatedMessage.UIMessageIDs,
+			"images":        updatedMessage.Images,
+			"cacheObjects":  updatedMessage.CacheObjects,
+			"ts":            updatedMessage.Ts,
 		},
 	})
 }
@@ -1577,20 +1582,6 @@ func validateAIStandaloneOnlyBatchTools(tools []aiParsedToolUse) error {
 	return nil
 }
 
-func isAIProtocolRetryUserMessage(content string) bool {
-	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		return false
-	}
-	if strings.HasPrefix(trimmed, "[ERROR] You did not use a tool in your previous response.") {
-		return true
-	}
-	if strings.HasPrefix(trimmed, "[ERROR] Invalid tool protocol in your previous response:") {
-		return true
-	}
-	return false
-}
-
 // rebuildAIAssistantToolOnlyContent keeps only successfully parsed tool XML.
 // Used when replaying history so old wrapper/prose slips do not re-poison the model.
 func rebuildAIAssistantToolOnlyContent(content string) string {
@@ -1612,8 +1603,11 @@ func rebuildAIAssistantToolOnlyContent(content string) string {
 	return strings.Join(parts, "\n")
 }
 
-// purgeAIProtocolRetryNoiseFromMessages drops ephemeral protocol-retry user prompts and
-// rewrites assistant history to clean tool XML so prior protocol failures do not loop.
+// purgeAIProtocolRetryNoiseFromMessages rewrites assistant history to clean tool XML so
+// prior protocol failures do not loop.
+//
+// Protocol-retry user prompts are kept: they are permanent history like any other user
+// message, which also keeps the request prefix stable for prompt caching.
 func purgeAIProtocolRetryNoiseFromMessages(messages []AIChatRequestMessage) []AIChatRequestMessage {
 	if len(messages) == 0 {
 		return messages
@@ -1622,14 +1616,18 @@ func purgeAIProtocolRetryNoiseFromMessages(messages []AIChatRequestMessage) []AI
 	for _, message := range messages {
 		role := strings.ToLower(strings.TrimSpace(message.Role))
 		content := strings.TrimSpace(message.Content)
-		if role == "user" && isAIProtocolRetryUserMessage(content) {
-			continue
-		}
 		if role == "assistant" {
-			content = rebuildAIAssistantToolOnlyContent(content)
-			if content == "" {
+			rewritten := rebuildAIAssistantToolOnlyContent(content)
+			if rewritten == "" {
 				continue
 			}
+			if rewritten != content {
+				// 文本被改写后与紧凑回放的内容块不再一致, 丢弃元数据让这条消息降级为纯文本,
+				// 避免用旧文本重建出与本地记录不符的原生 item。
+				message.ContentBlocks = nil
+				message.CacheObjects = nil
+			}
+			content = rewritten
 			message.Content = content
 		}
 		cleaned = append(cleaned, message)
@@ -1745,6 +1743,11 @@ func replaceAILatestAssistantMessageContent(messages []AIChatRequestMessage, con
 	for index := len(cloned) - 1; index >= 0; index-- {
 		if strings.ToLower(strings.TrimSpace(cloned[index].Role)) != "assistant" {
 			continue
+		}
+		if strings.TrimSpace(cloned[index].Content) != strings.TrimSpace(content) {
+			// 同上: 改写文本后必须丢弃紧凑回放元数据, 否则内容块与元数据错位。
+			cloned[index].ContentBlocks = nil
+			cloned[index].CacheObjects = nil
 		}
 		cloned[index].Content = content
 		return cloned
@@ -2397,6 +2400,18 @@ func extractAILatestAssistantCacheObjects(messages []AIChatRequestMessage) *AICo
 	return nil
 }
 
+// extractAILatestAssistantContentBlocks 取出最近一条 assistant 的有序内容块。
+// 紧凑回放依赖它作为权威文本源, 必须与 cacheObjects.replayState 一起往返到前端。
+func extractAILatestAssistantContentBlocks(messages []AIChatRequestMessage) []map[string]any {
+	for index := len(messages) - 1; index >= 0; index-- {
+		if strings.ToLower(strings.TrimSpace(messages[index].Role)) != "assistant" {
+			continue
+		}
+		return cloneAIConversationOpenAIResponsesOutputItems(messages[index].ContentBlocks)
+	}
+	return nil
+}
+
 func getAILatestComparableAssistantMessageContent(messages []AIChatRequestMessage) (string, bool) {
 	for index := len(messages) - 1; index >= 0; index-- {
 		if strings.ToLower(strings.TrimSpace(messages[index].Role)) != "assistant" {
@@ -2580,16 +2595,19 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 			if isAssistantFirstReplyRound {
 				nextRequestMessages := buildAINextRequestMessagesWithAssistant(requestMessages, roundResult)
 				assistantCacheObjects := extractAILatestAssistantCacheObjects(nextRequestMessages)
+				assistantContentBlocks := extractAILatestAssistantContentBlocks(nextRequestMessages)
 				a.emitAIChatEvent(map[string]interface{}{
 					"kind":      "api_message_append",
 					"requestId": requestID,
 					"message": map[string]interface{}{
-						"messageId":    fmt.Sprintf("api-assistant-%d", time.Now().UnixNano()),
-						"turnId":       assistantMessageID,
-						"role":         "assistant",
-						"content":      roundResult.Text,
-						"cacheObjects": assistantCacheObjects,
-						"ts":           time.Now().UnixMilli(),
+						// 与前端 done 事件同格式: 同一轮内多次 append 走 upsert 覆盖而非追加。
+						"messageId":     fmt.Sprintf("api-%s", assistantMessageID),
+						"turnId":        assistantMessageID,
+						"role":          "assistant",
+						"content":       roundResult.Text,
+						"contentBlocks": assistantContentBlocks,
+						"cacheObjects":  assistantCacheObjects,
+						"ts":            time.Now().UnixMilli(),
 					},
 				})
 				a.emitAIChatEvent(map[string]interface{}{
@@ -2611,16 +2629,19 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 			if consecutiveNoToolCount == 1 {
 				nextRequestMessages := buildAINextRequestMessagesWithAssistant(requestMessages, roundResult)
 				assistantCacheObjects := extractAILatestAssistantCacheObjects(nextRequestMessages)
+				assistantContentBlocks := extractAILatestAssistantContentBlocks(nextRequestMessages)
 				a.emitAIChatEvent(map[string]interface{}{
 					"kind":      "api_message_append",
 					"requestId": requestID,
 					"message": map[string]interface{}{
-						"messageId":    fmt.Sprintf("api-assistant-%d", time.Now().UnixNano()),
-						"turnId":       assistantMessageID,
-						"role":         "assistant",
-						"content":      roundResult.Text,
-						"cacheObjects": assistantCacheObjects,
-						"ts":           time.Now().UnixMilli(),
+						// 同上: 预设回复轮次会先命中 isAssistantFirstReplyRound 分支, 此处必须复用同一 ID。
+						"messageId":     fmt.Sprintf("api-%s", assistantMessageID),
+						"turnId":        assistantMessageID,
+						"role":          "assistant",
+						"content":       roundResult.Text,
+						"contentBlocks": assistantContentBlocks,
+						"cacheObjects":  assistantCacheObjects,
+						"ts":            time.Now().UnixMilli(),
 					},
 				})
 				a.emitAIChatEvent(map[string]interface{}{
@@ -2666,16 +2687,19 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 			errorText := "AI 回复未满足工具协议要求"
 			nextRequestMessages := buildAINextRequestMessagesWithAssistant(requestMessages, roundResult)
 			assistantCacheObjects := extractAILatestAssistantCacheObjects(nextRequestMessages)
+			assistantContentBlocks := extractAILatestAssistantContentBlocks(nextRequestMessages)
 			a.emitAIChatEvent(map[string]interface{}{
 				"kind":      "api_message_append",
 				"requestId": requestID,
 				"message": map[string]interface{}{
-					"messageId":    fmt.Sprintf("api-assistant-%d", time.Now().UnixNano()),
-					"turnId":       assistantMessageID,
-					"role":         "assistant",
-					"content":      roundResult.Text,
-					"cacheObjects": assistantCacheObjects,
-					"ts":           time.Now().UnixMilli(),
+					// 与前端 done 事件同格式, 避免同一轮被 upsert 当作两条不同记录。
+					"messageId":     fmt.Sprintf("api-%s", assistantMessageID),
+					"turnId":        assistantMessageID,
+					"role":          "assistant",
+					"content":       roundResult.Text,
+					"contentBlocks": assistantContentBlocks,
+					"cacheObjects":  assistantCacheObjects,
+					"ts":            time.Now().UnixMilli(),
 				},
 			})
 			a.emitAIChatEvent(map[string]interface{}{
@@ -2736,16 +2760,19 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 
 		visibleText := stripAssistantToolXML(roundResult.Text)
 		assistantCacheObjects := extractAILatestAssistantCacheObjects(roundResult.NextRequestMessages)
+		assistantContentBlocks := extractAILatestAssistantContentBlocks(roundResult.NextRequestMessages)
 		a.emitAIChatEvent(map[string]interface{}{
 			"kind":      "api_message_append",
 			"requestId": requestID,
 			"message": map[string]interface{}{
-				"messageId":    fmt.Sprintf("api-assistant-%d", time.Now().UnixNano()),
-				"turnId":       assistantMessageID,
-				"role":         "assistant",
-				"content":      roundResult.Text,
-				"cacheObjects": assistantCacheObjects,
-				"ts":           time.Now().UnixMilli(),
+				// 与前端 done 事件同格式, 避免同一轮被 upsert 当作两条不同记录。
+				"messageId":     fmt.Sprintf("api-%s", assistantMessageID),
+				"turnId":        assistantMessageID,
+				"role":          "assistant",
+				"content":       roundResult.Text,
+				"contentBlocks": assistantContentBlocks,
+				"cacheObjects":  assistantCacheObjects,
+				"ts":            time.Now().UnixMilli(),
 			},
 		})
 		a.emitAIChatEvent(map[string]interface{}{

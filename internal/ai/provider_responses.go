@@ -52,22 +52,61 @@ func buildAIConversationOpenAIResponsesCacheObject(responseID string, output []m
 	}
 }
 
+// buildAIConversationOpenAIResponsesCompactCacheObject 生成紧凑回放缓存对象。
+//
+// 成功时只保存 provider 原生元数据 (item id, 加密推理内容等), 不保存正文文本;
+// 正文由返回的 contentBlocks 承载, 作为下一轮请求的权威文本源。
+// baseURL 与 model 构成回放身份, 切换端点或模型时下一轮回放会降级为普通文本。
+// output 含本版本无法建模的 item 类型时返回 ok=false, 调用方应退回完整 output 保存。
+func buildAIConversationOpenAIResponsesCompactCacheObject(
+	responseID string,
+	output []map[string]any,
+	includeValues []string,
+	store bool,
+	capturedAt int64,
+	baseURL string,
+	model string,
+) (cacheObject *AIConversationOpenAIResponsesCacheObject, contentBlocks []map[string]any, ok bool) {
+	blocks, replayState, built := aiprovider.BuildOpenAIResponsesCompactReplay(
+		output,
+		baseURL,
+		model,
+		responseID,
+		includeValues,
+	)
+	if !built {
+		return nil, nil, false
+	}
+	return &AIConversationOpenAIResponsesCacheObject{
+		ResponseID:  strings.TrimSpace(responseID),
+		ReplayState: replayState,
+		Include:     normalizeAIStringList(includeValues),
+		Store:       store,
+		CapturedAt:  capturedAt,
+	}, blocks, true
+}
+
 func cloneAIConversationProviderCacheObjects(cacheObjects *AIConversationProviderCacheObjects) *AIConversationProviderCacheObjects {
 	if cacheObjects == nil || cacheObjects.OpenAIResponses == nil {
 		return nil
 	}
-	normalized := buildAIConversationOpenAIResponsesCacheObject(
-		cacheObjects.OpenAIResponses.ResponseID,
-		cacheObjects.OpenAIResponses.Output,
-		cacheObjects.OpenAIResponses.Include,
-		cacheObjects.OpenAIResponses.Store,
-		cacheObjects.OpenAIResponses.CapturedAt,
-	)
-	if normalized == nil {
+	source := cacheObjects.OpenAIResponses
+	trimmedResponseID := strings.TrimSpace(source.ResponseID)
+	clonedOutput := aiprovider.CloneOpenAIResponsesOutputItems(source.Output)
+	clonedReplayState := aiprovider.CloneOpenAIResponsesReplayState(source.ReplayState)
+	normalizedInclude := normalizeAIStringList(source.Include)
+	if trimmedResponseID == "" && len(clonedOutput) == 0 && len(clonedReplayState) == 0 && len(normalizedInclude) == 0 && source.CapturedAt == 0 && !source.Store {
 		return nil
 	}
 	return &AIConversationProviderCacheObjects{
-		OpenAIResponses: normalized,
+		OpenAIResponses: &AIConversationOpenAIResponsesCacheObject{
+			ResponseID:  trimmedResponseID,
+			Output:      clonedOutput,
+			ReplayState: clonedReplayState,
+			Include:     normalizedInclude,
+			Store:       source.Store,
+			CapturedAt:  source.CapturedAt,
+		},
 	}
 }
 
@@ -109,19 +148,14 @@ func collectAIResponsesOutputItems(items map[int]map[string]any) []map[string]an
 	return collected
 }
 
-func buildAIResponsesAssistantMessageWithCache(content string, cacheObject *AIConversationOpenAIResponsesCacheObject) AIChatRequestMessage {
+func buildAIResponsesAssistantMessageWithCache(content string, cacheObject *AIConversationOpenAIResponsesCacheObject, contentBlocks []map[string]any) AIChatRequestMessage {
 	return AIChatRequestMessage{
-		Role:    "assistant",
-		Content: content,
-		CacheObjects: &AIConversationProviderCacheObjects{
-			OpenAIResponses: buildAIConversationOpenAIResponsesCacheObject(
-				cacheObject.ResponseID,
-				cacheObject.Output,
-				cacheObject.Include,
-				cacheObject.Store,
-				cacheObject.CapturedAt,
-			),
-		},
+		Role:          "assistant",
+		Content:       content,
+		ContentBlocks: aiprovider.CloneOpenAIResponsesOutputItems(contentBlocks),
+		CacheObjects: cloneAIConversationProviderCacheObjects(&AIConversationProviderCacheObjects{
+			OpenAIResponses: cacheObject,
+		}),
 	}
 }
 
@@ -132,6 +166,7 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 	var contentBuilder strings.Builder
 	var contentParser aiReasoningTagStreamParser
 	var latestCacheObject *AIConversationOpenAIResponsesCacheObject
+	var latestContentBlocks []map[string]any
 	finalizeRoundResult := func() {
 		finalizeAIChatRoundResult(&result, startedAt, firstTokenAt, &contentBuilder)
 	}
@@ -171,14 +206,14 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 
 	requestBody := map[string]any{
 		"model":        profile.Model,
-		"input":        aiprovider.BuildResponsesInputMessages(toAIProviderRuntimeMessages(requestMessages)),
+		"input":        aiprovider.BuildResponsesInputMessages(toAIProviderRuntimeMessages(requestMessages), profile.BaseURL, profile.Model),
 		"instructions": systemPrompt,
 		"stream":       true,
 		"store":        false,
 	}
 	aiprovider.ApplySamplingParameters(requestBody, runtimeProfile)
 	if promptCacheSelection.Enabled() {
-		if promptCacheKey := aiprovider.BuildResponsesPromptCacheKey(payload.ConversationID, promptCacheBypassTimestamp, systemPrompt); promptCacheKey != "" {
+		if promptCacheKey := aiprovider.BuildResponsesPromptCacheKey(payload.ConversationID, promptCacheBypassTimestamp); promptCacheKey != "" {
 			requestBody["prompt_cache_key"] = promptCacheKey
 		}
 	}
@@ -286,21 +321,33 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 					emitReasoningDelta(taggedReasoningDelta)
 					emitContentDelta(bodyDelta)
 				}
-				cacheObject := buildAIConversationOpenAIResponsesCacheObject(
+				finalOutput := event.Response.Output
+				if len(finalOutput) == 0 {
+					finalOutput = collectAIResponsesOutputItems(trackedOutputItems)
+				}
+				capturedAt := time.Now().UnixMilli()
+				storeEnabled := requestBody["store"] == true
+				// 紧凑回放优先; 无法建模的原生 item 退回完整 output 保存。
+				if compactCacheObject, compactBlocks, compactOK := buildAIConversationOpenAIResponsesCompactCacheObject(
 					event.Response.ID,
-					func() []map[string]any {
-						trackedOutput := collectAIResponsesOutputItems(trackedOutputItems)
-						if len(trackedOutput) > 0 {
-							return trackedOutput
-						}
-						return event.Response.Output
-					}(),
+					finalOutput,
 					includeValues,
-					requestBody["store"] == true,
-					time.Now().UnixMilli(),
-				)
-				if cacheObject != nil {
+					storeEnabled,
+					capturedAt,
+					profile.BaseURL,
+					profile.Model,
+				); compactOK {
+					latestCacheObject = compactCacheObject
+					latestContentBlocks = compactBlocks
+				} else if cacheObject := buildAIConversationOpenAIResponsesCacheObject(
+					event.Response.ID,
+					finalOutput,
+					includeValues,
+					storeEnabled,
+					capturedAt,
+				); cacheObject != nil {
 					latestCacheObject = cacheObject
+					latestContentBlocks = nil
 				}
 			}
 			if event.Usage != nil {
@@ -336,7 +383,7 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 	}
 	if latestCacheObject != nil {
 		result.NextRequestMessages = append([]AIChatRequestMessage{}, requestMessages...)
-		result.NextRequestMessages = append(result.NextRequestMessages, buildAIResponsesAssistantMessageWithCache(result.Text, latestCacheObject))
+		result.NextRequestMessages = append(result.NextRequestMessages, buildAIResponsesAssistantMessageWithCache(result.Text, latestCacheObject, latestContentBlocks))
 	}
 	if len(result.NextRequestMessages) == 0 {
 		result.NextRequestMessages = append([]AIChatRequestMessage{}, requestMessages...)

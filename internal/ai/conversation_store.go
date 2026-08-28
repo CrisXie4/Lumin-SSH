@@ -78,11 +78,12 @@ type AIConversationMessage struct {
 }
 
 type AIConversationOpenAIResponsesCacheObject struct {
-	ResponseID string           `json:"responseId,omitempty"`
-	Output     []map[string]any `json:"output,omitempty"`
-	Include    []string         `json:"include,omitempty"`
-	Store      bool             `json:"store,omitempty"`
-	CapturedAt int64            `json:"capturedAt,omitempty"`
+	ResponseID  string           `json:"responseId,omitempty"`
+	Output      []map[string]any `json:"output,omitempty"`
+	ReplayState map[string]any   `json:"replayState,omitempty"`
+	Include     []string         `json:"include,omitempty"`
+	Store       bool             `json:"store,omitempty"`
+	CapturedAt  int64            `json:"capturedAt,omitempty"`
 }
 
 type AIConversationProviderCacheObjects struct {
@@ -90,13 +91,14 @@ type AIConversationProviderCacheObjects struct {
 }
 
 type AIConversationAPIMessage struct {
-	Role         string                              `json:"role"`
-	Content      string                              `json:"content"`
-	MessageID    string                              `json:"messageId,omitempty"`
-	UIMessageIDs []string                            `json:"uiMessageIds,omitempty"`
-	Images       []string                            `json:"images,omitempty"`
-	CacheObjects *AIConversationProviderCacheObjects `json:"cacheObjects,omitempty"`
-	Ts           int64                               `json:"ts,omitempty"`
+	Role          string                              `json:"role"`
+	Content       string                              `json:"content"`
+	ContentBlocks []map[string]any                    `json:"contentBlocks,omitempty"`
+	MessageID     string                              `json:"messageId,omitempty"`
+	UIMessageIDs  []string                            `json:"uiMessageIds,omitempty"`
+	Images        []string                            `json:"images,omitempty"`
+	CacheObjects  *AIConversationProviderCacheObjects `json:"cacheObjects,omitempty"`
+	Ts            int64                               `json:"ts,omitempty"`
 }
 
 type AIConversationSummary struct {
@@ -308,21 +310,41 @@ func cloneAIConversationOpenAIResponsesOutputItems(items []map[string]any) []map
 	return cloned
 }
 
+func cloneAIConversationOpenAIResponsesReplayState(state map[string]any) map[string]any {
+	if len(state) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return nil
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil
+	}
+	if len(cloned) == 0 {
+		return nil
+	}
+	return cloned
+}
+
 func normalizeAIConversationOpenAIResponsesCacheObject(cache *AIConversationOpenAIResponsesCacheObject) *AIConversationOpenAIResponsesCacheObject {
 	if cache == nil {
 		return nil
 	}
 	normalizedOutput := cloneAIConversationOpenAIResponsesOutputItems(cache.Output)
+	normalizedReplayState := cloneAIConversationOpenAIResponsesReplayState(cache.ReplayState)
 	normalizedInclude := normalizeAIStringList(cache.Include)
-	if strings.TrimSpace(cache.ResponseID) == "" && len(normalizedOutput) == 0 && len(normalizedInclude) == 0 && cache.CapturedAt == 0 && !cache.Store {
+	if strings.TrimSpace(cache.ResponseID) == "" && len(normalizedOutput) == 0 && len(normalizedReplayState) == 0 && len(normalizedInclude) == 0 && cache.CapturedAt == 0 && !cache.Store {
 		return nil
 	}
 	return &AIConversationOpenAIResponsesCacheObject{
-		ResponseID: strings.TrimSpace(cache.ResponseID),
-		Output:     normalizedOutput,
-		Include:    normalizedInclude,
-		Store:      cache.Store,
-		CapturedAt: cache.CapturedAt,
+		ResponseID:  strings.TrimSpace(cache.ResponseID),
+		Output:      normalizedOutput,
+		ReplayState: normalizedReplayState,
+		Include:     normalizedInclude,
+		Store:       cache.Store,
+		CapturedAt:  cache.CapturedAt,
 	}
 }
 
@@ -350,9 +372,10 @@ func normalizeAIConversationAPIMessages(messages []AIConversationAPIMessage) []A
 			continue
 		}
 		content := strings.TrimSpace(message.Content)
+		contentBlocks := cloneAIConversationOpenAIResponsesOutputItems(message.ContentBlocks)
 		images := normalizeAIStringList(message.Images)
 		cacheObjects := normalizeAIConversationProviderCacheObjects(message.CacheObjects)
-		if content == "" && len(images) == 0 && cacheObjects == nil {
+		if content == "" && len(contentBlocks) == 0 && len(images) == 0 && cacheObjects == nil {
 			continue
 		}
 		uiMessageIDs := make([]string, 0, len(message.UIMessageIDs))
@@ -369,13 +392,14 @@ func normalizeAIConversationAPIMessages(messages []AIConversationAPIMessage) []A
 			uiMessageIDs = append(uiMessageIDs, trimmedUIMessageID)
 		}
 		normalized = append(normalized, AIConversationAPIMessage{
-			Role:         role,
-			Content:      content,
-			MessageID:    strings.TrimSpace(message.MessageID),
-			UIMessageIDs: uiMessageIDs,
-			Images:       images,
-			CacheObjects: cacheObjects,
-			Ts:           message.Ts,
+			Role:          role,
+			Content:       content,
+			ContentBlocks: contentBlocks,
+			MessageID:     strings.TrimSpace(message.MessageID),
+			UIMessageIDs:  uiMessageIDs,
+			Images:        images,
+			CacheObjects:  cacheObjects,
+			Ts:            message.Ts,
 		})
 	}
 	return normalized

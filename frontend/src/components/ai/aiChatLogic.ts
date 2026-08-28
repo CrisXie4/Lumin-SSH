@@ -111,6 +111,8 @@ export interface AIMessage {
 export interface APIHistoryMessage {
   role: string
   content: string
+  // Responses 紧凑回放的权威文本源：按原生 item 顺序排列的内容块
+  contentBlocks?: Record<string, unknown>[]
   messageId: string
   uiMessageIds: string[]
   images: string[]
@@ -122,6 +124,7 @@ export interface APIHistoryMessage {
 export interface AIRequestMessage {
   role: string
   content: string
+  contentBlocks?: Record<string, unknown>[]
   images: string[]
   cacheObjects: unknown
 }
@@ -322,11 +325,16 @@ export function cloneAIConversationCacheObjects(cacheObjects: unknown) {
         const source = cacheObject.openaiResponses as Record<string, unknown>
         const rawOutput = source.output
         const rawInclude = source.include
+        const rawReplayState = source.replayState
         return {
           responseId: typeof source.responseId === 'string' ? source.responseId.trim() : '',
           output: Array.isArray(rawOutput)
             ? rawOutput.filter((item) => item && typeof item === 'object').map((item) => JSON.parse(JSON.stringify(item)))
             : [],
+          // 紧凑回放元数据：只含 provider 原生字段，正文由 contentBlocks 承载
+          replayState: rawReplayState && typeof rawReplayState === 'object' && !Array.isArray(rawReplayState)
+            ? JSON.parse(JSON.stringify(rawReplayState))
+            : null,
           include: Array.isArray(rawInclude)
             ? rawInclude.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim())
             : [],
@@ -335,12 +343,20 @@ export function cloneAIConversationCacheObjects(cacheObjects: unknown) {
         }
       })()
     : null
-  if (!openaiResponses || (!openaiResponses.responseId && openaiResponses.output.length === 0 && openaiResponses.include.length === 0 && !openaiResponses.store && openaiResponses.capturedAt === 0)) {
+  if (!openaiResponses || (!openaiResponses.responseId && openaiResponses.output.length === 0 && !openaiResponses.replayState && openaiResponses.include.length === 0 && !openaiResponses.store && openaiResponses.capturedAt === 0)) {
     return null
   }
   return {
     openaiResponses,
   }
+}
+
+export function cloneAIConversationContentBlocks(contentBlocks: unknown): Record<string, unknown>[] {
+  return Array.isArray(contentBlocks)
+    ? contentBlocks
+        .filter((block) => block && typeof block === 'object' && !Array.isArray(block))
+        .map((block) => JSON.parse(JSON.stringify(block)) as Record<string, unknown>)
+    : []
 }
 
 export function buildRequestMessages(apiMessages: unknown): AIRequestMessage[] {
@@ -350,17 +366,19 @@ export function buildRequestMessages(apiMessages: unknown): AIRequestMessage[] {
         .map((message) => ({
           role: message.role === 'assistant' ? 'assistant' : (message.role === 'system' ? 'system' : 'user'),
           content: typeof message.content === 'string' ? message.content.trim() : '',
+          contentBlocks: cloneAIConversationContentBlocks(message.contentBlocks),
           images: normalizeMessageImages(message.images),
           cacheObjects: cloneAIConversationCacheObjects(message.cacheObjects),
         }))
-        .filter((message) => message.content || message.images.length > 0 || (message.cacheObjects?.openaiResponses?.output?.length || 0) > 0)
+        .filter((message) => message.content || (message.contentBlocks?.length || 0) > 0 || message.images.length > 0 || (message.cacheObjects?.openaiResponses?.output?.length || 0) > 0 || Boolean(message.cacheObjects?.openaiResponses?.replayState))
     : []
 }
 
-export function createAPIHistoryMessage({ role, content, messageId = '', uiMessageIds = [], images = [], cacheObjects = null, ts = Date.now() }: { role: 'user' | 'assistant' | 'system'; content: string; messageId?: string; uiMessageIds?: string[]; images?: unknown; cacheObjects?: unknown; ts?: number }): APIHistoryMessage {
+export function createAPIHistoryMessage({ role, content, contentBlocks = [], messageId = '', uiMessageIds = [], images = [], cacheObjects = null, ts = Date.now() }: { role: 'user' | 'assistant' | 'system'; content: string; contentBlocks?: unknown; messageId?: string; uiMessageIds?: string[]; images?: unknown; cacheObjects?: unknown; ts?: number }): APIHistoryMessage {
   return {
     role,
     content,
+    contentBlocks: cloneAIConversationContentBlocks(contentBlocks),
     messageId,
     uiMessageIds,
     images: normalizeMessageImages(images),
@@ -457,8 +475,9 @@ export function findApiAnchorIndexByUiMessageId(apiMessages: unknown, uiMessageI
 export function upsertAPIHistoryMessage(apiMessages: unknown, rawMessage: AIAPIHistoryMessageLike, currentMessages: unknown = []): APIHistoryMessage[] {
   const role = rawMessage?.role === 'assistant' ? 'assistant' : (rawMessage?.role === 'system' ? 'system' : 'user')
   const content = typeof rawMessage?.content === 'string' ? rawMessage.content.trim() : ''
+  const contentBlocks = cloneAIConversationContentBlocks((rawMessage as { contentBlocks?: unknown } | undefined)?.contentBlocks)
   const images = normalizeMessageImages(rawMessage?.images)
-  if (!content && images.length === 0) {
+  if (!content && contentBlocks.length === 0 && images.length === 0) {
     return Array.isArray(apiMessages) ? apiMessages : []
   }
 
@@ -471,6 +490,7 @@ export function upsertAPIHistoryMessage(apiMessages: unknown, rawMessage: AIAPIH
   const nextMessage = createAPIHistoryMessage({
     role,
     content,
+    contentBlocks,
     messageId: typeof rawMessage?.messageId === 'string' ? rawMessage.messageId.trim() : '',
     uiMessageIds,
     images,
