@@ -216,6 +216,7 @@ export default function AIProviderQuickEditOverlay({
             active={activeTab === 'advanced'}
             draft={draft}
             setDraft={setDraft}
+            providerDefinition={providerDefinition}
           />
         </div>
       </div>

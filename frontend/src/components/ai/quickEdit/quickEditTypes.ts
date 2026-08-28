@@ -146,6 +146,7 @@ export interface ProviderDraft {
   provider: string;
   cacheStrategy: string;
   openAiResponsesUsePromptCacheRetention: boolean;
+  openAiResponsesFinishOnCompletedEvent: boolean;
   modelTemperature: number | null;
   modelTopP: number | null;
   baseUrl: string;
@@ -204,6 +205,7 @@ export function buildDraft(provider?: AIProviderLike | null): ProviderDraft {
       ? provider.cacheStrategy.trim()
       : (providerDefinition.value === 'Responses' ? 'model' : '5m'),
     openAiResponsesUsePromptCacheRetention: provider?.openAiResponsesUsePromptCacheRetention === true,
+    openAiResponsesFinishOnCompletedEvent: provider?.openAiResponsesFinishOnCompletedEvent === true,
     modelTemperature: normalizeOptionalNumber(provider?.modelTemperature),
     modelTopP: normalizeOptionalNumber(provider?.modelTopP),
     baseUrl: typeof provider?.baseUrl === 'string' ? provider.baseUrl : '',

@@ -7,14 +7,17 @@ export interface QuickEditAdvancedTabProps {
   active: boolean;
   draft: ProviderDraft;
   setDraft: React.Dispatch<React.SetStateAction<ProviderDraft>>;
+  providerDefinition?: { value: string };
 }
 
 export default function QuickEditAdvancedTab({
   active,
   draft,
   setDraft,
+  providerDefinition,
 }: QuickEditAdvancedTabProps) {
   const { t } = useTranslation();
+  const isResponsesProvider = (providerDefinition?.value || draft.provider) === 'Responses';
 
   return (
     <div className={`${active ? 'grid' : 'hidden'} gap-1.5 py-0.5`}>
@@ -80,6 +83,21 @@ export default function QuickEditAdvancedTab({
           <div className="text-xs leading-[1.25] text-tertiary">{t('关闭后不发送该参数')}</div>
         )}
       </div>
+      {isResponsesProvider ? (
+        <div className="grid gap-1 py-2 px-2.5 border border-line rounded-[var(--radius-md)] bg-overlay">
+          <StyledCheckbox
+            checked={draft.openAiResponsesFinishOnCompletedEvent === true}
+            onChange={(checked) => setDraft((prev) => ({
+              ...prev,
+              openAiResponsesFinishOnCompletedEvent: checked,
+            }))}>
+            <span className="text-sm font-semibold text-primary">{t('不等待[Done]流')}</span>
+          </StyledCheckbox>
+          <div className="text-xs leading-[1.25] text-tertiary">
+            {t('部分上游端点在发出 response.completed 终态事件后既不下发 [DONE] 哨兵帧, 也不关闭 SSE 连接, 导致响应流在末尾空转直到读取超时. 开启后以终态事件作为流结束判据, 本轮已接收的正文, 推理与用量指标仍会完整交给后续处理, 不会丢弃.')}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

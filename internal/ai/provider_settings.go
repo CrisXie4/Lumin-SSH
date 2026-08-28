@@ -121,6 +121,7 @@ func toAIProviderRuntimeProfile(profile AIProviderProfile) aiprovider.Profile {
 		ModelTopP:                              profile.ModelTopP,
 		CacheStrategy:                          profile.CacheStrategy,
 		OpenAIResponsesUsePromptCacheRetention: profile.OpenAIResponsesUsePromptCacheRetention,
+		OpenAIResponsesFinishOnCompletedEvent:  profile.OpenAIResponsesFinishOnCompletedEvent,
 		ReasoningEffort:                        profile.ReasoningEffort,
 		EnableReasoningEffort:                  profile.EnableReasoningEffort,
 		OpenAILegacyReasoningFormatEnabled:     profile.OpenAILegacyReasoningFormatEnabled,
