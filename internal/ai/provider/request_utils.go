@@ -24,6 +24,30 @@ type Profile struct {
 	ModelMaxThinkingTokens                 int
 }
 
+const defaultAIUserAgentTemplate = "Mozilla/5.0 (${taskHash}_Lumin; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"
+
+func getTaskHash(taskID string) string {
+	normalizedTaskID := strings.TrimSpace(taskID)
+	if normalizedTaskID == "" {
+		return ""
+	}
+	parts := strings.Split(normalizedTaskID, "-")
+	for index := len(parts) - 1; index >= 0; index-- {
+		if part := strings.TrimSpace(parts[index]); part != "" {
+			return part
+		}
+	}
+	return ""
+}
+
+func GetUserAgent(taskID string) string {
+	taskHash := getTaskHash(taskID)
+	if taskHash == "" {
+		return strings.Replace(strings.Replace(defaultAIUserAgentTemplate, "${taskHash}_", "", 1), "${taskHash}", "", 1)
+	}
+	return strings.Replace(defaultAIUserAgentTemplate, "${taskHash}", taskHash, 1)
+}
+
 func ApplySamplingParameters(requestBody map[string]any, profile Profile) {
 	if profile.ModelTemperature != nil {
 		requestBody["temperature"] = *profile.ModelTemperature

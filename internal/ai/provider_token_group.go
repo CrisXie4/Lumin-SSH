@@ -45,6 +45,7 @@ func requestAIProviderTokenGroup(client *http.Client, profile AIProviderProfile)
 	}
 
 	request.Header.Set("Accept", "application/json")
+	request.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
 	if key := strings.TrimSpace(profile.APIKey); key != "" {
 		request.Header.Set("Authorization", "Bearer "+key)
 	}

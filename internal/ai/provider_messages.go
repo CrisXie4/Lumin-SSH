@@ -180,6 +180,7 @@ func (a *Service) requestMessagesAIChatRound(ctx context.Context, requestID stri
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", aiprovider.GetUserAgent(requestID))
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("anthropic-version", "2023-06-01")
 	if apiKey := strings.TrimSpace(profile.APIKey); apiKey != "" {
