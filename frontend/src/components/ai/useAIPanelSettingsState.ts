@@ -3,7 +3,7 @@ import type * as React from 'react'
 import * as AppGo from '../../../wailsjs/go/wailsapp/App.js'
 import { t as translate, type I18nKey } from '../../i18n.ts'
 import { getAIGlobalSettings, saveAIGlobalSettings, normalizeAIGlobalSettings, type AIGlobalSettings } from './aiGlobalSettingsBridge.ts'
-import { getMCPSettingsState, saveMCPGlobalServer, reloadMCPGlobalServers, deleteMCPGlobalServer, restartMCPClientServer, toggleMCPClientServer, toggleMCPClientServerDisabledForPrompts, toggleMCPClientServerToolDisabledForPrompts, updateMCPClientServerTimeout, type MCPServerRuntime } from './mcpClientBridge.ts'
+import { getMCPSettingsState, saveMCPGlobalServer, saveMCPEmbeddedFirecrawlAPIKey, reloadMCPGlobalServers, deleteMCPGlobalServer, restartMCPClientServer, toggleMCPClientServer, toggleMCPClientServerDisabledForPrompts, toggleMCPClientServerToolDisabledForPrompts, updateMCPClientServerTimeout, type MCPServerRuntime } from './mcpClientBridge.ts'
 import { clearThemeToolPreviewPackage, setThemeToolPreviewPackage } from '../../utils/theme.ts'
 import type { AIConversationSnapshot, McpInfoState } from './aiChatLogic.ts'
 
@@ -25,6 +25,7 @@ export function useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedR
   const [mcpClientServers, setMCPClientServers] = useState<unknown[]>([])
   const [mcpClientGlobalConfigPath, setMCPClientGlobalConfigPath] = useState('')
   const [mcpClientGlobalConfigText, setMCPClientGlobalConfigText] = useState('{\n  "mcpServers": {}\n}')
+  const [mcpEmbeddedFirecrawlApiKey, setMCPEmbeddedFirecrawlApiKey] = useState('')
   const [showSettingsPanel, setShowSettingsPanel] = useState(false)
   const [popupDismissVersion, setPopupDismissVersion] = useState(0)
   const [activeSettingsTab, setActiveSettingsTab] = useState('')
@@ -59,6 +60,7 @@ export function useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedR
     setMCPClientServers(Array.isArray(rawClient?.servers) ? rawClient.servers : [])
     setMCPClientGlobalConfigPath(typeof rawClient?.globalConfigPath === 'string' ? rawClient.globalConfigPath : '')
     setMCPClientGlobalConfigText(typeof rawClient?.globalConfigText === 'string' && rawClient.globalConfigText.trim() ? rawClient.globalConfigText : '{\n  "mcpServers": {}\n}')
+    setMCPEmbeddedFirecrawlApiKey(typeof rawClient?.embeddedFirecrawlApiKey === 'string' ? rawClient.embeddedFirecrawlApiKey : '')
   }, [applyMCPInfo])
   const refreshMCPServerInfo = useCallback(async () => {
     try {
@@ -207,6 +209,11 @@ export function useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedR
     await saveMCPGlobalServer(name, configText)
     await refreshMCPServerInfo()
   }, [refreshMCPServerInfo])
+  // 内置 Firecrawl API Key: 失焦保存, 后端仅在 Key 变化时重启该 MCP
+  const handleSaveMCPEmbeddedFirecrawlApiKey = useCallback(async (apiKey: string) => {
+    await saveMCPEmbeddedFirecrawlAPIKey(apiKey)
+    await refreshMCPServerInfo()
+  }, [refreshMCPServerInfo])
   const handleReloadMCPGlobalServers = useCallback(async () => {
     await reloadMCPGlobalServers()
     await refreshMCPServerInfo()
@@ -293,6 +300,7 @@ export function useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedR
     mcpClientServers,
     mcpClientGlobalConfigPath,
     mcpClientGlobalConfigText,
+    mcpEmbeddedFirecrawlApiKey,
     showSettingsPanel,
     setShowSettingsPanel,
     popupDismissVersion,
@@ -321,6 +329,7 @@ export function useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedR
     normalizedGlobalAISettings,
     handleSaveAIPanelGlobalSettings,
     handleSaveMCPGlobalServer,
+    handleSaveMCPEmbeddedFirecrawlApiKey,
     handleReloadMCPGlobalServers,
     handleDeleteMCPGlobalServer,
     handleRestartMCPClientServer,

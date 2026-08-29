@@ -44,6 +44,7 @@ export interface MCPClientState {
   globalConfigText: string
   embeddedServers: unknown[]
   globalServerOrder: unknown[]
+  embeddedFirecrawlApiKey: string
 }
 
 function normalizeServerTool(tool: unknown): MCPServerTool {
@@ -99,8 +100,13 @@ export async function getMCPSettingsState(): Promise<{ service: MCPServiceInfo; 
     globalConfigText: typeof clientRecord.globalConfigText === 'string' ? clientRecord.globalConfigText : '{\n  "mcpServers": {}\n}',
     embeddedServers: Array.isArray(clientRecord.embeddedServers) ? clientRecord.embeddedServers : [],
     globalServerOrder: Array.isArray(clientRecord.globalServerOrder) ? clientRecord.globalServerOrder : [],
+    embeddedFirecrawlApiKey: typeof clientRecord.embeddedFirecrawlApiKey === 'string' ? clientRecord.embeddedFirecrawlApiKey : '',
   }
   return { service, client }
+}
+
+export async function saveMCPEmbeddedFirecrawlAPIKey(apiKey: string): Promise<void> {
+  await AppGo.SaveMCPEmbeddedFirecrawlAPIKey(apiKey)
 }
 
 export async function saveMCPGlobalServer(name: string, configText: string): Promise<void> {
