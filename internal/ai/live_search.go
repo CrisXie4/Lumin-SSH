@@ -55,7 +55,7 @@ func (a *Service) resolveAIProviderWebSearchRuntimeProfile(profile AIProviderPro
 	return normalizedProfile, nil
 }
 
-func (a *Service) searchAIProviderWeb(ctx context.Context, profile AIProviderProfile, query string, onProgress func(string)) (string, error) {
+func (a *Service) searchAIProviderWeb(ctx context.Context, requestID string, profile AIProviderProfile, query string, onProgress func(string)) (string, error) {
 	normalizedQuery := strings.TrimSpace(query)
 	if normalizedQuery == "" {
 		return "", fmt.Errorf("query 不能为空")
@@ -98,6 +98,7 @@ func (a *Service) searchAIProviderWeb(ctx context.Context, profile AIProviderPro
 	}
 
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", aiprovider.GetUserAgent(requestID))
 	request.Header.Set("Accept", "text/event-stream")
 	request.Header.Set("Authorization", "Bearer "+resolvedProfile.APIKey)
 

@@ -114,6 +114,7 @@ func (a *Service) ValidateAIProviderWebSearch(jsonStr string) AIProviderWebSearc
 		return result
 	}
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
 	request.Header.Set("Accept", "text/event-stream")
 	request.Header.Set("Authorization", "Bearer "+resolvedProfile.APIKey)
 

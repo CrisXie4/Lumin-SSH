@@ -1743,7 +1743,7 @@ func (a *Service) runAIChatLiveSearchToolExecution(execution *aiToolExecutionSta
 		rawResultText = uiResultText
 		stopAfterThisTool = true
 	} else {
-		resultText, err := a.searchAIProviderWeb(execution.ExecutionCtx, execution.Batch.Profile, query, func(content string) {
+		resultText, err := a.searchAIProviderWeb(execution.ExecutionCtx, execution.RequestID, execution.Batch.Profile, query, func(content string) {
 			if !a.isAIChatToolExecutionCurrent(execution.RequestID, execution.ExecutionID) {
 				return
 			}

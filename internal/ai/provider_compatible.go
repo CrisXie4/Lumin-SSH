@@ -60,6 +60,7 @@ func fetchCompatibleProviderModels(client *http.Client, baseURL string, apiKey s
 	}
 
 	request.Header.Set("Accept", "application/json")
+	request.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
 	if key := strings.TrimSpace(apiKey); key != "" {
 		request.Header.Set("Authorization", "Bearer "+key)
 	}
@@ -155,6 +156,7 @@ func fetchMessagesProviderModels(client *http.Client, baseURL string, apiKey str
 				continue
 			}
 			fallbackReq.Header.Set("Accept", "application/json")
+			fallbackReq.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
 			if key := strings.TrimSpace(apiKey); key != "" {
 				fallbackReq.Header.Set("Authorization", "Bearer "+key)
 			}
@@ -312,6 +314,7 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", aiprovider.GetUserAgent(requestID))
 	req.Header.Set("Accept", "text/event-stream")
 	if apiKey := strings.TrimSpace(profile.APIKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
