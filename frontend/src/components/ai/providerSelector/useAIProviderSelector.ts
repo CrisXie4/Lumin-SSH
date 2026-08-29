@@ -129,6 +129,7 @@ export function useAIProviderSelector({
     const capability = buildDisplayModelCapability(providerDefinition.value, providerDefinition.getModelCapability(selectedModel));
     let options = buildReasoningOptions(capability);
     const storedValue = typeof selectedProvider.reasoningEffort === 'string' ? selectedProvider.reasoningEffort.trim().toLowerCase() : '';
+    const hasStoredEffort = storedValue !== '' && storedValue !== 'disable';
     const defaultValue = typeof capability?.reasoningEffort === 'string' ? capability.reasoningEffort.trim().toLowerCase() : '';
     if (storedValue && storedValue !== 'disable' && !options.includes(storedValue)) {
       options = [...options, storedValue];
@@ -136,8 +137,16 @@ export function useAIProviderSelector({
     if (defaultValue && defaultValue !== 'disable' && !options.includes(defaultValue)) {
       options = [...options, defaultValue];
     }
-    if (capability?.reasoningMode !== 'effort' || options.length <= 1) {
+    // 能力表未收录该模型时，若供应商已保存过思考档位，仍展示档位按钮（补一个"关闭"选项供切换），
+    // 否则用户已配置的思考强度会连同入口一起消失。
+    if (capability?.reasoningMode !== 'effort' && !hasStoredEffort) {
       return { visible: false, options: [] as string[], currentValue: 'disable', currentLabel: '' };
+    }
+    if (options.length <= 1) {
+      if (!hasStoredEffort) {
+        return { visible: false, options: [] as string[], currentValue: 'disable', currentLabel: '' };
+      }
+      options = options.includes('disable') ? options : ['disable', ...options];
     }
     let currentValue = storedValue && options.includes(storedValue) ? storedValue : '';
     if (!currentValue) {
