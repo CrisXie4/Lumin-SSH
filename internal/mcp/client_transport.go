@@ -67,6 +67,9 @@ func listServerTools(ctx context.Context, transport rpcTransport, config ServerC
 			continue
 		}
 		_, alwaysAllow := alwaysAllowSet[name]
+		if !alwaysAllow {
+			_, alwaysAllow = alwaysAllowSet["*"]
+		}
 		_, disabledForPrompt := disabledForPromptSet[name]
 		tools = append(tools, ServerTool{
 			Name:             name,

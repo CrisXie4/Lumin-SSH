@@ -1,11 +1,16 @@
 import { RotateCcw, Save, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime.js'
 import { useTranslation } from '../../i18n.ts'
 import Tiptop from '../Tiptop.tsx'
 import { Switch } from '../ui'
 import { handleInputDragSelectAll } from './inputDragSelect.ts'
 
 const defaultConfigText = '{\n  "mcpServers": {}\n}'
+
+/** 内置 Firecrawl 远端 MCP 的服务器名与获取 Key 的官网地址 */
+const embeddedFirecrawlServerName = 'firecrawl'
+const firecrawlDashboardURL = 'https://www.firecrawl.dev/app'
 
 interface ToggleSwitchProps {
   checked: boolean
@@ -45,6 +50,8 @@ interface MCPServersViewProps {
   servers?: MCPManagedServer[]
   globalConfigPath?: string
   globalConfigText?: string
+  embeddedFirecrawlApiKey?: string
+  onSaveEmbeddedFirecrawlApiKey?: (apiKey: string) => Promise<unknown>
   onSaveServer?: (name: string, configText: string) => Promise<unknown>
   onReloadServers?: () => Promise<unknown>
   onDeleteServer?: (name: string) => Promise<unknown>
@@ -59,6 +66,8 @@ export default function MCPServersView({
   servers = [],
   globalConfigPath = '',
   globalConfigText = defaultConfigText,
+  embeddedFirecrawlApiKey = '',
+  onSaveEmbeddedFirecrawlApiKey,
   onSaveServer,
   onReloadServers,
   onDeleteServer,
@@ -73,11 +82,30 @@ export default function MCPServersView({
   const [saving, setSaving] = useState(false)
   const [reloading, setReloading] = useState(false)
   const [errorText, setErrorText] = useState('')
+  const [firecrawlApiKeyDraft, setFirecrawlApiKeyDraft] = useState(embeddedFirecrawlApiKey)
 
   useEffect(() => {
     setConfigText(globalConfigText || defaultConfigText)
     setErrorText('')
   }, [globalConfigText])
+
+  useEffect(() => {
+    setFirecrawlApiKeyDraft(embeddedFirecrawlApiKey)
+  }, [embeddedFirecrawlApiKey])
+
+  // 失焦即保存; 后端仅在 Key 真正变化时重启内置 Firecrawl MCP
+  const handleFirecrawlApiKeyBlur = async () => {
+    const nextApiKey = firecrawlApiKeyDraft.trim()
+    if (nextApiKey === embeddedFirecrawlApiKey.trim()) {
+      return
+    }
+    try {
+      await onSaveEmbeddedFirecrawlApiKey?.(nextApiKey)
+    } catch (error) {
+      setErrorText(normalizeErrorMessage(error))
+      setFirecrawlApiKeyDraft(embeddedFirecrawlApiKey)
+    }
+  }
 
   const sortedServers = useMemo(() => Array.isArray(servers) ? servers : [], [servers])
 
@@ -252,6 +280,41 @@ export default function MCPServersView({
                     <span className="text-sm text-secondary font-mono">{String(timeoutValue)}</span>
                   )}
                 </div>
+
+                {server.name === embeddedFirecrawlServerName ? (
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-sm font-bold text-primary">{t('API Key')}</span>
+                    <input
+                      id="mcp-embedded-firecrawl-api-key"
+                      name="mcp-embedded-firecrawl-api-key"
+                      autoComplete="off"
+                      type="text"
+                      spellCheck={false}
+                      value={firecrawlApiKeyDraft}
+                      placeholder={t('输入 Firecrawl API Key')}
+                      onChange={(event) => setFirecrawlApiKeyDraft(event.target.value)}
+                      onBlur={() => void handleFirecrawlApiKeyBlur()}
+                      onMouseLeave={handleInputDragSelectAll}
+                      className="flex-1 min-w-[220px] h-8 px-2.5 rounded-lg border border-line bg-overlay text-primary text-sm font-mono outline-none"
+                    />
+                    <Tiptop text={t('在系统浏览器中打开 Firecrawl 控制台')}>
+                      <span
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => BrowserOpenURL(firecrawlDashboardURL)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            BrowserOpenURL(firecrawlDashboardURL)
+                          }
+                        }}
+                        className="text-sm font-bold text-accent cursor-pointer select-none"
+                      >
+                        {t('获取Key')}
+                      </span>
+                    </Tiptop>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-1.5">
                   <div className="text-sm font-bold text-primary">{t('工具列表')}</div>

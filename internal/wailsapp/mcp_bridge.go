@@ -15,11 +15,12 @@ func (a *App) GetMCPServerInfo() map[string]interface{} {
 func (a *App) GetMCPSettingsState() map[string]interface{} {
 	serviceInfo := mcp.GetServerInfo(newMCPHost(a), mcpbridge.LoadServiceSettings(a.configManager.GetConfigDir()))
 	clientState := map[string]any{
-		"servers":           []mcp.ServerRuntime{},
-		"globalConfigPath":  "",
-		"globalConfigText":  "{\n  \"mcpServers\": {}\n}",
-		"embeddedServers":   []string{},
-		"globalServerOrder": []string{},
+		"servers":                 []mcp.ServerRuntime{},
+		"globalConfigPath":        "",
+		"globalConfigText":        "{\n  \"mcpServers\": {}\n}",
+		"embeddedServers":         []string{},
+		"globalServerOrder":       []string{},
+		"embeddedFirecrawlApiKey": "",
 	}
 	if a != nil && a.configManager != nil {
 		hub := mcp.InitializeClientHub(a.configManager.GetConfigDir())
@@ -115,6 +116,28 @@ func (a *App) ReloadMCPGlobalServers() error {
 		return fmt.Errorf("mcp client hub unavailable")
 	}
 	return hub.Reload()
+}
+
+func (a *App) GetMCPEmbeddedFirecrawlAPIKey() string {
+	if a == nil || a.configManager == nil {
+		return ""
+	}
+	hub := mcp.InitializeClientHub(a.configManager.GetConfigDir())
+	if hub == nil {
+		return ""
+	}
+	return hub.EmbeddedFirecrawlAPIKey()
+}
+
+func (a *App) SaveMCPEmbeddedFirecrawlAPIKey(apiKey string) error {
+	if a == nil || a.configManager == nil {
+		return nil
+	}
+	hub := mcp.InitializeClientHub(a.configManager.GetConfigDir())
+	if hub == nil {
+		return fmt.Errorf("mcp client hub unavailable")
+	}
+	return hub.SaveEmbeddedFirecrawlAPIKey(apiKey)
 }
 
 func (a *App) GetMCPOutputCompressionSettings() map[string]int {

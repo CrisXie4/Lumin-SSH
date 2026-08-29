@@ -57,6 +57,8 @@ export interface AIPanelSettingsOverlayProps {
   mcpClientServers?: unknown[];
   mcpClientGlobalConfigPath?: string;
   mcpClientGlobalConfigText?: string;
+  mcpEmbeddedFirecrawlApiKey?: string;
+  onSaveMCPEmbeddedFirecrawlApiKey?: (apiKey: string) => Promise<unknown>;
   onSaveMCPGlobalServer?: (name: string, configText: string) => Promise<unknown>;
   onReloadMCPGlobalServers?: () => Promise<unknown>;
   onDeleteMCPGlobalServer?: (name: string) => Promise<unknown>;
@@ -97,6 +99,8 @@ export default function AIPanelSettingsOverlay({
   mcpClientServers = [],
   mcpClientGlobalConfigPath = '',
   mcpClientGlobalConfigText = '',
+  mcpEmbeddedFirecrawlApiKey = '',
+  onSaveMCPEmbeddedFirecrawlApiKey,
   onSaveMCPGlobalServer,
   onReloadMCPGlobalServers,
   onDeleteMCPGlobalServer,
@@ -336,6 +340,8 @@ export default function AIPanelSettingsOverlay({
                 servers={mcpClientServers as Parameters<typeof MCPServersView>[0]['servers']}
                 globalConfigPath={mcpClientGlobalConfigPath}
                 globalConfigText={mcpClientGlobalConfigText}
+                embeddedFirecrawlApiKey={mcpEmbeddedFirecrawlApiKey}
+                onSaveEmbeddedFirecrawlApiKey={onSaveMCPEmbeddedFirecrawlApiKey}
                 onSaveServer={onSaveMCPGlobalServer}
                 onReloadServers={onReloadMCPGlobalServers}
                 onDeleteServer={onDeleteMCPGlobalServer}

@@ -92,7 +92,7 @@ func (h *ClientHub) Reload() error {
 	if h == nil {
 		return nil
 	}
-	embedded := LoadEmbeddedServerSettings()
+	embedded := LoadEmbeddedServerSettings(h.configDir)
 	global, err := h.globalStore.Load()
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (h *ClientHub) ReloadGlobalOnly() error {
 		return nil
 	}
 	if len(h.embedded.McpServers) == 0 {
-		h.embedded = LoadEmbeddedServerSettings()
+		h.embedded = LoadEmbeddedServerSettings(h.configDir)
 	}
 	global, err := h.globalStore.Load()
 	if err != nil {
@@ -771,11 +771,12 @@ func (h *ClientHub) BuildState() map[string]any {
 	servers := h.GetServers()
 	globalConfigText, _ := h.globalStore.LoadRawText()
 	return map[string]any{
-		"servers":           servers,
-		"globalConfigPath":  h.globalStore.Path(),
-		"globalConfigText":  globalConfigText,
-		"embeddedServers":   h.embedded.ServerOrder,
-		"globalServerOrder": h.global.ServerOrder,
+		"servers":                 servers,
+		"globalConfigPath":        h.globalStore.Path(),
+		"globalConfigText":        globalConfigText,
+		"embeddedServers":         h.embedded.ServerOrder,
+		"globalServerOrder":       h.global.ServerOrder,
+		"embeddedFirecrawlApiKey": LoadEmbeddedServerConfigSettings(h.configDir).FirecrawlAPIKey,
 	}
 }
 
@@ -784,4 +785,43 @@ func (h *ClientHub) GlobalStore() *ConfigStore {
 		return nil
 	}
 	return h.globalStore
+}
+
+// EmbeddedFirecrawlAPIKey 读取内置 Firecrawl 远端 MCP 当前生效的 API Key。
+func (h *ClientHub) EmbeddedFirecrawlAPIKey() string {
+	if h == nil {
+		return ""
+	}
+	return LoadEmbeddedServerConfigSettings(h.configDir).FirecrawlAPIKey
+}
+
+// SaveEmbeddedFirecrawlAPIKey 持久化内置 Firecrawl 的 API Key。
+// 仅在 Key 真正变化时才重启该 MCP, 避免失焦时的无意义重连。
+func (h *ClientHub) SaveEmbeddedFirecrawlAPIKey(apiKey string) error {
+	if h == nil {
+		return nil
+	}
+	changed, err := h.saveEmbeddedFirecrawlAPIKeyLocked(apiKey)
+	if err != nil || !changed {
+		return err
+	}
+	if restartErr := h.RestartServer(embeddedFirecrawlServerName, ServerSourceEmbedded); restartErr != nil {
+		// 连接尚未建立时 RestartServer 会失败, 此时整体 Reload 同样能让新 Key 生效。
+		return h.Reload()
+	}
+	return nil
+}
+
+func (h *ClientHub) saveEmbeddedFirecrawlAPIKeyLocked(apiKey string) (bool, error) {
+	h.configMu.Lock()
+	defer h.configMu.Unlock()
+	current := LoadEmbeddedServerConfigSettings(h.configDir)
+	next := NormalizeEmbeddedServerSettings(EmbeddedServerSettings{FirecrawlAPIKey: apiKey})
+	if next.FirecrawlAPIKey == current.FirecrawlAPIKey {
+		return false, nil
+	}
+	if err := SaveEmbeddedServerConfigSettings(h.configDir, next); err != nil {
+		return false, err
+	}
+	return true, nil
 }

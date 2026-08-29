@@ -198,6 +198,7 @@ export interface AISettingsOverlaySectionDeps {
   mcpClientServers: unknown[]
   mcpClientGlobalConfigPath: string
   mcpClientGlobalConfigText: string
+  mcpEmbeddedFirecrawlApiKey: string
   handleSaveAIPanelGlobalSettings: (patch: Record<string, unknown>) => Promise<unknown>
   handleToggleAiTerminalIsolation: () => Promise<void>
   handleToggleConfirmDelete: () => Promise<void>
@@ -205,6 +206,7 @@ export interface AISettingsOverlaySectionDeps {
   handleTerminalOutputLineLimitChange: (event: React.ChangeEvent<HTMLInputElement>) => void
   handleTerminalOutputCharacterLimitChange: (event: React.ChangeEvent<HTMLInputElement>) => void
   handleSaveMCPGlobalServer: (name: string, configText: string) => Promise<void>
+  handleSaveMCPEmbeddedFirecrawlApiKey: (apiKey: string) => Promise<void>
   handleReloadMCPGlobalServers: () => Promise<void>
   handleDeleteMCPGlobalServer: (name: string) => Promise<void>
   handleRestartMCPClientServer: (name: string, source: string) => Promise<void>
@@ -232,6 +234,7 @@ export function renderAISettingsOverlaySection({
   mcpClientServers,
   mcpClientGlobalConfigPath,
   mcpClientGlobalConfigText,
+  mcpEmbeddedFirecrawlApiKey,
   handleSaveAIPanelGlobalSettings,
   handleToggleAiTerminalIsolation,
   handleToggleConfirmDelete,
@@ -239,6 +242,7 @@ export function renderAISettingsOverlaySection({
   handleTerminalOutputLineLimitChange,
   handleTerminalOutputCharacterLimitChange,
   handleSaveMCPGlobalServer,
+  handleSaveMCPEmbeddedFirecrawlApiKey,
   handleReloadMCPGlobalServers,
   handleDeleteMCPGlobalServer,
   handleRestartMCPClientServer,
@@ -280,6 +284,8 @@ export function renderAISettingsOverlaySection({
         mcpClientServers={mcpClientServers}
         mcpClientGlobalConfigPath={mcpClientGlobalConfigPath}
         mcpClientGlobalConfigText={mcpClientGlobalConfigText}
+        mcpEmbeddedFirecrawlApiKey={mcpEmbeddedFirecrawlApiKey}
+        onSaveMCPEmbeddedFirecrawlApiKey={handleSaveMCPEmbeddedFirecrawlApiKey}
         onSaveMCPGlobalServer={handleSaveMCPGlobalServer}
         onReloadMCPGlobalServers={handleReloadMCPGlobalServers}
         onDeleteMCPGlobalServer={handleDeleteMCPGlobalServer}
