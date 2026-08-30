@@ -24,5 +24,6 @@
 /* Feature Domain Modules */
 @import "./styles/components/dashboard.css";
 @import "./styles/components/probe.css";
+@import "./styles/components/bigscreen.css";
 @import "./styles/components/filemanager.css";
 @import "./styles/components/terminal.css";
