@@ -4,6 +4,7 @@ import { WindowFullscreen, WindowUnfullscreen } from '../../../wailsjs/runtime/r
 import { useTranslation } from '../../i18n.ts';
 import { Z } from '../../constants/zIndex.ts';
 import { cn } from '../../utils/cn.ts';
+import { isUnsupportedMonitorSession, type SessionLike } from '../../utils/sessionWorkspace.ts';
 import type { config } from '../../../wailsjs/go/models.ts';
 import { BigScreenServerCard } from './BigScreenServerCard.tsx';
 import { useBigScreenData } from './useBigScreenData.ts';
@@ -22,6 +23,8 @@ interface BigScreenSessionLike {
   serverName?: unknown;
   host?: unknown;
   isLocal?: unknown;
+  shellPath?: unknown;
+  isSerial?: unknown;
 }
 
 export interface BigScreenPageProps {
@@ -38,6 +41,7 @@ const buildTargets = (sessions: BigScreenSessionLike[], servers: config.Connecti
   sessions.forEach((session) => {
     const sessionId = typeof session.id === 'string' ? session.id : '';
     if (!sessionId) return;
+    if (session.isSerial === true || isUnsupportedMonitorSession(session as SessionLike)) return;
     const serverId = typeof session.serverId === 'string' && session.serverId ? session.serverId : sessionId;
     if (seen.has(serverId)) return;
     seen.add(serverId);
@@ -55,6 +59,17 @@ const buildTargets = (sessions: BigScreenSessionLike[], servers: config.Connecti
 };
 
 const fallbackName = (serverId: string) => serverId.slice(0, 8);
+
+if (import.meta.env.DEV) {
+  const checkTargets = buildTargets([
+    { id: 'local-pwsh', isLocal: true, shellPath: 'pwsh.exe' },
+    { id: 'serial', isSerial: true },
+    { id: 'ssh', serverId: 'ssh', isLocal: false },
+  ], [{ id: 'ssh', name: 'SSH', host: 'example.com' } as config.Connection]);
+  if (checkTargets.length !== 1 || checkTargets[0].serverId !== 'ssh') {
+    throw new Error('数据大屏目标筛选自检失败');
+  }
+}
 
 /** 选中集合：新连接自动上屏；手动取消的选择在断开重连后仍然生效 */
 function useBigScreenSelection(targets: BigScreenTarget[], visible: boolean) {
@@ -135,7 +150,20 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
   const [dateLabel, setDateLabel] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wailsRuntime = hasWailsWindowRuntime();
+
+  useEffect(() => {
+    if (!visible) return;
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    rootRef.current?.focus();
+    return () => {
+      const element = restoreFocusRef.current;
+      if (element && element.isConnected) element.focus();
+      restoreFocusRef.current = null;
+    };
+  }, [visible]);
 
   // 时钟
   useEffect(() => {
@@ -168,6 +196,11 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     setPickerOpen(false);
     onClose();
   }, [isFullscreen, wailsRuntime, onClose]);
+
+  const handleGoHome = useCallback(() => {
+    handleClose();
+    onGoHome();
+  }, [handleClose, onGoHome]);
 
   const handleToggleFullscreen = useCallback(() => {
     try {
@@ -222,7 +255,35 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
   const hasSelection = selectedTargets.length > 0;
 
   return (
-    <div className="bs-root" style={{ zIndex: Z.FULLSCREEN_OVERLAY }} role="dialog" aria-label={t('数据大屏')}>
+    <div
+      ref={rootRef}
+      className="bs-root"
+      style={{ zIndex: Z.FULLSCREEN_OVERLAY }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('数据大屏')}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') return;
+        const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ));
+        if (focusable.length === 0) {
+          event.preventDefault();
+          event.currentTarget.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+    >
       <div className="bs-bg" aria-hidden="true" />
 
       <header className="bs-header">
@@ -310,7 +371,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
             <span className="bs-empty-icon"><Monitor size={44} /></span>
             <div className="bs-empty-title">{t('暂无已连接的服务器')}</div>
             <div className="bs-empty-text">{t('连接服务器后将自动出现在大屏')}</div>
-            <button type="button" className="bs-btn is-primary" onClick={onGoHome}>
+            <button type="button" className="bs-btn is-primary" onClick={handleGoHome}>
               <RefreshCw size={14} />
               <span>{t('返回主页')}</span>
             </button>
