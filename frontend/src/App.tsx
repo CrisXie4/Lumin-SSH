@@ -13,10 +13,11 @@ export default function App() {
   const orchestrator = useAppOrchestrator();
 
   const handleBigScreenGoHome = useCallback(() => {
+    orchestrator.bigScreen.close();
     orchestrator.sessionState.markWorkspaceRestoreNavigationOverride();
     orchestrator.sessionState.setActiveSessionId(null);
     orchestrator.sessionState.setActiveTerminalId(null);
-  }, [orchestrator.sessionState]);
+  }, [orchestrator.bigScreen.close, orchestrator.sessionState]);
 
   return (
     <div className="app-layout">

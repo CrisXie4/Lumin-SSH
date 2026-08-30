@@ -1888,7 +1888,7 @@ export default {
   "退出全屏": "Volledig scherm afsluiten",
   "退出大屏": "Dashboard sluiten",
   "暂无已连接的服务器": "Geen verbonden servers",
-  "连接服务器后将自动出现在大屏": "Verbonden servers verschijnen automatisch hier",
+  "连接服务器后将自动出现在大屏": "Verbonden servers verschijnen hier automatisch",
   "未选择任何服务器": "Geen servers geselecteerd",
   "等待数据…": "Wachten op gegevens…",
   "获取失败，正在重试": "Ophalen mislukt, opnieuw proberen",

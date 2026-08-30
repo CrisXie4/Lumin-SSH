@@ -158,8 +158,12 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
   }, []);
 
   const handleClose = useCallback(() => {
-    if (isFullscreen && wailsRuntime) {
-      try { WindowUnfullscreen(); } catch (_) { /* 忽略 */ }
+    if (wailsRuntime) {
+      if (isFullscreen) {
+        try { WindowUnfullscreen(); } catch (_) { /* 忽略 */ }
+      }
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => { /* 忽略 */ });
     }
     setPickerOpen(false);
     onClose();
@@ -179,7 +183,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     } catch (_) { /* 忽略 */ }
   }, [isFullscreen, wailsRuntime]);
 
-  // Esc：先关选择器，再退浏览器全屏（浏览器原生行为），最后关闭大屏
+  // Esc 分层退出：选择器 → 全屏（浏览器原生退全屏 / wails 手动退） → 关闭大屏
   useEffect(() => {
     if (!visible) return;
     const handler = (event: KeyboardEvent) => {
@@ -188,12 +192,17 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
         setPickerOpen(false);
         return;
       }
+      if (wailsRuntime && isFullscreen) {
+        try { WindowUnfullscreen(); } catch (_) { /* 忽略 */ }
+        setIsFullscreen(false);
+        return;
+      }
       if (document.fullscreenElement) return;
       handleClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [visible, pickerOpen, handleClose]);
+  }, [visible, pickerOpen, isFullscreen, wailsRuntime, handleClose]);
 
   // 点击选择器外部关闭
   useEffect(() => {

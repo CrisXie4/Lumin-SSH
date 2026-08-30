@@ -27,6 +27,8 @@ export function useBigScreenData(targets: BigScreenTarget[], enabled: boolean) {
   const staticRef = useRef(staticInfo);
   staticRef.current = staticInfo;
   const timersRef = useRef<Map<string, number>>(new Map());
+  // 在途请求跟踪：超时只放弃等待，底层 SSH 采集仍在跑，必须阻止同一 serverId 重叠请求
+  const inflightRef = useRef<Set<string>>(new Set());
   const runIdRef = useRef(0);
   const intervalRef = useRef(intervalSec);
   intervalRef.current = intervalSec;
@@ -39,14 +41,19 @@ export function useBigScreenData(targets: BigScreenTarget[], enabled: boolean) {
   }, []);
 
   const fetchOne = useCallback(async (target: BigScreenTarget, runId: number) => {
+    if (inflightRef.current.has(target.serverId)) return;
+    inflightRef.current.add(target.serverId);
     mergePoint(target.serverId, { loading: true });
+    let timeoutTimer: number | undefined;
     try {
       const raw = await Promise.race([
         AppGo.SystemInfo(target.sessionId),
-        new Promise<never>((_, reject) => setTimeout(
-          () => reject(new Error('PROBE_FETCH_TIMEOUT')),
-          BIG_SCREEN_FETCH_TIMEOUT_MS,
-        )),
+        new Promise<never>((_, reject) => {
+          timeoutTimer = window.setTimeout(
+            () => reject(new Error('PROBE_FETCH_TIMEOUT')),
+            BIG_SCREEN_FETCH_TIMEOUT_MS,
+          );
+        }),
       ]);
       if (runId !== runIdRef.current) return;
       const si = staticRef.current[target.serverId] || {};
@@ -112,6 +119,9 @@ export function useBigScreenData(targets: BigScreenTarget[], enabled: boolean) {
         errorCount: prevPoint.errorCount + 1,
         updatedAt: prevPoint.updatedAt,
       });
+    } finally {
+      if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
+      inflightRef.current.delete(target.serverId);
     }
   }, [mergePoint, t]);
 

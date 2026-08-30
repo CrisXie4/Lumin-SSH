@@ -35,7 +35,7 @@ export default function WorkspaceDashboardSection({
     handleGroupDelete = async () => {},
     handleMoveGroup = async () => {},
     handleOpenImportExport = () => {},
-    handleOpenBigScreen = () => {},
+    handleOpenBigScreen,
     handleRefreshPing = () => {},
     handleRenameGroup = async () => false,
     handleSaveAndConnectServer = async () => null,

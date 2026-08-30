@@ -1890,7 +1890,7 @@ export default {
   "暂无已连接的服务器": "Keine verbundenen Server",
   "连接服务器后将自动出现在大屏": "Verbundene Server erscheinen automatisch hier",
   "未选择任何服务器": "Keine Server ausgewählt",
-  "等待数据…": "Warte auf Daten…",
+  "等待数据…": "Warten auf Daten…",
   "获取失败，正在重试": "Abruf fehlgeschlagen, erneuter Versuch",
   "运行时长": "Laufzeit",
   "更新于 {time}": "Aktualisiert um {time}",
