@@ -557,6 +557,19 @@ sample_procs > "$proctmp"`) {
 	}
 }
 
+func TestDynamicProbeScriptLiteModeSkipsProcesses(t *testing.T) {
+	if !strings.Contains(dynamicProbeScript, `if [ "$1" = "procs" ]; then`) {
+		t.Fatal("进程采集必须仍由 procs 参数显式开启")
+	}
+	if strings.Contains(dynamicProbeScript, `if [ "$1" = "lite" ]; then
+mkdir -p /tmp/.lumin`) {
+		t.Fatal("lite 模式不得创建进程采样临时文件")
+	}
+	if !strings.Contains(buildProbeScriptRunCommand(" lite"), `sh "$f" lite`) {
+		t.Fatal("lite 模式必须透传 lite 参数")
+	}
+}
+
 // sample() 的 stat/status 读取必须是纯 shell 内建(read),不得逐 PID fork
 // awk/cat——低配路由器上 150 进程 × 2 采样 ≈ 1200 次 fork/exec,逼近超时。
 // cmdline 的 NUL→空格转换保留一次 tr(read 无法处理 NUL)。

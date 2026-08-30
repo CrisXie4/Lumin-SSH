@@ -857,6 +857,11 @@ func (a *App) SystemInfo(sessionId string) (map[string]interface{}, error) {
 	return a.sshManager.GetSystemInfo(sessionId)
 }
 
+// SystemInfoLite retrieves CPU, memory, disk, network, and uptime metrics for the big-screen view.
+func (a *App) SystemInfoLite(sessionId string) (map[string]interface{}, error) {
+	return a.sshManager.GetSystemInfoLite(sessionId)
+}
+
 // NetworkInfo retrieves full network probe info including connection details.
 func (a *App) NetworkInfo(sessionId string) (map[string]interface{}, error) {
 	return a.sshManager.GetNetworkInfo(sessionId)

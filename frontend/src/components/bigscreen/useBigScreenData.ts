@@ -46,7 +46,7 @@ export function useBigScreenData(targets: BigScreenTarget[], enabled: boolean) {
     mergePoint(target.serverId, { loading: true });
     let timeoutTimer: number | undefined;
     // 超时只是放弃等待，底层 SSH 采集仍在跑：底层 promise 结算（哪怕晚于超时）才释放在途标记
-    const requestPromise = AppGo.SystemInfo(target.sessionId);
+    const requestPromise = AppGo.SystemInfoLite(target.sessionId);
     requestPromise
       .finally(() => {
         inflightRef.current.delete(target.serverId);
