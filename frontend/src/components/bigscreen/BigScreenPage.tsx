@@ -77,50 +77,44 @@ function useBigScreenSelection(targets: BigScreenTarget[], visible: boolean) {
 
   useEffect(() => {
     if (!visible || targets.length === 0) return;
-    setSelected((prev) => {
-      const seen = readStringSet(BIG_SCREEN_SEEN_KEY);
-      let changed = false;
-      const next = new Set(prev);
-      targets.forEach((target) => {
-        if (!seen.has(target.serverId)) {
-          // 从未见过的服务器自动上屏
-          next.add(target.serverId);
-          changed = true;
-        }
-      });
-      [...next].forEach((id) => {
-        if (!targets.some((target) => target.serverId === id)) {
-          next.delete(id);
-          changed = true;
-        }
-      });
-      const nextSeen = new Set(seen);
-      targets.forEach((target) => nextSeen.add(target.serverId));
-      writeStringSet(BIG_SCREEN_SELECTED_KEY, next);
-      writeStringSet(BIG_SCREEN_SEEN_KEY, nextSeen);
-      return changed ? next : prev;
+    const seen = readStringSet(BIG_SCREEN_SEEN_KEY);
+    const next = new Set(selected);
+    targets.forEach((target) => {
+      if (!seen.has(target.serverId)) {
+        // 从未见过的服务器自动上屏
+        next.add(target.serverId);
+      }
     });
-  }, [visible, targets]);
+    [...next].forEach((id) => {
+      if (!targets.some((target) => target.serverId === id)) next.delete(id);
+    });
+    const nextSeen = new Set(seen);
+    targets.forEach((target) => nextSeen.add(target.serverId));
+    writeStringSet(BIG_SCREEN_SEEN_KEY, nextSeen);
+    const changed = next.size !== selected.size || [...next].some((id) => !selected.has(id));
+    if (changed) setSelected(next);
+  }, [visible, targets, selected]);
+
+  useEffect(() => {
+    writeStringSet(BIG_SCREEN_SELECTED_KEY, selected);
+  }, [selected]);
 
   const toggle = useCallback((serverId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(serverId)) next.delete(serverId);
       else next.add(serverId);
-      writeStringSet(BIG_SCREEN_SELECTED_KEY, next);
       return next;
     });
   }, []);
 
   const selectAll = useCallback((all: BigScreenTarget[]) => {
     const next = new Set(all.map((target) => target.serverId));
-    writeStringSet(BIG_SCREEN_SELECTED_KEY, next);
     setSelected(next);
   }, []);
 
   const clearAll = useCallback(() => {
     const next = new Set<string>();
-    writeStringSet(BIG_SCREEN_SELECTED_KEY, next);
     setSelected(next);
   }, []);
 
