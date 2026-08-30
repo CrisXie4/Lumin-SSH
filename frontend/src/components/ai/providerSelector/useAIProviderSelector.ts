@@ -18,6 +18,8 @@ import {
   isAIProviderBalanceLabelEnabled,
   normalizeOptionalNumber,
   parseAIProviderBalanceNumber,
+  ADAPTIVE_MODEL_MIN_WIDTH,
+  ADAPTIVE_PROVIDER_MIN_WIDTH,
   resolveAdaptiveLabelLayout,
   resolveAdaptiveSelectorAvailableWidth,
   resolveAIProviderBaseOrigin,
@@ -82,6 +84,7 @@ export function useAIProviderSelector({
   const [modelLabelFontSize, setModelLabelFontSize] = useState(12);
   const [providerTriggerWidth, setProviderTriggerWidth] = useState(0);
   const [modelTriggerWidth, setModelTriggerWidth] = useState(0);
+  const [minSelectorWidth, setMinSelectorWidth] = useState(0);
   const isControlled = typeof currentProviderId === 'string';
   const effectiveSelectedId = isControlled ? currentProviderId : persistedCurrentProviderId;
 
@@ -193,6 +196,15 @@ export function useAIProviderSelector({
       ? Math.ceil(reasoningButtonRef.current.getBoundingClientRect().width)
       : 0;
     const overlapWidth = (quickModelConfig.visible ? 1 : 0) + (quickReasoningConfig.visible ? 1 : 0);
+    // 容器自身可被 flex 压缩（flex-basis 0），必须保住内部按钮最小宽度之和，
+    // 否则按钮会溢出 overflow-visible 的容器、盖住底栏相邻按钮。
+    setMinSelectorWidth(Math.max(
+      ADAPTIVE_PROVIDER_MIN_WIDTH,
+      ADAPTIVE_PROVIDER_MIN_WIDTH
+        + (quickModelConfig.visible ? ADAPTIVE_MODEL_MIN_WIDTH : 0)
+        + (quickReasoningConfig.visible && reasoningWidth > 0 ? reasoningWidth : 0)
+        - overlapWidth,
+    ));
     const layout = resolveAdaptiveLabelLayout({
       providerText,
       modelText,
@@ -955,6 +967,7 @@ export function useAIProviderSelector({
     modelLabelFontSize,
     providerTriggerWidth,
     modelTriggerWidth,
+    minSelectorWidth,
     filteredProviders,
     pinnedProviders,
     normalProviders,

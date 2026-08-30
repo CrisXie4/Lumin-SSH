@@ -67,6 +67,7 @@ export default function AIProviderSelector({
     modelLabelFontSize,
     providerTriggerWidth,
     modelTriggerWidth,
+    minSelectorWidth,
     filteredProviders,
     pinnedProviders,
     normalProviders,
@@ -95,7 +96,10 @@ export default function AIProviderSelector({
       <div
         ref={containerRef}
         className="relative flex-[1_1_0] w-0 max-w-full overflow-visible"
-        style={{ zIndex: open || modelMenuOpen || reasoningMenuOpen ? 40 : 'auto' }}
+        style={{
+          zIndex: open || modelMenuOpen || reasoningMenuOpen ? 40 : 'auto',
+          ...(minSelectorWidth > 0 ? { minWidth: minSelectorWidth } : {}),
+        }}
       >
         {providerBalanceLabelEnabled && providerBalanceDeltaLabel ? (
           <span
