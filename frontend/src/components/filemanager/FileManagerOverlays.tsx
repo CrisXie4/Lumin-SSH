@@ -96,7 +96,11 @@ export function renderFileManagerOverlays(fm: FileManagerController, uploadPanel
           }}
           onCopyPath={() => {
             if (contextMenu.item) {
-              handleCopyPath(contextMenu.item, contextMenu.itemBasePath || currentPath);
+              handleCopyPath(
+                contextMenu.item,
+                contextMenu.itemBasePath || currentPath,
+                contextMenu.clipboardUsesSelectedPaths ? [...selectedPathsRef.current] : [],
+              );
             }
             closeContextMenu();
           }}
