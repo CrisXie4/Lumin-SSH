@@ -45,9 +45,16 @@ export function useBigScreenData(targets: BigScreenTarget[], enabled: boolean) {
     inflightRef.current.add(target.serverId);
     mergePoint(target.serverId, { loading: true });
     let timeoutTimer: number | undefined;
+    // 超时只是放弃等待，底层 SSH 采集仍在跑：底层 promise 结算（哪怕晚于超时）才释放在途标记
+    const requestPromise = AppGo.SystemInfo(target.sessionId);
+    requestPromise
+      .finally(() => {
+        inflightRef.current.delete(target.serverId);
+      })
+      .catch(() => { /* race 结算后到达的迟到拒绝在此吞掉 */ });
     try {
       const raw = await Promise.race([
-        AppGo.SystemInfo(target.sessionId),
+        requestPromise,
         new Promise<never>((_, reject) => {
           timeoutTimer = window.setTimeout(
             () => reject(new Error('PROBE_FETCH_TIMEOUT')),
@@ -121,7 +128,6 @@ export function useBigScreenData(targets: BigScreenTarget[], enabled: boolean) {
       });
     } finally {
       if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
-      inflightRef.current.delete(target.serverId);
     }
   }, [mergePoint, t]);
 
