@@ -143,8 +143,6 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     () => targets.filter((target) => selected.has(target.serverId)),
     [targets, selected],
   );
-  const { data, staticInfo, intervalSec } = useBigScreenData(selectedTargets, visible);
-
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [clock, setClock] = useState('');
   const [dateLabel, setDateLabel] = useState('');
@@ -153,6 +151,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
   const rootRef = useRef<HTMLDivElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wailsRuntime = hasWailsWindowRuntime();
+  const { data, staticInfo, intervalSec } = useBigScreenData(selectedTargets, visible && isFullscreen);
 
   useEffect(() => {
     if (!visible) return;
@@ -193,6 +192,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     } else if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => { /* 忽略 */ });
     }
+    setIsFullscreen(false);
     setPickerOpen(false);
     onClose();
   }, [isFullscreen, wailsRuntime, onClose]);
