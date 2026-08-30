@@ -45,11 +45,19 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
   } = deps;
 
   // Download file via Wails native file dialog
-  const handleCopyPath = (item: FileManagerFileItem, basePath = currentPath) => {
-    let fullPath = joinPath(basePath, item.name);
-    if (item.isDirectory && !fullPath.endsWith('/')) fullPath += '/';
-    navigator.clipboard?.writeText(fullPath).then(() => {
-      addToast?.(`${t('已复制')}: ${fullPath}`, 'success');
+  const handleCopyPath = (item: FileManagerFileItem, basePath = currentPath, selectedItemPaths: unknown[] = []) => {
+    const normalizedSelectedPaths = Array.isArray(selectedItemPaths)
+      ? selectedItemPaths.map((path) => String(path || '').trim()).filter(Boolean)
+      : [];
+    let paths = normalizedSelectedPaths;
+    if (paths.length === 0) {
+      let fullPath = joinPath(basePath, item.name);
+      if (item.isDirectory && !fullPath.endsWith('/')) fullPath += '/';
+      paths = [fullPath];
+    }
+    const clipboardText = paths.join('\n');
+    navigator.clipboard?.writeText(clipboardText).then(() => {
+      addToast?.(`${t('已复制')}: ${paths.length > 1 ? `${paths.length}${t('项')}` : clipboardText}`, 'success');
     }).catch(() => {
       addToast?.(t('复制失败'), 'error');
     });
