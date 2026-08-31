@@ -19,6 +19,7 @@ import useImportExport from './useImportExport.ts';
 import usePanelLayout from './usePanelLayout.ts';
 import usePortForwardDialog from './usePortForwardDialog.ts';
 import useAIReview from './useAIReview.ts';
+import useGitReview from './useGitReview.ts';
 import useAppAnimations from './useAppAnimations.ts';
 import useAppServerOperations from './useAppServerOperations.ts';
 import useAppGlobalEvents from './useAppGlobalEvents.ts';
@@ -118,6 +119,7 @@ export default function useAppOrchestrator() {
     handleApplyConversationDiffRestore,
     handleSelectConversationDiffItem,
   } = useAIReview({ sessionsRef, addToast: looseAddToast, t: looseT });
+  const { gitReview } = useGitReview();
 
   const sessionState = useAppSessionHub({
     servers,
@@ -395,6 +397,7 @@ export default function useAppOrchestrator() {
       clearRecentConnections,
       removeRecentConnection,
     },
+    gitReview,
     aiReview: {
       activeChangeReview,
       activeChangeReviewQueue,

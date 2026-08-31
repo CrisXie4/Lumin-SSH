@@ -68,6 +68,9 @@ export function useSettingsGeneralState(addToast: ToastFn) {
   const [confirmFileDelete, setConfirmFileDelete] = useState(localStorage.getItem('skipFileDeleteConfirm') !== 'true');
   const [confirmProcessKill, setConfirmProcessKill] = useState(localStorage.getItem('skipProcessKillConfirm') !== 'true');
   const [confirmTerminalSelectionPaste, setConfirmTerminalSelectionPaste] = useState(localStorage.getItem('skipTerminalSelectionPasteConfirm') !== 'true');
+  const [confirmGitDiscard, setConfirmGitDiscard] = useState(localStorage.getItem('skipGitDiscardConfirm') !== 'true');
+  const [confirmGitForcePush, setConfirmGitForcePush] = useState(localStorage.getItem('skipGitForcePushConfirm') !== 'true');
+  const [confirmGitUntrack, setConfirmGitUntrack] = useState(localStorage.getItem('skipGitUntrackConfirm') !== 'true');
   const [windowCloseAction, setWindowCloseAction] = useState(localStorage.getItem('windowCloseAction') || 'ask');
   const [updateUseProxy, setUpdateUseProxy] = useState(localStorage.getItem('updateUseProxy') === 'true');
   const [rememberWorkspace, setRememberWorkspace] = useState(false);
@@ -102,6 +105,24 @@ export function useSettingsGeneralState(addToast: ToastFn) {
     setConfirmTerminalSelectionPaste(next);
     if (next) localStorage.removeItem('skipTerminalSelectionPasteConfirm');
     else localStorage.setItem('skipTerminalSelectionPasteConfirm', 'true');
+  };
+  const handleToggleConfirmGitDiscard = () => {
+    const next = !confirmGitDiscard;
+    setConfirmGitDiscard(next);
+    if (next) localStorage.removeItem('skipGitDiscardConfirm');
+    else localStorage.setItem('skipGitDiscardConfirm', 'true');
+  };
+  const handleToggleConfirmGitForcePush = () => {
+    const next = !confirmGitForcePush;
+    setConfirmGitForcePush(next);
+    if (next) localStorage.removeItem('skipGitForcePushConfirm');
+    else localStorage.setItem('skipGitForcePushConfirm', 'true');
+  };
+  const handleToggleConfirmGitUntrack = () => {
+    const next = !confirmGitUntrack;
+    setConfirmGitUntrack(next);
+    if (next) localStorage.removeItem('skipGitUntrackConfirm');
+    else localStorage.setItem('skipGitUntrackConfirm', 'true');
   };
   const handleWindowCloseActionChange = (value: string) => {
     setWindowCloseAction(value);
@@ -190,6 +211,9 @@ export function useSettingsGeneralState(addToast: ToastFn) {
     confirmFileDelete,
     confirmProcessKill,
     confirmTerminalSelectionPaste,
+    confirmGitDiscard,
+    confirmGitForcePush,
+    confirmGitUntrack,
     windowCloseAction,
     updateUseProxy,
     rememberWorkspace,
@@ -207,6 +231,9 @@ export function useSettingsGeneralState(addToast: ToastFn) {
     handleToggleConfirmFileDelete,
     handleToggleConfirmProcessKill,
     handleToggleConfirmTerminalSelectionPaste,
+    handleToggleConfirmGitDiscard,
+    handleToggleConfirmGitForcePush,
+    handleToggleConfirmGitUntrack,
     handleWindowCloseActionChange,
     handleToggleUpdateUseProxy,
     handleToggleRememberWorkspace,

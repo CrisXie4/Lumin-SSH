@@ -1,15 +1,19 @@
 export const GLOBAL_CONTEXT_MENU_OPEN_EVENT = 'lumin-open-context-menu';
 
-/** 全局右键菜单项 */
-interface GlobalContextMenuItem {
-  key: string;
-  label: string;
-  shortcut?: string;
-  danger?: boolean;
-  disabled?: boolean;
-  children?: GlobalContextMenuItem[];
-  onSelect?: () => void | Promise<void>;
-}
+export type GlobalContextMenuItem =
+  | {
+      type: 'divider';
+      key?: string;
+    }
+  | {
+      key: string;
+      label: string;
+      shortcut?: string;
+      danger?: boolean;
+      disabled?: boolean;
+      children?: GlobalContextMenuItem[];
+      onSelect?: () => void | Promise<void>;
+    };
 
 /** 全局右键菜单详情（由 openGlobalContextMenu 派发，GlobalContextMenu 组件消费） */
 export interface GlobalContextMenuDetail {

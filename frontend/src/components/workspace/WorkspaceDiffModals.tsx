@@ -14,6 +14,7 @@ export interface WorkspaceDiffModalsProps {
 
 export default function WorkspaceDiffModals({ ai, sessions }: WorkspaceDiffModalsProps) {
   const {
+    gitReview,
     activeChangeReview,
     activeChangeReviewQueue = [],
     activeRestorePreviewReview,
@@ -26,7 +27,6 @@ export default function WorkspaceDiffModals({ ai, sessions }: WorkspaceDiffModal
     setConversationDiffPanels,
     setRestorePreviewReviews,
   } = ai;
-
   return (
     <>
       {activeChangeReview ? (
@@ -34,6 +34,22 @@ export default function WorkspaceDiffModals({ ai, sessions }: WorkspaceDiffModal
           <AIChangeReviewWorkbench
             review={activeChangeReview as Parameters<typeof AIChangeReviewWorkbench>[0]['review']}
             queueLength={activeChangeReviewQueue.length}
+          />
+        </Suspense>
+      ) : null}
+      {gitReview ? (
+        <Suspense>
+          <AIChangeReviewWorkbench
+            review={gitReview as Parameters<typeof AIChangeReviewWorkbench>[0]['review']}
+            queueLength={1}
+            previewOnly={true}
+            onClose={() => {
+              window.dispatchEvent(new CustomEvent('git-change-review-clear', {
+                detail: {
+                  reviewId: String((gitReview as { reviewId?: unknown }).reviewId || ''),
+                },
+              }));
+            }}
           />
         </Suspense>
       ) : null}

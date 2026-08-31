@@ -32,7 +32,11 @@ export default function ContextMenu({ pos, item, mode = 'item', isPinned = false
         entries.push({ label: t('关闭标签'), icon: icon(X), onSelect: onCloseTab });
       }
       if (item) {
-        entries.push({ label: t('复制路径'), icon: icon(Copy), onSelect: onCopyPath });
+        entries.push({
+          label: `${t('复制路径')}${clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : ''}`,
+          icon: icon(Copy),
+          onSelect: onCopyPath,
+        });
       }
       if (item && !isTabMenu) {
         entries.push({

@@ -15,6 +15,7 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
     panelLayout,
     preferences,
     aiReview,
+    gitReview,
     animations,
     serverOps,
     quickCommands,
@@ -42,6 +43,7 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
       probePanelCollapsed={panelLayout.probePanelCollapsed}
       setProbeSnapshots={panelLayout.setProbeSnapshots}
       setMonitoringEnabled={panelLayout.setMonitoringEnabled}
+      activeTerminalId={sessionState.activeTerminalId || ''}
       setContentTab={sessionState.setContentTab}
       openPortForwardDialog={(sId: string, initialMapping?: unknown, initialTab?: string) => openPortForwardDialog(sId, initialMapping as string | number | null | undefined, initialTab)}
       addToast={shared.addToast}
@@ -204,6 +206,7 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
         terminalToolbarIconOnly: globalEvents.terminalToolbarIconOnly,
       }}
       ai={{
+        gitReview,
         activeChangeReview: aiReview.activeChangeReview,
         activeChangeReviewQueue: aiReview.activeChangeReviewQueue,
         activeConversationDiffPanel: aiReview.activeConversationDiffPanel,
