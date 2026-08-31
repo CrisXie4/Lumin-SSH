@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   List,
   Monitor,
+  MonitorUp,
   Search,
   Terminal,
   Trash2,
@@ -41,6 +42,7 @@ export interface DashboardHeaderActionsProps {
   allCollapsed: boolean;
   onToggleCollapseAllGroups: () => void;
   onOpenImportExport: () => void;
+  onOpenBigScreen?: () => void;
   onClearRecent: () => Promise<void>;
   hasRecentServers: boolean;
 }
@@ -64,6 +66,7 @@ export function DashboardHeaderActions({
   allCollapsed,
   onToggleCollapseAllGroups,
   onOpenImportExport,
+  onOpenBigScreen,
   onClearRecent,
   hasRecentServers,
 }: DashboardHeaderActionsProps) {
@@ -180,6 +183,18 @@ export function DashboardHeaderActions({
             items={localMenuItems}
             onClose={() => setLocalMenuPos(null)}
           />
+        )}
+
+        {onOpenBigScreen && (
+          <Button
+            variant="secondary"
+            onClick={onOpenBigScreen}
+            aria-label={t('数据大屏')}
+            className="h-8.5 shrink-0 gap-1.5 rounded-[var(--radius-sm)] px-3 text-[13px] font-medium"
+          >
+            <MonitorUp size={14} />
+            <span className="hidden md:inline">{t('数据大屏')}</span>
+          </Button>
         )}
 
         {hostPageMode === 'hosts' ? (

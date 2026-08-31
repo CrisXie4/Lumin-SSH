@@ -48,6 +48,9 @@ export default function useAppOrchestrator() {
   const [settingsInitialTab, setSettingsInitialTab] = useState('general');
   const [showCredentials, setShowCredentials] = useState(false);
   const [showSerialModal, setShowSerialModal] = useState(false);
+  const [showBigScreen, setShowBigScreen] = useState(false);
+  const handleOpenBigScreen = useCallback(() => setShowBigScreen(true), []);
+  const handleCloseBigScreen = useCallback(() => setShowBigScreen(false), []);
 
   const { toasts, addToast, removeToast, handleToastAction } = useToasts();
   const looseAddToast = addToast as (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number;
@@ -308,6 +311,7 @@ export default function useAppOrchestrator() {
     handleToggleMaximise: topbarState.handleToggleMaximise,
     handleCloseWindow: sessionState.handleCloseWindow,
     reconnectSession: sessionState.reconnectSession,
+    onOpenBigScreen: handleOpenBigScreen,
   };
 
   const sharedProps = { addToast: looseAddToast, t: looseT };
@@ -420,6 +424,11 @@ export default function useAppOrchestrator() {
     globalEvents,
     shared: sharedProps,
     topbarProps,
+    bigScreen: {
+      visible: showBigScreen,
+      open: handleOpenBigScreen,
+      close: handleCloseBigScreen,
+    },
     overlaysProps: {
       dialogs: dialogsProps,
       importExport: importExportProps,

@@ -18,6 +18,8 @@ import {
   isAIProviderBalanceLabelEnabled,
   normalizeOptionalNumber,
   parseAIProviderBalanceNumber,
+  ADAPTIVE_MODEL_MIN_WIDTH,
+  ADAPTIVE_PROVIDER_MIN_WIDTH,
   resolveAdaptiveLabelLayout,
   resolveAdaptiveSelectorAvailableWidth,
   resolveAIProviderBaseOrigin,
@@ -82,6 +84,7 @@ export function useAIProviderSelector({
   const [modelLabelFontSize, setModelLabelFontSize] = useState(12);
   const [providerTriggerWidth, setProviderTriggerWidth] = useState(0);
   const [modelTriggerWidth, setModelTriggerWidth] = useState(0);
+  const [minSelectorWidth, setMinSelectorWidth] = useState(0);
   const isControlled = typeof currentProviderId === 'string';
   const effectiveSelectedId = isControlled ? currentProviderId : persistedCurrentProviderId;
 
@@ -129,6 +132,7 @@ export function useAIProviderSelector({
     const capability = buildDisplayModelCapability(providerDefinition.value, providerDefinition.getModelCapability(selectedModel));
     let options = buildReasoningOptions(capability);
     const storedValue = typeof selectedProvider.reasoningEffort === 'string' ? selectedProvider.reasoningEffort.trim().toLowerCase() : '';
+    const hasStoredEffort = storedValue !== '' && storedValue !== 'disable';
     const defaultValue = typeof capability?.reasoningEffort === 'string' ? capability.reasoningEffort.trim().toLowerCase() : '';
     if (storedValue && storedValue !== 'disable' && !options.includes(storedValue)) {
       options = [...options, storedValue];
@@ -136,8 +140,16 @@ export function useAIProviderSelector({
     if (defaultValue && defaultValue !== 'disable' && !options.includes(defaultValue)) {
       options = [...options, defaultValue];
     }
-    if (capability?.reasoningMode !== 'effort' || options.length <= 1) {
+    // 能力表未收录该模型时，若供应商已保存过思考档位，仍展示档位按钮（补一个"关闭"选项供切换），
+    // 否则用户已配置的思考强度会连同入口一起消失。
+    if (capability?.reasoningMode !== 'effort' && !hasStoredEffort) {
       return { visible: false, options: [] as string[], currentValue: 'disable', currentLabel: '' };
+    }
+    if (options.length <= 1) {
+      if (!hasStoredEffort) {
+        return { visible: false, options: [] as string[], currentValue: 'disable', currentLabel: '' };
+      }
+      options = options.includes('disable') ? options : ['disable', ...options];
     }
     let currentValue = storedValue && options.includes(storedValue) ? storedValue : '';
     if (!currentValue) {
@@ -184,6 +196,15 @@ export function useAIProviderSelector({
       ? Math.ceil(reasoningButtonRef.current.getBoundingClientRect().width)
       : 0;
     const overlapWidth = (quickModelConfig.visible ? 1 : 0) + (quickReasoningConfig.visible ? 1 : 0);
+    // 容器自身可被 flex 压缩（flex-basis 0），必须保住内部按钮最小宽度之和，
+    // 否则按钮会溢出 overflow-visible 的容器、盖住底栏相邻按钮。
+    setMinSelectorWidth(Math.max(
+      ADAPTIVE_PROVIDER_MIN_WIDTH,
+      ADAPTIVE_PROVIDER_MIN_WIDTH
+        + (quickModelConfig.visible ? ADAPTIVE_MODEL_MIN_WIDTH : 0)
+        + (quickReasoningConfig.visible && reasoningWidth > 0 ? reasoningWidth : 0)
+        - overlapWidth,
+    ));
     const layout = resolveAdaptiveLabelLayout({
       providerText,
       modelText,
@@ -191,7 +212,7 @@ export function useAIProviderSelector({
       providerFontFamily,
       modelFontFamily,
       fixedWidth: reasoningWidth - overlapWidth,
-      minFontSize: 6,
+      minFontSize: 11,
     });
     setProviderLabelFontSize(layout.providerFontSize);
     setModelLabelFontSize(layout.modelFontSize);
@@ -946,6 +967,7 @@ export function useAIProviderSelector({
     modelLabelFontSize,
     providerTriggerWidth,
     modelTriggerWidth,
+    minSelectorWidth,
     filteredProviders,
     pinnedProviders,
     normalProviders,

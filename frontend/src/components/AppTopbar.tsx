@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { House, Minus, Square, X, Bot, Settings, RefreshCw, Rocket, Sun, Moon, ChevronDown } from 'lucide-react';
+import { House, Minus, Square, X, Bot, Settings, RefreshCw, Rocket, Sun, Moon, ChevronDown, MonitorUp } from 'lucide-react';
 import Tiptop from './Tiptop.tsx';
 
 import { WindowMinimise } from '../../wailsjs/runtime/runtime.js';
@@ -58,6 +58,7 @@ export interface AppTopbarProps {
   handleToggleMaximise: () => void;
   handleCloseWindow: () => Promise<void>;
   reconnectSession: (session: SessionLike) => Promise<unknown>;
+  onOpenBigScreen: () => void;
 }
 
 export default function AppTopbar({
@@ -72,7 +73,7 @@ export default function AppTopbar({
   showAIPanel, setAIPanelVisibility, startupUpdateInfo, showUpdateBubble,
   isUpdateModalVisible, setShowUpdateBubble,
   setIsUpdateModalVisible, setSettingsInitialTab, handleToggleMaximise,
-  handleCloseWindow, reconnectSession,
+  handleCloseWindow, reconnectSession, onOpenBigScreen,
 }: AppTopbarProps) {
   const topbarRef = useRef<HTMLDivElement | null>(null);
   // 顶栏会话标签条：普通滚轮直接横向滚动（与其他标签条统一，不依赖 Shift）
@@ -257,6 +258,16 @@ export default function AppTopbar({
           {sessions.length === 0 && <div className="flex-1" />}
 
           <div className="window-controls">
+            <Tiptop text={t('数据大屏')} placement="bottom">
+              <button
+                type="button"
+                className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
+                onClick={onOpenBigScreen}
+                aria-label={t('数据大屏')}
+              >
+                <MonitorUp size={16} />
+              </button>
+            </Tiptop>
             {showThemeQuickEntry && !activeAIDevilMode && (
               <Tiptop text={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')} placement="bottom">
                 <button

@@ -12,6 +12,14 @@ import (
 )
 
 func SystemInfo(session Session, includeNetwork bool, dependencies Dependencies) (map[string]interface{}, error) {
+	return systemInfo(session, includeNetwork, false, dependencies)
+}
+
+func SystemInfoLite(session Session, dependencies Dependencies) (map[string]interface{}, error) {
+	return systemInfo(session, false, true, dependencies)
+}
+
+func systemInfo(session Session, includeNetwork bool, lite bool, dependencies Dependencies) (map[string]interface{}, error) {
 	_ = session
 	scriptPath, cleanup, err := deployProbeScript(dependencies.ProbeScript)
 	if err != nil {
@@ -21,6 +29,8 @@ func SystemInfo(session Session, includeNetwork bool, dependencies Dependencies)
 	args := []string{scriptPath}
 	if includeNetwork {
 		args = append(args, "network")
+	} else if lite {
+		args = append(args, "lite")
 	}
 	output, err := exec.Command("sh", args...).Output()
 	if err != nil {

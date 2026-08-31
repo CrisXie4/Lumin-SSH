@@ -12,6 +12,14 @@ import (
 )
 
 func SystemInfo(session Session, includeNetwork bool, dependencies Dependencies) (map[string]interface{}, error) {
+	return systemInfo(session, includeNetwork, false, dependencies)
+}
+
+func SystemInfoLite(session Session, dependencies Dependencies) (map[string]interface{}, error) {
+	return systemInfo(session, false, true, dependencies)
+}
+
+func systemInfo(session Session, includeNetwork bool, lite bool, dependencies Dependencies) (map[string]interface{}, error) {
 	if session.WSLDistro == "" {
 		return nil, fmt.Errorf("system info not available for Windows-native local sessions")
 	}
@@ -23,6 +31,8 @@ func SystemInfo(session Session, includeNetwork bool, dependencies Dependencies)
 	args := []string{"-d", session.WSLDistro, "--", "sh", windowsPathToWSL(windowsPath)}
 	if includeNetwork {
 		args = append(args, "network")
+	} else if lite {
+		args = append(args, "lite")
 	}
 	command := exec.Command("wsl.exe", args...)
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}

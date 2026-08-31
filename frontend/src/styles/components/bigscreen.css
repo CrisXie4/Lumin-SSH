@@ -1,0 +1,733 @@
+/* ============================================================
+   Big Screen (数据大屏) — wall-display style monitoring view
+   自包含暗色配色，不随应用主题切换
+   ============================================================ */
+
+.bs-root {
+  --bs-bg: #070c18;
+  --bs-card: rgba(15, 24, 44, 0.78);
+  --bs-card-solid: #101a30;
+  --bs-line: rgba(102, 145, 209, 0.16);
+  --bs-line-strong: rgba(102, 145, 209, 0.3);
+  --bs-text: #e9f1fd;
+  --bs-dim: #8ba1c5;
+  --bs-faint: #5b7194;
+  --bs-accent: #4d9eff;
+  --bs-cyan: #38c9f0;
+  --bs-violet: #9d7bff;
+  --bs-green: #3fd97c;
+  --bs-amber: #e8b64c;
+  --bs-red: #f87171;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bs-bg);
+  color: var(--bs-text);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 大屏覆盖原顶栏后，标题栏仍需作为 Wails 无边框窗口的拖动区域。 */
+.bs-header {
+  --wails-draggable: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bs-header button,
+.bs-header .bs-picker-wrap {
+  --wails-draggable: no-drag;
+}
+
+/* ── 背景：径向光晕 + 细网格 ─────────────────────────────── */
+.bs-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 520px at 12% -8%, rgba(77, 158, 255, 0.16), transparent 62%),
+    radial-gradient(900px 480px at 88% 0%, rgba(56, 201, 240, 0.1), transparent 60%),
+    radial-gradient(1000px 620px at 50% 115%, rgba(157, 123, 255, 0.1), transparent 62%),
+    repeating-linear-gradient(0deg, rgba(120, 160, 220, 0.045) 0, rgba(120, 160, 220, 0.045) 1px, transparent 1px, transparent 48px),
+    repeating-linear-gradient(90deg, rgba(120, 160, 220, 0.045) 0, rgba(120, 160, 220, 0.045) 1px, transparent 1px, transparent 48px);
+  animation: bs-bg-drift 46s ease-in-out infinite alternate;
+}
+
+@keyframes bs-bg-drift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: 40px 24px, -36px 18px, 0 -30px, 0 0, 48px 0; }
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────────── */
+.bs-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--bs-line);
+  background: linear-gradient(180deg, rgba(13, 21, 39, 0.9), rgba(13, 21, 39, 0.55));
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.bs-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bs-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bs-accent);
+  background: rgba(77, 158, 255, 0.12);
+  border: 1px solid rgba(77, 158, 255, 0.32);
+  box-shadow: 0 0 18px rgba(77, 158, 255, 0.22) inset;
+  flex-shrink: 0;
+}
+
+.bs-header-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bs-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: linear-gradient(92deg, #dcecff 8%, var(--bs-accent) 58%, var(--bs-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bs-subtitle {
+  font-size: 12px;
+  color: var(--bs-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bs-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.bs-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  margin-right: 4px;
+}
+
+.bs-clock-time {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--bs-text);
+}
+
+.bs-clock-date {
+  font-size: 11px;
+  color: var(--bs-faint);
+}
+
+/* ── 通用按钮 ─────────────────────────────────────────────── */
+.bs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--bs-line-strong);
+  background: rgba(21, 33, 58, 0.7);
+  color: var(--bs-text);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.bs-btn:hover {
+  background: rgba(38, 56, 94, 0.85);
+  border-color: rgba(102, 145, 209, 0.5);
+}
+
+.bs-btn.is-active {
+  color: var(--bs-accent);
+  border-color: rgba(77, 158, 255, 0.55);
+  background: rgba(77, 158, 255, 0.12);
+}
+
+.bs-btn.is-primary {
+  color: #071021;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--bs-accent), var(--bs-cyan));
+  border-color: transparent;
+}
+
+.bs-btn.is-primary:hover {
+  filter: brightness(1.08);
+}
+
+.bs-caret {
+  transition: transform 0.15s ease;
+}
+
+.bs-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.bs-link-btn {
+  border: none;
+  background: none;
+  padding: 2px 6px;
+  color: var(--bs-dim);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.bs-link-btn:hover {
+  color: var(--bs-accent);
+  background: rgba(77, 158, 255, 0.1);
+}
+
+/* ── 服务器选择器 ─────────────────────────────────────────── */
+.bs-picker-wrap {
+  position: relative;
+}
+
+.bs-picker {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bs-line-strong);
+  border-radius: 10px;
+  background: var(--bs-card-solid);
+  box-shadow: 0 18px 46px rgba(2, 8, 20, 0.6);
+  overflow: hidden;
+  z-index: 30;
+}
+
+.bs-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--bs-line);
+}
+
+.bs-picker-list {
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bs-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--bs-text);
+  cursor: pointer;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.bs-picker-item:hover {
+  background: rgba(77, 158, 255, 0.09);
+}
+
+.bs-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--bs-line-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #071021;
+  flex-shrink: 0;
+}
+
+.bs-check.is-checked {
+  background: var(--bs-accent);
+  border-color: var(--bs-accent);
+}
+
+.bs-picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-picker-host {
+  max-width: 45%;
+  color: var(--bs-faint);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 主体网格 ─────────────────────────────────────────────── */
+.bs-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 22px;
+}
+
+.bs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+  align-content: start;
+}
+
+/* ── 服务器卡片 ───────────────────────────────────────────── */
+.bs-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--bs-line);
+  background: var(--bs-card);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(2, 8, 20, 0.35);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
+}
+
+.bs-card:hover {
+  border-color: rgba(77, 158, 255, 0.4);
+  box-shadow: 0 12px 34px rgba(2, 8, 20, 0.45), 0 0 0 1px rgba(77, 158, 255, 0.12);
+}
+
+.bs-card.is-error {
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.bs-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.bs-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.bs-dot.is-ok {
+  background: var(--bs-green);
+  box-shadow: 0 0 8px rgba(63, 217, 124, 0.8);
+}
+
+.bs-dot.is-warn {
+  background: var(--bs-amber);
+  box-shadow: 0 0 8px rgba(232, 182, 76, 0.8);
+}
+
+.bs-dot.is-bad {
+  background: var(--bs-red);
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.8);
+}
+
+.bs-card-id {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bs-card-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-card-host {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--bs-faint);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bs-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.bs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 21px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--bs-dim);
+  background: rgba(102, 145, 209, 0.1);
+  border: 1px solid var(--bs-line);
+  max-width: 150px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── 指标区 ───────────────────────────────────────────────── */
+.bs-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bs-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(9, 15, 29, 0.55);
+  border: 1px solid var(--bs-line);
+}
+
+.bs-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--bs-dim);
+  min-width: 0;
+}
+
+.bs-metric-label span:first-of-type {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bs-metric-sub {
+  margin-left: auto;
+  color: var(--bs-faint);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70px;
+}
+
+.bs-metric-value {
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.bs-metric-value i {
+  font-style: normal;
+  font-size: 0.52em;
+  font-weight: 600;
+  margin-left: 2px;
+  opacity: 0.75;
+}
+
+.bs-metric-with-donut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+}
+
+.bs-donut {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.bs-metric-donut-num {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bs-metric-donut-num .bs-metric-value {
+  font-size: clamp(20px, 1.9vw, 27px);
+}
+
+.bs-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(102, 145, 209, 0.14);
+  overflow: hidden;
+}
+
+.bs-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.bs-mini-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--bs-faint);
+  min-width: 0;
+}
+
+.bs-mini-row .bs-bar {
+  flex: 1;
+  width: auto;
+  min-width: 20px;
+}
+
+.bs-mini-label {
+  flex-shrink: 0;
+}
+
+.bs-mini-value {
+  color: var(--bs-dim);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 磁盘读写两行网格：标签 + 数值 */
+.bs-rw-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  font-size: 10.5px;
+  align-items: baseline;
+}
+
+.bs-rw-grid .bs-mini-value {
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 网络区 ───────────────────────────────────────────────── */
+.bs-net {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(9, 15, 29, 0.55);
+  border: 1px solid var(--bs-line);
+}
+
+.bs-net-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.bs-net-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.bs-net-speed.down { color: var(--bs-cyan); }
+.bs-net-speed.up { color: var(--bs-violet); }
+
+.bs-net-total {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--bs-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 底部 ─────────────────────────────────────────────────── */
+.bs-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bs-foot-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--bs-dim);
+  flex-shrink: 0;
+}
+
+.bs-load {
+  color: var(--bs-text);
+  font-weight: 600;
+}
+
+.bs-load-dim {
+  color: var(--bs-faint);
+}
+
+.bs-core-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9px, 1fr));
+  gap: 3px;
+  min-width: 60px;
+}
+
+.bs-core-cell {
+  height: 9px;
+  border-radius: 2px;
+  min-width: 0;
+}
+
+.bs-foot-time {
+  margin-left: auto;
+  color: var(--bs-faint);
+  font-size: 10.5px;
+}
+
+/* ── 加载 / 错误 / 空态 ───────────────────────────────────── */
+.bs-card-state {
+  flex: 1;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--bs-dim);
+}
+
+.bs-card.is-error .bs-card-state {
+  color: var(--bs-red);
+}
+
+.bs-state-text {
+  font-size: 12.5px;
+  text-align: center;
+  padding: 0 12px;
+  word-break: break-all;
+}
+
+.bs-spin {
+  animation: bs-rotate 1.1s linear infinite;
+}
+
+@keyframes bs-rotate {
+  to { transform: rotate(360deg); }
+}
+
+.bs-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--bs-dim);
+  padding: 40px 0;
+}
+
+.bs-empty-icon {
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bs-accent);
+  background: rgba(77, 158, 255, 0.08);
+  border: 1px solid rgba(77, 158, 255, 0.2);
+}
+
+.bs-empty-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--bs-text);
+}
+
+.bs-empty-text {
+  font-size: 12.5px;
+  color: var(--bs-faint);
+}
+
+.bs-empty .bs-btn {
+  margin-top: 6px;
+}
+
+/* ── 滚动条 ───────────────────────────────────────────────── */
+.bs-body::-webkit-scrollbar,
+.bs-picker-list::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.bs-body::-webkit-scrollbar-thumb,
+.bs-picker-list::-webkit-scrollbar-thumb {
+  background: rgba(102, 145, 209, 0.28);
+  border-radius: 999px;
+}
+
+.bs-body::-webkit-scrollbar-track,
+.bs-picker-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-bg,
+  .bs-spin {
+    animation: none;
+  }
+}

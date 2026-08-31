@@ -152,7 +152,7 @@ export function measureAdaptiveLabelTriggerWidth(text: string, fontSize: number,
   fontWeight = 500,
   fontFamily = 'sans-serif',
   horizontalPadding = 20,
-  minWidth = 36,
+  minWidth = ADAPTIVE_PROVIDER_MIN_WIDTH,
 }: {
   fontWeight?: number;
   fontFamily?: string;
@@ -165,6 +165,9 @@ export function measureAdaptiveLabelTriggerWidth(text: string, fontSize: number,
   }
   return Math.max(minWidth, Math.ceil(contentWidth + horizontalPadding));
 }
+
+export const ADAPTIVE_PROVIDER_MIN_WIDTH = 56;
+export const ADAPTIVE_MODEL_MIN_WIDTH = 48;
 
 export function resolveAdaptiveLabelLayout({
   providerText,
@@ -204,7 +207,7 @@ export function resolveAdaptiveLabelLayout({
         ? measureAdaptiveLabelTriggerWidth(normalizedModelText, modelFontSize, {
             fontWeight: 600,
             fontFamily: modelFontFamily,
-            minWidth: 32,
+            minWidth: ADAPTIVE_MODEL_MIN_WIDTH,
           })
         : 0;
       const totalWidth = providerWidth + modelWidth + fixedWidth;
@@ -240,7 +243,7 @@ export function resolveAdaptiveLabelLayout({
     ? measureAdaptiveLabelTriggerWidth(normalizedModelText, minFontSize, {
         fontWeight: 600,
         fontFamily: modelFontFamily,
-        minWidth: 32,
+        minWidth: ADAPTIVE_MODEL_MIN_WIDTH,
       })
     : 0;
   const fallbackModelWidth = normalizedAvailableWidth > 0 && normalizedModelText

@@ -166,11 +166,24 @@ func (m *SSHManager) GetSystemInfo(sessionId string) (map[string]interface{}, er
 	return m.getSystemInfo(sessionId, false)
 }
 
+// GetSystemInfoLite retrieves only the metrics used by the big-screen view.
+func (m *SSHManager) GetSystemInfoLite(sessionId string) (map[string]interface{}, error) {
+	return m.getSystemInfoLite(sessionId)
+}
+
 func (m *SSHManager) GetNetworkInfo(sessionId string) (map[string]interface{}, error) {
 	return m.getSystemInfo(sessionId, true)
 }
 
 func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections bool) (result map[string]interface{}, err error) {
+	return m.getSystemInfoWithMode(sessionId, includeNetworkConnections, false)
+}
+
+func (m *SSHManager) getSystemInfoLite(sessionId string) (result map[string]interface{}, err error) {
+	return m.getSystemInfoWithMode(sessionId, false, true)
+}
+
+func (m *SSHManager) getSystemInfoWithMode(sessionId string, includeNetworkConnections bool, lite bool) (result map[string]interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic in GetSystemInfo: %v", r)
@@ -183,6 +196,9 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 	localSd, localOk := m.sessions[sessionId]
 	m.mu.RUnlock()
 	if localOk && localSd.IsLocal {
+		if lite {
+			return localsysinfo.SystemInfoLite(localSysinfoSession(localSd), localSysinfoDependencies())
+		}
 		return localsysinfo.SystemInfo(localSysinfoSession(localSd), includeNetworkConnections, localSysinfoDependencies())
 	}
 	client, _, err := m.GetClientEntry(sessionId)
@@ -204,7 +220,9 @@ func (m *SSHManager) getSystemInfo(sessionId string, includeNetworkConnections b
 	}
 
 	probeArg := ""
-	if includeNetworkConnections {
+	if lite {
+		probeArg = " lite"
+	} else if includeNetworkConnections {
 		probeArg = " network"
 	} else {
 		// GetSystemInfo 需要 top 进程；GetNetworkInfo(NetworkPage) 不需要进程列表
