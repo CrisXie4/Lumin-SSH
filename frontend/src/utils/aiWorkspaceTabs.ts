@@ -7,6 +7,8 @@ export interface AIWorkspaceTab {
   id: string
   conversationId: string
   title: string
+  sessionLabel?: string
+  terminalLabel?: string
   transient?: boolean
 }
 
@@ -43,6 +45,8 @@ function cloneTab(tab: AIWorkspaceTab): AIWorkspaceTab {
     id: tab.id,
     conversationId: tab.conversationId,
     title: tab.title,
+    sessionLabel: typeof tab.sessionLabel === 'string' ? tab.sessionLabel.trim() : '',
+    terminalLabel: typeof tab.terminalLabel === 'string' ? tab.terminalLabel.trim() : '',
     transient: tab.transient === true,
   }
 }
@@ -89,6 +93,8 @@ function normalizeAIWorkspaceTabGroup(value: unknown): AIWorkspaceTabGroup {
       id,
       conversationId,
       title: typeof tab.title === 'string' ? tab.title.trim() : '',
+      sessionLabel: typeof tab.sessionLabel === 'string' ? tab.sessionLabel.trim() : '',
+      terminalLabel: typeof tab.terminalLabel === 'string' ? tab.terminalLabel.trim() : '',
       transient: tab.transient === true,
     }]
   })
@@ -249,6 +255,36 @@ export function getAllAIWorkspaceTabGroups(): Record<string, AIWorkspaceTabGroup
       })
       .filter(([terminalId, group]) => terminalId && group.tabs.length > 0),
   )
+}
+
+export interface AIWorkspaceTabOccupation {
+  terminalId: string
+  tabId: string
+  tabIndex: number
+  label: string
+}
+
+export function getAIWorkspaceConversationOccupation(conversationId: unknown): AIWorkspaceTabOccupation | null {
+  const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
+  if (!normalizedConversationId) {
+    return null
+  }
+  for (const [terminalId, group] of Object.entries(getAllAIWorkspaceTabGroups())) {
+    const tabIndex = group.tabs.findIndex((tab) => tab.conversationId === normalizedConversationId)
+    if (tabIndex < 0) {
+      continue
+    }
+    const tab = group.tabs[tabIndex]
+    const sessionLabel = tab.sessionLabel || terminalId
+    const terminalLabel = tab.terminalLabel || terminalId
+    return {
+      terminalId,
+      tabId: tab.id,
+      tabIndex,
+      label: `${sessionLabel}-${terminalLabel}-${tabIndex + 1}`,
+    }
+  }
+  return null
 }
 
 export function getPersistableAIWorkspaceTabGroups(): Record<string, AIWorkspaceTabGroup> {

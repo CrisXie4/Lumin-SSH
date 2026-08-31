@@ -66,6 +66,7 @@ type AIGlobalSettings struct {
 	ConversationAutoBackupEnabled       bool                          `json:"conversationAutoBackupEnabled"`
 	MessageActionBarAtBottom            bool                          `json:"messageActionBarAtBottom"`
 	MessageNavEnabled                   bool                          `json:"messageNavEnabled"`
+	AIWorkspaceTabNumbersOnly           bool                          `json:"aiWorkspaceTabNumbersOnly"`
 	ApprovalButtonOrder                 string                        `json:"approvalButtonOrder"`
 	CommandActionButtonOrder            string                        `json:"commandActionButtonOrder"`
 	ToolResultTokenThreshold            int                           `json:"toolResultTokenThreshold,omitempty"`
@@ -85,9 +86,10 @@ func DefaultAIGlobalSettings() AIGlobalSettings {
 		TerminalIsolation:             true,
 		ConfirmDelete:                 true,
 		ContinueAfterToolRejection:    true,
-		ConversationAutoBackupEnabled: true,
+		ConversationAutoBackupEnabled: false,
 		MessageActionBarAtBottom:      true,
 		MessageNavEnabled:             true,
+		AIWorkspaceTabNumbersOnly:     false,
 		ApprovalButtonOrder:           "reject-approve",
 		CommandActionButtonOrder:      "terminate-continue",
 		ToolResultTokenThreshold:      350000,

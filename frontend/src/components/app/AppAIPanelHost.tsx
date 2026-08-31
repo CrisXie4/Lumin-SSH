@@ -101,6 +101,8 @@ export default function AppAIPanelHost({
                 side={probePanelPosition}
                 sessionId={String(s.id ?? '')}
                 terminalId={t.id}
+                sessionLabel={String(s.serverName || s.name || s.label || s.host || s.id || '')}
+                terminalLabel={String(t.label || t.id || '')}
                 isPanelVisible={isPanelActive}
                 sessionTerminals={getEffectiveTerminals(s)}
                 addToast={addToast}

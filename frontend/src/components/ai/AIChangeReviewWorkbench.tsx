@@ -9,6 +9,7 @@ interface AIChangeReviewWorkbenchProps {
     reviewId: string;
     path?: string;
     toolName?: string;
+    isNewFile?: boolean;
     pathParams?: unknown;
     blocks?: unknown[];
   } | null;
@@ -29,6 +30,7 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
   const path = typeof review.path === 'string' ? review.path : ''
   const pathParams = review?.pathParams && typeof review.pathParams === 'object' ? review.pathParams as Record<string, unknown> : undefined
   const toolName = typeof review.toolName === 'string' ? review.toolName : ''
+  const isNewFile = review.isNewFile === true
   const reviewId = typeof review.reviewId === 'string' && review.reviewId.trim() ? review.reviewId.trim() : 'change-review'
   const showBlockBadge = blocks.length > 1
   const handlePrimaryDiffNavigateReady = (navigate: ((target: DiffNavigateTarget) => void) | null) => {
@@ -43,6 +45,11 @@ export default function AIChangeReviewWorkbench({ review, queueLength = 1, previ
             {toolName ? (
               <div className="h-[22px] inline-flex items-center px-2 rounded-[var(--radius-sm)] bg-canvas text-secondary text-xs font-semibold shrink-0">
                 {toolName}
+              </div>
+            ) : null}
+            {isNewFile ? (
+              <div className="h-[22px] inline-flex items-center px-2 rounded-[var(--radius-sm)] bg-accent-dim text-accent text-xs font-semibold shrink-0">
+                {t('新建文件')}
               </div>
             ) : null}
             <div className="min-w-0 text-secondary text-sm font-mono truncate">

@@ -851,7 +851,8 @@ export default function GitRepositoryPanel({ serverId, sessionId, activeTerminal
     setDiffLoadingKey(loadingKey);
     try {
       const latestContent = await readLatestGitFileContent(repoPath, targetPath, file.status);
-      const baseArgs = getPrimaryStatus(file.status) === '??'
+      const isNewFile = file.status === '??' || (staged && file.status?.[0] === 'A');
+      const baseArgs = isNewFile
         ? null
         : staged
           ? ['show', `HEAD:${targetPath}`]
@@ -874,6 +875,7 @@ export default function GitRepositoryPanel({ serverId, sessionId, activeTerminal
             source: 'git',
             path: targetPath,
             toolName: 'Git',
+            isNewFile,
             blocks: [{
               before: beforeContent,
               after: String(latestContent || ''),

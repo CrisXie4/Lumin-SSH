@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslation, getLanguage } from '../../i18n.ts'
 import { Z } from '../../constants/zIndex'
@@ -18,6 +18,7 @@ import { renderAIHomeView } from './AIHomeView.tsx'
 import { renderAIConversationStage } from './AIConversationStage.tsx'
 import { renderAIComposerSection, renderAISettingsOverlaySection } from './AIConversationPanelSections.tsx'
 import { AIWorkspaceTabProvider } from './aiWorkspaceTabContext.ts'
+import { subscribeAIWorkspaceTabGroups } from '../../utils/aiWorkspaceTabs.ts'
 import type { AIPanelProps } from './aiChatLogic.ts'
 import type { ConversationSummary } from './aiConversationSummary.ts'
 
@@ -26,9 +27,10 @@ import type { ConversationSummary } from './aiConversationSummary.ts'
 // ============================================================
 // ============================================================
 
-export function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId = '', sessionTerminals = [], workspaceTabId = '', isHomeView = false, isWorkspaceTabActive = true, showComposer = true, initialConversationId = '', tabBar = null, onDevilModeChange, onGoHomeRequested, onOpenConversationRequested, onWorkspaceTabStateChange, addToast }: AIPanelProps) {
+export function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId = '', sessionTerminals = [], workspaceTabId = '', isHomeView = false, isWorkspaceTabActive = true, showComposer = true, initialConversationId = '', tabBar = null, onDevilModeChange, onGoHomeRequested, onOpenConversationRequested, onWorkspaceTabDisplaySettingsChange, onWorkspaceTabStateChange, addToast }: AIPanelProps) {
   const { t } = useTranslation()
   const [conversationList, setConversationList] = useState<ConversationSummary[]>([])
+  useEffect(() => subscribeAIWorkspaceTabGroups(() => setConversationList((current) => [...current])), [])
   const {
     panelInstanceKey, terminalPanelsRef, deletedConversationIdsRef, isReturningHomeRef,
     conversationLoadRequestRef, panelMountedRef, tokenLedgerRef, sendPerfMetricsRef,
@@ -71,6 +73,12 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
     handleToggleConfirmDelete, handleToggleSettingsPanel, handleTerminalOutputLineLimitChange,
     handleTerminalOutputCharacterLimitChange,
   } = useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedRef, activeConversation, resetGlobalSearchState, resetConversationSearchState })
+  useEffect(() => {
+    if (!globalAISettings) {
+      return
+    }
+    onWorkspaceTabDisplaySettingsChange?.(normalizedGlobalAISettings.aiWorkspaceTabNumbersOnly === true)
+  }, [globalAISettings, normalizedGlobalAISettings.aiWorkspaceTabNumbersOnly, onWorkspaceTabDisplaySettingsChange])
 
   const {
     aiProviderState, setAIProviderState, isDevilMode,
@@ -307,7 +315,7 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
         onCondenseContextFullSummary={handleCondenseContextFullSummary}
         fullSummaryCondenseAvailable={true}
       />
-      {tabBar}
+      {isWorkspaceTabActive ? tabBar : null}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {renderAIConversationStage({ t, side, sessionId, terminalId, workspaceTabId, isHomeView, activeConversation, isThemeTuningConversation, isConversationLoading, normalizedInitialConversationId, conversationSearchOpen, conversationSearchQuery, setConversationSearchQuery, conversationSearchInputRef, resetConversationSearchState, handleCycleConversationSearchResult, conversationSearchResults, conversationSearchIndex, panelState, handleConversationUserMessage, handleRetryUserMessage, handleRetryAssistantMessage, handleEditUserMessage, handleDeleteMessage, handlePreviewRestore, handlePreviewDiff, handleApplyRestore, collaborationFollowupInteractionLocked, messageActionBarAtBottom, messageNavEnabled, conversationScrollSignal, sendPerfMetricsRef, composerEditState, showAssistantCollaborationActiveImage, renderedConversationList, handleGoHome })}
         {renderAIComposerSection({ t, terminalId, showComposer, panelState, activeConversation, isStreaming, isQueueBlocked, isAwaitingToolApproval, isToolRunning, isAwaitingCommandAction, isAwaitingTerminalAssignment, collaborationLocked, collaborationActive, toolResumeAvailable, shouldPersistProviderSelection, composerInteractionLocked, composerInteractionLockedLabel, effectiveProviderId, effectiveAutoApprovalSettings, providerBalanceRefreshSignal, approvalButtonOrder, commandActionButtonOrder, composerEditState, composerInputValue, setComposerInputValue, composerImages, setComposerImages, temporarySessionEnabled, setTemporarySessionEnabled, normalizedGlobalAISettings, popupDismissVersion, handleComposerSendMessage, handleCancelMessage, handleStopAndResumeMessage, handleProviderChange, handleResumeTask, handleListCommandTerminalCandidates, handleAssignToolTerminal, handleCancelQueuedSubmission, handleToggleSkipNextAutomaticRequest, handlePatchAutoApprovalSettings, handleCollaborationExtraPromptChange, handleCollaborationPromptPresetsChange, handleInterruptCollaboration, handleApproveTools, handleRejectTools, handleContinueTool, handleTerminateTool, resetComposerEditState })}

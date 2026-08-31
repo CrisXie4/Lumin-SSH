@@ -4,6 +4,7 @@ import Tiptop from '../Tiptop.tsx'
 import { getLanguage } from '../../i18n.ts'
 import { buildAIHistoryDisplayTimeParts, getAIHistoryRelativeTimeToneStyle } from './aiTimeFormat.ts'
 import { type PanelState, type DisplayConversationItem } from './aiChatLogic.ts'
+import { getAIWorkspaceConversationOccupation } from '../../utils/aiWorkspaceTabs.ts'
 import type { I18nKey } from '../../i18n.ts'
 
 type LooseT = (key: I18nKey, vars?: Record<string, unknown>) => string
@@ -51,6 +52,7 @@ export function renderAIConversationListRow({
         const displayTitle = typeof item.title === 'string'
           ? item.title.replace(/\s*·\s*摘要子任务\s*$/u, '').replace(/\s*·\s*子代理任务\s*$/u, '').trim()
           : ''
+        const workspaceTabOccupation = getAIWorkspaceConversationOccupation(item.id)
         const selected = selectedConversationIds.has(item.id)
         return (
           <div
@@ -86,6 +88,17 @@ export function renderAIConversationListRow({
             >
               <div className="flex-1 min-w-0 flex flex-col gap-0.5" style={{ paddingLeft: item.depth > 0 ? `${item.depth * 12}px` : 0 }}>
                 <div className="flex items-center gap-1.5 min-w-0">
+                  {workspaceTabOccupation ? (
+                    <Tiptop text={workspaceTabOccupation.label} placement="top">
+                      <span
+                        aria-label={workspaceTabOccupation.label}
+                        title={workspaceTabOccupation.label}
+                        className="shrink-0 px-[5px] py-px rounded-sm bg-[rgba(var(--accent-rgb),0.12)] text-accent text-[10px] font-semibold tabular-nums"
+                      >
+                        {workspaceTabOccupation.label}
+                      </span>
+                    </Tiptop>
+                  ) : null}
                   {isAgentSubtask ? (
                     <Tiptop text={t('子代理任务')} placement="top">
                       <span
