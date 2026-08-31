@@ -27,12 +27,14 @@ interface AIChatAssistantTurnProps {
   onPreviewRestore?: (artifactPath: string, targetTerminalId: string) => void;
   onPreviewDiffFetch?: (artifactPath: string, targetTerminalId: string) => void;
   onApplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
+  onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
+  onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
   messageActionBarAtBottom?: boolean;
   perfMetricsText?: string;
 }
 
-export default function AIChatAssistantTurn({ assistant, reasoning = [], tools = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onDelete, onRetry, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, perfMetricsText = '' }: AIChatAssistantTurnProps) {
+export default function AIChatAssistantTurn({ assistant, reasoning = [], tools = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onDelete, onRetry, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, perfMetricsText = '' }: AIChatAssistantTurnProps) {
   const title = assistant?.title || assistantTitleKey
   const time = assistant?.time || ''
   const assistantText = typeof assistant?.text === 'string' ? assistant.text.trim() : ''
@@ -114,7 +116,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
         ) : null}
         {hasTools ? (
           <div className={cn(hasSectionBeforeTools && 'border-t border-t-line-subtle pt-2.5')}>
-            <AIChatToolSessionPane items={tools} isLastAssistantTurn={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onSendUserMessage={onSendUserMessage} onPreviewRestore={onPreviewRestore} onPreviewDiffFetch={onPreviewDiffFetch} onApplyRestore={onApplyRestore} followupInteractionLocked={followupInteractionLocked} />
+            <AIChatToolSessionPane items={tools} isLastAssistantTurn={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onSendUserMessage={onSendUserMessage} onPreviewRestore={onPreviewRestore} onPreviewDiffFetch={onPreviewDiffFetch} onApplyRestore={onApplyRestore} onRestoreToHere={onRestoreToHere} onReapplyRestore={onReapplyRestore} followupInteractionLocked={followupInteractionLocked} />
           </div>
         ) : null}
         <div className={cn(

@@ -39,6 +39,8 @@ export function renderGroupedEntry(entry: GroupedConversationEntry, handlers: Co
           onPreviewRestore={handlers.onPreviewRestore}
           onPreviewDiffFetch={handlers.onPreviewDiffFetch}
           onApplyRestore={handlers.onApplyRestore}
+          onRestoreToHere={handlers.onRestoreToHere}
+          onReapplyRestore={handlers.onReapplyRestore}
           followupInteractionLocked={Boolean(handlers.followupInteractionLocked)}
           messageActionBarAtBottom={Boolean(handlers.messageActionBarAtBottom)}
           perfMetricsText={resolveSendPerfMetrics(handlers.sendPerfMetricsRef, entry.assistant?.id)}
@@ -49,7 +51,7 @@ export function renderGroupedEntry(entry: GroupedConversationEntry, handlers: Co
     case 'context-condense':
       return <AIChatContextCondenseCard message={entry.message} />;
     case 'tool-session':
-      return <AIChatToolSessionPane items={entry.tools || []} onSendUserMessage={handlers.onSendUserMessage} onPreviewRestore={handlers.onPreviewRestore} onPreviewDiffFetch={handlers.onPreviewDiffFetch} onApplyRestore={handlers.onApplyRestore} followupInteractionLocked={Boolean(handlers.followupInteractionLocked)} />;
+      return <AIChatToolSessionPane items={entry.tools || []} onSendUserMessage={handlers.onSendUserMessage} onPreviewRestore={handlers.onPreviewRestore} onPreviewDiffFetch={handlers.onPreviewDiffFetch} onApplyRestore={handlers.onApplyRestore} onRestoreToHere={handlers.onRestoreToHere} onReapplyRestore={handlers.onReapplyRestore} followupInteractionLocked={Boolean(handlers.followupInteractionLocked)} />;
     default:
       return null;
   }

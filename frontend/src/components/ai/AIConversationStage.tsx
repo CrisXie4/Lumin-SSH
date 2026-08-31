@@ -41,6 +41,8 @@ export interface AIConversationStageDeps {
   handlePreviewRestore: (restoreArtifactPath: string) => Promise<void>
   handlePreviewDiff: (restoreArtifactPath: string) => Promise<unknown>
   handleApplyRestore: (restoreArtifactPath: string) => Promise<boolean>
+  handleRestoreToHere: (restoreArtifactPath: string) => Promise<boolean>
+  handleReapplyRestore: (restoreArtifactPath: string) => Promise<boolean>
   collaborationFollowupInteractionLocked: boolean
   messageActionBarAtBottom: boolean
   messageNavEnabled: boolean
@@ -80,6 +82,8 @@ export function renderAIConversationStage({
   handlePreviewRestore,
   handlePreviewDiff,
   handleApplyRestore,
+  handleRestoreToHere,
+  handleReapplyRestore,
   collaborationFollowupInteractionLocked,
   messageActionBarAtBottom,
   messageNavEnabled,
@@ -186,6 +190,8 @@ export function renderAIConversationStage({
                 onPreviewRestore={handlePreviewRestore}
                 onPreviewDiffFetch={handlePreviewDiff}
                 onApplyRestore={handleApplyRestore}
+                onRestoreToHere={handleRestoreToHere}
+                onReapplyRestore={handleReapplyRestore}
                 followupInteractionLocked={collaborationFollowupInteractionLocked}
                 messageActionBarAtBottom={messageActionBarAtBottom}
                 messageNavEnabled={messageNavEnabled}

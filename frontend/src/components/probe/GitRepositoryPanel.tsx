@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
@@ -298,21 +298,32 @@ function buildGitDiffCommand(repoPath: string, type: 'staged' | 'unstaged' | 'co
   return `git -C ${quoteGitCommandArgument(repoPath)} -c core.quotePath=false ${args.map(quoteGitCommandArgument).join(' ')}`;
 }
 
-export default function GitRepositoryPanel({ serverId, sessionId, activeTerminalId, isConnected }: { serverId: string; sessionId: string; activeTerminalId: string; isConnected: boolean }) {
+function GitRepositoryPanel({
+  serverId,
+  sessionId,
+  isConnected,
+  activeSubTab = 'git',
+  onActiveSubTabChange,
+}: {
+  serverId: string;
+  sessionId: string;
+  isConnected: boolean;
+  activeSubTab?: string;
+  onActiveSubTabChange?: (subTab: string) => void;
+}) {
   const normalizedServerId = String(serverId || sessionId || '').trim();
-  const reviewTerminalId = String(activeTerminalId || sessionId || '').trim();
+  const reviewTerminalId = String(sessionId || '').trim();
   const [repositoryPaths, setRepositoryPaths] = useState(() => readRepositoryPaths(normalizedServerId));
   const [repositoryInput, setRepositoryInput] = useState('');
   const [repoStates, setRepoStates] = useState<Record<string, GitRepoState>>({});
   const [terminalCandidates, setTerminalCandidates] = useState<GitTerminalCandidate[]>([]);
-  const [selectedTerminalId, setSelectedTerminalId] = useState(activeTerminalId || sessionId);
+  const [selectedTerminalId, setSelectedTerminalId] = useState(sessionId);
   const [terminalPickerOpen, setTerminalPickerOpen] = useState(false);
   const [terminalLoading, setTerminalLoading] = useState(false);
   const [diffLoadingKey, setDiffLoadingKey] = useState('');
   const [interactiveBusy, setInteractiveBusy] = useState(false);
   const interactiveBusyRef = useRef(false);
   const diffFileCacheRef = useRef<Map<string, GitFileContentCacheEntry>>(new Map());
-  const [activeSubTab, setActiveSubTab] = useState<'git'>('git');
   const [selectionAnchors, setSelectionAnchors] = useState({ staged: -1, unstaged: -1 });
   const [copiedRepositoryPath, setCopiedRepositoryPath] = useState('');
   const copiedRepositoryPathTimerRef = useRef(0);
@@ -335,19 +346,23 @@ export default function GitRepositoryPanel({ serverId, sessionId, activeTerminal
     const nextPaths = readRepositoryPaths(normalizedServerId);
     setRepositoryPaths(nextPaths);
     setRepoStates({});
-    setSelectedTerminalId(activeTerminalId || sessionId);
     setTerminalCandidates([]);
     setTerminalPickerOpen(false);
     setSelectionAnchors({ staged: -1, unstaged: -1 });
     return () => {
       diffFileCacheRef.current.clear();
     };
-  }, [activeTerminalId, normalizedServerId, sessionId]);
+  }, [normalizedServerId, sessionId]);
 
   useEffect(() => {
-    if (!isConnected) {
-      diffFileCacheRef.current.clear();
+    if (isConnected) {
+      return;
     }
+    diffFileCacheRef.current.clear();
+    setRepoStates((previous) => Object.fromEntries(Object.entries(previous).map(([repoPath, state]) => [
+      repoPath,
+      { ...state, loading: false, loaded: false },
+    ])));
   }, [isConnected]);
 
   const updateRepoState = useCallback((repoPath: string, patch: Partial<GitRepoState>) => {
@@ -489,12 +504,15 @@ export default function GitRepositoryPanel({ serverId, sessionId, activeTerminal
   }, [invokeGit, resolveInteractiveTerminal, sessionId, updateRepoState]);
 
   useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
     repositoryPaths.forEach((repoPath) => {
       if (!repoStates[repoPath]?.loaded && !repoStates[repoPath]?.loading) {
         void loadRepository(repoPath);
       }
     });
-  }, [loadRepository, repoStates, repositoryPaths]);
+  }, [isConnected, loadRepository, repoStates, repositoryPaths]);
 
   const executeQuietSequence = useCallback(async (repoPath: string, commands: string[][]) => {
     const state = repoStates[repoPath] || createEmptyRepoState();
@@ -1347,7 +1365,7 @@ export default function GitRepositoryPanel({ serverId, sessionId, activeTerminal
   return (
     <div className="probe-extension-panel">
       <div className="probe-extension-subtabs" role="tablist" aria-label={translate('扩展')}>
-        <button type="button" role="tab" aria-selected={activeSubTab === 'git'} className={`probe-extension-subtab${activeSubTab === 'git' ? ' active' : ''}`} onClick={() => setActiveSubTab('git')}>
+        <button type="button" role="tab" aria-selected={activeSubTab === 'git'} className={`probe-extension-subtab${activeSubTab === 'git' ? ' active' : ''}`} onClick={() => onActiveSubTabChange?.('git')}>
           <GitBranch size={13} />
           {translate('Git仓库')}
         </button>
@@ -1388,3 +1406,10 @@ export default function GitRepositoryPanel({ serverId, sessionId, activeTerminal
     </div>
   );
 }
+
+export default memo(GitRepositoryPanel, (previous, next) => (
+  previous.serverId === next.serverId
+  && previous.sessionId === next.sessionId
+  && previous.isConnected === next.isConnected
+  && previous.activeSubTab === next.activeSubTab
+));

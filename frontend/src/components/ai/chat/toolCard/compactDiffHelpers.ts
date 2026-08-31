@@ -26,35 +26,66 @@ export type CompactDiffRow =
   | { type: 'add' | 'remove' | 'context'; text: string; key: string; oldLineNumber: number | null; newLineNumber: number | null }
   | { type: 'hidden'; count: number; key: string };
 
+function buildCompactSegmentPairs(leftLines: string[], rightLines: string[]): CompactAlignedPair[] {
+  const maxProduct = 32000;
+  if (leftLines.length * rightLines.length > maxProduct) {
+    const maxLength = Math.max(leftLines.length, rightLines.length);
+    return Array.from({ length: maxLength }, (_, index) => ({
+      left: index < leftLines.length ? leftLines[index] : null,
+      right: index < rightLines.length ? rightLines[index] : null,
+      equal: false,
+    }));
+  }
+  return buildCompactAlignedLinePairs(leftLines, rightLines);
+}
+
+function buildLargeCompactAlignedLinePairs(leftLines: string[], rightLines: string[]): CompactAlignedPair[] {
+  const leftCounts = new Map<string, number>();
+  const rightCounts = new Map<string, number>();
+  leftLines.forEach((line) => leftCounts.set(line, (leftCounts.get(line) || 0) + 1));
+  rightLines.forEach((line) => rightCounts.set(line, (rightCounts.get(line) || 0) + 1));
+  const rightUniqueIndexes = new Map<string, number>();
+  rightLines.forEach((line, index) => {
+    if (rightCounts.get(line) === 1) {
+      rightUniqueIndexes.set(line, index);
+    }
+  });
+  const anchors: Array<{ leftIndex: number; rightIndex: number }> = [];
+  let lastRightIndex = -1;
+  leftLines.forEach((line, leftIndex) => {
+    if (leftCounts.get(line) !== 1) {
+      return;
+    }
+    const rightIndex = rightUniqueIndexes.get(line);
+    if (rightIndex == null || rightIndex <= lastRightIndex) {
+      return;
+    }
+    anchors.push({ leftIndex, rightIndex });
+    lastRightIndex = rightIndex;
+  });
+  if (anchors.length === 0) {
+    return buildCompactSegmentPairs(leftLines, rightLines);
+  }
+  const pairs: CompactAlignedPair[] = [];
+  let leftStart = 0;
+  let rightStart = 0;
+  anchors.forEach(({ leftIndex, rightIndex }) => {
+    pairs.push(...buildCompactSegmentPairs(
+      leftLines.slice(leftStart, leftIndex),
+      rightLines.slice(rightStart, rightIndex),
+    ));
+    pairs.push({ left: leftLines[leftIndex], right: rightLines[rightIndex], equal: true });
+    leftStart = leftIndex + 1;
+    rightStart = rightIndex + 1;
+  });
+  pairs.push(...buildCompactSegmentPairs(leftLines.slice(leftStart), rightLines.slice(rightStart)));
+  return pairs;
+}
+
 export function buildCompactAlignedLinePairs(leftLines: string[], rightLines: string[]): CompactAlignedPair[] {
   const maxProduct = 32000;
   if (leftLines.length * rightLines.length > maxProduct) {
-    const prefixPairs = [];
-    let prefix = 0;
-    while (prefix < leftLines.length && prefix < rightLines.length && leftLines[prefix] === rightLines[prefix]) {
-      prefixPairs.push({ left: leftLines[prefix], right: rightLines[prefix], equal: true });
-      prefix += 1;
-    }
-    let leftSuffix = leftLines.length - 1;
-    let rightSuffix = rightLines.length - 1;
-    const suffixPairs = [];
-    while (leftSuffix >= prefix && rightSuffix >= prefix && leftLines[leftSuffix] === rightLines[rightSuffix]) {
-      suffixPairs.unshift({ left: leftLines[leftSuffix], right: rightLines[rightSuffix], equal: true });
-      leftSuffix -= 1;
-      rightSuffix -= 1;
-    }
-    const middleLeft = leftLines.slice(prefix, leftSuffix + 1);
-    const middleRight = rightLines.slice(prefix, rightSuffix + 1);
-    const middlePairs = [];
-    const maxLength = Math.max(middleLeft.length, middleRight.length);
-    for (let index = 0; index < maxLength; index += 1) {
-      middlePairs.push({
-        left: index < middleLeft.length ? middleLeft[index] : null,
-        right: index < middleRight.length ? middleRight[index] : null,
-        equal: false,
-      });
-    }
-    return [...prefixPairs, ...middlePairs, ...suffixPairs];
+    return buildLargeCompactAlignedLinePairs(leftLines, rightLines);
   }
   const dp = Array.from({ length: leftLines.length + 1 }, () => new Array(rightLines.length + 1).fill(0));
   for (let leftIndex = leftLines.length - 1; leftIndex >= 0; leftIndex -= 1) {
@@ -62,7 +93,7 @@ export function buildCompactAlignedLinePairs(leftLines: string[], rightLines: st
       if (leftLines[leftIndex] === rightLines[rightIndex]) {
         dp[leftIndex][rightIndex] = dp[leftIndex + 1][rightIndex + 1] + 1;
       } else {
-        dp[leftIndex][rightIndex] = Math.max(dp[leftIndex + 1][rightIndex], dp[leftIndex + 1][rightIndex + 1]);
+        dp[leftIndex][rightIndex] = Math.max(dp[leftIndex + 1][rightIndex], dp[leftIndex][rightIndex + 1]);
       }
     }
   }
@@ -189,7 +220,8 @@ export function buildCompactDiffRowsFromBlocks(blocks: unknown, t: (key: I18nKey
           key: `hidden-${blockIndex}-${rangeIndex}`,
         });
       }
-      for (let pairIndex = range.start; pairIndex <= range.end; pairIndex += 1) {
+      let pairIndex = range.start;
+      while (pairIndex <= range.end) {
         const pairRow = pairRows[pairIndex];
         if (pairRow.equal) {
           rows.push({
@@ -199,26 +231,34 @@ export function buildCompactDiffRowsFromBlocks(blocks: unknown, t: (key: I18nKey
             text: pairRow.leftText ?? pairRow.rightText ?? '',
             key: `context-${blockIndex}-${pairIndex}`,
           });
+          pairIndex += 1;
           continue;
         }
-        if (pairRow.leftText !== null) {
-          rows.push({
-            type: 'remove',
-            oldLineNumber: pairRow.oldLineNumber,
-            newLineNumber: null,
-            text: pairRow.leftText,
-            key: `remove-${blockIndex}-${pairIndex}`,
-          });
+        const removedRows: CompactDiffRow[] = [];
+        const addedRows: CompactDiffRow[] = [];
+        while (pairIndex <= range.end && !pairRows[pairIndex].equal) {
+          const changedRow = pairRows[pairIndex];
+          if (changedRow.leftText !== null) {
+            removedRows.push({
+              type: 'remove',
+              oldLineNumber: changedRow.oldLineNumber,
+              newLineNumber: null,
+              text: changedRow.leftText,
+              key: `remove-${blockIndex}-${pairIndex}`,
+            });
+          }
+          if (changedRow.rightText !== null) {
+            addedRows.push({
+              type: 'add',
+              oldLineNumber: null,
+              newLineNumber: changedRow.newLineNumber,
+              text: changedRow.rightText,
+              key: `add-${blockIndex}-${pairIndex}`,
+            });
+          }
+          pairIndex += 1;
         }
-        if (pairRow.rightText !== null) {
-          rows.push({
-            type: 'add',
-            oldLineNumber: null,
-            newLineNumber: pairRow.newLineNumber,
-            text: pairRow.rightText,
-            key: `add-${blockIndex}-${pairIndex}`,
-          });
-        }
+        rows.push(...removedRows, ...addedRows);
       }
       previousEnd = range.end;
     });

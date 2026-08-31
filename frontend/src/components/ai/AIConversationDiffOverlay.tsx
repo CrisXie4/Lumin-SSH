@@ -1,7 +1,8 @@
-import { Columns2, FileText, LoaderCircle, RotateCcw, X } from 'lucide-react'
+import { Check, Columns2, FileText, RotateCcw, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import Tiptop from '../Tiptop.tsx'
 import { useTranslation, type I18nKey } from '../../i18n.ts'
+import CompactDiffPreview from './chat/toolCard/CompactDiffPreview.tsx'
 
 /** 对话文件变更条目（宽松结构） */
 export interface ConversationDiffItem {
@@ -38,112 +39,6 @@ function normalizeItems(items: unknown): ConversationDiffItem[] {
     : []
 }
 
-function normalizeCompactDiffText(value: unknown) {
-  return typeof value === 'string' ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : ''
-}
-
-type CompactDiffRow =
-  | { type: 'line'; text: string; key: string }
-  | { type: 'hidden'; count: number; key: string }
-
-function buildCompactDiffRows(rawDiff: string, maxVisibleLines = 24): CompactDiffRow[] {
-  const lines = normalizeCompactDiffText(rawDiff).split('\n')
-  if (lines.length > 0 && lines[lines.length - 1] === '') {
-    lines.pop()
-  }
-  if (lines.length <= maxVisibleLines) {
-    return lines.map((text, index): CompactDiffRow => ({ type: 'line', text, key: `line-${index}` }))
-  }
-  const headCount = Math.min(16, Math.max(10, maxVisibleLines - 6))
-  const tailCount = Math.max(5, maxVisibleLines - headCount)
-  const hiddenCount = Math.max(lines.length - headCount - tailCount, 0)
-  const rows: CompactDiffRow[] = [
-    ...lines.slice(0, headCount).map((text, index): CompactDiffRow => ({ type: 'line', text, key: `head-${index}` })),
-    ...(hiddenCount > 0 ? [{ type: 'hidden', count: hiddenCount, key: 'hidden' } as CompactDiffRow] : []),
-    ...lines.slice(lines.length - tailCount).map((text, index): CompactDiffRow => ({ type: 'line', text, key: `tail-${index}` })),
-  ]
-  return rows
-}
-
-function resolveCompactDiffRowPalette(text: string) {
-  if (typeof text !== 'string') {
-    return { color: 'var(--text-secondary)', background: 'transparent' }
-  }
-  if (text.startsWith('@@')) {
-    return { color: 'var(--accent)', background: 'rgba(var(--accent-rgb), 0.08)' }
-  }
-  if (text.startsWith('+') && !text.startsWith('+++')) {
-    return { color: 'var(--success)', background: 'rgba(var(--success-rgb), 0.10)' }
-  }
-  if (text.startsWith('-') && !text.startsWith('---')) {
-    return { color: 'var(--danger)', background: 'rgba(var(--danger-rgb), 0.10)' }
-  }
-  if (text.startsWith('diff --git') || text.startsWith('index ') || text.startsWith('---') || text.startsWith('+++')) {
-    return { color: 'var(--text-secondary)', background: 'rgba(var(--accent-rgb), 0.05)' }
-  }
-  return { color: 'var(--text-primary)', background: 'transparent' }
-}
-
-interface CompactDiffPreviewProps {
-  rawDiff?: string
-  loading?: boolean
-  t: (key: I18nKey, vars?: Record<string, unknown>) => string
-  maxHeight?: number
-}
-
-function CompactDiffPreview({ rawDiff = '', loading = false, t, maxHeight = 340 }: CompactDiffPreviewProps) {
-  const normalizedRawDiff = typeof rawDiff === 'string' ? rawDiff.trim() : ''
-  const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff), [normalizedRawDiff])
-  if (loading) {
-    return (
-      <div className="border border-line-subtle rounded-lg bg-canvas text-secondary text-sm flex items-center justify-center gap-2" style={{ minHeight: maxHeight, padding: 12 }}>
-        <LoaderCircle size={14} className="spin" />
-        <span>{t('加载中...')}</span>
-      </div>
-    )
-  }
-  if (!normalizedRawDiff) {
-    return (
-      <div className="border border-line-subtle rounded-lg bg-canvas text-secondary text-sm flex items-center justify-center text-center" style={{ minHeight: maxHeight, padding: 12 }}>
-        {t('暂无可预览差异')}
-      </div>
-    )
-  }
-  return (
-    <div className="border border-line-subtle rounded-lg bg-canvas overflow-hidden" style={{ minHeight: maxHeight }}>
-      <div className="overflow-auto font-mono text-xs leading-[18px]" style={{ maxHeight }}>
-        {rows.map((row, index) => {
-          if (row.type === 'hidden') {
-            return (
-              <div
-                key={row.key}
-                className="py-1.5 px-3 border-y border-line-subtle text-tertiary bg-[rgba(var(--accent-rgb),0.04)] text-center tabular-nums">
-                {`··· ${row.count} ···`}
-              </div>
-            )
-          }
-          const palette = resolveCompactDiffRowPalette(row.text)
-          return (
-            <div
-              key={row.key}
-              className={`grid grid-cols-[40px_minmax(0,1fr)] min-w-0 ${index === 0 ? '' : 'border-t [border-top-color:rgba(255,255,255,0.02)]'}`}
-              style={{ background: palette.background }}>
-              <div className="pl-2.5 pr-2 text-tertiary text-right border-r border-line-subtle select-none tabular-nums">
-                {index + 1}
-              </div>
-              <div
-                className="px-2.5 whitespace-pre-wrap break-words [overflow-wrap:anywhere] min-w-0"
-                style={{ color: palette.color }}>
-                {row.text || ' '}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 export interface AIConversationDiffOverlayProps {
   sessionLabel?: string
   items?: unknown
@@ -167,7 +62,7 @@ export default function AIConversationDiffOverlay({
   onApplyRestore,
   onClose,
 }: AIConversationDiffOverlayProps) {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const [copiedItemId, setCopiedItemId] = useState('')
   // 仅用于左键「重新应用」成功后的短暂「已应用」反馈（可重复触发，故保留 1.2s 重置）；
   // 还原态则由全局 item.restored 持久驱动，不再用本地临时态
@@ -226,13 +121,11 @@ export default function AIConversationDiffOverlay({
     }
   }
 
-  const handleApplyItemRestore = async (event: React.MouseEvent, item: ConversationDiffItem) => {
+  const handleRestoreItem = async (item: ConversationDiffItem) => {
     const artifactPath = typeof item?.artifactPath === 'string' ? item.artifactPath.trim() : ''
     if (!artifactPath || item?.restored) {
       return
     }
-    event.preventDefault()
-    // 还原成功后由 useAIReview 标记 item.restored=true（全局单一数据源），按钮持久显示「已还原」并禁用
     await onApplyRestore?.(artifactPath)
   }
 
@@ -271,6 +164,7 @@ export default function AIConversationDiffOverlay({
               ? (reviewByArtifactPath[item.artifactPath] as Record<string, unknown> | null | undefined) || null
               : null
             const currentRawDiff = typeof review?.rawDiff === 'string' ? review.rawDiff : ''
+            const currentBlocks = Array.isArray(review?.blocks) ? review.blocks : []
             const currentLoading = item.artifactPath && loadingByArtifactPath && typeof loadingByArtifactPath === 'object'
               ? loadingByArtifactPath[item.artifactPath] === true
               : false
@@ -334,32 +228,44 @@ export default function AIConversationDiffOverlay({
                       </Tiptop>
                     ) : null}
                     {item.artifactPath ? (
-                      <Tiptop text={isRestored ? t('已还原') : (isApplied ? t('已应用') : t('左键应用/右键还原'))} style={{ display: 'inline-flex' }}>
-                        <button
-                          type="button"
-                          onClick={isRestored ? undefined : () => {
-                            void handlePreviewItemRestore(item)
-                          }}
-                          onMouseDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                          }}
-                          onContextMenu={isRestored ? undefined : (event) => {
-                            void handleApplyItemRestore(event, item)
-                          }}
-                          className={`h-6 inline-flex items-center gap-[5px] px-2 rounded-full text-xs font-bold ${
-                            isRestored || isApplied
-                              ? 'border border-[rgba(var(--success-rgb),0.28)] bg-[rgba(var(--success-rgb),0.10)] text-success'
-                              : 'border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-secondary'
-                          } ${isRestored ? 'cursor-default' : 'cursor-pointer'}`}>
-                          <RotateCcw size={11} color={isRestored || isApplied ? 'currentColor' : 'var(--accent)'} />
-                          <span>{isRestored ? t('已还原') : (isApplied ? t('已应用') : t('应用'))}</span>
-                        </button>
-                      </Tiptop>
+                      <>
+                        <Tiptop text={isApplied ? t('已应用') : t('应用')} style={{ display: 'inline-flex' }}>
+                          <button
+                            type="button"
+                            disabled={isRestored}
+                            onClick={() => {
+                              void handlePreviewItemRestore(item)
+                            }}
+                            className={`h-6 inline-flex items-center gap-[5px] px-2 rounded-full text-xs font-bold ${
+                              isApplied
+                                ? 'border border-[rgba(var(--success-rgb),0.28)] bg-[rgba(var(--success-rgb),0.10)] text-success'
+                                : 'border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-secondary'
+                            } ${isRestored ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}`}>
+                            <Check size={11} color={isApplied ? 'currentColor' : 'var(--accent)'} />
+                            <span>{isApplied ? t('已应用') : t('应用')}</span>
+                          </button>
+                        </Tiptop>
+                        <Tiptop text={isRestored ? t('已还原') : t('还原')} style={{ display: 'inline-flex' }}>
+                          <button
+                            type="button"
+                            disabled={isRestored}
+                            onClick={() => {
+                              void handleRestoreItem(item)
+                            }}
+                            className={`h-6 inline-flex items-center gap-[5px] px-2 rounded-full text-xs font-bold ${
+                              isRestored
+                                ? 'border border-[rgba(var(--success-rgb),0.28)] bg-[rgba(var(--success-rgb),0.10)] text-success'
+                                : 'border border-[rgba(var(--accent-rgb),0.24)] bg-[rgba(var(--accent-rgb),0.08)] text-secondary'
+                            } ${isRestored ? 'cursor-default' : 'cursor-pointer'}`}>
+                            <RotateCcw size={11} color={isRestored ? 'currentColor' : 'var(--accent)'} />
+                            <span>{isRestored ? t('已还原') : t('还原')}</span>
+                          </button>
+                        </Tiptop>
+                      </>
                     ) : null}
                   </div>
                 </div>
-                <CompactDiffPreview rawDiff={currentRawDiff} loading={currentLoading} t={t} maxHeight={360} />
+                <CompactDiffPreview reviewBlocks={currentBlocks} rawDiff={currentRawDiff} loading={currentLoading} t={t} lang={lang} maxHeight={360} />
               </div>
             )
           })}

@@ -10,7 +10,6 @@ export interface AppProbePanelHostProps {
   probePanelCollapsed: boolean;
   setProbeSnapshots: Dispatch<SetStateAction<Record<string, ProbeSnapshot>>>;
   setMonitoringEnabled: Dispatch<SetStateAction<Record<string, boolean>>>;
-  activeTerminalId: string;
   setContentTab: Dispatch<SetStateAction<WorkspaceContentTab>>;
   openPortForwardDialog: (sessionId: string, initialMapping?: unknown, initialTab?: string) => void;
   addToast: (message: string | Error, type?: string, duration?: number) => number;
@@ -24,7 +23,6 @@ export default function AppProbePanelHost({
   probePanelCollapsed,
   setProbeSnapshots,
   setMonitoringEnabled,
-  activeTerminalId,
   setContentTab,
   openPortForwardDialog,
   addToast,
@@ -34,7 +32,6 @@ export default function AppProbePanelHost({
   )), [monitoringEnabled, sessions]);
 
   const shouldShowProbePanel = probeSessions.some((s) => s.id === activeSessionId);
-  if (!shouldShowProbePanel) return null;
 
   return (
     <div
@@ -43,6 +40,7 @@ export default function AppProbePanelHost({
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
+        display: shouldShowProbePanel ? 'block' : 'none',
       }}
     >
       {probeSessions.map((s) => {
@@ -61,7 +59,6 @@ export default function AppProbePanelHost({
               serverId={String(s.serverId || s.id || '')}
               host={String(s.host || '')}
               addToast={addToast}
-              activeTerminalId={activeTerminalId}
               isConnected={s.status === 'connected'}
               enabled={!!monitoringEnabled[s.id || '']}
               active={isPanelActive && s.status === 'connected'}

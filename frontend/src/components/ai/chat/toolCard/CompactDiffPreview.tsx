@@ -12,9 +12,10 @@ export interface CompactDiffPreviewProps {
   loading?: boolean;
   t: (key: I18nKey, vars?: Record<string, unknown>) => string;
   lang: string;
+  maxHeight?: number;
 }
 
-export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, t, lang }: CompactDiffPreviewProps) {
+export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, t, lang, maxHeight = 300 }: CompactDiffPreviewProps) {
   const normalizedRawDiff = typeof rawDiff === 'string' ? rawDiff.trim() : '';
   const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff, reviewBlocks, t), [normalizedRawDiff, reviewBlocks, t, lang]);
   if (loading) {
@@ -33,7 +34,7 @@ export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', lo
   }
   return (
     <div className="overflow-hidden rounded-lg border border-line-subtle bg-canvas">
-      <div className="max-h-[240px] overflow-auto overscroll-contain font-mono text-xs leading-[18px]">
+      <div className="overflow-auto overscroll-contain font-mono text-xs leading-[18px]" style={{ maxHeight }}>
         {rows.map((row, index) => {
           if (row.type === 'hidden') {
             return (
@@ -55,24 +56,28 @@ export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', lo
               </div>
             );
           }
-          const linePrefix = row.type === 'add' ? '+ ' : row.type === 'remove' ? '- ' : row.type === 'meta' ? '' : '  ';
+          const lineNumber = row.type === 'add'
+            ? row.newLineNumber
+            : row.oldLineNumber ?? row.newLineNumber;
+          const sign = row.type === 'add' ? '+' : row.type === 'remove' ? '-' : '';
           return (
             <div
               key={row.key}
               style={{ background: palette.background }}
-              className={cn('grid min-w-0 grid-cols-[52px_52px_minmax(0,1fr)]', index === 0 ? '' : 'border-t border-t-[rgba(255,255,255,0.02)]')}>
-              <div
-                className="select-none border-r border-r-line-subtle pl-2.5 pr-2 text-right tabular-nums text-tertiary">
-                {row.oldLineNumber ?? ''}
-              </div>
+              className={cn('grid min-w-0 grid-cols-[48px_18px_minmax(0,1fr)]', index === 0 ? '' : 'border-t border-t-[rgba(255,255,255,0.02)]')}>
               <div
                 className="select-none border-r border-r-line-subtle px-2 text-right tabular-nums text-tertiary">
-                {row.newLineNumber ?? ''}
+                {lineNumber ?? ''}
+              </div>
+              <div
+                style={{ color: palette.color }}
+                className="select-none border-r border-r-line-subtle text-center tabular-nums">
+                {sign}
               </div>
               <div
                 style={{ color: palette.color }}
                 className="min-w-0 whitespace-pre-wrap px-2.5 [overflow-wrap:anywhere] [word-break:break-word]">
-                {row.type === 'meta' ? row.text : `${linePrefix}${row.text || ' '}`}
+                {row.text || ' '}
               </div>
             </div>
           );

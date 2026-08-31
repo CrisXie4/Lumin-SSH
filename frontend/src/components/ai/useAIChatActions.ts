@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import type * as React from 'react'
-import { approveAIChatTools, assignAIChatToolTerminal, cancelAIChat, continueAIChatTool, disableAIChatCollaboration, listAIChatCommandTerminalCandidates, previewAIChatToolDiff, previewAIChatToolRestore, rejectAIChatTools, rejectAIChatToolsForQueuedSubmission, restoreAIChatTool, setAIChatSkipNextAutomaticRequest, terminateAIChatTool } from './aiChatBridge.ts'
+import { approveAIChatTools, assignAIChatToolTerminal, cancelAIChat, continueAIChatTool, disableAIChatCollaboration, listAIChatCommandTerminalCandidates, previewAIChatToolDiff, previewAIChatToolRestore, reapplyAIChatTool, rejectAIChatTools, rejectAIChatToolsForQueuedSubmission, restoreAIChatTool, setAIChatSkipNextAutomaticRequest, terminateAIChatTool } from './aiChatBridge.ts'
+import { AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_CONVERSATION_DIFF_TOOL_NAMES, normalizeAIMessageStatus } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIPanelProps, PanelState } from './aiChatLogic.ts'
 import { t as translate, type I18nKey } from '../../i18n.ts'
 import { warnDev } from '../../utils/devLog.ts'
@@ -113,18 +114,92 @@ export function useAIChatActions({ addToast, terminalId, workspaceTabId, activeC
       return null
     }
   }, [terminalId])
+  const updateRestoreActionState = useCallback((artifactPaths: string[], restored: boolean) => {
+    const targets = new Set(artifactPaths.map((item) => typeof item === 'string' ? item.trim() : '').filter(Boolean))
+    if (targets.size === 0) {
+      return
+    }
+    setPanelState(panelInstanceKey, (current) => {
+      let changed = false
+      const messages = current.messages.map((message) => {
+        if (!message || typeof message !== 'object' || message.kind !== 'tool') {
+          return message
+        }
+        const extra = message.extra && typeof message.extra === 'object' ? message.extra : {}
+        const artifactPath = typeof extra.restoreArtifactPath === 'string' ? extra.restoreArtifactPath.trim() : ''
+        if (!targets.has(artifactPath)) {
+          return message
+        }
+        changed = true
+        return { ...message, extra: { ...extra, restoreActionState: restored ? 'restored' : 'applied' } }
+      })
+      return changed ? { ...current, messages } : current
+    })
+  }, [panelInstanceKey, setPanelState])
   const handleApplyRestore = useCallback(async (restoreArtifactPath: string) => {
     try {
       await restoreAIChatTool(restoreArtifactPath, terminalId)
+      updateRestoreActionState([restoreArtifactPath], true)
       clearRestorePreview()
       addToast?.(translate('已还原'), 'success', 3200)
       return true
     } catch (error) {
-      // error.message 为后端动态文案（可能不在翻译表），translate() 内部有兜底
       await showAlert(error instanceof Error ? translate(error.message as I18nKey) : translate('当前状态不支持还原'))
       return false
     }
-  }, [addToast, clearRestorePreview, showAlert, terminalId, translate])
+  }, [addToast, clearRestorePreview, showAlert, terminalId, translate, updateRestoreActionState])
+  const handleRestoreToHere = useCallback(async (restoreArtifactPath: string) => {
+    const targetArtifactPath = typeof restoreArtifactPath === 'string' ? restoreArtifactPath.trim() : ''
+    if (!targetArtifactPath) {
+      return false
+    }
+    const paths: string[] = []
+    for (let index = panelState.messages.length - 1; index >= 0; index -= 1) {
+      const message = panelState.messages[index] as Record<string, unknown>
+      if (!message || message.kind !== 'tool') {
+        continue
+      }
+      const toolName = typeof message.actionLabel === 'string' ? message.actionLabel.trim() : ''
+      const status = normalizeAIMessageStatus(message.status)
+      const extra = message.extra && typeof message.extra === 'object' ? message.extra as Record<string, unknown> : {}
+      const artifactPath = typeof extra.restoreArtifactPath === 'string' ? extra.restoreArtifactPath.trim() : ''
+      if (!AI_CONVERSATION_DIFF_TOOL_NAMES.has(toolName) || !AI_CONVERSATION_DIFF_SUCCESS_STATUSES.has(status) || !artifactPath || extra.restoreActionState === 'restored') {
+        continue
+      }
+      paths.push(artifactPath)
+      if (artifactPath === targetArtifactPath) {
+        break
+      }
+    }
+    if (paths.length === 0 || paths[paths.length - 1] !== targetArtifactPath) {
+      await showAlert(translate('当前状态不支持还原'))
+      return false
+    }
+    try {
+      for (const artifactPath of paths) {
+        await restoreAIChatTool(artifactPath, terminalId)
+        updateRestoreActionState([artifactPath], true)
+      }
+      clearRestorePreview()
+      addToast?.(translate('已还原'), 'success', 3200)
+      return true
+    } catch (error) {
+      await showAlert(error instanceof Error ? translate(error.message as I18nKey) : translate('当前状态不支持还原'))
+      return false
+    }
+  }, [addToast, clearRestorePreview, panelState.messages, showAlert, terminalId, translate, updateRestoreActionState])
+  const handleReapplyRestore = useCallback(async (restoreArtifactPath: string) => {
+    try {
+      await reapplyAIChatTool(restoreArtifactPath, terminalId)
+      updateRestoreActionState([restoreArtifactPath], false)
+      clearRestorePreview()
+      addToast?.(translate('已重新应用'), 'success', 3200)
+      return true
+    } catch (error) {
+      await showAlert(error instanceof Error ? translate(error.message as I18nKey) : translate('当前状态不支持重新应用'))
+      return false
+    }
+  }, [addToast, clearRestorePreview, showAlert, terminalId, translate, updateRestoreActionState])
   const handleListCommandTerminalCandidates = useCallback(async () => {
     if (!panelState.activeRequestId) {
       return []
@@ -274,6 +349,8 @@ export function useAIChatActions({ addToast, terminalId, workspaceTabId, activeC
     handlePreviewRestore,
     handlePreviewDiff,
     handleApplyRestore,
+    handleRestoreToHere,
+    handleReapplyRestore,
     handleListCommandTerminalCandidates,
     handleAssignToolTerminal,
     handleToggleSkipNextAutomaticRequest,

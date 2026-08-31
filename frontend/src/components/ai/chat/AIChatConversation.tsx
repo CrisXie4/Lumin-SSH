@@ -32,6 +32,8 @@ export interface AIChatConversationProps {
   onPreviewRestore?: (artifactPath: string, targetTerminalId: string) => void;
   onPreviewDiffFetch?: (artifactPath: string, targetTerminalId: string) => void;
   onApplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
+  onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
+  onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
   messageActionBarAtBottom?: boolean;
   messageNavEnabled?: boolean;
@@ -55,6 +57,8 @@ export default function AIChatConversation({
   onPreviewRestore,
   onPreviewDiffFetch,
   onApplyRestore,
+  onRestoreToHere,
+  onReapplyRestore,
   followupInteractionLocked = false,
   messageActionBarAtBottom = false,
   messageNavEnabled = true,
@@ -247,6 +251,8 @@ export default function AIChatConversation({
                 onPreviewRestore,
                 onPreviewDiffFetch,
                 onApplyRestore,
+                onRestoreToHere,
+                onReapplyRestore,
                 followupInteractionLocked,
                 messageActionBarAtBottom,
                 sendPerfMetricsRef,

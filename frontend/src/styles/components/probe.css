@@ -283,6 +283,12 @@
   min-height: 0;
   overflow: hidden;
 }
+.probe-tab-content[data-active-tab='monitor'] > .probe-extension-panel {
+  display: none;
+}
+.probe-tab-content[data-active-tab='extensions'] > :not(.probe-extension-panel) {
+  display: none;
+}
 .probe-tab-content > .probe-welcome,
 .probe-tab-content > .probe-state-panel,
 .probe-tab-content > .probe-loading-panel,

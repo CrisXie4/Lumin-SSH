@@ -49,7 +49,6 @@ export interface ProbeSnapshot {
 export interface ProbePanelProps {
   sessionId: string;
   serverId?: string;
-  activeTerminalId?: string;
   isConnected?: boolean;
   host: string;
   addToast: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number;
@@ -84,6 +83,15 @@ export const clampPct = (value: number) => Math.min(Math.max(Number(value) || 0,
 export const pctColor = (pct: number, warn = 60, danger = 85) => (pct >= danger ? 'var(--danger)' : (pct >= warn ? 'var(--warning)' : 'var(--success)'));
 export const createEmptyHist = (): ProbeHist => ({ cpu: Array(HISTORY_SIZE).fill(0), up: Array(HISTORY_SIZE).fill(0), down: Array(HISTORY_SIZE).fill(0) });
 
+export type ProbeSidebarTab = 'monitor' | 'extensions';
+
+export interface ProbeSidebarState {
+  version: 1;
+  activeTab: ProbeSidebarTab;
+  activeExtensionTab: string;
+}
+
+export const PROBE_SIDEBAR_STATE_PREFIX = 'lumin.probe.sidebar.';
 export const PROBE_CARD_ORDER_KEY = 'probePanelCardOrder';
 export const PROBE_CARD_ORDER_CHANGED_EVENT = 'probeCardOrderChanged';
 export const DEFAULT_PROBE_CARD_ORDER = ['overview', 'cpu', 'memory', 'network', 'disk', 'process', 'portforward'];
@@ -126,6 +134,38 @@ export const reorderProbeCard = (order: string[], activeId: string, targetId: st
   const targetIndex = next.indexOf(targetId);
   if (targetIndex === -1) return order;
   next.splice(position === 'after' ? targetIndex + 1 : targetIndex, 0, activeId);
+  return next;
+};
+
+export const normalizeProbeSidebarState = (value: unknown): ProbeSidebarState => {
+  const source = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    version: 1,
+    activeTab: source.activeTab === 'extensions' ? 'extensions' : 'monitor',
+    activeExtensionTab: typeof source.activeExtensionTab === 'string' && source.activeExtensionTab.trim()
+      ? source.activeExtensionTab.trim()
+      : 'git',
+  };
+};
+
+export const readProbeSidebarState = (serverId: string): ProbeSidebarState => {
+  if (!serverId || typeof window === 'undefined') {
+    return normalizeProbeSidebarState(null);
+  }
+  try {
+    return normalizeProbeSidebarState(JSON.parse(window.localStorage.getItem(`${PROBE_SIDEBAR_STATE_PREFIX}${serverId}`) || 'null'));
+  } catch {
+    return normalizeProbeSidebarState(null);
+  }
+};
+
+export const persistProbeSidebarState = (serverId: string, value: unknown): ProbeSidebarState => {
+  const next = normalizeProbeSidebarState(value);
+  if (serverId && typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(`${PROBE_SIDEBAR_STATE_PREFIX}${serverId}`, JSON.stringify(next));
+    } catch {}
+  }
   return next;
 };
 
