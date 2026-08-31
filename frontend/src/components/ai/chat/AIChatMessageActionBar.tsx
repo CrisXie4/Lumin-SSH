@@ -1,5 +1,6 @@
 import { MessageSquare, User, type LucideIcon } from 'lucide-react'
 import { useTranslation, t, type I18nKey } from '../../../i18n.ts'
+import Tiptop from '../../Tiptop.tsx'
 import AIChatMessageActions, { type MessageAction } from './AIChatMessageActions.tsx'
 
 const assistantTitleKey = 'AI'
@@ -14,19 +15,21 @@ function TitleIcon({ Icon, onClick, clickTitle }: TitleIconProps) {
   if (typeof onClick !== 'function') {
     return <Icon size={13} />
   }
+  const label = clickTitle ? t(clickTitle as I18nKey) : ''
   return (
-    <button
-      type="button"
-      title={clickTitle ? t(clickTitle as I18nKey) : undefined}
-      aria-label={clickTitle ? t(clickTitle as I18nKey) : undefined}
-      onClick={(event) => {
-        event.stopPropagation()
-        onClick()
-      }}
-      className="inline-flex cursor-pointer items-center justify-center border-none bg-transparent p-0 leading-[1] text-inherit"
-    >
-      <Icon size={13} />
-    </button>
+    <Tiptop text={label}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation()
+          onClick()
+        }}
+        className="inline-flex cursor-pointer items-center justify-center border-none bg-transparent p-0 leading-[1] text-inherit"
+      >
+        <Icon size={13} />
+      </button>
+    </Tiptop>
   )
 }
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   BarChart3,
   Check,
@@ -22,6 +22,7 @@ import {
   ProcessSection,
 } from './probe/ProbeSections.tsx';
 import { isInternalIP, type ProbePanelProps } from './probe/probeTypes.ts';
+import GitRepositoryPanel from './probe/GitRepositoryPanel.tsx';
 import { useProbePanel } from './probe/useProbePanel.ts';
 
 export type { ProbeHist, ProbeInfo, ProbePanelProps, ProbeSnapshot } from './probe/probeTypes.ts';
@@ -34,8 +35,11 @@ export default function ProbePanel(props: ProbePanelProps) {
     enabled,
     active,
     onOpenPortForward,
+    serverId,
+    activeTerminalId,
+    isConnected,
   } = props;
-
+  const [activeTab, setActiveTab] = useState<'monitor' | 'extensions'>('monitor');
   const {
     t,
     info,
@@ -65,8 +69,10 @@ export default function ProbePanel(props: ProbePanelProps) {
     handlePanelDrop,
   } = useProbePanel(props);
 
+  let monitorContent: ReactNode;
+
   if (!enabled) {
-    return (
+    monitorContent = (
       <div className="probe-welcome">
         <div className="probe-welcome-main">
           <div className="probe-welcome-icon"><BarChart3 size={26} /></div>
@@ -117,83 +123,111 @@ export default function ProbePanel(props: ProbePanelProps) {
         )}
       </div>
     );
-  }
-
-  if (!info) {
-    if (probeError) {
-      return (
-        <div className="probe-state-panel">
-          <div className="probe-error-icon">✕</div>
-          <div className="probe-state-title">{t('写入失败，请重试')}</div>
-          <div className="probe-state-desc">{t('监控脚本写入服务器失败，请检查连接或权限')}</div>
-          {probeErrorDetail ? (
-            <div className="mt-2.5 max-w-[360px] px-3 py-2.5 rounded-[var(--radius-md)] border border-line bg-overlay text-secondary text-sm leading-[1.6] whitespace-pre-wrap [word-break:break-word] text-left">
-              {probeErrorDetail}
-            </div>
-          ) : null}
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setProbeError(false);
-              setProbeErrorDetail('');
-              probeErrorCountRef.current = 0;
-            }}
-          >
-            {t('重试')}
-          </Button>
-        </div>
-      );
-    }
-    return (
+  } else if (!info) {
+    monitorContent = probeError ? (
+      <div className="probe-state-panel">
+        <div className="probe-error-icon">✕</div>
+        <div className="probe-state-title">{t('写入失败，请重试')}</div>
+        <div className="probe-state-desc">{t('监控脚本写入服务器失败，请检查连接或权限')}</div>
+        {probeErrorDetail ? (
+          <div className="mt-2.5 max-w-[360px] px-3 py-2.5 rounded-[var(--radius-md)] border border-line bg-overlay text-secondary text-sm leading-[1.6] whitespace-pre-wrap [word-break:break-word] text-left">
+            {probeErrorDetail}
+          </div>
+        ) : null}
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => {
+            setProbeError(false);
+            setProbeErrorDetail('');
+            probeErrorCountRef.current = 0;
+          }}
+        >
+          {t('重试')}
+        </Button>
+      </div>
+    ) : (
       <div className="probe-loading-panel">
         <RefreshCw size={22} className="spin" />
         <div>{t('正在采集系统信息...')}</div>
       </div>
     );
+  } else {
+    const memPct = (info.memTotal || 0) > 0 ? Math.round(((info.memUsed || 0) / (info.memTotal || 1)) * 100) : 0;
+    const cores = info.cpuCores && info.cpuCores.length > 0 ? info.cpuCores : [info.cpuUsage || 0];
+    const cpuAvg = Math.round(cores.reduce((a, b) => a + b, 0) / cores.length);
+    const displayIP = info.ip && !isInternalIP(info.ip) ? info.ip : host;
+    const diskPartitions = info.diskPartitions && info.diskPartitions.length > 0
+      ? info.diskPartitions
+      : [{ mount: '/', size: `${(info.diskTotal || 0).toFixed(0)}G`, avail: `${((info.diskTotal || 0) - (info.diskUsed || 0)).toFixed(1)}G`, usedPct: Math.round(info.diskPercent || 0) }];
+    const visibleDiskPartitions = diskPartitions.length > 4 && !diskExpanded ? diskPartitions.slice(0, 4) : diskPartitions;
+    const orderedSections: Record<string, ReactNode> = {
+      overview: <HealthOverview t={t} cpuAvg={cpuAvg} memPct={memPct} diskPct={info.diskPercent} info={info} coreCount={cores.length} dragHandleProps={getSectionDragHandleProps('overview')} />,
+      cpu: <CpuSection t={t} info={info} hist={hist} cores={cores} cpuAvg={cpuAvg} cpuExpanded={cpuExpanded} setCpuExpanded={setCpuExpanded} dragHandleProps={getSectionDragHandleProps('cpu')} />,
+      memory: <MemorySection t={t} info={info} memPct={memPct} dragHandleProps={getSectionDragHandleProps('memory')} />,
+      network: <NetworkSection t={t} info={info} hist={hist} onShowNetworkDetails={handleShowNetworkDetails} dragHandleProps={getSectionDragHandleProps('network')} />,
+      disk: <DiskSection t={t} info={info} diskPartitions={diskPartitions} visibleDiskPartitions={visibleDiskPartitions} diskExpanded={diskExpanded} setDiskExpanded={setDiskExpanded} dragHandleProps={getSectionDragHandleProps('disk')} />,
+      process: <ProcessSection t={t} info={info} onShowAllProcesses={handleShowAllProcesses} dragHandleProps={getSectionDragHandleProps('process')} />,
+      portforward: <PortForwardSection t={t} sessionId={sessionId} active={active} onOpenPortForward={onOpenPortForward} dragHandleProps={getSectionDragHandleProps('portforward')} />,
+    };
+    monitorContent = (
+      <div
+        className={`probe-panel${draggingCardId ? ' probe-panel-card-dragging' : ''}`}
+        onDragOver={handlePanelDragOver}
+        onDrop={handlePanelDrop}
+      >
+        <ProbeHeader t={t} info={info} displayIP={displayIP} hideIP={hideIP} addToast={addToast} />
+        {cardOrder.map((cardId) => {
+          const cardNode = orderedSections[cardId];
+          if (!cardNode) return null;
+          const dropClass = dropIndicator?.targetId === cardId ? ` probe-card-drop-${dropIndicator.position}` : '';
+          return (
+            <div
+              key={cardId}
+              className={`probe-card-sortable${draggingCardId === cardId ? ' probe-card-dragging' : ''}${dropClass}`}
+              onDragOver={(event) => handleCardDragOver(cardId, event)}
+              onDrop={(event) => handleCardDrop(cardId, event)}
+            >
+              {cardNode}
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
-  const memPct = (info.memTotal || 0) > 0 ? Math.round(((info.memUsed || 0) / (info.memTotal || 1)) * 100) : 0;
-  const cores = info.cpuCores && info.cpuCores.length > 0 ? info.cpuCores : [info.cpuUsage || 0];
-  const cpuAvg = Math.round(cores.reduce((a, b) => a + b, 0) / cores.length);
-  const displayIP = info.ip && !isInternalIP(info.ip) ? info.ip : host;
-  const diskPartitions = info.diskPartitions && info.diskPartitions.length > 0
-    ? info.diskPartitions
-    : [{ mount: '/', size: `${(info.diskTotal || 0).toFixed(0)}G`, avail: `${((info.diskTotal || 0) - (info.diskUsed || 0)).toFixed(1)}G`, usedPct: Math.round(info.diskPercent || 0) }];
-  const visibleDiskPartitions = diskPartitions.length > 4 && !diskExpanded ? diskPartitions.slice(0, 4) : diskPartitions;
-
-  const orderedSections: Record<string, ReactNode> = {
-    overview: <HealthOverview t={t} cpuAvg={cpuAvg} memPct={memPct} diskPct={info.diskPercent} info={info} coreCount={cores.length} dragHandleProps={getSectionDragHandleProps('overview')} />,
-    cpu: <CpuSection t={t} info={info} hist={hist} cores={cores} cpuAvg={cpuAvg} cpuExpanded={cpuExpanded} setCpuExpanded={setCpuExpanded} dragHandleProps={getSectionDragHandleProps('cpu')} />,
-    memory: <MemorySection t={t} info={info} memPct={memPct} dragHandleProps={getSectionDragHandleProps('memory')} />,
-    network: <NetworkSection t={t} info={info} hist={hist} onShowNetworkDetails={handleShowNetworkDetails} dragHandleProps={getSectionDragHandleProps('network')} />,
-    disk: <DiskSection t={t} info={info} diskPartitions={diskPartitions} visibleDiskPartitions={visibleDiskPartitions} diskExpanded={diskExpanded} setDiskExpanded={setDiskExpanded} dragHandleProps={getSectionDragHandleProps('disk')} />,
-    process: <ProcessSection t={t} info={info} onShowAllProcesses={handleShowAllProcesses} dragHandleProps={getSectionDragHandleProps('process')} />,
-    portforward: <PortForwardSection t={t} sessionId={sessionId} active={active} onOpenPortForward={onOpenPortForward} dragHandleProps={getSectionDragHandleProps('portforward')} />,
-  };
-
   return (
-    <div
-      className={`probe-panel${draggingCardId ? ' probe-panel-card-dragging' : ''}`}
-      onDragOver={handlePanelDragOver}
-      onDrop={handlePanelDrop}
-    >
-      <ProbeHeader t={t} info={info} displayIP={displayIP} hideIP={hideIP} addToast={addToast} />
-      {cardOrder.map((cardId) => {
-        const cardNode = orderedSections[cardId];
-        if (!cardNode) return null;
-        const dropClass = dropIndicator?.targetId === cardId ? ` probe-card-drop-${dropIndicator.position}` : '';
-        return (
-          <div
-            key={cardId}
-            className={`probe-card-sortable${draggingCardId === cardId ? ' probe-card-dragging' : ''}${dropClass}`}
-            onDragOver={(event) => handleCardDragOver(cardId, event)}
-            onDrop={(event) => handleCardDrop(cardId, event)}
-          >
-            {cardNode}
-          </div>
-        );
-      })}
+    <div className="probe-tab-panel">
+      <div className="probe-tab-list" role="tablist" aria-label={t('系统监控')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'monitor'}
+          className={`probe-tab-button${activeTab === 'monitor' ? ' active' : ''}`}
+          onClick={() => setActiveTab('monitor')}
+        >
+          {t('监控')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'extensions'}
+          className={`probe-tab-button${activeTab === 'extensions' ? ' active' : ''}`}
+          onClick={() => setActiveTab('extensions')}
+        >
+          {t('扩展')}
+        </button>
+      </div>
+      <div className="probe-tab-content" role="tabpanel" aria-label={t(activeTab === 'monitor' ? '监控' : '扩展')}>
+        {activeTab === 'monitor'
+          ? monitorContent
+          : <GitRepositoryPanel
+              serverId={String(serverId || sessionId)}
+              sessionId={sessionId}
+              activeTerminalId={String(activeTerminalId || sessionId)}
+              isConnected={isConnected !== false}
+            />}
+      </div>
     </div>
   );
 }

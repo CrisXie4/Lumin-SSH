@@ -69,6 +69,7 @@ const sectionNode = (tabId: string, alias: string, titleKey: I18nKey | '', child
   ...extra,
 });
 const panelNode = (id: string, children: SettingsTreeNode[] = []): SettingsTreeNode => createSettingsNode({ type: 'panel', id, children });
+const subsectionNode = (id: string, titleKey: I18nKey | '', children: SettingsTreeNode[] = []): SettingsTreeNode => createSettingsNode({ type: 'subsection', id, titleKey, children });
 const conditionalNode = (id: string, when: unknown, children: SettingsTreeNode[] = []): SettingsTreeNode => createSettingsNode({ type: 'conditional', id, when, children });
 const fieldNode = (id: string, alias: string, titleKey: I18nKey | '', descriptionKey: I18nKey | '' = '', extra: Record<string, unknown> = {}): SettingsTreeNode => createSettingsNode({
   type: 'field',
@@ -161,12 +162,21 @@ const settingsTreeSource = rootNode(
     ], { targetId: 'general.language' }),
     sectionNode('general', 'confirmation', '操作确认', [
       panelNode('general.panel.confirmation', [
-        fieldNode('general.close-session', 'closeSession', '关闭连接时确认', '关闭单个 SSH 连接前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmCloseSession' }),
-        fieldNode('general.close-all', 'closeAll', '关闭全部时确认', '批量关闭所有连接前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmCloseAll' }),
-        fieldNode('general.file-delete', 'fileDelete', '文件管理器删除时确认', '删除文件或文件夹前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmFileDelete' }),
-        fieldNode('general.process-kill', 'processKill', '终止进程时确认', '终止进程前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmProcessKill' }),
-        fieldNode('general.terminal-selection-paste-confirm', 'terminalSelectionPasteConfirm', '粘贴所选项时确认', '粘贴超过3行的终端选区前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmTerminalSelectionPaste' }),
-        fieldNode('general.window-close', 'windowClose', '关闭窗口时', '选择关闭窗口时的默认行为', { control: 'select', stateKey: 'windowCloseAction' }),
+        subsectionNode('general.confirmation.common', '常规操作确认', [
+          fieldNode('general.close-session', 'closeSession', '关闭连接时确认', '关闭单个 SSH 连接前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmCloseSession' }),
+          fieldNode('general.close-all', 'closeAll', '关闭全部时确认', '批量关闭所有连接前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmCloseAll' }),
+          fieldNode('general.file-delete', 'fileDelete', '文件管理器删除时确认', '删除文件或文件夹前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmFileDelete' }),
+          fieldNode('general.process-kill', 'processKill', '终止进程时确认', '终止进程前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmProcessKill' }),
+        ]),
+        subsectionNode('general.confirmation.git', 'Git操作确认', [
+          fieldNode('general.git-discard', 'gitDiscard', 'Git放弃更改时确认', '执行 Git 放弃更改前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmGitDiscard' }),
+          fieldNode('general.git-force-push', 'gitForcePush', 'Git强制推送时确认', '执行 Git 强制推送前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmGitForcePush' }),
+          fieldNode('general.git-untrack', 'gitUntrack', 'Git取消跟踪时确认', '执行 Git 取消跟踪前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmGitUntrack' }),
+        ]),
+        subsectionNode('general.confirmation.terminal', '终端与窗口确认', [
+          fieldNode('general.terminal-selection-paste-confirm', 'terminalSelectionPasteConfirm', '粘贴所选项时确认', '粘贴超过3行的终端选区前弹出确认弹窗', { control: 'toggle', stateKey: 'confirmTerminalSelectionPaste' }),
+          fieldNode('general.window-close', 'windowClose', '关闭窗口时', '选择关闭窗口时的默认行为', { control: 'select', stateKey: 'windowCloseAction' }),
+        ]),
       ]),
     ], { targetId: 'general.close-session' }),
     sectionNode('general', 'interaction', '交互偏好', [

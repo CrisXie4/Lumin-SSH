@@ -209,13 +209,36 @@ export default function useAIReview({ sessionsRef, addToast, t }: UseAIReviewOpt
 
   useEffect(() => {
     const handleClearChangeReview = (event: Event) => {
-      const detail = (event as CustomEvent<{ sessionId?: unknown; tabId?: unknown }>).detail || {};
+      const detail = (event as CustomEvent<{ sessionId?: unknown; tabId?: unknown; reviewId?: unknown }>).detail || {};
       const sessionId = typeof detail.sessionId === 'string' ? detail.sessionId.trim() : '';
       const tabId = typeof detail.tabId === 'string' ? detail.tabId.trim() : '';
+      const reviewId = typeof detail.reviewId === 'string' ? detail.reviewId.trim() : '';
       if (!sessionId) {
         return;
       }
-      removeChangeReviewsBySessionId(sessionId, tabId);
+      if (!reviewId) {
+        removeChangeReviewsBySessionId(sessionId, tabId);
+        return;
+      }
+      const binding = resolveAIWorkspaceTerminalBindingByTerminalId(sessionsRef.current, sessionId);
+      const panelKey = binding ? buildAIReviewPanelKey(binding.sessionId, binding.terminalId, tabId) : '';
+      if (!panelKey) {
+        return;
+      }
+      setChangeReviewQueues((prev) => {
+        const queue = Array.isArray(prev[panelKey]) ? prev[panelKey] : [];
+        const nextQueue = queue.filter((item) => item.reviewId !== reviewId);
+        if (nextQueue.length === queue.length) {
+          return prev;
+        }
+        const next = { ...prev };
+        if (nextQueue.length > 0) {
+          next[panelKey] = nextQueue;
+        } else {
+          delete next[panelKey];
+        }
+        return next;
+      });
     };
 
     window.addEventListener('ai-change-review-clear', handleClearChangeReview);

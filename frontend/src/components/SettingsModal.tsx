@@ -125,6 +125,9 @@ export default function SettingsModal({
     confirmCloseAll,
     confirmFileDelete,
     confirmProcessKill,
+    confirmGitDiscard,
+    confirmGitForcePush,
+    confirmGitUntrack,
     confirmTerminalSelectionPaste,
     windowCloseAction,
     updateUseProxy,
@@ -142,6 +145,9 @@ export default function SettingsModal({
     handleToggleConfirmCloseAll,
     handleToggleConfirmFileDelete,
     handleToggleConfirmProcessKill,
+    handleToggleConfirmGitDiscard,
+    handleToggleConfirmGitForcePush,
+    handleToggleConfirmGitUntrack,
     handleToggleConfirmTerminalSelectionPaste,
     handleWindowCloseActionChange,
     handleToggleUpdateUseProxy,
@@ -257,6 +263,12 @@ export default function SettingsModal({
                 onToggleConfirmFileDelete={handleToggleConfirmFileDelete}
                 confirmProcessKill={confirmProcessKill}
                 onToggleConfirmProcessKill={handleToggleConfirmProcessKill}
+                confirmGitDiscard={confirmGitDiscard}
+                onToggleConfirmGitDiscard={handleToggleConfirmGitDiscard}
+                confirmGitForcePush={confirmGitForcePush}
+                onToggleConfirmGitForcePush={handleToggleConfirmGitForcePush}
+                confirmGitUntrack={confirmGitUntrack}
+                onToggleConfirmGitUntrack={handleToggleConfirmGitUntrack}
                 confirmTerminalSelectionPaste={confirmTerminalSelectionPaste}
                 onToggleConfirmTerminalSelectionPaste={handleToggleConfirmTerminalSelectionPaste}
                 windowCloseAction={windowCloseAction}
