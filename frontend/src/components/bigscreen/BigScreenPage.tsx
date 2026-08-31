@@ -183,13 +183,20 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     if (!visible || !wailsRuntime) return;
     fullscreenActionRef.current = false;
     let mounted = true;
-    Promise.resolve()
-      .then(() => WindowIsFullscreen())
-      .then((fullscreen) => {
-        if (mounted && !fullscreenActionRef.current) setIsFullscreen(fullscreen === true);
-      })
-      .catch(() => { /* 旧版运行时不支持查询时，以本地切换状态为准。 */ });
-    return () => { mounted = false; };
+    const sync = () => {
+      Promise.resolve()
+        .then(() => WindowIsFullscreen())
+        .then((fullscreen) => {
+          if (mounted && !fullscreenActionRef.current) setIsFullscreen(fullscreen === true);
+        })
+        .catch(() => { /* 旧版运行时不支持查询时，以本地切换状态为准。 */ });
+    };
+    sync();
+    const timer = window.setInterval(sync, 500);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
   }, [visible, wailsRuntime]);
 
   const handleClose = useCallback(() => {
