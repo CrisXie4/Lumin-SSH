@@ -29,6 +29,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 大屏覆盖原顶栏后，标题栏仍需作为 Wails 无边框窗口的拖动区域。 */
+.bs-header {
+  --wails-draggable: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bs-header button,
+.bs-header .bs-picker-wrap {
+  --wails-draggable: no-drag;
+}
+
 /* ── 背景：径向光晕 + 细网格 ─────────────────────────────── */
 .bs-bg {
   position: absolute;

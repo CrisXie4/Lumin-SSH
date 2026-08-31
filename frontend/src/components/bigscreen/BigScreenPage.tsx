@@ -146,7 +146,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const fullscreenActionRef = useRef(false);
   const wailsRuntime = hasWailsWindowRuntime();
-  const { data, staticInfo, intervalSec } = useBigScreenData(selectedTargets, visible && isFullscreen);
+  const { data, staticInfo, intervalSec } = useBigScreenData(selectedTargets, visible);
 
   useEffect(() => {
     if (!visible) return;
@@ -223,6 +223,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
       fullscreenActionRef.current = true;
       if (wailsRuntime) {
         const nextFullscreen = !isFullscreen;
+        if (!nextFullscreen) fullscreenActionRef.current = false;
         setIsFullscreen(nextFullscreen);
         if (nextFullscreen) WindowFullscreen();
         else WindowUnfullscreen();

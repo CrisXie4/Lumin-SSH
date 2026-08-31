@@ -38,6 +38,8 @@ const MemDonut = ({ used, free, total }: { used: number; free: number; total: nu
   const reclaimable = Math.max(total - used - free, 0);
   const fCache = total > 0 ? clampPct((reclaimable / total) * 100) / 100 : 0;
   const fCacheCapped = Math.min(fCache, Math.max(1 - fUsed, 0));
+  const fFree = total > 0 ? clampPct((free / total) * 100) / 100 : 0;
+  const fFreeCapped = Math.min(fFree, Math.max(1 - fUsed - fCacheCapped, 0));
   return (
     <svg viewBox="0 0 60 60" className="bs-donut" aria-hidden="true">
       <circle cx="30" cy="30" r="24" fill="none" stroke="var(--bs-line)" strokeWidth="7" />
@@ -52,6 +54,13 @@ const MemDonut = ({ used, free, total }: { used: number; free: number; total: nu
           cx="30" cy="30" r="24" fill="none" stroke="var(--bs-amber)" strokeWidth="7" strokeLinecap="butt"
           strokeDasharray={`${fCacheCapped * circ} ${circ}`}
           transform={`rotate(${-90 + fUsed * 360} 30 30)`}
+        />
+      )}
+      {fFreeCapped > 0.004 && (
+        <circle
+          cx="30" cy="30" r="24" fill="none" stroke="var(--bs-green)" strokeWidth="7" strokeLinecap="butt"
+          strokeDasharray={`${fFreeCapped * circ} ${circ}`}
+          transform={`rotate(${-90 + (fUsed + fCacheCapped) * 360} 30 30)`}
         />
       )}
     </svg>
@@ -69,6 +78,7 @@ export const BigScreenServerCard = memo(function BigScreenServerCard({ target, p
   const info = point?.info || null;
   const hist = point?.hist;
   const failed = (point?.errorCount || 0) >= 2;
+  const waitingForData = !point;
 
   const osLabel = info?.os || staticInfo?.os || '';
   const hostLabel = target.host || (target.isLocal ? t('本机') : '');
@@ -117,7 +127,7 @@ export const BigScreenServerCard = memo(function BigScreenServerCard({ target, p
       ) : !info ? (
         <div className="bs-card-state">
           {point?.loading ? <Loader2 size={22} className="bs-spin" /> : <CircleAlert size={22} />}
-          <div className="bs-state-text">{point?.loading ? t('等待数据…') : (point?.error || t('等待数据…'))}</div>
+          <div className="bs-state-text">{point?.loading ? t('等待数据…') : (point?.error || (waitingForData ? t('等待数据…') : t('获取失败，正在重试')))}</div>
         </div>
       ) : (
         <>
