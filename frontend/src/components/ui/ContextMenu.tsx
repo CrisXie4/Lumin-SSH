@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Z } from '../../constants/zIndex.ts';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 
 export interface MenuEntry {
   label: ReactNode;
@@ -126,18 +128,21 @@ export function MenuPanel({
   className = '',
   style,
   onContextMenu,
+  ...rest
 }: {
   children: ReactNode;
   minWidth?: number;
   className?: string;
   style?: React.CSSProperties;
   onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
+  [key: string]: unknown;
 }) {
   return (
     <div
       className={`bg-overlay border border-line rounded-md shadow-md py-1 overflow-y-auto ${className}`}
       style={{ minWidth, ...style }}
       onContextMenu={onContextMenu}
+      {...(rest as Record<string, unknown>)}
     >
       {children}
     </div>
@@ -154,6 +159,7 @@ export interface ContextMenuProps {
 }
 
 export function ContextMenu({ x, y, items, onClose, zIndex = Z.MENU, minWidth }: ContextMenuProps) {
+  useOverlayScrollLock(true);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: x, top: y });
 
@@ -182,7 +188,7 @@ export function ContextMenu({ x, y, items, onClose, zIndex = Z.MENU, minWidth }:
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
-  return (
+  const content = (
     <>
       <div
         className="fixed inset-0"
@@ -200,6 +206,7 @@ export function ContextMenu({ x, y, items, onClose, zIndex = Z.MENU, minWidth }:
       />
       <MenuPanel
         minWidth={minWidth}
+        data-context-menu="true"
         className="fixed animate-[fadeIn_0.08s_ease]"
         style={{ zIndex, left: pos.left, top: pos.top }}
         onContextMenu={(e) => {
@@ -214,4 +221,9 @@ export function ContextMenu({ x, y, items, onClose, zIndex = Z.MENU, minWidth }:
       </MenuPanel>
     </>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(content, document.body);
+  }
+  return content;
 }

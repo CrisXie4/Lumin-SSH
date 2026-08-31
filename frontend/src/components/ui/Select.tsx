@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { Z } from '../../constants/zIndex.ts';
 import { cn } from '../../utils/cn.ts';
 import { clampMenuPosition } from '../../utils/menuPosition.ts';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 
 export interface SelectOption {
   value: string;
@@ -52,6 +53,8 @@ export function Select({
     () => options.find((opt) => opt.value === value),
     [options, value],
   );
+
+  useOverlayScrollLock(open);
 
   const displayLabel = currentOption ? currentOption.label : (placeholder || value);
 
@@ -194,6 +197,7 @@ export function Select({
           role="listbox"
           aria-labelledby={selectId}
           tabIndex={-1}
+          data-select-dropdown="true"
           style={{
             position: 'fixed',
             left: menuPos.x,

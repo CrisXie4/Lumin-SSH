@@ -3,6 +3,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { SquarePen, Upload } from 'lucide-react';
 import { Z } from '../constants/zIndex.ts';
+import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock.ts';
 import { formatShortcut } from '../utils/platform.ts';
 import { ContextMenu, Modal } from './ui';
 import { BASIC_SETUP } from './fileEditor/fileEditorLanguages.ts';
@@ -63,6 +64,8 @@ export default function FileEditor(props: FileEditorProps) {
     ext,
     handleWorkbenchTabChange,
   } = useFileEditor(props);
+
+  useOverlayScrollLock(mode === 'popup' && isActive && !minimized);
 
   const editorContent = (
     <>

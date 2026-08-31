@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Cpu } from 'lucide-react';
 import * as AppGo from '../../wailsjs/go/wailsapp/App.js';
 import { useTranslation } from '../i18n.ts';
 import { Button, Select } from './ui';
+import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock.ts';
 
 /** 串口连接配置（与 App.ConnectSerial 的参数对应） */
 export interface SerialFormConfig {
@@ -59,8 +61,19 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
     onConnect(form);
   };
 
-  return (
-    <div className="modal-overlay">
+  useOverlayScrollLock(true);
+
+  if (typeof document === 'undefined') return null;
+
+  const overlayNode = (
+    <div
+      className="modal-overlay"
+      data-modal-overlay="true"
+      style={{ isolation: 'isolate' as const }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="modal modal-sm" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">
@@ -180,4 +193,6 @@ export default function SerialConfigModal({ onClose, onConnect }: SerialConfigMo
       </div>
     </div>
   );
+
+  return createPortal(overlayNode, document.body);
 }

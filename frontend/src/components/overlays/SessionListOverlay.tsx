@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import Tiptop from '../Tiptop.tsx';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 import type { config } from '../../../wailsjs/go/models.ts';
 import type { TopbarSession } from '../AppTopbar.tsx';
 import type { SessionAuthPrompt } from '../../hooks/useSessionConnections.ts';
@@ -45,6 +47,7 @@ export default function SessionListOverlay({
   setShowSessionList,
   closeSession,
 }: SessionListOverlayProps) {
+  useOverlayScrollLock(true);
   const [activeIdx, setActiveIdx] = useState(0);
   const bodyRef = useRef<HTMLDivElement | null>(null);
 
@@ -107,10 +110,11 @@ export default function SessionListOverlay({
     }
   };
 
-  return (
+  const content = (
     <div
       ref={sessionListRef}
       className="tab-context-menu max-h-[400px] flex flex-col"
+      data-session-list-overlay="true"
       style={{
         left: Math.min(Math.max(8, sessionListPos.x - PANEL_WIDTH), Math.max(8, (window.innerWidth || 1280) - PANEL_WIDTH - 8)),
         top: sessionListPos.y,
@@ -189,4 +193,9 @@ export default function SessionListOverlay({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(content, document.body);
+  }
+  return content;
 }

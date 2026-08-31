@@ -1,6 +1,8 @@
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 import type { AIProviderLike } from './AIProviderSelector.tsx';
 import { useAIProviderQuickEdit } from './quickEdit/useAIProviderQuickEdit.ts';
 import QuickEditBasicTab from './quickEdit/QuickEditBasicTab.tsx';
@@ -91,22 +93,28 @@ export default function AIProviderQuickEditOverlay({
     onSave,
   });
 
+  useOverlayScrollLock(open);
+
   if (!open) {
     return null;
   }
 
+  if (typeof document === 'undefined') return null;
+
   const title = draft.name || (mode === 'create' ? t('新增供应商') : t('编辑供应商'));
   const subtitle = mode === 'create' ? t('创建供应商配置...') : t('编辑...');
 
-  return (
+  const overlayNode = (
     <div
       onClick={onClose}
+      data-modal-overlay="true"
       style={{
         top: panelBounds?.top ?? 0,
         left: panelBounds?.left ?? 0,
         width: panelBounds?.width ?? '100vw',
         height: panelBounds?.height ?? '100vh',
         zIndex: Z.DIALOG,
+        isolation: 'isolate' as const,
       }}
       className="fixed max-w-screen max-h-screen overflow-hidden flex justify-center items-stretch bg-scrim/90 backdrop-blur-[4px]">
       <div
@@ -222,4 +230,6 @@ export default function AIProviderQuickEditOverlay({
       </div>
     </div>
   );
+
+  return createPortal(overlayNode, document.body);
 }
