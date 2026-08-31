@@ -16,6 +16,12 @@ interface GeneralTabProps {
   onToggleConfirmFileDelete: () => void;
   confirmProcessKill: boolean;
   onToggleConfirmProcessKill: () => void;
+  confirmGitDiscard: boolean;
+  onToggleConfirmGitDiscard: () => void;
+  confirmGitForcePush: boolean;
+  onToggleConfirmGitForcePush: () => void;
+  confirmGitUntrack: boolean;
+  onToggleConfirmGitUntrack: () => void;
   confirmTerminalSelectionPaste: boolean;
   onToggleConfirmTerminalSelectionPaste: () => void;
   windowCloseAction: string;
@@ -62,6 +68,12 @@ export default function GeneralTab({
   onToggleConfirmFileDelete,
   confirmProcessKill,
   onToggleConfirmProcessKill,
+  confirmGitDiscard,
+  onToggleConfirmGitDiscard,
+  confirmGitForcePush,
+  onToggleConfirmGitForcePush,
+  confirmGitUntrack,
+  onToggleConfirmGitUntrack,
   confirmTerminalSelectionPaste,
   onToggleConfirmTerminalSelectionPaste,
   windowCloseAction,
@@ -102,6 +114,9 @@ export default function GeneralTab({
     confirmCloseAll: { checked: confirmCloseAll, onChange: onToggleConfirmCloseAll },
     confirmFileDelete: { checked: confirmFileDelete, onChange: onToggleConfirmFileDelete },
     confirmProcessKill: { checked: confirmProcessKill, onChange: onToggleConfirmProcessKill },
+    confirmGitDiscard: { checked: confirmGitDiscard, onChange: onToggleConfirmGitDiscard },
+    confirmGitForcePush: { checked: confirmGitForcePush, onChange: onToggleConfirmGitForcePush },
+    confirmGitUntrack: { checked: confirmGitUntrack, onChange: onToggleConfirmGitUntrack },
     confirmTerminalSelectionPaste: { checked: confirmTerminalSelectionPaste, onChange: onToggleConfirmTerminalSelectionPaste },
     terminalRightClickPasteOnEmpty: { checked: terminalRightClickPasteOnEmpty, onChange: () => onTerminalRightClickPasteOnEmptyChange(!terminalRightClickPasteOnEmpty) },
     terminalLeftClickCopyOnSelection: { checked: terminalLeftClickCopyOnSelection, onChange: () => onTerminalLeftClickCopyOnSelectionChange(!terminalLeftClickCopyOnSelection) },
@@ -178,6 +193,25 @@ export default function GeneralTab({
     }
     if (node.type === 'panel' || node.type === 'conditional') {
       return (node.children || []).flatMap((child: SettingsDefinitionNode) => renderNode(child));
+    }
+    if (node.type === 'subsection') {
+      const children = (node.children || []).flatMap((child: SettingsDefinitionNode) => renderNode(child));
+      if (children.length === 0) {
+        return [];
+      }
+      return [(
+        <div key={node.id} className="grid gap-1.5">
+          <div className="px-1 pt-1 text-sm font-semibold text-secondary">{node.titleKey ? $t(node.titleKey) : ''}</div>
+          <div className="overflow-hidden rounded-[var(--radius-sm)] border border-line-subtle bg-overlay px-3">
+            {children.map((item, index) => (
+              <Fragment key={`${node.id}-${index}`}>
+                {index > 0 ? <SettingsDivider /> : null}
+                {item}
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      )];
     }
     if (node.type === 'field') {
       const action = renderFieldAction(node);

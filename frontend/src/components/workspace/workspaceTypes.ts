@@ -146,6 +146,7 @@ export interface SessionWorkspaceTerminalTabsProps {
 }
 
 export interface SessionWorkspaceAIProps {
+  gitReview: unknown;
   activeChangeReview: unknown;
   activeChangeReviewQueue: unknown[];
   activeConversationDiffPanel: unknown;

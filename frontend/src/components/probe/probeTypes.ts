@@ -48,6 +48,9 @@ export interface ProbeSnapshot {
 
 export interface ProbePanelProps {
   sessionId: string;
+  serverId?: string;
+  activeTerminalId?: string;
+  isConnected?: boolean;
   host: string;
   addToast: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number;
   enabled: boolean;
