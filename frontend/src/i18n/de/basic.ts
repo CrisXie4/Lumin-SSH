@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Wenn diese Option aktiviert ist, werden die Betriebsleisten für Benutzernachrichten und Ai-Nachrichten unten in jeder Runde des Nachrichtentexts angezeigt. Wenn sie ausgeschaltet sind, werden sie oben angezeigt.",
   "用户消息导航": "Benutzernachrichten-Navigation",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Wenn aktiviert, erscheinen Navigationspunkte für Benutzernachrichten auf der linken Seite des Chatbereichs. Zum Vorschauen des Inhalts darüberhalten, zum Springen zur entsprechenden Nachricht klicken.",
+  "多标签页仅显示序号": "Auf Seiten mit mehreren Registerkarten werden nur Seriennummern angezeigt",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Nach der Aktivierung zeigt die AI-Multi-Tab-Seite nur die Seriennummer und nicht den Aufgabentitel an.",
   "未命名供应商": "Unbenannter Lieferant",
   "未选择模型": "Kein Modell ausgewählt",
   "创建对话能力未就绪": "Die Möglichkeit, Konversationen zu erstellen, ist noch nicht verfügbar",

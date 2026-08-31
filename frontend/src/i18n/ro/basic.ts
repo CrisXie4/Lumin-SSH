@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Când este activată, barele de operare pentru mesajele utilizatorului și mesajele Ai sunt afișate în partea de jos a fiecărei runde a corpului mesajului; când sunt dezactivate, acestea sunt afișate în partea de sus.",
   "用户消息导航": "Navigare mesaje utilizator",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Când este activat, punctele de navigare pentru mesajele utilizatorului apar în partea stângă a zonei de chat. Treceți cursorul pentru a previzualiza conținutul, faceți clic pentru a sări la mesajul corespunzător.",
+  "多标签页仅显示序号": "Paginile cu mai multe file afișează numai numere de serie",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "După activare, pagina cu mai multe file AI afișează doar numărul de serie și nu afișează titlul sarcinii.",
   "未命名供应商": "Furnizor fără nume",
   "未选择模型": "Niciun model selectat",
   "创建对话能力未就绪": "Capacitatea de a crea conversații nu este gata",

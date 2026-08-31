@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Etkinleştirildiğinde, kullanıcı mesajları ve Ai mesajları için işlem çubukları mesaj gövdesinin her turunun altında görüntülenir; kapatıldığında üstte görüntülenirler.",
   "用户消息导航": "Kullanıcı mesajı navigasyonu",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Etkinleştirildiğinde, kullanıcı mesajları için gezinme noktaları sohbet alanının sol tarafında görünür. İçeriği önizlemek için üzerine gelin, ilgili mesaja atlamak için tıklayın.",
+  "多标签页仅显示序号": "Çok sekmeli sayfalar yalnızca seri numaralarını görüntüler",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Etkinleştirdikten sonra AI çoklu sekme sayfası yalnızca seri numarasını görüntüler ve görev başlığını görüntülemez.",
   "未命名供应商": "İsimsiz tedarikçi",
   "未选择模型": "Hiçbir model seçilmedi",
   "创建对话能力未就绪": "Konuşma oluşturma yeteneği hazır değil",

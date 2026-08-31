@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Lorsqu'elles sont activées, les barres d'opération pour les messages utilisateur et les messages Ai sont affichées au bas de chaque tour du corps du message ; lorsqu'ils sont éteints, ils sont affichés en haut.",
   "用户消息导航": "Navigation des messages utilisateur",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Lorsqu'activé, des points de navigation pour les messages utilisateur apparaissent sur le côté gauche de la zone de chat. Survolez pour prévisualiser le contenu, cliquez pour accéder au message correspondant.",
+  "多标签页仅显示序号": "Les pages à onglets multiples affichent uniquement les numéros de série",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Après l'avoir activée, la page multi-onglets AI affiche uniquement le numéro de série et n'affiche pas le titre de la tâche.",
   "未命名供应商": "Fournisseur anonyme",
   "未选择模型": "Aucun modèle sélectionné",
   "创建对话能力未就绪": "La possibilité de créer des conversations n'est pas prête",

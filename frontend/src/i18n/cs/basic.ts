@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Je-li povoleno, ovládací lišty pro uživatelské zprávy a zprávy Ai se zobrazují ve spodní části každého kola těla zprávy; když jsou vypnuté, zobrazí se nahoře.",
   "用户消息导航": "Navigace zpráv uživatele",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Pokud je povoleno, navigační tečky pro zprávy uživatele se objeví na levé straně oblasti chatu. Najeďte myší pro náhled obsahu, klikněte pro přechod na odpovídající zprávu.",
+  "多标签页仅显示序号": "Stránky s více kartami zobrazují pouze sériová čísla",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Po jeho povolení se na stránce s více kartami AI zobrazí pouze sériové číslo a nezobrazuje se název úlohy.",
   "未命名供应商": "Nejmenovaný dodavatel",
   "未选择模型": "Není vybrán žádný model",
   "创建对话能力未就绪": "Schopnost vytvářet konverzace není připravena",

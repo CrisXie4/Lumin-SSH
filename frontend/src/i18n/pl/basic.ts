@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Gdy ta opcja jest włączona, paski operacji dla wiadomości użytkownika i wiadomości AI są wyświetlane u dołu każdej rundy treści wiadomości; po wyłączeniu są wyświetlane u góry.",
   "用户消息导航": "Nawigacja wiadomości użytkownika",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Po włączeniu, kropki nawigacyjne wiadomości użytkownika pojawiają się po lewej stronie obszaru czatu. Najedź kursorem, aby zobaczyć podgląd treści, kliknij, aby przejść do odpowiedniej wiadomości.",
+  "多标签页仅显示序号": "Na stronach z wieloma zakładkami wyświetlane są tylko numery seryjne",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Po włączeniu na stronie wielozakładkowej AI wyświetlany jest tylko numer seryjny i nie wyświetla się tytuł zadania.",
   "未命名供应商": "Nienazwany dostawca",
   "未选择模型": "Nie wybrano modelu",
   "创建对话能力未就绪": "Możliwość tworzenia rozmów nie jest jeszcze gotowa",
