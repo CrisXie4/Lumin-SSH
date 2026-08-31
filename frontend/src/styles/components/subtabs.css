@@ -286,6 +286,11 @@
   border-bottom: none;
   transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
+.terminal-sub-tab.ai-workspace-tab-numbers-only {
+  padding-left: 7px;
+  padding-right: 7px;
+  gap: 2px;
+}
 .terminal-sub-tab:hover {
   background: color-mix(in srgb, var(--accent) 15%, var(--surface-hover));
   color: var(--text-primary);

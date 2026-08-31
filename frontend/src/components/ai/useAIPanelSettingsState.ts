@@ -196,12 +196,24 @@ export function useAIPanelSettingsState({ t, isWorkspaceTabActive, panelMountedR
       })
       .catch(() => {})
   }, [showSettingsPanel])
+  useEffect(() => {
+    const handleGlobalAISettingsChanged = (event: Event) => {
+      const detail = (event as CustomEvent).detail
+      if (!detail || typeof detail !== 'object') {
+        return
+      }
+      setGlobalAISettings(normalizeAIGlobalSettings(detail))
+    }
+    window.addEventListener('ai-global-settings-changed', handleGlobalAISettingsChanged)
+    return () => window.removeEventListener('ai-global-settings-changed', handleGlobalAISettingsChanged)
+  }, [])
   const handleSaveAIPanelGlobalSettings = useCallback(async (patch: Record<string, unknown>) => {
     const nextSettings = await saveAIGlobalSettings({
       ...normalizedGlobalAISettings,
       ...patch,
     })
     setGlobalAISettings(nextSettings)
+    window.dispatchEvent(new CustomEvent('ai-global-settings-changed', { detail: nextSettings }))
     await refreshMCPServerInfo()
     return nextSettings
   }, [normalizedGlobalAISettings, refreshMCPServerInfo])

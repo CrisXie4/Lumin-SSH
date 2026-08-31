@@ -21,10 +21,12 @@ type LooseT = (key: I18nKey, vars?: Record<string, unknown>) => string
 // AI 工作区多标签管理 hook：标签组的持久化与订阅、待定位消息队列、关闭防误触锁、
 // 滚动状态同步、标签新建/激活/关闭/分叉、跨终端打开会话与标签运行时状态回报。
 // 从 AIPanel 外壳原样搬移，闭包依赖经参数同名注入，代码零改动。
-export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange, onActivateWorkspaceTab }: {
+export function useAIWorkspaceTabs({ t, terminalId, sessionId, sessionLabel = '', terminalLabel = '', onActiveTabChange, onActivateWorkspaceTab }: {
   t: LooseT
   terminalId: string
   sessionId: string
+  sessionLabel?: string
+  terminalLabel?: string
   onActiveTabChange?: (tabId: string) => void
   onActivateWorkspaceTab?: (terminalId: string, tabId: string) => void
 }) {
@@ -64,6 +66,25 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
   const updateTabGroup = useCallback((updater: (current: AIWorkspaceTabGroup) => AIWorkspaceTabGroup) => {
     return setAIWorkspaceTabGroup(terminalId, updater)
   }, [terminalId])
+  const normalizedSessionLabel = typeof sessionLabel === 'string' && sessionLabel.trim() ? sessionLabel.trim() : sessionId
+  const normalizedTerminalLabel = typeof terminalLabel === 'string' && terminalLabel.trim() ? terminalLabel.trim() : terminalId
+  useEffect(() => {
+    if (
+      !normalizedSessionLabel
+      && !normalizedTerminalLabel
+      || !tabGroup.tabs.some((tab) => tab.sessionLabel !== normalizedSessionLabel || tab.terminalLabel !== normalizedTerminalLabel)
+    ) {
+      return
+    }
+    updateTabGroup((current) => ({
+      ...current,
+      tabs: current.tabs.map((tab) => (
+        tab.sessionLabel === normalizedSessionLabel && tab.terminalLabel === normalizedTerminalLabel
+          ? tab
+          : { ...tab, sessionLabel: normalizedSessionLabel, terminalLabel: normalizedTerminalLabel }
+      )),
+    }))
+  }, [normalizedSessionLabel, normalizedTerminalLabel, tabGroup.tabs, updateTabGroup])
   const flushAIWorkspaceTabPendingLocation = useCallback((tabId: string) => {
     const pendingLocation = getAIWorkspaceTabPendingLocation(terminalId, tabId)
     const runtime = aiWorkspaceTabRuntimeRef.current[tabId]
@@ -221,7 +242,14 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
         ? current
         : {
             activeTabId: tabId,
-            tabs: [{ id: tabId, conversationId: '', title: t('新对话'), transient: false }],
+            tabs: [{
+              id: tabId,
+              conversationId: '',
+              title: t('新对话'),
+              sessionLabel: normalizedSessionLabel,
+              terminalLabel: normalizedTerminalLabel,
+              transient: false,
+            }],
           }
     ))
   }, [t, tabGroup.activeTabId, tabGroup.tabs, updateTabGroup])
@@ -274,7 +302,14 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
     const tabId = createAIWorkspaceTabId()
     updateTabGroup((current) => ({
       activeTabId: tabId,
-      tabs: [...current.tabs, { id: tabId, conversationId: '', title: t('新对话'), transient: false }],
+      tabs: [...current.tabs, {
+        id: tabId,
+        conversationId: '',
+        title: t('新对话'),
+        sessionLabel: normalizedSessionLabel,
+        terminalLabel: normalizedTerminalLabel,
+        transient: false,
+      }],
     }))
     return tabId
   }, [t, updateTabGroup])
@@ -367,7 +402,13 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
       const newTabId = createAIWorkspaceTabId()
       updateTabGroup((current) => ({
         activeTabId: newTabId,
-        tabs: [...current.tabs, { id: newTabId, conversationId: forkedId, title: '' }],
+        tabs: [...current.tabs, {
+          id: newTabId,
+          conversationId: forkedId,
+          title: '',
+          sessionLabel: normalizedSessionLabel,
+          terminalLabel: normalizedTerminalLabel,
+        }],
       }))
       return
     }
@@ -377,7 +418,13 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
         const newTabId = createAIWorkspaceTabId()
         return {
           activeTabId: newTabId,
-          tabs: [...current.tabs, { id: newTabId, conversationId: forkedId, title: '' }],
+          tabs: [...current.tabs, {
+            id: newTabId,
+            conversationId: forkedId,
+            title: '',
+            sessionLabel: normalizedSessionLabel,
+            terminalLabel: normalizedTerminalLabel,
+          }],
         }
       }
       return {
@@ -420,13 +467,22 @@ export function useAIWorkspaceTabs({ t, terminalId, sessionId, onActiveTabChange
       tabs: current.tabs.some((tab) => tab.id === tabId)
         ? current.tabs.map((tab) => (
             tab.id === tabId
-              ? { ...tab, conversationId: normalizedConversationId, title: '', transient: false }
+              ? {
+                ...tab,
+                conversationId: normalizedConversationId,
+                title: '',
+                sessionLabel: normalizedSessionLabel,
+                terminalLabel: normalizedTerminalLabel,
+                transient: false,
+              }
               : tab
           ))
         : [...current.tabs, {
             id: tabId,
             conversationId: normalizedConversationId,
             title: '',
+            sessionLabel: normalizedSessionLabel,
+            terminalLabel: normalizedTerminalLabel,
             transient: false,
           }],
     }))

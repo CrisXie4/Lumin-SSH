@@ -16,6 +16,7 @@ interface GlobalAISettingsLike {
   commandActionButtonOrder?: string;
   messageActionBarAtBottom?: boolean;
   messageNavEnabled?: boolean;
+  aiWorkspaceTabNumbersOnly?: boolean;
   mcpEnabled?: boolean;
   mcpAllowBrowserCalls?: boolean;
   mcpRequireApproval?: boolean;
@@ -238,6 +239,7 @@ export default function AIPanelSettingsOverlay({
   const commandActionButtonOrder = globalAISettings?.commandActionButtonOrder || 'terminate-continue';
   const messageActionBarAtBottom = Boolean(globalAISettings?.messageActionBarAtBottom);
   const messageNavEnabled = globalAISettings?.messageNavEnabled !== false;
+  const aiWorkspaceTabNumbersOnly = globalAISettings?.aiWorkspaceTabNumbersOnly === true;
   const mcpEnabled = globalAISettings?.mcpEnabled !== false;
   const mcpAllowBrowserCalls = Boolean(globalAISettings?.mcpAllowBrowserCalls);
   const mcpRequireApproval = Boolean(globalAISettings?.mcpRequireApproval);
@@ -386,6 +388,7 @@ export default function AIPanelSettingsOverlay({
                 commandActionButtonOrder={commandActionButtonOrder}
                 messageActionBarAtBottom={messageActionBarAtBottom}
                 messageNavEnabled={messageNavEnabled}
+                aiWorkspaceTabNumbersOnly={aiWorkspaceTabNumbersOnly}
                 onSaveGlobalAISettings={onSaveGlobalAISettings}
               />
             ) : null}

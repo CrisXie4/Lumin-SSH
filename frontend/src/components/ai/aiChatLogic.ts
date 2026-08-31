@@ -44,6 +44,8 @@ export interface AIPanelProps {
   sessionId: string
   terminalId: string
   sessionTerminals?: Array<{ id: string; label?: string }>
+  sessionLabel?: string
+  terminalLabel?: string
   settings?: AIPanelSettings
   workspaceTabId?: string
   isHomeView?: boolean
@@ -57,6 +59,7 @@ export interface AIPanelProps {
   onActivateWorkspaceTab?: (terminalId: string, tabId: string) => void
   onGoHomeRequested?: () => void
   onOpenConversationRequested?: (conversationId: string, messageId?: string) => void | Promise<void>
+  onWorkspaceTabDisplaySettingsChange?: (numbersOnly: boolean) => void
   onWorkspaceTabStateChange?: (tabId: string, state: { conversationId: string; title: string; activeRequestId: string; transient: boolean }) => void
   addToast?: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number
 }

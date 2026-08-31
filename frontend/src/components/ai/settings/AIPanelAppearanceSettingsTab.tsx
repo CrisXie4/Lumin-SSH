@@ -9,6 +9,7 @@ export interface AIPanelAppearanceSettingsTabProps {
   commandActionButtonOrder: string;
   messageActionBarAtBottom: boolean;
   messageNavEnabled: boolean;
+  aiWorkspaceTabNumbersOnly: boolean;
   onSaveGlobalAISettings?: (settings: Record<string, unknown>) => Promise<unknown> | void;
 }
 
@@ -17,6 +18,7 @@ export default function AIPanelAppearanceSettingsTab({
   commandActionButtonOrder,
   messageActionBarAtBottom,
   messageNavEnabled,
+  aiWorkspaceTabNumbersOnly,
   onSaveGlobalAISettings,
 }: AIPanelAppearanceSettingsTabProps) {
   const { t } = useTranslation();
@@ -82,6 +84,18 @@ export default function AIPanelAppearanceSettingsTab({
           checked={messageNavEnabled}
           onChange={() => onSaveGlobalAISettings?.({
             messageNavEnabled: !messageNavEnabled,
+          })}
+        />
+      </div>
+      <div className="bg-canvas p-3.5 rounded-[var(--radius-md)] border border-line flex justify-between items-center gap-4">
+        <div className="min-w-0">
+          <div className="text-primary text-base font-bold">{t('多标签页仅显示序号')}</div>
+          <div className="text-tertiary text-sm leading-[1.6]">{t('启用后,AI多标签页只显示序号,不显示任务标题.')}</div>
+        </div>
+        <ToggleSwitchControl
+          checked={aiWorkspaceTabNumbersOnly}
+          onChange={() => onSaveGlobalAISettings?.({
+            aiWorkspaceTabNumbersOnly: !aiWorkspaceTabNumbersOnly,
           })}
         />
       </div>

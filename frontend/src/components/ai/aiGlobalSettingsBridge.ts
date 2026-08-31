@@ -47,6 +47,7 @@ export type AIGlobalSettings = {
   conversationAutoBackupEnabled: boolean
   messageActionBarAtBottom: boolean
   messageNavEnabled: boolean
+  aiWorkspaceTabNumbersOnly: boolean
   approvalButtonOrder: ApprovalButtonOrder
   commandActionButtonOrder: CommandActionButtonOrder
   toolResultTokenThreshold: number
@@ -83,9 +84,10 @@ const DEFAULT_AI_GLOBAL_SETTINGS: AIGlobalSettings = {
   terminalIsolation: true,
   confirmDelete: true,
   continueAfterToolRejection: true,
-  conversationAutoBackupEnabled: true,
+  conversationAutoBackupEnabled: false,
   messageActionBarAtBottom: true,
   messageNavEnabled: true,
+  aiWorkspaceTabNumbersOnly: false,
   approvalButtonOrder: 'reject-approve',
   commandActionButtonOrder: 'terminate-continue',
   toolResultTokenThreshold: 350000,
@@ -96,6 +98,11 @@ const DEFAULT_AI_GLOBAL_SETTINGS: AIGlobalSettings = {
 
 const VALID_APPROVAL_BUTTON_ORDERS = new Set(['reject-approve', 'approve-reject'])
 const VALID_COMMAND_ACTION_BUTTON_ORDERS = new Set(['terminate-continue', 'continue-terminate'])
+let cachedAIGlobalSettings: AIGlobalSettings | null = null
+
+export function getCachedAIGlobalSettings(): AIGlobalSettings | null {
+  return cachedAIGlobalSettings
+}
 
 function getAppBridge() {
   return window?.go?.wailsapp?.AIBindings || window?.go?.wailsapp?.App
@@ -279,9 +286,10 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
     terminalIsolation: s.terminalIsolation !== false,
     confirmDelete: s.confirmDelete !== false,
     continueAfterToolRejection: s.continueAfterToolRejection !== false,
-    conversationAutoBackupEnabled: s.conversationAutoBackupEnabled !== false,
+    conversationAutoBackupEnabled: s.conversationAutoBackupEnabled === true,
     messageActionBarAtBottom: Boolean(s.messageActionBarAtBottom),
     messageNavEnabled: s.messageNavEnabled !== false,
+    aiWorkspaceTabNumbersOnly: Boolean(s.aiWorkspaceTabNumbersOnly),
     approvalButtonOrder: normalizeApprovalButtonOrder(s.approvalButtonOrder),
     commandActionButtonOrder: normalizeCommandActionButtonOrder(s.commandActionButtonOrder),
     aiRequestProxyId,
@@ -293,13 +301,16 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
 export async function getAIGlobalSettings(): Promise<AIGlobalSettings> {
   const bridge = getAppBridge()
   if (!bridge?.GetAIGlobalSettings) {
-    return DEFAULT_AI_GLOBAL_SETTINGS
+    cachedAIGlobalSettings = DEFAULT_AI_GLOBAL_SETTINGS
+    return cachedAIGlobalSettings
   }
   try {
     const [settings, proxyNodes] = await Promise.all([bridge.GetAIGlobalSettings(), getProxyNodes()])
-    return normalizeAIGlobalSettings({ ...settings, proxyNodes })
+    cachedAIGlobalSettings = normalizeAIGlobalSettings({ ...settings, proxyNodes })
+    return cachedAIGlobalSettings
   } catch {
-    return DEFAULT_AI_GLOBAL_SETTINGS
+    cachedAIGlobalSettings = DEFAULT_AI_GLOBAL_SETTINGS
+    return cachedAIGlobalSettings
   }
 }
 
@@ -311,6 +322,7 @@ export async function saveAIGlobalSettings(settings: unknown): Promise<AIGlobalS
   const settingsToSave = { ...normalizedSettings } as Omit<AIGlobalSettings, 'proxyNodes'> & { proxyNodes?: ProxyNode[] }
   delete settingsToSave.proxyNodes
   const bridge = getAppBridge()
+  cachedAIGlobalSettings = normalizedSettings
   if (!bridge?.SaveAIGlobalSettings) {
     return normalizedSettings
   }

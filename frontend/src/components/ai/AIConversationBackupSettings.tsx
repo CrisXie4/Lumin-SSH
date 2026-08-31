@@ -1,5 +1,6 @@
 import { ChevronLeft, History, MessagesSquare, RotateCcw, Trash2, type LucideIcon } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '../../i18n.ts'
 import { Switch } from '../ui'
 import { deleteAIConversationBackup, getAIConversationBackupHistory, listAIConversationBackups, restoreAIConversationBackup } from './aiConversationBackupBridge.ts'
@@ -124,7 +125,7 @@ export default function AIConversationBackupSettings({
   conversationUpdatedAt = 0,
   requestInFlight = false,
   onRestoreSnapshot,
-  autoBackupEnabled = true,
+  autoBackupEnabled = false,
   onToggleAutoBackup,
 }: AIConversationBackupSettingsProps) {
   const { t, lang } = useTranslation()
@@ -132,9 +133,12 @@ export default function AIConversationBackupSettings({
   const [isLoaded, setIsLoaded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedBackup, setSelectedBackup] = useState<ConversationBackup | null>(null)
+  const [lastViewedBackupId, setLastViewedBackupId] = useState('')
   const [historyEntries, setHistoryEntries] = useState<ConversationBackupHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [now, setNow] = useState(() => Date.now())
+  const historyVirtuosoRef = useRef<VirtuosoHandle | null>(null)
+  const historyAutoScrollBackupIdRef = useRef('')
 
   const loadBackups = useCallback(async (options: { background?: boolean } = {}) => {
     const background = options?.background === true
@@ -192,11 +196,30 @@ export default function AIConversationBackupSettings({
     [backups, lang, now],
   )
 
+  useEffect(() => {
+    const backupId = selectedBackup?.id || ''
+    if (!backupId || historyEntries.length === 0 || historyAutoScrollBackupIdRef.current === backupId) {
+      return
+    }
+    historyAutoScrollBackupIdRef.current = backupId
+    const frame = window.requestAnimationFrame(() => {
+      historyVirtuosoRef.current?.scrollToIndex({
+        index: historyEntries.length - 1,
+        align: 'end',
+        behavior: 'auto',
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [historyEntries.length, selectedBackup?.id])
+
   const handleOpenHistory = useCallback(async (backup: ConversationBackup) => {
     if (!conversationId || !backup?.id) {
       return
     }
+    historyAutoScrollBackupIdRef.current = ''
+    setHistoryEntries([])
     setSelectedBackup(backup)
+    setLastViewedBackupId(backup.id)
     setHistoryLoading(true)
     const entries = await getAIConversationBackupHistory(conversationId, backup.id)
     setHistoryEntries(entries)
@@ -241,117 +264,116 @@ export default function AIConversationBackupSettings({
     </div>
   )
 
-  if (selectedBackup) {
-    const title = `${t('自动备份')} / ${formatBackupIdTime(selectedBackup.id, lang)}`
-    return (
-      <div className="grid gap-3 min-h-0">
-        <div className="grid gap-1">
-          <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('自动备份')}</div>
-          <div className="text-sm text-tertiary leading-[1.5]">{t('查看和恢复当前对话的自动备份记录。')}</div>
-        </div>
-        {autoBackupControl}
-        <div className="grid gap-3 min-h-0">
-          <div className="grid gap-1">
-            <button
-              type="button"
-              onClick={() => setSelectedBackup(null)}
-              className="w-fit h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-[var(--radius-sm)] border border-line bg-canvas text-primary text-sm font-bold cursor-pointer"
-            >
-              <ChevronLeft size={14} />
-              <span>{t('返回')}</span>
-            </button>
-            <div className="text-[18px] font-bold text-primary leading-[1.3]">{title}</div>
-            <div className="text-sm text-tertiary leading-[1.5]">{historyEntries.length} {t('消息')}</div>
-          </div>
-          <div className="grid gap-3 min-h-0">
-            {historyLoading ? (
-              <div className="p-4 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
-                {t('加载中...')}
-              </div>
-            ) : (historyEntries.length === 0 ? (
-              <div className="p-4 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
-                {t('暂无消息')}
-              </div>
-            ) : (
-              historyEntries.map((entry, index) => {
-                const role = entry.role === 'user' ? 'user' : 'assistant'
-                const markdown = getHistoryText(entry.content)
-                return (
-                  <div
-                    key={`${entry.messageId || index}-${index}`}
-                    className={`w-full min-w-0 grid gap-2.5 px-4 py-3.5 rounded-[var(--radius-md)] border ${role === 'user' ? 'border-[rgba(var(--accent-rgb),0.35)] bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
-                        {role === 'user' ? t('用户') : t('AI')}
-                      </span>
-                      {entry.ts && entry.ts > 0 ? (
-                        <span className="text-xs text-tertiary whitespace-nowrap">
-                          {formatDateTime(entry.ts, lang)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="max-h-[20vh] overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-[var(--radius-sm)] bg-[rgba(255,255,255,0.03)] text-primary text-base leading-[1.6]">
-                      <AIChatMarkdown text={markdown || t('暂无消息')} />
-                    </div>
-                  </div>
-                )
-              })
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="grid gap-3 min-h-0">
-      <div className="grid gap-1">
+    <div className="flex flex-1 min-h-0 flex-col gap-3">
+      <div className="grid shrink-0 gap-1">
         <div className="text-[18px] font-bold text-primary leading-[1.3]">{t('自动备份')}</div>
         <div className="text-sm text-tertiary leading-[1.5]">{t('查看和恢复当前对话的自动备份记录。')}</div>
       </div>
       {autoBackupControl}
-      <div className="grid gap-3 min-h-0">
-        {!isLoaded && backups.length === 0 ? (
-          <div className="min-h-40 flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
-            <History size={18} />
-            <span>{isRefreshing ? t('刷新中...') : t('加载备份列表中...')}</span>
-          </div>
-        ) : (backups.length === 0 ? (
-          <div className="min-h-40 flex flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
-            <History size={22} className="opacity-35" />
-            <span>{t('暂无自动备份')}</span>
-          </div>
-        ) : (
-          backups.map((backup) => (
-            <div
-              key={backup.id}
-              className="p-3.5 rounded-[var(--radius-md)] bg-canvas border border-line grid gap-3"
-            >
-              <div className="grid gap-2 min-w-0">
-                <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                  <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
-                    {backup.messageRole === 'user' ? t('用户') : t('AI')}
-                  </span>
-                  <span className="text-xs text-tertiary whitespace-nowrap">
-                    {backup.ts > 0 ? formatDateTime(backup.ts, lang) : formatBackupIdTime(backup.id, lang)}
-                  </span>
-                  <span className="text-xs text-muted whitespace-nowrap">
-                    {relativeTimeMap.get(backup.id)}
-                  </span>
-                </div>
-                <div className="max-h-44 overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-[var(--radius-sm)] bg-overlay text-primary text-base leading-[1.6]">
-                  <AIChatMarkdown text={backup.message || t('暂无消息')} />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <ActionButton icon={RotateCcw} label={t('恢复')} onClick={() => void handleRestore(backup.id)} disabled={requestInFlight} />
-                <ActionButton icon={Trash2} label={t('删除')} onClick={() => void handleDelete(backup.id)} disabled={requestInFlight} />
-                <ActionButton icon={MessagesSquare} label={t('对话历史')} onClick={() => void handleOpenHistory(backup)} />
-              </div>
+      <div className="relative flex flex-1 min-h-0">
+        <div className={`flex flex-1 min-h-0 flex-col${selectedBackup ? ' invisible pointer-events-none' : ''}`}>
+          {!isLoaded && backups.length === 0 ? (
+            <div className="min-h-40 flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
+              <History size={18} />
+              <span>{isRefreshing ? t('刷新中...') : t('加载备份列表中...')}</span>
             </div>
-          ))
-        ))}
+          ) : (backups.length === 0 ? (
+            <div className="min-h-40 flex flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
+              <History size={22} className="opacity-35" />
+              <span>{t('暂无自动备份')}</span>
+            </div>
+          ) : (
+            <Virtuoso
+              data={backups}
+              style={{ height: '100%' }}
+              className="rounded-[var(--radius-md)] border border-line bg-canvas"
+              itemContent={(_, backup) => (
+                <div className="px-1.5 py-1.5">
+                  <div className={`p-3.5 rounded-[var(--radius-md)] bg-canvas border grid gap-3 ${backup.id === lastViewedBackupId ? 'border-accent' : 'border-line'}`}>
+                    <div className="grid gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
+                          {backup.messageRole === 'user' ? t('用户') : t('AI')}
+                        </span>
+                        <span className="text-xs text-tertiary whitespace-nowrap">
+                          {backup.ts > 0 ? formatDateTime(backup.ts, lang) : formatBackupIdTime(backup.id, lang)}
+                        </span>
+                        <span className="text-xs text-muted whitespace-nowrap">
+                          {relativeTimeMap.get(backup.id)}
+                        </span>
+                      </div>
+                      <div className="max-h-44 overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-[var(--radius-sm)] bg-overlay text-primary text-base leading-[1.6]">
+                        <AIChatMarkdown text={backup.message || t('暂无消息')} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <ActionButton icon={RotateCcw} label={t('恢复')} onClick={() => void handleRestore(backup.id)} disabled={requestInFlight} />
+                      <ActionButton icon={Trash2} label={t('删除')} onClick={() => void handleDelete(backup.id)} disabled={requestInFlight} />
+                      <ActionButton icon={MessagesSquare} label={t('对话历史')} onClick={() => void handleOpenHistory(backup)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            />
+          ))}
+        </div>
+        {selectedBackup ? (
+          <div className="absolute inset-0 z-10 flex min-h-0 flex-col gap-3 bg-overlay">
+            <div className="grid shrink-0 gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedBackup(null)}
+                className="w-fit h-[30px] inline-flex items-center gap-1.5 px-2.5 rounded-[var(--radius-sm)] border border-line bg-canvas text-primary text-sm font-bold cursor-pointer"
+              >
+                <ChevronLeft size={14} />
+                <span>{t('返回')}</span>
+              </button>
+              <div className="text-[18px] font-bold text-primary leading-[1.3]">{`${t('自动备份')} / ${formatBackupIdTime(selectedBackup.id, lang)}`}</div>
+              <div className="text-sm text-tertiary leading-[1.5]">{historyEntries.length} {t('消息')}</div>
+            </div>
+            {historyLoading ? (
+              <div className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
+                {t('加载中...')}
+              </div>
+            ) : (historyEntries.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border border-line bg-canvas text-tertiary text-base">
+                {t('暂无消息')}
+              </div>
+            ) : (
+              <Virtuoso
+                ref={historyVirtuosoRef}
+                data={historyEntries}
+                style={{ height: '100%' }}
+                className="rounded-[var(--radius-md)] border border-line bg-canvas"
+                computeItemKey={(index, entry) => entry.messageId || `${entry.ts || 0}-${index}`}
+                itemContent={(_, entry) => {
+                  const role = entry.role === 'user' ? 'user' : 'assistant'
+                  const markdown = getHistoryText(entry.content)
+                  return (
+                    <div className="px-1.5 py-1.5">
+                      <div className={`w-full min-w-0 grid gap-2.5 px-4 py-3.5 rounded-[var(--radius-md)] border ${role === 'user' ? 'border-[rgba(var(--accent-rgb),0.35)] bg-[rgba(var(--accent-rgb),0.10)]' : 'border-line bg-canvas'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="inline-flex items-center min-h-[22px] px-2 rounded-full bg-raised text-primary text-xs font-bold">
+                            {role === 'user' ? t('用户') : t('AI')}
+                          </span>
+                          {entry.ts && entry.ts > 0 ? (
+                            <span className="text-xs text-tertiary whitespace-nowrap">
+                              {formatDateTime(entry.ts, lang)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="max-h-[20vh] overflow-y-auto overflow-x-hidden px-3 py-2.5 rounded-[var(--radius-sm)] bg-[rgba(255,255,255,0.03)] text-primary text-base leading-[1.6]">
+                          <AIChatMarkdown text={markdown || t('暂无消息')} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )

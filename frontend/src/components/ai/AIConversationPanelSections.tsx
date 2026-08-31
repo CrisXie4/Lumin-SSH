@@ -271,7 +271,7 @@ export function renderAISettingsOverlaySection({
         conversationUpdatedAt={activeConversation?.updatedAt || 0}
         backupRequestInFlight={panelState.requestPhase !== 'idle' || runtimePhase !== 'ready'}
         onRestoreConversationBackup={handleRestoreConversationBackup}
-        autoBackupEnabled={normalizedGlobalAISettings.conversationAutoBackupEnabled !== false}
+        autoBackupEnabled={normalizedGlobalAISettings.conversationAutoBackupEnabled}
         onToggleAutoBackup={() => handleSaveAIPanelGlobalSettings({
           conversationAutoBackupEnabled: !normalizedGlobalAISettings.conversationAutoBackupEnabled,
         })}

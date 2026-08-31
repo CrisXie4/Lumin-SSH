@@ -18,6 +18,7 @@ export interface AIWorkspaceTabBarDeps {
   tabGroupRef: React.RefObject<AIWorkspaceTabGroup>
   tabRequestIds: Record<string, string>
   activeTabId: string
+  workspaceTabNumbersOnly: boolean
   aiWorkspaceTabOverflow: boolean
   aiWorkspaceTabCanScrollLeft: boolean
   aiWorkspaceTabCanScrollRight: boolean
@@ -42,6 +43,7 @@ export function renderAIWorkspaceTabBar({
   tabGroupRef,
   tabRequestIds,
   activeTabId,
+  workspaceTabNumbersOnly,
   aiWorkspaceTabOverflow,
   aiWorkspaceTabCanScrollLeft,
   aiWorkspaceTabCanScrollRight,
@@ -82,7 +84,9 @@ export function renderAIWorkspaceTabBar({
           const running = Boolean(tabRequestIds[tab.id])
           const transient = tab.transient === true
           const tabTitle = tab.title || t('新对话')
-          const tabLabel = `${index + 1}. ${tabTitle}${transient ? ` · ${t('临时会话')}` : ''}`
+          const tabLabel = workspaceTabNumbersOnly
+            ? `${index + 1}`
+            : `${index + 1}. ${tabTitle}${transient ? ` · ${t('临时会话')}` : ''}`
           return (
             <div
               key={tab.id}
@@ -144,8 +148,16 @@ export function renderAIWorkspaceTabBar({
                   ],
                 })
               }}
-              className={`terminal-sub-tab shrink-0 basis-auto max-w-[220px] ${active ? 'active' : ''}`}>
-              <Tiptop text={tabLabel} placement="bottom" style={{ display: 'flex', height: '100%', minWidth: 0, flex: 1 }}>
+              className={`terminal-sub-tab shrink-0 basis-auto max-w-[220px] ${workspaceTabNumbersOnly ? 'ai-workspace-tab-numbers-only' : ''} ${active ? 'active' : ''}`}>
+              <Tiptop
+                text={tabTitle}
+                placement="bottom"
+                style={{
+                  display: 'flex',
+                  height: '100%',
+                  minWidth: 0,
+                  flex: workspaceTabNumbersOnly ? '0 0 auto' : 1,
+                }}>
                 <button
                   type="button"
                   onClick={() => activateWorkspaceTab(tab.id)}
@@ -164,11 +176,11 @@ export function renderAIWorkspaceTabBar({
                     closeWorkspaceTab(tab.id)
                   }}
                   aria-label={tabLabel}
-                  className="min-w-0 grow basis-auto h-full flex items-center justify-start gap-[6px] pl-1 pr-1 border-0 relative bg-transparent cursor-pointer text-xs tabular-nums text-inherit font-inherit">
+                  className={`min-w-0 grow basis-auto h-full flex items-center justify-start border-0 relative bg-transparent cursor-pointer text-xs tabular-nums text-inherit font-inherit ${workspaceTabNumbersOnly ? 'gap-[2px] pl-1 pr-0' : 'gap-[6px] pl-1 pr-1'}`}>
                   {running ? <span aria-label={t('执行中')} className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" /> : null}
                   <span className="text-muted tabular-nums shrink-0">{index + 1}</span>
-                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{tabTitle}</span>
-                  {transient ? (
+                  {workspaceTabNumbersOnly ? null : <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{tabTitle}</span>}
+                  {!workspaceTabNumbersOnly && transient ? (
                     <span title={t('临时会话')} className="shrink-0 px-[5px] py-px rounded-sm bg-[rgba(var(--accent-rgb),0.12)] text-accent text-[10px] font-semibold">
                       {t('临时会话')}
                     </span>
@@ -180,7 +192,6 @@ export function renderAIWorkspaceTabBar({
                   role="button"
                   tabIndex={0}
                   aria-label={`${t('关闭')} ${tabTitle}`}
-                  title={t('关闭')}
                   onClick={(event) => {
                     event.preventDefault()
                     event.stopPropagation()
