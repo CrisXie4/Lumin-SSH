@@ -1,7 +1,9 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { t } from '../../i18n.ts';
 import { Z } from '../../constants/zIndex.ts';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -61,15 +63,17 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, closeOnEscape, onClose]);
 
+  useOverlayScrollLock(open);
+
   if (!open) return null;
 
   const hasHeader = title != null || !hideClose;
 
-  return (
+  const overlayNode = (
     <div
       data-modal-overlay="true"
       className={`fixed inset-0 flex ${align === 'top' ? 'items-start pt-[52px]' : 'items-center'} justify-center bg-scrim animate-[fadeIn_0.12s_ease]`}
-      style={{ zIndex }}
+      style={{ zIndex, isolation: 'isolate' }}
       {...overlayProps}
       onMouseDown={(e) => {
         if (closeOnOverlay && e.target === e.currentTarget) onClose();
@@ -104,4 +108,9 @@ export function Modal({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(overlayNode, document.body);
+  }
+  return overlayNode;
 }

@@ -1,4 +1,6 @@
+import { createPortal } from 'react-dom';
 import { Copy, X } from 'lucide-react';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 import type { TopbarSession } from '../AppTopbar.tsx';
 import type { TabContextMenuState } from './overlayTypes.ts';
 
@@ -24,9 +26,10 @@ export default function TabContextMenuOverlay({
   forceCloseSession,
   closeAllSessions,
 }: TabContextMenuOverlayProps) {
+  useOverlayScrollLock(true);
   const showCopySessionPassword = canCopySessionPassword(tabContextMenu.sessionId);
-  return (
-    <div className="tab-context-menu" style={{ left: tabContextMenu.x, top: tabContextMenu.y }}>
+  const content = (
+    <div className="tab-context-menu" data-tab-context-menu="true" style={{ left: tabContextMenu.x, top: tabContextMenu.y }}>
       {showCopySessionPassword && (
         <>
           <div
@@ -68,4 +71,9 @@ export default function TabContextMenuOverlay({
       )}
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(content, document.body);
+  }
+  return content;
 }

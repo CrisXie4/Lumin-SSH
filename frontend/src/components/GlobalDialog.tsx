@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '../i18n.ts';
 import { Z } from '../constants/zIndex';
+import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock.ts';
 import {
   DIALOG_PRIORITY,
   getDialogPriority,
@@ -107,21 +109,26 @@ export default function GlobalDialog({ suspendDefault = false }: GlobalDialogPro
     };
   }, [pushDialog]);
 
+  const current = dialogs[0] as QueuedDialog | undefined;
+  const currentSuspended = !!current && suspendDefault && current.priority === DIALOG_PRIORITY.default;
+  const shouldLock = dialogs.length > 0 && !currentSuspended;
+  useOverlayScrollLock(shouldLock);
+
   if (dialogs.length === 0) return null;
 
-  const current = dialogs[0];
-  const currentSuspended = suspendDefault && current.priority === DIALOG_PRIORITY.default;
-  const dialogZIndex = current.priority === DIALOG_PRIORITY.system
+  const activeCurrent = dialogs[0];
+  const dialogZIndex = activeCurrent.priority === DIALOG_PRIORITY.system
     ? Z.SYSTEM_DIALOG
-    : (current.priority === DIALOG_PRIORITY.settings
+    : (activeCurrent.priority === DIALOG_PRIORITY.settings
       ? Z.SETTINGS_DIALOG
       : Z.GLOBAL_DIALOG);
 
-  return (
+  const overlayNode = (
     <div
       className="modal-overlay"
+      data-modal-overlay="true"
       data-global-dialog-active={currentSuspended ? undefined : 'true'}
-      style={{ zIndex: dialogZIndex, display: currentSuspended ? 'none' : 'flex' }}
+      style={{ zIndex: dialogZIndex, display: currentSuspended ? 'none' : 'flex', isolation: 'isolate' as const }}
     >
       {dialogs.map((dialog, index) => {
         const dialogActive = index === 0 && !(suspendDefault && dialog.priority === DIALOG_PRIORITY.default);
@@ -152,4 +159,9 @@ export default function GlobalDialog({ suspendDefault = false }: GlobalDialogPro
       })}
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(overlayNode, document.body);
+  }
+  return overlayNode;
 }

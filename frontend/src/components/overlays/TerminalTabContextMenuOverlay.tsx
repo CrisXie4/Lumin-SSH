@@ -1,5 +1,7 @@
+import { createPortal } from 'react-dom';
 import { PenLine, X } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 import type { SessionLike } from '../../utils/sessionWorkspace.ts';
 import type { TopbarSession } from '../AppTopbar.tsx';
 import type { TerminalTabContextMenuState } from './overlayTypes.ts';
@@ -30,6 +32,7 @@ export default function TerminalTabContextMenuOverlay({
   closeTerminalGroup,
   closeTerminal,
 }: TerminalTabContextMenuOverlayProps) {
+  useOverlayScrollLock(true);
   const session = sessions.find((item) => item.id === terminalTabContextMenu.sessionId);
   const moveTargets = [
     { target: 'top-left', label: t('移至左上面板') },
@@ -37,8 +40,8 @@ export default function TerminalTabContextMenuOverlay({
     { target: 'bottom-left', label: t('移至左下面板') },
     { target: 'bottom-right', label: t('移至右下面板') },
   ];
-  return (
-    <div className="tab-context-menu" style={{ left: terminalTabContextMenu.x, top: terminalTabContextMenu.y }}>
+  const content = (
+    <div className="tab-context-menu" data-tab-context-menu="true" style={{ left: terminalTabContextMenu.x, top: terminalTabContextMenu.y }}>
       {terminalTabContextMenu.type === 'terminal' && moveTargets.map((item) => {
         const occupied = !!session && isTerminalDockTargetOccupied(session, terminalTabContextMenu.terminalId, item.target);
         const enabled = !!session && canMoveTerminalToDockTarget(session, terminalTabContextMenu.terminalId, item.target);
@@ -88,4 +91,9 @@ export default function TerminalTabContextMenuOverlay({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(content, document.body);
+  }
+  return content;
 }
