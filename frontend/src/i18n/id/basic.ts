@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Jika diaktifkan, bilah operasi untuk pesan pengguna dan pesan Ai ditampilkan di bagian bawah setiap putaran isi pesan; ketika dimatikan, mereka ditampilkan di bagian atas.",
   "用户消息导航": "Navigasi pesan pengguna",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Saat diaktifkan, titik navigasi untuk pesan pengguna muncul di sisi kiri area obrolan. Arahkan kursor untuk pratinjau konten, klik untuk melompat ke pesan yang sesuai.",
+  "多标签页仅显示序号": "Halaman multi-tab hanya menampilkan nomor seri",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Setelah diaktifkan, halaman multi-tab AI hanya menampilkan nomor seri dan tidak menampilkan judul tugas.",
   "未命名供应商": "Pemasok tanpa nama",
   "未选择模型": "Tidak ada model yang dipilih",
   "创建对话能力未就绪": "Kemampuan menciptakan percakapan belum siap",

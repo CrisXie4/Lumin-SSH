@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "Khi được bật, các thanh thao tác cho tin nhắn người dùng và tin nhắn Ai sẽ được hiển thị ở cuối mỗi vòng nội dung tin nhắn; khi tắt, chúng được hiển thị ở trên cùng.",
   "用户消息导航": "Điều hướng tin nhắn người dùng",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "Khi bật, các chấm điều hướng cho tin nhắn người dùng xuất hiện ở bên trái khu vực trò chuyện. Di chuột để xem trước nội dung, nhấp để chuyển đến tin nhắn tương ứng.",
+  "多标签页仅显示序号": "Các trang nhiều tab chỉ hiển thị số sê-ri",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "Sau khi kích hoạt, trang multi-tab AI chỉ hiển thị số serial và không hiển thị tiêu đề nhiệm vụ.",
   "未命名供应商": "Nhà cung cấp không tên",
   "未选择模型": "Không có mô hình nào được chọn",
   "创建对话能力未就绪": "Khả năng tạo cuộc hội thoại chưa sẵn sàng",

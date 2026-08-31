@@ -1267,6 +1267,8 @@ export default {
   "启用后,用户消息与Ai消息的操作条显示在每轮消息主体底部;关闭后显示在顶部.": "When enabled, the action bar for user and AI messages is shown at the bottom of each message turn; when disabled, it remains at the top.",
   "用户消息导航": "User Message Navigation",
   "启用后,对话区左侧显示用户消息导航圆点,悬停预览内容,点击跳转到对应消息.": "When enabled, navigation dots for user messages appear on the left side of the chat area. Hover to preview content, click to jump to the corresponding message.",
+  "多标签页仅显示序号": "Multi-tab pages only display serial numbers",
+  "启用后,AI多标签页只显示序号,不显示任务标题.": "After enabling it, the AI ​​multi-tab page only displays the serial number and does not display the task title.",
   "未命名供应商": "Unnamed Provider",
   "未选择模型": "No Model Selected",
   "创建对话能力未就绪": "Conversation creation is unavailable",
