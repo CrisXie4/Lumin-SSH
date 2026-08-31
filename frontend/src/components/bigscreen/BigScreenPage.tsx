@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, ListChecks, Maximize, Minimize, Monitor, MonitorUp, RefreshCw, X } from 'lucide-react';
-import { WindowFullscreen, WindowUnfullscreen } from '../../../wailsjs/runtime/runtime.js';
+import { WindowFullscreen, WindowIsFullscreen, WindowUnfullscreen } from '../../../wailsjs/runtime/runtime.js';
 import { useTranslation } from '../../i18n.ts';
 import { Z } from '../../constants/zIndex.ts';
 import { cn } from '../../utils/cn.ts';
@@ -144,6 +144,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const fullscreenActionRef = useRef(false);
   const wailsRuntime = hasWailsWindowRuntime();
   const { data, staticInfo, intervalSec } = useBigScreenData(selectedTargets, visible && isFullscreen);
 
@@ -178,6 +179,19 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
+  useEffect(() => {
+    if (!visible || !wailsRuntime) return;
+    fullscreenActionRef.current = false;
+    let mounted = true;
+    Promise.resolve()
+      .then(() => WindowIsFullscreen())
+      .then((fullscreen) => {
+        if (mounted && !fullscreenActionRef.current) setIsFullscreen(fullscreen === true);
+      })
+      .catch(() => { /* 旧版运行时不支持查询时，以本地切换状态为准。 */ });
+    return () => { mounted = false; };
+  }, [visible, wailsRuntime]);
+
   const handleClose = useCallback(() => {
     if (wailsRuntime) {
       if (isFullscreen) {
@@ -186,6 +200,7 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
     } else if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => { /* 忽略 */ });
     }
+    fullscreenActionRef.current = true;
     setIsFullscreen(false);
     setPickerOpen(false);
     onClose();
@@ -198,14 +213,18 @@ export default function BigScreenPage({ visible, servers, sessions, onClose, onG
 
   const handleToggleFullscreen = useCallback(() => {
     try {
+      fullscreenActionRef.current = true;
       if (wailsRuntime) {
-        if (isFullscreen) WindowUnfullscreen();
-        else WindowFullscreen();
-        setIsFullscreen(!isFullscreen);
+        const nextFullscreen = !isFullscreen;
+        setIsFullscreen(nextFullscreen);
+        if (nextFullscreen) WindowFullscreen();
+        else WindowUnfullscreen();
       } else if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => { /* 忽略 */ });
+        document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => { /* 忽略 */ });
       } else {
-        document.documentElement.requestFullscreen().catch(() => { /* 忽略 */ });
+        document.documentElement.requestFullscreen()
+          .then(() => setIsFullscreen(true))
+          .catch(() => setIsFullscreen(false));
       }
     } catch (_) { /* 忽略 */ }
   }, [isFullscreen, wailsRuntime]);
