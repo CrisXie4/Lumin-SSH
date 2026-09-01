@@ -74,6 +74,8 @@ export interface AppearanceTabProps {
   onProbePanelPositionChange: (position: 'left' | 'right') => void;
   terminalToolbarIconOnly: boolean;
   onToggleTerminalToolbarIconOnly: () => void;
+  editorWordWrap: boolean;
+  onToggleEditorWordWrap: () => void;
   termBgImage: string;
   globalBgImage: string;
   globalCoverTerminal: boolean;
@@ -130,6 +132,7 @@ export default function AppearanceTab({
   showAIQuickEntry, onToggleAIQuickEntry,
   probePanelPosition, onProbePanelPositionChange,
   terminalToolbarIconOnly, onToggleTerminalToolbarIconOnly,
+  editorWordWrap, onToggleEditorWordWrap,
   termBgImage, globalBgImage, globalCoverTerminal, onGlobalCoverTerminalChange,
   onBgUpload, onBgReset,
   termBgOpacity, globalBgOpacity, onBgOpacityChange,
@@ -406,6 +409,12 @@ export default function AppearanceTab({
             definition={appearanceSettings.fields.toolbarIconOnly}
             description={$t('开启后终端工具栏的进程管理、网络监控等按钮只显示图标')}
             action={<ToggleSwitch checked={terminalToolbarIconOnly} onChange={onToggleTerminalToolbarIconOnly} />}
+          />
+          <SettingsDivider />
+          <SettingRow
+            definition={appearanceSettings.fields.editorWordWrap}
+            description={$t('开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示')}
+            action={<ToggleSwitch checked={editorWordWrap} onChange={onToggleEditorWordWrap} />}
           />
         </SettingsPanel>
       </div>

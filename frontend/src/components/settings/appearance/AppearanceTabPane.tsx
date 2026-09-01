@@ -64,6 +64,7 @@ export default function AppearanceTabPane({
      showBigScreenQuickEntry, handleToggleBigScreenQuickEntry,
      showAIQuickEntry, handleToggleAIQuickEntry,
     terminalToolbarIconOnly, handleToggleTerminalToolbarIconOnly,
+    editorWordWrap, handleToggleEditorWordWrap,
   } = useTerminalPreferences();
 
   const [rememberWindowSize, setRememberWindowSize] = useState(localStorage.getItem('rememberWindowSize') !== 'false');
@@ -143,6 +144,8 @@ export default function AppearanceTabPane({
           onProbePanelPositionChange={onProbePanelPositionChange}
           terminalToolbarIconOnly={terminalToolbarIconOnly}
           onToggleTerminalToolbarIconOnly={handleToggleTerminalToolbarIconOnly}
+          editorWordWrap={editorWordWrap}
+          onToggleEditorWordWrap={handleToggleEditorWordWrap}
           termBgImage={termBgImage}
           globalBgImage={globalBgImage}
           globalCoverTerminal={globalCoverTerminal}

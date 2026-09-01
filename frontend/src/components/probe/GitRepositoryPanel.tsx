@@ -671,7 +671,10 @@ function GitRepositoryPanel({
     return selectedItems;
   }, [repoStates, updateRepoState]);
 
-  const getActionFiles = useCallback((repoPath: string, type: 'staged' | 'unstaged', items: GitFile[]) => {
+  const getActionFiles = useCallback((repoPath: string, type: 'staged' | 'unstaged', items: GitFile[], ignoreSelection = false) => {
+    if (ignoreSelection) {
+      return Array.from(new Set(items.flatMap(getGitFilePaths)));
+    }
     const state = repoStates[repoPath] || createEmptyRepoState();
     const selected = type === 'staged' ? state.selectedStaged : state.selectedUnstaged;
     const selectedItems = selected.length > 0
@@ -680,22 +683,22 @@ function GitRepositoryPanel({
     return Array.from(new Set(selectedItems.flatMap(getGitFilePaths)));
   }, [repoStates]);
 
-  const handleStage = useCallback(async (repoPath: string, items: GitFile[]) => {
-    const files = getActionFiles(repoPath, 'unstaged', items);
+  const handleStage = useCallback(async (repoPath: string, items: GitFile[], ignoreSelection = false) => {
+    const files = getActionFiles(repoPath, 'unstaged', items, ignoreSelection);
     if (files.length > 0) {
       await executeQuietSequence(repoPath, [['add', '--', ...files]]);
     }
   }, [executeQuietSequence, getActionFiles]);
 
-  const handleUnstage = useCallback(async (repoPath: string, items: GitFile[]) => {
-    const files = getActionFiles(repoPath, 'staged', items);
+  const handleUnstage = useCallback(async (repoPath: string, items: GitFile[], ignoreSelection = false) => {
+    const files = getActionFiles(repoPath, 'staged', items, ignoreSelection);
     if (files.length > 0) {
       await executeQuietSequence(repoPath, [['reset', 'HEAD', '--', ...files]]);
     }
   }, [executeQuietSequence, getActionFiles]);
 
-  const handleDiscard = useCallback(async (repoPath: string, items: GitFile[]) => {
-    const files = getActionFiles(repoPath, 'unstaged', items);
+  const handleDiscard = useCallback(async (repoPath: string, items: GitFile[], ignoreSelection = false) => {
+    const files = getActionFiles(repoPath, 'unstaged', items, ignoreSelection);
     if (files.length === 0 || !(await confirmDangerousAction('discard', translate('确认放弃所选 Git 更改？此操作不可撤销。')))) {
       return;
     }
@@ -1256,7 +1259,7 @@ function GitRepositoryPanel({
                 <span className="git-repository-count">{staged.length}</span>
                 <span className="ml-auto" />
                 <Tiptop text={translate('取消暂存所有')}>
-                  <span role="button" tabIndex={0} className="git-repository-drawer-action" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleUnstage(repoPath, staged); }}><X size={13} /></span>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleUnstage(repoPath, staged, true); }}><X size={13} /></span>
                 </Tiptop>
               </button>
               {state.stagedExpanded ? <div className="git-repository-file-list">{renderFileList(repoPath, 'staged', staged)}</div> : null}
@@ -1268,10 +1271,10 @@ function GitRepositoryPanel({
                 <span className="git-repository-count">{unstaged.length}</span>
                 <span className="ml-auto" />
                 <Tiptop text={translate('还原所有')}>
-                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-danger" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleDiscard(repoPath, unstaged); }}><X size={13} /></span>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-danger" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleDiscard(repoPath, unstaged, true); }}><X size={13} /></span>
                 </Tiptop>
                 <Tiptop text={translate('暂存所有')}>
-                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-success" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleStage(repoPath, unstaged); }}><Check size={13} /></span>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-success" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleStage(repoPath, unstaged, true); }}><Check size={13} /></span>
                 </Tiptop>
               </button>
               {state.unstagedExpanded ? <div className="git-repository-file-list">{renderFileList(repoPath, 'unstaged', unstaged)}</div> : null}
