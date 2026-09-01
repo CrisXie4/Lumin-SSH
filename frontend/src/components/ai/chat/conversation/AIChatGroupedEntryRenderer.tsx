@@ -19,7 +19,6 @@ export function renderGroupedEntry(entry: GroupedConversationEntry, handlers: Co
           onRetry={handlers.onRetryUserMessage}
           onEdit={handlers.onEditUserMessage}
           onDelete={handlers.onDeleteMessage}
-          messageActionBarAtBottom={Boolean(handlers.messageActionBarAtBottom)}
           perfMetricsText={resolveSendPerfMetrics(handlers.sendPerfMetricsRef, entry.message?.id)}
           isEditingTarget={Boolean(handlers.isEditingTarget)}
           isFirstUserMessage={Boolean(entryMeta.isFirstUserMessage)}
@@ -42,7 +41,6 @@ export function renderGroupedEntry(entry: GroupedConversationEntry, handlers: Co
           onRestoreToHere={handlers.onRestoreToHere}
           onReapplyRestore={handlers.onReapplyRestore}
           followupInteractionLocked={Boolean(handlers.followupInteractionLocked)}
-          messageActionBarAtBottom={Boolean(handlers.messageActionBarAtBottom)}
           perfMetricsText={resolveSendPerfMetrics(handlers.sendPerfMetricsRef, entry.assistant?.id)}
         />
       );

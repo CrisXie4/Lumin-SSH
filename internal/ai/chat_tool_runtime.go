@@ -1299,7 +1299,8 @@ func (a *Service) continueCompatibleAIChatAfterResolvedTools(ctx context.Context
 		"requestId": requestID,
 		"messageId": nextAssistantMessageID,
 	})
-	a.runCompatibleAIChatLoop(ctx, requestID, batch.Payload, batch.Profile, requestMessages, batch.AutoApprovalSettings, nextAssistantMessageID, batch.AssistantRetryCount, batch.CollaborationRetryCount)
+	continuationProfile := a.resolveAIChatContinuationProfile(batch)
+	a.runCompatibleAIChatLoop(ctx, requestID, batch.Payload, continuationProfile, requestMessages, batch.AutoApprovalSettings, nextAssistantMessageID, batch.AssistantRetryCount, batch.CollaborationRetryCount)
 }
 
 func (a *Service) resumeAIChatAfterToolBatch(requestID string, batch *aiPendingToolBatch) {

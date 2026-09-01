@@ -44,7 +44,6 @@ export interface AIConversationStageDeps {
   handleRestoreToHere: (restoreArtifactPath: string) => Promise<boolean>
   handleReapplyRestore: (restoreArtifactPath: string) => Promise<boolean>
   collaborationFollowupInteractionLocked: boolean
-  messageActionBarAtBottom: boolean
   messageNavEnabled: boolean
   conversationScrollSignal: number
   sendPerfMetricsRef: React.RefObject<Map<string, PerfRecord>>
@@ -85,7 +84,6 @@ export function renderAIConversationStage({
   handleRestoreToHere,
   handleReapplyRestore,
   collaborationFollowupInteractionLocked,
-  messageActionBarAtBottom,
   messageNavEnabled,
   conversationScrollSignal,
   sendPerfMetricsRef,
@@ -193,7 +191,6 @@ export function renderAIConversationStage({
                 onRestoreToHere={handleRestoreToHere}
                 onReapplyRestore={handleReapplyRestore}
                 followupInteractionLocked={collaborationFollowupInteractionLocked}
-                messageActionBarAtBottom={messageActionBarAtBottom}
                 messageNavEnabled={messageNavEnabled}
                 side={side}
                 scrollToBottomSignal={conversationScrollSignal}

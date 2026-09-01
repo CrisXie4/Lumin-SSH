@@ -42,64 +42,69 @@ type AIProxyNode struct {
 }
 
 type AIGlobalSettings struct {
-	CurrentProviderID                   string                        `json:"currentProviderId"`
-	AutoApprovalEnabled                 bool                          `json:"autoApprovalEnabled"`
-	AlwaysAllowReadOnly                 bool                          `json:"alwaysAllowReadOnly"`
-	AlwaysAllowReadOnlyOutsideWorkspace bool                          `json:"alwaysAllowReadOnlyOutsideWorkspace"`
-	AlwaysAllowWrite                    bool                          `json:"alwaysAllowWrite"`
-	AlwaysAllowWriteOutsideWorkspace    bool                          `json:"alwaysAllowWriteOutsideWorkspace"`
-	AlwaysAllowWriteProtected           bool                          `json:"alwaysAllowWriteProtected"`
-	AlwaysAllowExecute                  bool                          `json:"alwaysAllowExecute"`
-	ExecuteApprovalMode                 string                        `json:"executeApprovalMode"`
-	AllowedCommands                     []string                      `json:"allowedCommands,omitempty"`
-	DeniedCommands                      []string                      `json:"deniedCommands,omitempty"`
-	SlashCommands                       []AISlashCommand              `json:"slashCommands,omitempty"`
-	CollaborationPromptPresets          []AICollaborationPromptPreset `json:"collaborationPromptPresets,omitempty"`
-	SystemPromptPresets                 []AISystemPromptPreset        `json:"systemPromptPresets,omitempty"`
-	CollaborationExtraPrompt            string                        `json:"collaborationExtraPrompt,omitempty"`
-	AlwaysAllowMcp                      bool                          `json:"alwaysAllowMcp"`
-	AlwaysAllowModeSwitch               bool                          `json:"alwaysAllowModeSwitch"`
-	AlwaysAllowSubtasks                 bool                          `json:"alwaysAllowSubtasks"`
-	AlwaysAllowFollowupQuestions        bool                          `json:"alwaysAllowFollowupQuestions"`
-	SoundEnabled                        bool                          `json:"soundEnabled"`
-	SoundVolume                         float64                       `json:"soundVolume,omitempty"`
-	MCPEnabled                          bool                          `json:"mcpEnabled"`
-	MCPAllowBrowserCalls                bool                          `json:"mcpAllowBrowserCalls"`
-	MCPRequireApproval                  bool                          `json:"mcpRequireApproval"`
-	MCPActivityVisible                  bool                          `json:"mcpActivityVisible"`
-	TerminalIsolation                   bool                          `json:"terminalIsolation"`
-	ConfirmDelete                       bool                          `json:"confirmDelete"`
-	ContinueAfterToolRejection          bool                          `json:"continueAfterToolRejection"`
-	ConversationAutoBackupEnabled       bool                          `json:"conversationAutoBackupEnabled"`
-	MessageActionBarAtBottom            bool                          `json:"messageActionBarAtBottom"`
-	MessageNavEnabled                   bool                          `json:"messageNavEnabled"`
-	AIWorkspaceTabNumbersOnly           bool                          `json:"aiWorkspaceTabNumbersOnly"`
-	ApprovalButtonOrder                 string                        `json:"approvalButtonOrder"`
-	CommandActionButtonOrder            string                        `json:"commandActionButtonOrder"`
-	ToolResultTokenThreshold            int                           `json:"toolResultTokenThreshold,omitempty"`
-	AIRequestProxyID                    string                        `json:"aiRequestProxyId,omitempty"`
-	UpdatedAt                           int64                         `json:"updatedAt,omitempty"`
-	ProxyNodes                          []AIProxyNode                 `json:"proxyNodes,omitempty"`
+	CurrentProviderID                    string                        `json:"currentProviderId"`
+	AutoApprovalEnabled                  bool                          `json:"autoApprovalEnabled"`
+	AlwaysAllowReadOnly                  bool                          `json:"alwaysAllowReadOnly"`
+	AlwaysAllowReadOnlyOutsideWorkspace  bool                          `json:"alwaysAllowReadOnlyOutsideWorkspace"`
+	AlwaysAllowWrite                     bool                          `json:"alwaysAllowWrite"`
+	AlwaysAllowWriteOutsideWorkspace     bool                          `json:"alwaysAllowWriteOutsideWorkspace"`
+	AlwaysAllowWriteProtected            bool                          `json:"alwaysAllowWriteProtected"`
+	AlwaysAllowExecute                   bool                          `json:"alwaysAllowExecute"`
+	ExecuteApprovalMode                  string                        `json:"executeApprovalMode"`
+	AllowedCommands                      []string                      `json:"allowedCommands,omitempty"`
+	DeniedCommands                       []string                      `json:"deniedCommands,omitempty"`
+	SlashCommands                        []AISlashCommand              `json:"slashCommands,omitempty"`
+	CollaborationPromptPresets           []AICollaborationPromptPreset `json:"collaborationPromptPresets,omitempty"`
+	SystemPromptPresets                  []AISystemPromptPreset        `json:"systemPromptPresets,omitempty"`
+	CollaborationExtraPrompt             string                        `json:"collaborationExtraPrompt,omitempty"`
+	AlwaysAllowMcp                       bool                          `json:"alwaysAllowMcp"`
+	AlwaysAllowModeSwitch                bool                          `json:"alwaysAllowModeSwitch"`
+	AlwaysAllowSubtasks                  bool                          `json:"alwaysAllowSubtasks"`
+	AlwaysAllowFollowupQuestions         bool                          `json:"alwaysAllowFollowupQuestions"`
+	SoundEnabled                         bool                          `json:"soundEnabled"`
+	SoundVolume                          float64                       `json:"soundVolume,omitempty"`
+	MCPEnabled                           bool                          `json:"mcpEnabled"`
+	MCPAllowBrowserCalls                 bool                          `json:"mcpAllowBrowserCalls"`
+	MCPRequireApproval                   bool                          `json:"mcpRequireApproval"`
+	MCPActivityVisible                   bool                          `json:"mcpActivityVisible"`
+	TerminalIsolation                    bool                          `json:"terminalIsolation"`
+	ConfirmDelete                        bool                          `json:"confirmDelete"`
+	ContinueAfterToolRejection           bool                          `json:"continueAfterToolRejection"`
+	ConversationAutoBackupEnabled        bool                          `json:"conversationAutoBackupEnabled"`
+	ConversationAutoBackupRetentionCount int                           `json:"conversationAutoBackupRetentionCount,omitempty"`
+	MessageNavEnabled                    bool                          `json:"messageNavEnabled"`
+	AIWorkspaceTabNumbersOnly            bool                          `json:"aiWorkspaceTabNumbersOnly"`
+	ApprovalButtonOrder                  string                        `json:"approvalButtonOrder"`
+	CommandActionButtonOrder             string                        `json:"commandActionButtonOrder"`
+	ToolResultTokenThreshold             int                           `json:"toolResultTokenThreshold,omitempty"`
+	AIRequestProxyID                     string                        `json:"aiRequestProxyId,omitempty"`
+	UpdatedAt                            int64                         `json:"updatedAt,omitempty"`
+	ProxyNodes                           []AIProxyNode                 `json:"proxyNodes,omitempty"`
 }
+
+const (
+	DefaultAIConversationAutoBackupRetentionCount = 30
+	MaxAIConversationAutoBackupRetentionCount     = 200
+)
 
 func DefaultAIGlobalSettings() AIGlobalSettings {
 	return AIGlobalSettings{
-		SoundEnabled:                  true,
-		SoundVolume:                   0.06,
-		MCPEnabled:                    true,
-		MCPAllowBrowserCalls:          false,
-		MCPRequireApproval:            false,
-		MCPActivityVisible:            false,
-		TerminalIsolation:             true,
-		ConfirmDelete:                 true,
-		ContinueAfterToolRejection:    true,
-		ConversationAutoBackupEnabled: false,
-		MessageActionBarAtBottom:      true,
-		MessageNavEnabled:             true,
-		AIWorkspaceTabNumbersOnly:     false,
-		ApprovalButtonOrder:           "reject-approve",
-		CommandActionButtonOrder:      "terminate-continue",
-		ToolResultTokenThreshold:      350000,
+		SoundEnabled:                         true,
+		SoundVolume:                          0.06,
+		MCPEnabled:                           true,
+		MCPAllowBrowserCalls:                 false,
+		MCPRequireApproval:                   false,
+		MCPActivityVisible:                   false,
+		TerminalIsolation:                    true,
+		ConfirmDelete:                        true,
+		ContinueAfterToolRejection:           true,
+		ConversationAutoBackupEnabled:        true,
+		ConversationAutoBackupRetentionCount: DefaultAIConversationAutoBackupRetentionCount,
+		MessageNavEnabled:                    true,
+		AIWorkspaceTabNumbersOnly:            false,
+		ApprovalButtonOrder:                  "reject-approve",
+		CommandActionButtonOrder:             "terminate-continue",
+		ToolResultTokenThreshold:             350000,
 	}
 }
 
@@ -392,6 +397,12 @@ func NormalizeAIGlobalSettings(settings AIGlobalSettings) AIGlobalSettings {
 	settings.AIRequestProxyID = NormalizeAIRequestProxyID(settings.AIRequestProxyID, settings.ProxyNodes)
 	if settings.ToolResultTokenThreshold <= 0 {
 		settings.ToolResultTokenThreshold = DefaultAIGlobalSettings().ToolResultTokenThreshold
+	}
+	if settings.ConversationAutoBackupRetentionCount <= 0 {
+		settings.ConversationAutoBackupRetentionCount = DefaultAIConversationAutoBackupRetentionCount
+	}
+	if settings.ConversationAutoBackupRetentionCount > MaxAIConversationAutoBackupRetentionCount {
+		settings.ConversationAutoBackupRetentionCount = MaxAIConversationAutoBackupRetentionCount
 	}
 	// 审批依赖活动弹窗（审批按钮位于弹窗内），开启审批时强制开启弹窗，避免审批静默超时
 	if settings.MCPRequireApproval && !settings.MCPActivityVisible {

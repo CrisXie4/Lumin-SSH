@@ -26,13 +26,12 @@ interface AIChatUserMessageProps {
   onRetry?: (id: string, text: string, images: string[]) => void;
   onEdit?: (id: string, text: string, images: string[]) => void;
   onDelete?: (id: string) => void;
-  messageActionBarAtBottom?: boolean;
   perfMetricsText?: string;
   isEditingTarget?: boolean;
   isFirstUserMessage?: boolean;
 }
 
-export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, messageActionBarAtBottom = false, perfMetricsText = '', isEditingTarget = false, isFirstUserMessage = false }: AIChatUserMessageProps) {
+export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, perfMetricsText = '', isEditingTarget = false, isFirstUserMessage = false }: AIChatUserMessageProps) {
   const text = typeof message?.text === 'string' ? message.text : ''
   const time = typeof message?.time === 'string' ? message.time : ''
   const messageId = typeof message?.id === 'string' ? message.id : ''
@@ -114,42 +113,24 @@ export default function AIChatUserMessage({ message, onRetry, onEdit, onDelete, 
     )
   }
 
-  if (messageActionBarAtBottom) {
-    return (
-      <div className="flex w-full">
-        <div className="grid w-full gap-0">
-          <div className={cn('grid w-full gap-0 overflow-hidden rounded-[var(--radius-md)] border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease]', editingCardClass)}>
-            {hasContent ? (
-              <div className={cn('grid px-3 py-2.5', hasText && hasImages ? 'gap-2' : 'gap-0')}>
-                {hasText ? (
-                  <div className="whitespace-pre-wrap text-base leading-[1.6] text-primary [word-break:break-word] [overflow-wrap:anywhere]">
-                    {text}
-                  </div>
-                ) : null}
-                {hasImages ? renderImages() : null}
-              </div>
-            ) : null}
-            <div className={cn('px-3', hasContent && 'border-t border-t-line-subtle')}>
-              {renderActionBar()}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex w-full">
-      <div className="grid w-full gap-1.5">
-        <div>
-          {renderActionBar()}
-        </div>
-        {hasText ? (
-          <div className={cn('whitespace-pre-wrap rounded-[var(--radius-md)] border border-line bg-overlay px-3 py-2.5 text-base leading-[1.6] text-primary shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease] [word-break:break-word] [overflow-wrap:anywhere]', editingCardClass)}>
-            {text}
+      <div className="grid w-full gap-0">
+        <div className={cn('grid w-full gap-0 overflow-hidden rounded-[var(--radius-md)] border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)] [transition:background_180ms_ease,border-color_180ms_ease,box-shadow_180ms_ease]', editingCardClass)}>
+          {hasContent ? (
+            <div className={cn('grid px-3 py-2.5', hasText && hasImages ? 'gap-2' : 'gap-0')}>
+              {hasText ? (
+                <div className="whitespace-pre-wrap text-base leading-[1.6] text-primary [word-break:break-word] [overflow-wrap:anywhere]">
+                  {text}
+                </div>
+              ) : null}
+              {hasImages ? renderImages() : null}
+            </div>
+          ) : null}
+          <div className={cn('px-3', hasContent && 'border-t border-t-line-subtle')}>
+            {renderActionBar()}
           </div>
-        ) : null}
-        {hasImages ? renderImages() : null}
+        </div>
       </div>
     </div>
   )

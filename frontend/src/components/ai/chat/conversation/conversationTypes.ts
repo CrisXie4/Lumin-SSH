@@ -50,7 +50,6 @@ export interface ConversationHandlers {
   onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
   onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
-  messageActionBarAtBottom?: boolean;
   sendPerfMetricsRef?: { current: Map<string, unknown> | null } | null;
   isEditingTarget?: boolean;
 }

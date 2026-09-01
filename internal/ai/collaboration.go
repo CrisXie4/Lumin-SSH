@@ -779,13 +779,14 @@ func (a *Service) finalizeAIChatCollaborationRetry(requestID string, state *aiCo
 		"maxAttempts": aiCollaborationRetryMaxAttempts,
 	})
 	a.emitAIChatRuntimePhase(trimmedRequestID, "api_request")
+	retryProfile := a.resolveAIChatContinuationProfile(state.Batch)
 	ctx, cancel := context.WithCancel(context.Background())
 	a.setAIChatRequestCancel(trimmedRequestID, cancel)
 	go a.runCompatibleAIChatLoop(
 		ctx,
 		trimmedRequestID,
 		state.Batch.Payload,
-		state.Batch.Profile,
+		retryProfile,
 		append([]AIChatRequestMessage{}, retryRequestMessages...),
 		state.Batch.AutoApprovalSettings,
 		state.Batch.AssistantMessageID,

@@ -52,7 +52,7 @@ export type AIGlobalSettings = {
   confirmDelete: boolean
   continueAfterToolRejection: boolean
   conversationAutoBackupEnabled: boolean
-  messageActionBarAtBottom: boolean
+  conversationAutoBackupRetentionCount: number
   messageNavEnabled: boolean
   aiWorkspaceTabNumbersOnly: boolean
   approvalButtonOrder: ApprovalButtonOrder
@@ -62,6 +62,9 @@ export type AIGlobalSettings = {
   updatedAt: number
   proxyNodes: ProxyNode[]
 }
+
+export const DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT = 30
+export const MAX_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT = 200
 
 const DEFAULT_AI_GLOBAL_SETTINGS: AIGlobalSettings = {
   currentProviderId: '',
@@ -92,8 +95,8 @@ const DEFAULT_AI_GLOBAL_SETTINGS: AIGlobalSettings = {
   terminalIsolation: true,
   confirmDelete: true,
   continueAfterToolRejection: true,
-  conversationAutoBackupEnabled: false,
-  messageActionBarAtBottom: true,
+  conversationAutoBackupEnabled: true,
+  conversationAutoBackupRetentionCount: DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT,
   messageNavEnabled: true,
   aiWorkspaceTabNumbersOnly: false,
   approvalButtonOrder: 'reject-approve',
@@ -166,6 +169,14 @@ function normalizeToolResultTokenThreshold(value: unknown): number {
     return 350000
   }
   return Math.max(1, Math.trunc(parsed))
+}
+
+function normalizeConversationAutoBackupRetentionCount(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT
+  }
+  return Math.min(MAX_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT, Math.max(1, Math.trunc(parsed)))
 }
 
 function normalizeProxyType(value: unknown): 'http' | 'socks5' {
@@ -270,6 +281,8 @@ function normalizeProxyNodes(values: unknown): ProxyNode[] {
 
 export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
   const s = (settings ?? {}) as Record<string, unknown>
+  const settingsWithoutMessageActionBarAtBottom = { ...s }
+  delete settingsWithoutMessageActionBarAtBottom.messageActionBarAtBottom
   const alwaysAllowReadOnly = Boolean(s.alwaysAllowReadOnly)
   const alwaysAllowWrite = Boolean(s.alwaysAllowWrite)
   const alwaysAllowExecute = Boolean(s.alwaysAllowExecute)
@@ -291,10 +304,14 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
   const soundEnabled = s.soundEnabled !== false
   const soundVolume = normalizeSoundVolume(s.soundVolume)
   const toolResultTokenThreshold = normalizeToolResultTokenThreshold(s.toolResultTokenThreshold)
+  const conversationAutoBackupRetentionCount = normalizeConversationAutoBackupRetentionCount(s.conversationAutoBackupRetentionCount)
+  const conversationAutoBackupEnabled = Object.prototype.hasOwnProperty.call(s, 'conversationAutoBackupEnabled')
+    ? s.conversationAutoBackupEnabled === true
+    : DEFAULT_AI_GLOBAL_SETTINGS.conversationAutoBackupEnabled
 
   return {
     ...DEFAULT_AI_GLOBAL_SETTINGS,
-    ...s,
+    ...settingsWithoutMessageActionBarAtBottom,
     currentProviderId: typeof s.currentProviderId === 'string' ? s.currentProviderId.trim() : '',
     autoApprovalEnabled: alwaysAllowReadOnly || alwaysAllowWrite || alwaysAllowExecute,
     alwaysAllowReadOnly,
@@ -324,8 +341,8 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
     terminalIsolation: s.terminalIsolation !== false,
     confirmDelete: s.confirmDelete !== false,
     continueAfterToolRejection: s.continueAfterToolRejection !== false,
-    conversationAutoBackupEnabled: s.conversationAutoBackupEnabled === true,
-    messageActionBarAtBottom: Boolean(s.messageActionBarAtBottom),
+    conversationAutoBackupEnabled,
+    conversationAutoBackupRetentionCount,
     messageNavEnabled: s.messageNavEnabled !== false,
     aiWorkspaceTabNumbersOnly: Boolean(s.aiWorkspaceTabNumbersOnly),
     approvalButtonOrder: normalizeApprovalButtonOrder(s.approvalButtonOrder),
