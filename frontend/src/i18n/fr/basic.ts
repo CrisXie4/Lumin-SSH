@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Préférences",
   "终端工具栏仅显示图标": "La barre d'outils du terminal affiche uniquement les icônes",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Après l'avoir allumé, la gestion des processus, la surveillance du réseau et les autres boutons de la barre d'outils du terminal n'affichent que des icônes.",
+  "编辑器与查看器自动换行": "Retour à la ligne de l'éditeur et du visualiseur",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Après l'ouverture, modifiez la vue des différences du bureau de révision et l'éditeur de fichiers ouvert dans le gestionnaire de fichiers pour envelopper et afficher automatiquement les lignes très longues.",
   "展开监控面板": "Développer le panneau de surveillance",
   "收起监控面板": "Fermer le panneau de surveillance",
   "右侧": "côté droit",

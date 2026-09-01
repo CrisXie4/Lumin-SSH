@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Předvolby",
   "终端工具栏仅显示图标": "Panel nástrojů terminálu zobrazuje pouze ikony",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Po jeho zapnutí se na nástrojové liště terminálu zobrazují tlačítka pro správu procesů, monitorování sítě a další pouze ikony.",
+  "编辑器与查看器自动换行": "Editor a prohlížeč zalamování slov",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Po otevření změňte rozdílový pohled na pracovní ploše a editor souborů otevřený ve správci souborů, aby se automaticky zalomily a zobrazily super dlouhé řádky.",
   "展开监控面板": "Rozbalte monitorovací panel",
   "收起监控面板": "Zavřete monitorovací panel",
   "右侧": "pravá strana",

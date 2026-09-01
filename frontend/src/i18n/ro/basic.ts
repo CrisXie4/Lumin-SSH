@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Preferințe",
   "终端工具栏仅显示图标": "Bara de instrumente Terminal afișează doar pictograme",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "După pornire, managementul procesului, monitorizarea rețelei și alte butoane de pe bara de instrumente a terminalului afișează doar pictograme.",
+  "编辑器与查看器自动换行": "Încheierea cuvintelor pentru editor și vizualizator",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "După deschidere, schimbați vizualizarea diferențelor biroului de revizuire și editorul de fișiere deschis în managerul de fișiere pentru a încheia și afișa automat linii super lungi.",
   "展开监控面板": "Extindeți panoul de monitorizare",
   "收起监控面板": "Închideți panoul de monitorizare",
   "右侧": "partea dreaptă",

@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Präferenzen",
   "终端工具栏仅显示图标": "Die Terminal-Symbolleiste zeigt nur Symbole an",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Nach dem Einschalten zeigen die Prozessverwaltung, die Netzwerküberwachung und andere Schaltflächen in der Terminal-Symbolleiste nur Symbole an.",
+  "编辑器与查看器自动换行": "Zeilenumbruch für Editor und Viewer",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Ändern Sie nach dem Öffnen die Differenzansicht des Überprüfungsschalters und den im Dateimanager geöffneten Dateieditor, um superlange Zeilen automatisch umzubrechen und anzuzeigen.",
   "展开监控面板": "Erweitern Sie den Überwachungsbereich",
   "收起监控面板": "Überwachungspanel schließen",
   "右侧": "rechte Seite",

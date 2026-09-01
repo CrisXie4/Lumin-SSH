@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Preferences",
   "终端工具栏仅显示图标": "Terminal toolbar only shows icons",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "After turning it on, the process management, network monitoring and other buttons on the terminal toolbar only display icons.",
+  "编辑器与查看器自动换行": "Editor and viewer word wrapping",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "After opening, change the review desk difference view and the file editor opened in the file manager to automatically wrap and display super long lines.",
   "展开监控面板": "Expand Probe Panel",
   "收起监控面板": "Collapse Probe Panel",
   "右侧": "Right",

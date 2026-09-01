@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Voorkeuren",
   "终端工具栏仅显示图标": "De Terminal-werkbalk toont alleen pictogrammen",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Na het inschakelen worden bij procesbeheer, netwerkmonitoring en andere knoppen op de terminalwerkbalk alleen pictogrammen weergegeven.",
+  "编辑器与查看器自动换行": "Redacteur en kijker met tekstterugloop",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Na het openen wijzigt u de weergave van de beoordelingsbureauverschillen en wordt de bestandseditor geopend in Bestandsbeheer om automatisch superlange regels weer te geven.",
   "展开监控面板": "Vouw het monitoringpaneel uit",
   "收起监控面板": "Sluit het bewakingspaneel",
   "右侧": "rechterkant",

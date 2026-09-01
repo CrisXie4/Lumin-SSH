@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Tercihler",
   "终端工具栏仅显示图标": "Terminal araç çubuğu yalnızca simgeleri gösterir",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Açıldıktan sonra terminal araç çubuğundaki süreç yönetimi, ağ izleme ve diğer düğmeler yalnızca simgeleri görüntüler.",
+  "编辑器与查看器自动换行": "Düzenleyici ve görüntüleyici sözcük kaydırma",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Açtıktan sonra, inceleme masası fark görünümünü ve dosya yöneticisinde açılan dosya düzenleyiciyi, süper uzun satırları otomatik olarak saracak ve görüntüleyecek şekilde değiştirin.",
   "展开监控面板": "İzleme panelini genişlet",
   "收起监控面板": "İzleme panelini kapat",
   "右侧": "sağ taraf",
