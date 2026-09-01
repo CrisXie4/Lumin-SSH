@@ -572,8 +572,12 @@ func newCycleTestServer(t *testing.T) (host string, port int, hostKeyLine string
 							for request := range channelRequests {
 								switch request.Type {
 								case "exec":
-									// 命令立即结束：回复 true 后关闭通道
+									// 命令立即结束：回复 true，补发 exit-status 再关闭通道。
+									// 缺 exit-status 时客户端 session.Wait 返回
+									// "remote command exited without exit status or exit signal"，
+									// 会让 waitForCommandChannel 误判命令通道不可用。
 									_ = request.Reply(true, nil)
+									_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
 									return
 								case "shell":
 									// shell 常驻：回复 true，保持通道打开
@@ -585,7 +589,11 @@ func newCycleTestServer(t *testing.T) (host string, port int, hostKeyLine string
 						}()
 					}
 				}()
-				for range requests {
+				// 回复全局请求（含 keepalive@openssh.com），避免探活超时误拆连接
+				for request := range requests {
+					if request.WantReply {
+						_ = request.Reply(true, nil)
+					}
 				}
 			}()
 		}

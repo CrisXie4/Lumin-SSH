@@ -10,6 +10,7 @@ function parseDurationSeconds(duration: string) {
 }
 
 const reasoningBodyMaxHeight = 360
+const reasoningCollapseDurationMs = 560
 
 interface AIChatReasoningBlockProps {
   text?: string
@@ -73,7 +74,7 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
     if (!isAnimating) {
       return undefined
     }
-    const timer = window.setTimeout(() => setIsAnimating(false), 2666)
+    const timer = window.setTimeout(() => setIsAnimating(false), reasoningCollapseDurationMs)
     return () => window.clearTimeout(timer)
   }, [isAnimating, isCollapsed])
 
@@ -107,7 +108,7 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
           className="opacity-[0.88]"
           style={{
             transform: isCollapsed ? 'rotate(180deg) scale(0.9)' : 'rotate(0deg) scale(1)',
-            transition: 'transform 2666ms cubic-bezier(0.12,0,0.08,1), opacity 240ms ease',
+            transition: `transform ${reasoningCollapseDurationMs}ms cubic-bezier(0.12,0,0.08,1), opacity 240ms ease`,
           }}
         />
       </button>
@@ -118,8 +119,9 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
             transform: isCollapsed ? 'translateY(-24px) scale(0.955)' : 'translateY(0) scale(1)',
             maxHeight: isCollapsed ? 0 : reasoningBodyMaxHeight + 8,
             clipPath: isCollapsed ? 'inset(0 0 100% 0)' : 'inset(0 0 0% 0)',
+            transitionDuration: `${reasoningCollapseDurationMs}ms`,
           }}
-          className="overflow-hidden ease-[cubic-bezier(0.12,0,0.08,1)] duration-[2666ms] [transition-property:max-height,opacity,transform,clip-path] [will-change:max-height,opacity,transform,clip-path]">
+          className="overflow-hidden ease-[cubic-bezier(0.12,0,0.08,1)] [transition-property:max-height,opacity,transform,clip-path] [will-change:max-height,opacity,transform,clip-path]">
           <div
             ref={scrollRef}
             className="max-h-[360px] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable_both-edges]">
@@ -127,8 +129,9 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
               ref={contentRef}
               style={{
                 transform: isCollapsed ? 'translateX(-12px)' : 'translateX(0)',
+                transition: `transform ${reasoningCollapseDurationMs}ms cubic-bezier(0.12,0,0.08,1)`,
               }}
-              className="border-l border-line-subtle py-0.5 pl-3.5 text-sm leading-[1.7] text-secondary [transition:transform_2666ms_cubic-bezier(0.12,0,0.08,1)] [word-break:break-word]">
+              className="border-l border-line-subtle py-0.5 pl-3.5 text-sm leading-[1.7] text-secondary [word-break:break-word]">
               <AIChatMarkdown text={content} />
             </div>
           </div>

@@ -29,6 +29,8 @@ export function useConversationScroll({
   const lastContainerHeightRef = useRef(0);
   const lastTouchClientYRef = useRef<number | null>(null);
   const isScrollbarDraggingRef = useRef(false);
+  const lastConversationIdRef = useRef(conversationId);
+  const contentHeightChangedAtRef = useRef(0);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [highlightedEntryKey, setHighlightedEntryKey] = useState('');
 
@@ -97,6 +99,14 @@ export function useConversationScroll({
     });
   }, [groupedMessages.length, scrollToBottom]);
 
+  // 列表总高变化是流式期间的主要跟随通道：动画、自动展开折叠、异步内容注入
+  // 都只改条目高度而不改条目数量，仅靠 atBottomThreshold 无法守住跟随。
+  // 这里只在跟随态下回底（非 force），因此不会打断正在看历史的用户。
+  const handleTotalListHeightChanged = useCallback(() => {
+    contentHeightChangedAtRef.current = Date.now();
+    scheduleScrollToBottom('auto');
+  }, [scheduleScrollToBottom]);
+
   useEffect(() => {
     if (groupedMessages.length === 0) {
       followIntentRef.current = true;
@@ -105,13 +115,21 @@ export function useConversationScroll({
     }
   }, [groupedMessages.length]);
 
+  // 切会话属于全新上下文，强制回底；消息增长必须尊重用户当前意图，
+  // 否则自主多轮里每开一轮都会把正在看历史的用户拽回底部。
   useEffect(() => {
     if (groupedMessages.length === 0) {
       return;
     }
-    followIntentRef.current = true;
-    setShowScrollToBottom(false);
-    scheduleScrollToBottom('auto', true);
+    const isConversationSwitch = lastConversationIdRef.current !== conversationId;
+    lastConversationIdRef.current = conversationId;
+    if (isConversationSwitch) {
+      followIntentRef.current = true;
+      setShowScrollToBottom(false);
+      scheduleScrollToBottom('auto', true);
+      return;
+    }
+    scheduleScrollToBottom('auto');
   }, [conversationId, groupedMessages.length, scheduleScrollToBottom]);
 
   useEffect(() => {
@@ -262,6 +280,12 @@ export function useConversationScroll({
     suspendFollow();
   }, [containerRef, suspendFollow]);
 
+  // 内容收缩（如思考链折叠）会让当前 scrollTop 意外变成底部，
+  // 此时的 atBottom 不代表用户意图，不应据此恢复跟随。
+  const isContentHeightSettling = useCallback(() => (
+    Date.now() - contentHeightChangedAtRef.current <= 80
+  ), []);
+
   return {
     followIntentRef,
     isScrollbarDraggingRef,
@@ -274,6 +298,8 @@ export function useConversationScroll({
     scrollToBottom,
     scheduleScrollToBottom,
     handleScrollToBottom,
+    handleTotalListHeightChanged,
+    isContentHeightSettling,
     handleUserWheelCapture,
     handleUserTouchStartCapture,
     handleUserTouchMoveCapture,

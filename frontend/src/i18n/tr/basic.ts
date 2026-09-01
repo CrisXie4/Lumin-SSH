@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Mevcut depo uzaktan mevcut değil",
   "未关联上游": "Yukarı akışla ilişkili değil",
   "无远端": "Uzaktan kumanda yok",
+  "还原所有": "Tümünü geri yükle",
+  "还原至此": "Bu noktaya geri yükle",
+  "重新应用": "yeniden uygula",
+  "已重新应用": "yeniden uygulandı",
 } satisfies I18nDict;

@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Het huidige magazijn bestaat op afstand niet",
   "未关联上游": "Niet geassocieerd met stroomopwaarts",
   "无远端": "Geen afstandsbediening",
+  "还原所有": "Alles herstellen",
+  "还原至此": "Herstel tot dit punt",
+  "重新应用": "opnieuw solliciteren",
+  "已重新应用": "opnieuw toegepast",
 } satisfies I18nDict;

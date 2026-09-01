@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Das aktuelle Lager existiert nicht remote",
   "未关联上游": "Nicht mit Upstream verknüpft",
   "无远端": "Keine Fernbedienung",
+  "还原所有": "Alles wiederherstellen",
+  "还原至此": "Bis zu diesem Punkt wiederherstellen",
+  "重新应用": "erneut anwenden",
+  "已重新应用": "erneut angewendet",
 } satisfies I18nDict;

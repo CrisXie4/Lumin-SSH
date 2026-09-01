@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Aktuální sklad vzdáleně neexistuje",
   "未关联上游": "Není spojeno s proti proudu",
   "无远端": "Bez dálkového ovládání",
+  "还原所有": "Obnovit vše",
+  "还原至此": "Obnovit do tohoto bodu",
+  "重新应用": "znovu použít",
+  "已重新应用": "znovu aplikováno",
 } satisfies I18nDict;

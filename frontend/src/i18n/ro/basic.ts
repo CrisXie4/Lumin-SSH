@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Actualul depozit nu există de la distanță",
   "未关联上游": "Nu este asociat cu amonte",
   "无远端": "Fără telecomandă",
+  "还原所有": "Restaurați totul",
+  "还原至此": "Restabiliți în acest punct",
+  "重新应用": "reaplicați",
+  "已重新应用": "reaplicat",
 } satisfies I18nDict;
