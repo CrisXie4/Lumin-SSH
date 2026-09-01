@@ -122,6 +122,7 @@ func toAIProviderRuntimeProfile(profile AIProviderProfile) aiprovider.Profile {
 		CacheStrategy:                          profile.CacheStrategy,
 		OpenAIResponsesUsePromptCacheRetention: profile.OpenAIResponsesUsePromptCacheRetention,
 		OpenAIResponsesFinishOnCompletedEvent:  profile.OpenAIResponsesFinishOnCompletedEvent,
+		SystemPromptAppend:                     profile.SystemPromptAppend,
 		ReasoningEffort:                        profile.ReasoningEffort,
 		EnableReasoningEffort:                  profile.EnableReasoningEffort,
 		OpenAILegacyReasoningFormatEnabled:     profile.OpenAILegacyReasoningFormatEnabled,

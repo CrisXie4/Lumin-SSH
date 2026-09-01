@@ -24,6 +24,12 @@ type AICollaborationPromptPreset struct {
 	Text  string `json:"text"`
 }
 
+type AISystemPromptPreset struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
 type AIProxyNode struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -49,6 +55,7 @@ type AIGlobalSettings struct {
 	DeniedCommands                      []string                      `json:"deniedCommands,omitempty"`
 	SlashCommands                       []AISlashCommand              `json:"slashCommands,omitempty"`
 	CollaborationPromptPresets          []AICollaborationPromptPreset `json:"collaborationPromptPresets,omitempty"`
+	SystemPromptPresets                 []AISystemPromptPreset        `json:"systemPromptPresets,omitempty"`
 	CollaborationExtraPrompt            string                        `json:"collaborationExtraPrompt,omitempty"`
 	AlwaysAllowMcp                      bool                          `json:"alwaysAllowMcp"`
 	AlwaysAllowModeSwitch               bool                          `json:"alwaysAllowModeSwitch"`
@@ -142,6 +149,38 @@ func NormalizeAICollaborationPromptPresets(presets []AICollaborationPromptPreset
 		}
 		seen[id] = struct{}{}
 		normalized = append(normalized, AICollaborationPromptPreset{
+			ID:    id,
+			Title: title,
+			Text:  text,
+		})
+	}
+	return normalized
+}
+
+func NormalizeAISystemPromptPresets(presets []AISystemPromptPreset) []AISystemPromptPreset {
+	if presets == nil {
+		return []AISystemPromptPreset{}
+	}
+	normalized := make([]AISystemPromptPreset, 0, len(presets))
+	seen := make(map[string]struct{}, len(presets))
+	for index, preset := range presets {
+		text := strings.TrimSpace(strings.ReplaceAll(preset.Text, "\r\n", "\n"))
+		if text == "" {
+			continue
+		}
+		id := strings.TrimSpace(preset.ID)
+		if id == "" {
+			id = fmt.Sprintf("system-prompt-preset-%d-%d", time.Now().UnixMilli(), index+1)
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		title := strings.TrimSpace(preset.Title)
+		if title == "" {
+			title = text
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, AISystemPromptPreset{
 			ID:    id,
 			Title: title,
 			Text:  text,
@@ -337,6 +376,7 @@ func NormalizeAIGlobalSettings(settings AIGlobalSettings) AIGlobalSettings {
 	settings.CurrentProviderID = strings.TrimSpace(settings.CurrentProviderID)
 	settings.SlashCommands = NormalizeAISlashCommands(settings.SlashCommands)
 	settings.CollaborationPromptPresets = NormalizeAICollaborationPromptPresets(settings.CollaborationPromptPresets)
+	settings.SystemPromptPresets = NormalizeAISystemPromptPresets(settings.SystemPromptPresets)
 	settings.CollaborationExtraPrompt = strings.TrimSpace(strings.ReplaceAll(settings.CollaborationExtraPrompt, "\r\n", "\n"))
 	settings.AllowedCommands = NormalizeAIStringList(settings.AllowedCommands)
 	settings.DeniedCommands = NormalizeAIStringList(settings.DeniedCommands)

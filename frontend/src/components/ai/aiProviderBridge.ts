@@ -17,6 +17,8 @@ type AIProvider = {
   reasoningEffort: string
   enableReasoningEffort: boolean
   openAiLegacyReasoningFormatEnabled: boolean
+  systemPromptAppend: string
+  systemPromptPresetId: string
   modelMaxTokens: number
   modelMaxThinkingTokens: number
   modelTemperature: number | null
@@ -175,6 +177,8 @@ function normalizeProvider(provider: unknown, index: number): AIProvider {
       || normalizePositiveInteger(p.modelMaxTokens) > 0
       || normalizePositiveInteger(p.modelMaxThinkingTokens) > 0,
     openAiLegacyReasoningFormatEnabled: p.openAiLegacyReasoningFormatEnabled === true,
+    systemPromptAppend: typeof p.systemPromptAppend === 'string' ? p.systemPromptAppend.replace(/\r\n/g, '\n').trim() : '',
+    systemPromptPresetId: typeof p.systemPromptPresetId === 'string' ? p.systemPromptPresetId.trim() : '',
     modelMaxTokens: normalizePositiveInteger(p.modelMaxTokens),
     modelMaxThinkingTokens: normalizePositiveInteger(p.modelMaxThinkingTokens),
     modelTemperature: normalizeOptionalNumber(p.modelTemperature),

@@ -1137,7 +1137,7 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
         autoApprove: effectiveAutoApprovalEnabled,
         skipNextAutomaticRequest: false,
         toolScope: typeof conversationSnapshot?.toolScope === 'string' && conversationSnapshot.toolScope.trim() ? conversationSnapshot.toolScope.trim() : undefined,
-        toolScopeSlot: typeof conversationSnapshot?.toolScope === 'string' && conversationSnapshot.toolScopeSlot.trim() ? conversationSnapshot.toolScopeSlot.trim() : undefined,
+        toolScopeSlot: typeof conversationSnapshot?.toolScopeSlot === 'string' && conversationSnapshot.toolScopeSlot.trim() ? conversationSnapshot.toolScopeSlot.trim() : undefined,
         autoRecoverySubtaskHops,
         messages: requestMessages,
       })

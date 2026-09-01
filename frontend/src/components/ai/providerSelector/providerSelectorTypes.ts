@@ -22,6 +22,8 @@ export interface AIProviderLike {
   webSearchEnabled?: boolean;
   dedicatedWebSearchEnabled?: boolean;
   dedicatedWebSearchProviderId?: string;
+  systemPromptAppend?: string;
+  systemPromptPresetId?: string;
   modelMaxTokens?: number;
   modelMaxThinkingTokens?: number;
   updatedAt?: number;

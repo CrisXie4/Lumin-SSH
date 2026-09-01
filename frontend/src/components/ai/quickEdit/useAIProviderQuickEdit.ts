@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation, type I18nKey } from '../../../i18n.ts';
-import { getAIGlobalSettings } from '../aiGlobalSettingsBridge.ts';
+import {
+  getAIGlobalSettings,
+  saveAIGlobalSettings,
+  type AISystemPromptPreset,
+} from '../aiGlobalSettingsBridge.ts';
 import { getAIProviderPromptCachePolicy, type AIProviderPromptCachePolicy } from '../aiProviderBridge.ts';
 import {
   availableAIProviders,
@@ -52,6 +56,9 @@ export function useAIProviderQuickEdit({
   const [webSearchValidationMessage, setWebSearchValidationMessage] = useState('');
   const [webSearchValidationPassed, setWebSearchValidationPassed] = useState(false);
   const [proxyNodes, setProxyNodes] = useState<Array<{ id?: string; name?: string; type?: string; host?: string; port?: number }>>([]);
+  const [systemPromptPresets, setSystemPromptPresets] = useState<AISystemPromptPreset[]>([]);
+  const [systemPromptPresetsSaving, setSystemPromptPresetsSaving] = useState(false);
+  const [systemPromptPresetsError, setSystemPromptPresetsError] = useState('');
   const [proxyMenuOpen, setProxyMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
   const [modelPromptCachePolicy, setModelPromptCachePolicy] = useState<AIProviderPromptCachePolicy | null>(null);
@@ -289,13 +296,17 @@ export function useAIProviderQuickEdit({
     setValidatingWebSearch(false);
     setWebSearchValidationMessage('');
     setWebSearchValidationPassed(false);
+    setSystemPromptPresetsSaving(false);
+    setSystemPromptPresetsError('');
     getAIGlobalSettings()
       .then((settings) => {
         const nextProxyNodes = Array.isArray(settings?.proxyNodes) ? settings.proxyNodes : [];
         setProxyNodes(nextProxyNodes);
+        setSystemPromptPresets(Array.isArray(settings?.systemPromptPresets) ? settings.systemPromptPresets : []);
       })
       .catch(() => {
         setProxyNodes([]);
+        setSystemPromptPresets([]);
       });
     if (initialDraft.baseUrl.trim() && initialDraft.apiKey.trim()) {
       void refreshModelsWithCredentials(initialDraft.provider, initialDraft.baseUrl, initialDraft.apiKey, initialDraft.model);
@@ -516,6 +527,27 @@ export function useAIProviderQuickEdit({
     }
   };
 
+  const handleSystemPromptPresetsChange = async (nextPresets: AISystemPromptPreset[]) => {
+    if (systemPromptPresetsSaving) {
+      return;
+    }
+    setSystemPromptPresetsSaving(true);
+    setSystemPromptPresetsError('');
+    try {
+      const settings = await getAIGlobalSettings();
+      const savedSettings = await saveAIGlobalSettings({
+        ...settings,
+        systemPromptPresets: nextPresets,
+      });
+      setSystemPromptPresets(savedSettings.systemPromptPresets);
+    } catch (error) {
+      setSystemPromptPresetsError(error instanceof Error ? error.message : t('系统提示词预设保存失败'));
+      throw error;
+    } finally {
+      setSystemPromptPresetsSaving(false);
+    }
+  };
+
   const handleSave = () => {
     let reasoningEffort = draft.reasoningEffort || 'disable';
     let enableReasoningEffort = Boolean(draft.enableReasoningEffort);
@@ -567,6 +599,8 @@ export function useAIProviderQuickEdit({
       openAiResponsesUsePromptCacheRetention: providerDefinition.value === 'Responses' && draft.openAiResponsesUsePromptCacheRetention === true,
       modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
       modelTopP: normalizeOptionalNumber(draft.modelTopP),
+      systemPromptAppend: draft.systemPromptAppend.replace(/\r\n/g, '\n').trim(),
+      systemPromptPresetId: draft.systemPromptPresetId.trim(),
       webSearchEnabled: draft.webSearchEnabled,
       dedicatedWebSearchEnabled: useDedicatedWebSearchProvider,
       dedicatedWebSearchProviderId: useDedicatedWebSearchProvider ? resolvedWebSearchProviderValue : '',
@@ -583,6 +617,10 @@ export function useAIProviderQuickEdit({
   return {
     draft,
     setDraft,
+    systemPromptPresets,
+    systemPromptPresetsSaving,
+    systemPromptPresetsError,
+    handleSystemPromptPresetsChange,
     modelQuery,
     setModelQuery,
     modelOptions,

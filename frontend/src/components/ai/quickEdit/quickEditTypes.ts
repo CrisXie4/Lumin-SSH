@@ -149,6 +149,8 @@ export interface ProviderDraft {
   openAiResponsesFinishOnCompletedEvent: boolean;
   modelTemperature: number | null;
   modelTopP: number | null;
+  systemPromptAppend: string;
+  systemPromptPresetId: string;
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -208,6 +210,8 @@ export function buildDraft(provider?: AIProviderLike | null): ProviderDraft {
     openAiResponsesFinishOnCompletedEvent: provider?.openAiResponsesFinishOnCompletedEvent === true,
     modelTemperature: normalizeOptionalNumber(provider?.modelTemperature),
     modelTopP: normalizeOptionalNumber(provider?.modelTopP),
+    systemPromptAppend: typeof provider?.systemPromptAppend === 'string' ? provider.systemPromptAppend.replace(/\r\n/g, '\n').trim() : '',
+    systemPromptPresetId: typeof provider?.systemPromptPresetId === 'string' ? provider.systemPromptPresetId.trim() : '',
     baseUrl: typeof provider?.baseUrl === 'string' ? provider.baseUrl : '',
     apiKey: typeof provider?.apiKey === 'string' ? provider.apiKey : '',
     model: resolvedModel,

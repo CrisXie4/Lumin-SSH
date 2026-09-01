@@ -9,6 +9,12 @@ interface AICollaborationPromptPreset {
   text: string
 }
 
+export interface AISystemPromptPreset {
+  id: string
+  title: string
+  text: string
+}
+
 /** 审批按钮顺序 */
 type ApprovalButtonOrder = 'reject-approve' | 'approve-reject'
 /** 命令操作按钮顺序 */
@@ -30,6 +36,7 @@ export type AIGlobalSettings = {
   deniedCommands: string[]
   slashCommands: AISlashCommand[]
   collaborationPromptPresets: AICollaborationPromptPreset[]
+  systemPromptPresets: AISystemPromptPreset[]
   collaborationExtraPrompt: string
   alwaysAllowMcp: boolean
   alwaysAllowModeSwitch: boolean
@@ -70,6 +77,7 @@ const DEFAULT_AI_GLOBAL_SETTINGS: AIGlobalSettings = {
   deniedCommands: [],
   slashCommands: [],
   collaborationPromptPresets: [],
+  systemPromptPresets: [],
   collaborationExtraPrompt: '',
   alwaysAllowMcp: false,
   alwaysAllowModeSwitch: false,
@@ -215,6 +223,34 @@ function normalizeAICollaborationPromptPresets(values: unknown): AICollaboration
   return normalized
 }
 
+export function normalizeAISystemPromptPresets(values: unknown): AISystemPromptPreset[] {
+  if (!Array.isArray(values)) {
+    return []
+  }
+  const seen = new Set<string>()
+  const normalized: AISystemPromptPreset[] = []
+  values.forEach((value, index) => {
+    const v = value as Record<string, unknown> | null | undefined
+    const text = typeof v?.text === 'string' ? v.text.replace(/\r\n/g, '\n').trim() : ''
+    if (!text) {
+      return
+    }
+    const rawId = typeof v?.id === 'string' ? v.id.trim() : ''
+    const id = rawId || `system-prompt-preset-${Date.now()}-${index + 1}`
+    if (seen.has(id)) {
+      return
+    }
+    const rawTitle = typeof v?.title === 'string' ? v.title.trim() : ''
+    seen.add(id)
+    normalized.push({
+      id,
+      title: rawTitle || text,
+      text,
+    })
+  })
+  return normalized
+}
+
 function normalizeProxyNodes(values: unknown): ProxyNode[] {
   if (!Array.isArray(values)) {
     return []
@@ -247,6 +283,7 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
   const deniedCommands = normalizeStringList(s.deniedCommands)
   const slashCommands = normalizeAISlashCommands(s.slashCommands)
   const collaborationPromptPresets = normalizeAICollaborationPromptPresets(s.collaborationPromptPresets)
+  const systemPromptPresets = normalizeAISystemPromptPresets(s.systemPromptPresets)
   const proxyNodes = normalizeProxyNodes(s.proxyNodes)
   const rawAIRequestProxyId = typeof s.aiRequestProxyId === 'string' ? s.aiRequestProxyId.trim() : ''
   const aiRequestProxyId = proxyNodes.some((node) => node.id === rawAIRequestProxyId) ? rawAIRequestProxyId : ''
@@ -271,6 +308,7 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
     deniedCommands,
     slashCommands,
     collaborationPromptPresets,
+    systemPromptPresets,
     collaborationExtraPrompt: typeof s.collaborationExtraPrompt === 'string' ? s.collaborationExtraPrompt.replace(/\r\n/g, '\n').trim() : '',
     alwaysAllowMcp: Boolean(s.alwaysAllowMcp),
     alwaysAllowModeSwitch: Boolean(s.alwaysAllowModeSwitch),

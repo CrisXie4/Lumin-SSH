@@ -188,7 +188,15 @@ func resolveAISystemPromptForPayload(appCtx context.Context, payload AIChatReque
 	if override != "" {
 		return override
 	}
-	return BuildChatSystemPromptWithProfile(appCtx, payload.ConversationID, payload.SessionID, true, profile)
+	basePrompt := BuildChatSystemPromptWithProfile(appCtx, payload.ConversationID, payload.SessionID, true, profile)
+	appendPrompt := strings.TrimSpace(profile.SystemPromptAppend)
+	if appendPrompt == "" {
+		return basePrompt
+	}
+	if strings.TrimSpace(basePrompt) == "" {
+		return appendPrompt
+	}
+	return strings.TrimSpace(basePrompt) + "\n\n" + appendPrompt
 }
 
 func aiChatPayloadEventKind(payload AIChatRequestPayload, baseKind string) string {

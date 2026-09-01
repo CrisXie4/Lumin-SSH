@@ -1,6 +1,8 @@
 import type React from 'react';
 import { useTranslation } from '../../../i18n.ts';
+import type { AISystemPromptPreset } from '../aiGlobalSettingsBridge.ts';
 import { normalizeOptionalNumber, type ProviderDraft } from './quickEditTypes.ts';
+import QuickEditSystemPromptSection from './QuickEditSystemPromptSection.tsx';
 import { StyledCheckbox } from './QuickEditWidgets.tsx';
 
 export interface QuickEditAdvancedTabProps {
@@ -8,6 +10,10 @@ export interface QuickEditAdvancedTabProps {
   draft: ProviderDraft;
   setDraft: React.Dispatch<React.SetStateAction<ProviderDraft>>;
   providerDefinition?: { value: string };
+  systemPromptPresets: AISystemPromptPreset[];
+  systemPromptPresetsSaving: boolean;
+  systemPromptPresetsError: string;
+  onSystemPromptPresetsChange: (presets: AISystemPromptPreset[]) => Promise<void>;
 }
 
 export default function QuickEditAdvancedTab({
@@ -15,6 +21,10 @@ export default function QuickEditAdvancedTab({
   draft,
   setDraft,
   providerDefinition,
+  systemPromptPresets,
+  systemPromptPresetsSaving,
+  systemPromptPresetsError,
+  onSystemPromptPresetsChange,
 }: QuickEditAdvancedTabProps) {
   const { t } = useTranslation();
   const isResponsesProvider = (providerDefinition?.value || draft.provider) === 'Responses';
@@ -83,6 +93,14 @@ export default function QuickEditAdvancedTab({
           <div className="text-xs leading-[1.25] text-tertiary">{t('关闭后不发送该参数')}</div>
         )}
       </div>
+      <QuickEditSystemPromptSection
+        draft={draft}
+        setDraft={setDraft}
+        presets={systemPromptPresets}
+        saving={systemPromptPresetsSaving}
+        saveError={systemPromptPresetsError}
+        onPresetsChange={onSystemPromptPresetsChange}
+      />
       {isResponsesProvider ? (
         <div className="grid gap-1 py-2 px-2.5 border border-line rounded-[var(--radius-md)] bg-overlay">
           <StyledCheckbox
