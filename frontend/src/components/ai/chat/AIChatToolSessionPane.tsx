@@ -37,6 +37,8 @@ interface AIChatToolSessionOptions {
   onPreviewRestore?: (artifactPath: string, targetTerminalId: string) => void;
   onPreviewDiffFetch?: (artifactPath: string, targetTerminalId: string) => void;
   onApplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
+  onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
+  onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
 }
 
@@ -45,10 +47,10 @@ interface AIChatToolSessionPaneProps extends AIChatToolSessionOptions {
 }
 
 function renderToolItem(item: AIChatToolSessionItem, options: AIChatToolSessionOptions) {
-  const { isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false } = options
+  const { isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked = false } = options
   switch (item.kind) {
     case 'tool':
-      return <AIChatToolCard key={item.id} restoreArtifactPath={typeof item?.extra?.restoreArtifactPath === 'string' ? item.extra.restoreArtifactPath : ''} copyContent={typeof item?.extra?.copyContent === 'string' ? item.extra.copyContent : ''} actionLabel={item.actionLabel} title={item.title} summary={item.summary} code={item.code} result={item.result} status={item.status} remainingFileEdits={item.remainingFileEdits} extra={item.extra} isLast={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onPreviewRestore={onPreviewRestore as (path: string, targetTerminalId?: string) => void} onPreviewDiffFetch={onPreviewDiffFetch as (path: string, targetTerminalId?: string) => Promise<unknown>} onApplyRestore={onApplyRestore as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} />
+      return <AIChatToolCard key={item.id} restoreArtifactPath={typeof item?.extra?.restoreArtifactPath === 'string' ? item.extra.restoreArtifactPath : ''} copyContent={typeof item?.extra?.copyContent === 'string' ? item.extra.copyContent : ''} actionLabel={item.actionLabel} title={item.title} summary={item.summary} code={item.code} result={item.result} status={item.status} remainingFileEdits={item.remainingFileEdits} extra={item.extra} isLast={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onPreviewRestore={onPreviewRestore as (path: string, targetTerminalId?: string) => void} onPreviewDiffFetch={onPreviewDiffFetch as (path: string, targetTerminalId?: string) => Promise<unknown>} onApplyRestore={onApplyRestore as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} onRestoreToHere={onRestoreToHere as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} onReapplyRestore={onReapplyRestore as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} />
     case 'completion':
       return <AIChatCompletionCard key={item.id} title={item.title} summary={item.summary} result={item.result} status={item.status} />
     case 'command':
@@ -66,14 +68,14 @@ function renderToolItem(item: AIChatToolSessionItem, options: AIChatToolSessionO
   }
 }
 
-export default function AIChatToolSessionPane({ items = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked = false }: AIChatToolSessionPaneProps) {
+export default function AIChatToolSessionPane({ items = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked = false }: AIChatToolSessionPaneProps) {
   if (!Array.isArray(items) || items.length === 0) {
     return null
   }
 
   return (
     <div className="grid gap-2.5">
-      {items.map((item) => renderToolItem(item, { isLastAssistantTurn, hasSubsequentAssistantMessage, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, followupInteractionLocked }))}
+      {items.map((item) => renderToolItem(item, { isLastAssistantTurn, hasSubsequentAssistantMessage, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked }))}
     </div>
   )
 }

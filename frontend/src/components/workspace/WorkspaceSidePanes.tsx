@@ -7,6 +7,7 @@ export interface WorkspaceSidePanesProps {
   position: 'left' | 'right';
   aiPanelNode: React.ReactNode;
   probePanelNode: React.ReactNode;
+  probePanelVisible: boolean;
   probePanelPosition: 'left' | 'right';
   probePanelCollapsed: boolean;
   probePanelWidth: number;
@@ -24,6 +25,7 @@ export default function WorkspaceSidePanes({
   position,
   aiPanelNode,
   probePanelNode,
+  probePanelVisible,
   probePanelPosition,
   probePanelCollapsed,
   probePanelWidth,
@@ -69,35 +71,36 @@ export default function WorkspaceSidePanes({
           </>
         )}
         {probePanelNode && probePanelPosition === 'left' && (
-          probePanelCollapsed ? (
-            <Tiptop text={t('展开监控面板')} placement="bottom">
-              <button
-                type="button"
-                className="panel-collapse-strip panel-collapse-strip-vertical panel-collapse-strip-left no-drag"
-                onClick={() => setProbePanelCollapsedPersistent(false)}
-                aria-label={t('展开监控面板')}
-              >
-                <ChevronRight size={14} />
-              </button>
-            </Tiptop>
-          ) : (
-            <>
-              <div
-                className="probe-panel-wrapper probe-panel-wrapper-left relative border-r border-line"
-                style={{
-                  width: probePanelWidth,
-                  minWidth: probePanelWidth,
-                  background: 'var(--surface-base)',
-                  borderLeft: 'none',
-                }}
-              >
-                {collapseDragIntent === 'probe' && (
-                  <div className="panel-collapse-armed-zone panel-collapse-armed-zone-vertical panel-collapse-armed-zone-right">
-                    <ChevronLeft size={14} />
-                  </div>
-                )}
-                {probePanelNode}
-              </div>
+          <>
+            <div
+              className="probe-panel-wrapper probe-panel-wrapper-left relative border-r border-line"
+              style={{
+                display: probePanelVisible && !probePanelCollapsed ? 'block' : 'none',
+                width: probePanelWidth,
+                minWidth: probePanelWidth,
+                background: 'var(--surface-base)',
+                borderLeft: 'none',
+              }}
+            >
+              {collapseDragIntent === 'probe' && (
+                <div className="panel-collapse-armed-zone panel-collapse-armed-zone-vertical panel-collapse-armed-zone-right">
+                  <ChevronLeft size={14} />
+                </div>
+              )}
+              {probePanelNode}
+            </div>
+            {probePanelVisible && (probePanelCollapsed ? (
+              <Tiptop text={t('展开监控面板')} placement="bottom">
+                <button
+                  type="button"
+                  className="panel-collapse-strip panel-collapse-strip-vertical panel-collapse-strip-left no-drag"
+                  onClick={() => setProbePanelCollapsedPersistent(false)}
+                  aria-label={t('展开监控面板')}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </Tiptop>
+            ) : (
               <Tiptop text={t('收起监控面板')} placement="bottom" style={{ display: 'flex' }}>
                 <div
                   className={`split-resizer-v hotzone-left probe-resizer${collapseDragIntent === 'probe' ? ' armed' : ''}`}
@@ -109,8 +112,8 @@ export default function WorkspaceSidePanes({
                   aria-label={t('收起监控面板')}
                 />
               </Tiptop>
-            </>
-          )
+            ))}
+          </>
         )}
       </>
     );
@@ -120,19 +123,19 @@ export default function WorkspaceSidePanes({
   return (
     <>
       {probePanelNode && probePanelPosition === 'right' && (
-        probePanelCollapsed ? (
-          <Tiptop text={t('展开监控面板')} placement="bottom">
-            <button
-              type="button"
-              className="panel-collapse-strip panel-collapse-strip-vertical panel-collapse-strip-right no-drag"
-              onClick={() => setProbePanelCollapsedPersistent(false)}
-              aria-label={t('展开监控面板')}
-            >
-              <ChevronLeft size={14} />
-            </button>
-          </Tiptop>
-        ) : (
-          <>
+        <>
+          {probePanelVisible && (probePanelCollapsed ? (
+            <Tiptop text={t('展开监控面板')} placement="bottom">
+              <button
+                type="button"
+                className="panel-collapse-strip panel-collapse-strip-vertical panel-collapse-strip-right no-drag"
+                onClick={() => setProbePanelCollapsedPersistent(false)}
+                aria-label={t('展开监控面板')}
+              >
+                <ChevronLeft size={14} />
+              </button>
+            </Tiptop>
+          ) : (
             <Tiptop text={t('收起监控面板')} placement="bottom" style={{ display: 'flex' }}>
               <div
                 className={`split-resizer-v hotzone-right probe-resizer${collapseDragIntent === 'probe' ? ' armed' : ''}`}
@@ -144,23 +147,24 @@ export default function WorkspaceSidePanes({
                 aria-label={t('收起监控面板')}
               />
             </Tiptop>
-            <div
-              className="probe-panel-wrapper relative"
-              style={{
-                width: probePanelWidth,
-                minWidth: probePanelWidth,
-                background: 'var(--surface-base)',
-              }}
-            >
-              {collapseDragIntent === 'probe' && (
-                <div className="panel-collapse-armed-zone panel-collapse-armed-zone-vertical panel-collapse-armed-zone-left">
-                  <ChevronRight size={14} />
-                </div>
-              )}
-              {probePanelNode}
-            </div>
-          </>
-        )
+          ))}
+          <div
+            className="probe-panel-wrapper relative"
+            style={{
+              display: probePanelVisible && !probePanelCollapsed ? 'block' : 'none',
+              width: probePanelWidth,
+              minWidth: probePanelWidth,
+              background: 'var(--surface-base)',
+            }}
+          >
+            {collapseDragIntent === 'probe' && (
+              <div className="panel-collapse-armed-zone panel-collapse-armed-zone-vertical panel-collapse-armed-zone-left">
+                <ChevronRight size={14} />
+              </div>
+            )}
+            {probePanelNode}
+          </div>
+        </>
       )}
       {aiPanelNode && probePanelPosition === 'left' && (
         <>

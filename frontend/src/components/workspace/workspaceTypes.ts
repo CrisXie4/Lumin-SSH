@@ -119,6 +119,7 @@ export interface SessionWorkspaceFileManagerProps {
   leftSplitWidth: number;
   probePanelCollapsed: boolean;
   probePanelNode: React.ReactNode;
+  probePanelVisible: boolean;
   probePanelPosition: 'left' | 'right';
   probePanelWidth: number;
   renderSessionFileManagers: (session: SessionLike) => React.ReactNode;

@@ -662,7 +662,10 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 	err := m.runPostAuthStep(postAuthCtx, cancelPostAuth, sessionId, client, clientCreated, func() error {
 		shellPath = detectRemoteShell(client)
 		launchCmd, remoteHistoryActive := buildShellLaunchCommand(shellPath, conn.TerminalInitPath)
-		return m.setupSession(postAuthCtx, client, connKey, sessionId, "", launchCmd, remoteHistoryActive, shellPath, conn.TerminalInitPath, conn.TerminalEncoding)
+		if err := m.setupSession(postAuthCtx, client, connKey, sessionId, "", launchCmd, remoteHistoryActive, shellPath, conn.TerminalInitPath, conn.TerminalEncoding); err != nil {
+			return err
+		}
+		return m.waitForCommandChannel(postAuthCtx, client)
 	})
 	if err != nil {
 		// setupSession 失败（如 PTY 请求失败）：仅清理本路径创建的 session；
@@ -706,6 +709,11 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 	}
 	if clientCreated {
 		go m.initSFTPClient(sessionId, connKey, conn, client)
+	}
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, "ssh-command-ready", map[string]interface{}{
+			"sessionId": sessionId,
+		})
 	}
 	return nil
 }
@@ -1325,6 +1333,36 @@ func (m *SSHManager) OpenTerminal(sessionId string) (string, error) {
 
 func (m *SSHManager) executeCmdWithClient(client *ssh.Client, cmd string) (string, error) {
 	return m.ExecuteCmdWithClientContext(context.Background(), client, cmd)
+}
+
+func (m *SSHManager) waitForCommandChannel(ctx context.Context, client *ssh.Client) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	readyCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	var lastErr error
+	for {
+		_, err := m.ExecuteCmdWithClientContext(readyCtx, client, "true")
+		if err == nil {
+			return nil
+		}
+		var exitErr *ssh.ExitError
+		if errors.As(err, &exitErr) {
+			return nil
+		}
+		lastErr = err
+		timer := time.NewTimer(150 * time.Millisecond)
+		select {
+		case <-readyCtx.Done():
+			timer.Stop()
+			if lastErr != nil {
+				return fmt.Errorf("SSH 命令通道未就绪: %w", lastErr)
+			}
+			return readyCtx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func (m *SSHManager) ExecuteCmdWithClientContext(ctx context.Context, client *ssh.Client, cmd string) (string, error) {

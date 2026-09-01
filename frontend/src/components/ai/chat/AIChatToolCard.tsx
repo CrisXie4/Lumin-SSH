@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FileCode2, FileText, RotateCcw, SquarePen, X } from 'lucide-react';
+import { Check, ChevronDown, FileCode2, FileText, RotateCcw, RotateCw, SquarePen, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import Tiptop from '../../Tiptop.tsx';
@@ -28,6 +28,8 @@ export interface AIChatToolCardProps {
   onPreviewRestore?: (path: string, targetTerminalId?: string) => void;
   onPreviewDiffFetch?: (path: string, targetTerminalId?: string) => Promise<unknown>;
   onApplyRestore?: (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>;
+  onRestoreToHere?: (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>;
+  onReapplyRestore?: (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>;
 }
 
 export default function AIChatToolCard({
@@ -46,12 +48,13 @@ export default function AIChatToolCard({
   onPreviewRestore,
   onPreviewDiffFetch,
   onApplyRestore,
+  onRestoreToHere,
+  onReapplyRestore,
 }: AIChatToolCardProps) {
   const { t, lang } = useTranslation();
   const [isAutoExpanded, setIsAutoExpanded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [restored, setRestored] = useState(false);
   const [inlineDiffReview, setInlineDiffReview] = useState<Record<string, unknown> | null>(null);
   const [inlineDiffLoading, setInlineDiffLoading] = useState(false);
 
@@ -68,6 +71,7 @@ export default function AIChatToolCard({
   }, [hasSubsequentAssistantMessage]);
 
   const normalizedRestoreArtifactPath = typeof restoreArtifactPath === 'string' ? restoreArtifactPath.trim() : '';
+  const restored = extra?.restoreActionState === 'restored';
   const showRevertTitleButton = ['apply_diff', 'write_to_file', 'search_replace', 'edit_file', 'apply_patch'].includes(String(actionLabel || '').trim());
   const showInlineDiffPreview = showRevertTitleButton && extra?.conversationDiffHasPreview === true && Boolean(normalizedRestoreArtifactPath) && typeof onPreviewDiffFetch === 'function';
 
@@ -167,10 +171,21 @@ export default function AIChatToolCard({
     if (restored || !normalizedRestoreArtifactPath) {
       return;
     }
-    const applied = await onApplyRestore?.(normalizedRestoreArtifactPath);
-    if (applied === true) {
-      setRestored(true);
+    await onApplyRestore?.(normalizedRestoreArtifactPath);
+  };
+
+  const handleRestoreToHere = async () => {
+    if (restored || !normalizedRestoreArtifactPath) {
+      return;
     }
+    await onRestoreToHere?.(normalizedRestoreArtifactPath);
+  };
+
+  const handleReapplyRestore = async () => {
+    if (!normalizedRestoreArtifactPath) {
+      return;
+    }
+    await onReapplyRestore?.(normalizedRestoreArtifactPath);
   };
 
   const handleCopyFullContent = async (event: React.MouseEvent) => {
@@ -232,6 +247,40 @@ export default function AIChatToolCard({
                 )}>
                 <RotateCcw size={11} color={restored ? 'currentColor' : 'var(--accent)'} />
                 <span>{restored ? t('已还原') : t('还原')}</span>
+              </button>
+            </Tiptop>
+          ) : null}
+          {showRevertTitleButton ? (
+            <Tiptop text={t('还原至此')} className="inline-flex">
+              <button
+                type="button"
+                disabled={restored}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleRestoreToHere();
+                }}
+                className={cn(
+                  'inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-[var(--radius-sm)] px-2 text-xs font-bold',
+                  restored
+                    ? 'cursor-not-allowed border border-line bg-raised text-tertiary opacity-45'
+                    : 'cursor-pointer border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] text-secondary',
+                )}>
+                <RotateCcw size={11} color={restored ? 'currentColor' : 'var(--accent)'} />
+                <span>{t('还原至此')}</span>
+              </button>
+            </Tiptop>
+          ) : null}
+          {showRevertTitleButton ? (
+            <Tiptop text={t('重新应用')} className="inline-flex">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleReapplyRestore();
+                }}
+                className="inline-flex h-[22px] shrink-0 cursor-pointer items-center gap-[5px] rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface-overlay))] px-2 text-xs font-bold text-secondary">
+                <RotateCw size={11} color="var(--accent)" />
+                <span>{t('重新应用')}</span>
               </button>
             </Tiptop>
           ) : null}

@@ -849,6 +849,11 @@ func (m *SSHManager) DeleteItemShellContext(ctx context.Context, sessionId strin
 	return err
 }
 
+const (
+	batchDeleteTargetBytes = 64 * 1024
+	batchDeleteMaxItems = 500
+)
+
 func batchRmRfCmd(paths []string) string {
 	parts := make([]string, 0, len(paths)+2)
 	parts = append(parts, "rm", "-rf")
@@ -856,6 +861,24 @@ func batchRmRfCmd(paths []string) string {
 		parts = append(parts, shellQuotePath(p))
 	}
 	return strings.Join(parts, " ")
+}
+
+func splitBatchDeletePaths(paths []string) [][]string {
+	batches := make([][]string, 0, (len(paths)+batchDeleteMaxItems-1)/batchDeleteMaxItems)
+	current := make([]string, 0, batchDeleteMaxItems)
+	for _, path := range paths {
+		candidate := append(append([]string{}, current...), path)
+		if len(current) > 0 && (len(candidate) > batchDeleteMaxItems || len(batchRmRfCmd(candidate)) > batchDeleteTargetBytes) {
+			batches = append(batches, current)
+			current = []string{path}
+			continue
+		}
+		current = candidate
+	}
+	if len(current) > 0 {
+		batches = append(batches, current)
+	}
+	return batches
 }
 
 func (m *SSHManager) BatchDeleteItemShell(sessionId string, paths []string) error {
@@ -897,8 +920,15 @@ func (m *SSHManager) BatchDeleteItemShellContext(ctx context.Context, sessionId 
 	if err != nil {
 		return err
 	}
-	_, err = m.ExecuteCmdWithClientContext(ctx, client, batchRmRfCmd(safePaths))
-	return err
+	for _, batch := range splitBatchDeletePaths(safePaths) {
+		if err := ensureContextActive(ctx); err != nil {
+			return err
+		}
+		if _, err := m.ExecuteCmdWithClientContext(ctx, client, batchRmRfCmd(batch)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *SSHManager) Mkdir(sessionId string, path string) error {

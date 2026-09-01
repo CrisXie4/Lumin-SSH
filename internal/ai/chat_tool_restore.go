@@ -644,15 +644,12 @@ func (a *Service) PreviewAIChatToolRestore(artifactPath string, sessionID string
 
 func (a *Service) PreviewAIChatToolDiff(artifactPath string, sessionID string) (map[string]interface{}, error) {
 	trimmedArtifactPath := strings.TrimSpace(artifactPath)
-	trimmedSessionID := strings.TrimSpace(sessionID)
+	_ = sessionID
 	if a == nil || a.configManager == nil || trimmedArtifactPath == "" {
 		return nil, fmt.Errorf("差异预览失败")
 	}
 	state, err := a.configManager.ReadAIConversationRestoreArtifact(trimmedArtifactPath)
 	if err != nil || state == nil {
-		return nil, fmt.Errorf("差异预览失败")
-	}
-	if trimmedSessionID != "" && strings.TrimSpace(state.SessionID) != "" && trimmedSessionID != strings.TrimSpace(state.SessionID) {
 		return nil, fmt.Errorf("差异预览失败")
 	}
 	if state.ConversationDiffPreview == nil {

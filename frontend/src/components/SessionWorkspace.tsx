@@ -66,6 +66,7 @@ export default function SessionWorkspace({
     leftSplitWidth = 260,
     probePanelCollapsed = false,
     probePanelNode = null,
+    probePanelVisible = false,
     probePanelPosition = 'left',
     probePanelWidth = 240,
     renderSessionFileManagers = () => null,
@@ -137,6 +138,7 @@ export default function SessionWorkspace({
           position="left"
           aiPanelNode={aiPanelNode}
           probePanelNode={probePanelNode}
+          probePanelVisible={probePanelVisible}
           probePanelPosition={probePanelPosition}
           probePanelCollapsed={probePanelCollapsed}
           probePanelWidth={probePanelWidth}
@@ -317,6 +319,7 @@ export default function SessionWorkspace({
           position="right"
           aiPanelNode={aiPanelNode}
           probePanelNode={probePanelNode}
+          probePanelVisible={probePanelVisible}
           probePanelPosition={probePanelPosition}
           probePanelCollapsed={probePanelCollapsed}
           probePanelWidth={probePanelWidth}

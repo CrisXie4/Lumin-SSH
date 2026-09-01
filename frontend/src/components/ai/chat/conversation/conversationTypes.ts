@@ -47,6 +47,8 @@ export interface ConversationHandlers {
   onPreviewRestore?: (artifactPath: string, targetTerminalId: string) => void;
   onPreviewDiffFetch?: (artifactPath: string, targetTerminalId: string) => void;
   onApplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
+  onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
+  onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
   messageActionBarAtBottom?: boolean;
   sendPerfMetricsRef?: { current: Map<string, unknown> | null } | null;

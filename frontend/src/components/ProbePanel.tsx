@@ -21,7 +21,13 @@ import {
   NetworkSection,
   ProcessSection,
 } from './probe/ProbeSections.tsx';
-import { isInternalIP, type ProbePanelProps } from './probe/probeTypes.ts';
+import {
+  isInternalIP,
+  persistProbeSidebarState,
+  readProbeSidebarState,
+  type ProbePanelProps,
+  type ProbeSidebarTab,
+} from './probe/probeTypes.ts';
 import GitRepositoryPanel from './probe/GitRepositoryPanel.tsx';
 import { useProbePanel } from './probe/useProbePanel.ts';
 
@@ -36,10 +42,17 @@ export default function ProbePanel(props: ProbePanelProps) {
     active,
     onOpenPortForward,
     serverId,
-    activeTerminalId,
     isConnected,
   } = props;
-  const [activeTab, setActiveTab] = useState<'monitor' | 'extensions'>('monitor');
+  const sidebarServerId = String(serverId || sessionId || '').trim();
+  const [sidebarState, setSidebarState] = useState(() => readProbeSidebarState(sidebarServerId));
+  const activeTab = sidebarState.activeTab;
+  const setActiveTab = (nextTab: ProbeSidebarTab) => {
+    setSidebarState((current) => persistProbeSidebarState(sidebarServerId, { ...current, activeTab: nextTab }));
+  };
+  const setActiveExtensionTab = (activeExtensionTab: string) => {
+    setSidebarState((current) => persistProbeSidebarState(sidebarServerId, { ...current, activeExtensionTab }));
+  };
   const {
     t,
     info,
@@ -218,15 +231,15 @@ export default function ProbePanel(props: ProbePanelProps) {
           {t('扩展')}
         </button>
       </div>
-      <div className="probe-tab-content" role="tabpanel" aria-label={t(activeTab === 'monitor' ? '监控' : '扩展')}>
-        {activeTab === 'monitor'
-          ? monitorContent
-          : <GitRepositoryPanel
-              serverId={String(serverId || sessionId)}
-              sessionId={sessionId}
-              activeTerminalId={String(activeTerminalId || sessionId)}
-              isConnected={isConnected !== false}
-            />}
+      <div className="probe-tab-content" data-active-tab={activeTab} role="tabpanel" aria-label={t(activeTab === 'monitor' ? '监控' : '扩展')}>
+        {monitorContent}
+        <GitRepositoryPanel
+          serverId={String(serverId || sessionId)}
+          sessionId={sessionId}
+          isConnected={isConnected !== false}
+          activeSubTab={sidebarState.activeExtensionTab}
+          onActiveSubTabChange={setActiveExtensionTab}
+        />
       </div>
     </div>
   );

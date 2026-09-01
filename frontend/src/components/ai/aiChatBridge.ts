@@ -17,6 +17,7 @@ interface AIChatBridgeShape {
   PreviewAIChatToolRestore?: (reviewId: string, sessionId: string) => Promise<unknown>
   PreviewAIChatToolDiff?: (reviewId: string, sessionId: string) => Promise<unknown>
   RestoreAIChatTool?: (reviewId: string, sessionId: string) => Promise<unknown>
+  ReapplyAIChatTool?: (reviewId: string, sessionId: string) => Promise<unknown>
   ListAIChatCommandTerminalCandidates?: (requestId: string) => Promise<unknown>
   AssignAIChatToolTerminal?: (requestId: string, targetSessionId: string) => Promise<unknown>
 }
@@ -140,6 +141,14 @@ export async function restoreAIChatTool(reviewId: string, sessionId: string): Pr
     throw new Error(t('还原能力未就绪'))
   }
   await bridge.RestoreAIChatTool(reviewId, sessionId)
+}
+
+export async function reapplyAIChatTool(reviewId: string, sessionId: string): Promise<void> {
+  const bridge = getAppBridge()
+  if (!bridge?.ReapplyAIChatTool) {
+    throw new Error(t('重新应用能力未就绪'))
+  }
+  await bridge.ReapplyAIChatTool(reviewId, sessionId)
 }
 
 /** AI 命令终端候选（ListAIChatCommandTerminalCandidates 返回项） */

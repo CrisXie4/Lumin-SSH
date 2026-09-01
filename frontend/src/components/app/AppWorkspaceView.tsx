@@ -26,15 +26,15 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
     openPortForwardDialog,
   } = orchestrator;
 
-  const activeSession = sessionState.sessions.find((s) => s.id === sessionState.activeSessionId);
-  const shouldShowProbePanel = Boolean(
+  const activeSession = sessionState.sessions.find((session) => session.id === sessionState.activeSessionId);
+  const probePanelVisible = Boolean(
     activeSession
     && !activeSession.isSerial
     && !isUnsupportedMonitorSession(activeSession)
     && (activeSession.status === 'connected' || (activeSession.status === 'closed' && panelLayout.monitoringEnabled[activeSession.id || '']))
   );
 
-  const probePanelNode = shouldShowProbePanel ? (
+  const probePanelNode = (
     <AppProbePanelHost
       sessions={sessionState.sessions}
       activeSessionId={sessionState.activeSessionId}
@@ -43,12 +43,11 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
       probePanelCollapsed={panelLayout.probePanelCollapsed}
       setProbeSnapshots={panelLayout.setProbeSnapshots}
       setMonitoringEnabled={panelLayout.setMonitoringEnabled}
-      activeTerminalId={sessionState.activeTerminalId || ''}
       setContentTab={sessionState.setContentTab}
       openPortForwardDialog={(sId: string, initialMapping?: unknown, initialTab?: string) => openPortForwardDialog(sId, initialMapping as string | number | null | undefined, initialTab)}
       addToast={shared.addToast}
     />
-  ) : null;
+  );
 
   const aiPanelNode = (
     <AppAIPanelHost
@@ -180,6 +179,7 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
         leftSplitWidth: panelLayout.leftSplitWidth,
         probePanelCollapsed: panelLayout.probePanelCollapsed,
         probePanelNode,
+        probePanelVisible,
         probePanelPosition: panelLayout.probePanelPosition,
         probePanelWidth: panelLayout.probePanelWidth,
         renderSessionFileManagers,
