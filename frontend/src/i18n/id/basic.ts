@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Preferensi",
   "终端工具栏仅显示图标": "Toolbar terminal hanya menampilkan ikon",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Setelah dinyalakan, manajemen proses, pemantauan jaringan, dan tombol lain pada toolbar terminal hanya menampilkan ikon.",
+  "编辑器与查看器自动换行": "Pembungkus kata editor dan penampil",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Setelah dibuka, ubah tampilan perbedaan meja tinjauan dan editor file yang dibuka di pengelola file untuk secara otomatis membungkus dan menampilkan garis super panjang.",
   "展开监控面板": "Perluas panel pemantauan",
   "收起监控面板": "Tutup panel pemantauan",
   "右侧": "sisi kanan",

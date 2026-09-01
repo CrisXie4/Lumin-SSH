@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Preferências",
   "终端工具栏仅显示图标": "A barra de ferramentas do terminal mostra apenas ícones",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Após ligá-lo, o gerenciamento de processos, monitoramento de rede e outros botões da barra de ferramentas do terminal exibem apenas ícones.",
+  "编辑器与查看器自动换行": "Quebra automática de palavras do editor e do visualizador",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Após a abertura, altere a visualização das diferenças da mesa de revisão e o editor de arquivos aberto no gerenciador de arquivos para agrupar e exibir automaticamente linhas super longas.",
   "展开监控面板": "Expandir painel de monitoramento",
   "收起监控面板": "Fechar painel de monitoramento",
   "右侧": "lado direito",

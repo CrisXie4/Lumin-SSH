@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Preferencje",
   "终端工具栏仅显示图标": "Pasek narzędzi terminala pokazuje tylko ikony",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Po włączeniu zarządzanie procesami, monitorowanie sieci i inne przyciski na pasku narzędzi terminala wyświetlają tylko ikony.",
+  "编辑器与查看器自动换行": "Zawijanie słów redaktora i przeglądarki",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Po otwarciu zmień widok różnic w panelu recenzji i otwórz edytor plików w menedżerze plików, aby automatycznie zawijał i wyświetlał bardzo długie linie.",
   "展开监控面板": "Rozwiń panel monitorowania",
   "收起监控面板": "Zamknij panel monitorujący",
   "右侧": "prawa strona",

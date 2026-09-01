@@ -666,6 +666,8 @@ export default {
   "偏好设置": "Tùy chọn",
   "终端工具栏仅显示图标": "Thanh công cụ đầu cuối chỉ hiển thị biểu tượng",
   "开启后终端工具栏的进程管理、网络监控等按钮只显示图标": "Sau khi bật nó lên, các nút quản lý quy trình, giám sát mạng và các nút khác trên thanh công cụ đầu cuối chỉ hiển thị các biểu tượng.",
+  "编辑器与查看器自动换行": "Gói từ của người soạn thảo và người xem",
+  "开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示": "Sau khi mở, hãy thay đổi chế độ xem khác biệt của bàn đánh giá và trình chỉnh sửa tệp được mở trong trình quản lý tệp để tự động ngắt dòng và hiển thị các dòng siêu dài.",
   "展开监控面板": "Mở rộng bảng giám sát",
   "收起监控面板": "Đóng bảng giám sát",
   "右侧": "bên phải",
