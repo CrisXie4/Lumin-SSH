@@ -219,8 +219,8 @@ func (a *Service) buildAIRestoreReviewPayload(state *aiToolRestoreState) map[str
 		block := map[string]interface{}{
 			"index":  index,
 			"label":  label,
-			"before": file.AppliedContent,
-			"after":  file.BeforeContent,
+			"before": file.BeforeContent,
+			"after":  file.AppliedContent,
 		}
 		if labelParams != nil {
 			block["labelParams"] = labelParams
