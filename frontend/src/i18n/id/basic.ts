@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Gudang saat ini tidak ada dari jarak jauh",
   "未关联上游": "Tidak terkait dengan hulu",
   "无远端": "Tidak ada jarak jauh",
+  "还原所有": "Pulihkan semuanya",
+  "还原至此": "Kembalikan ke titik ini",
+  "重新应用": "melamar lagi",
+  "已重新应用": "diterapkan kembali",
 } satisfies I18nDict;

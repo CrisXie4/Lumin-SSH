@@ -97,6 +97,8 @@ export default function AIChatConversation({
     suspendFollow,
     handleJumpToUserMessage,
     handleScrollToBottom,
+    handleTotalListHeightChanged,
+    isContentHeightSettling,
     handleUserWheelCapture,
     handleUserTouchStartCapture,
     handleUserTouchMoveCapture,
@@ -216,10 +218,11 @@ export default function AIChatConversation({
         alignToBottom={false}
         increaseViewportBy={{ top: 1200, bottom: 800 }}
         initialTopMostItemIndex={{ index: Math.max(groupedMessages.length - 1, 0), align: 'end' }}
-        atBottomThreshold={2}
+        atBottomThreshold={24}
+        totalListHeightChanged={handleTotalListHeightChanged}
         followOutput={() => (followIntentRef.current ? 'auto' : false)}
         atBottomStateChange={(isAtBottom) => {
-          if (isAtBottom && !isScrollbarDraggingRef.current) {
+          if (isAtBottom && !isScrollbarDraggingRef.current && !isContentHeightSettling()) {
             followIntentRef.current = true;
             setShowScrollToBottom(false);
             return;

@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "Kho hiện tại không tồn tại từ xa",
   "未关联上游": "Không liên quan đến thượng nguồn",
   "无远端": "Không có điều khiển từ xa",
+  "还原所有": "Khôi phục tất cả",
+  "还原至此": "Khôi phục lại điểm này",
+  "重新应用": "nộp đơn xin lại",
+  "已重新应用": "áp dụng lại",
 } satisfies I18nDict;

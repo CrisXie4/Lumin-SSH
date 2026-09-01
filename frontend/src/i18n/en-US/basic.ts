@@ -1953,4 +1953,8 @@ export default {
   "当前仓库不存在远端": "The current warehouse does not exist remotely",
   "未关联上游": "Not associated with upstream",
   "无远端": "No remote",
+  "还原所有": "Restore all",
+  "还原至此": "Restore to this point",
+  "重新应用": "reapply",
+  "已重新应用": "reapplied",
 } satisfies I18nDict;

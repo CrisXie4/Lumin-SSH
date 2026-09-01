@@ -1055,7 +1055,7 @@ function GitRepositoryPanel({
     return items.map((file, index) => (
       <div
         key={`${type}-${file.status}-${file.file}`}
-        className={`group flex min-w-0 items-center gap-2 border-b border-line-subtle px-2 py-1.5 text-xs ${selected.includes(file.file) ? 'bg-accent-dim' : 'hover:bg-hover'}`}
+        className={`group flex min-h-[36px] min-w-0 items-center gap-2 border-b border-line-subtle px-2 py-1.5 text-xs ${selected.includes(file.file) ? 'bg-accent-dim' : 'hover:bg-hover'}`}
         onClick={(event) => {
           if (!controlsDisabled) {
             handleFileSelection(repoPath, type, items, index, event);
