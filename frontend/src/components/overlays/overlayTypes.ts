@@ -46,7 +46,6 @@ export interface EditFlyItem {
 
 export interface AppOverlaysProps {
   dialogs: {
-    activeAIDevilMode: boolean;
     closePortForwardDialog: () => void;
     connectSerial: (config: SerialFormConfig) => void;
     loadServers: () => Promise<void>;

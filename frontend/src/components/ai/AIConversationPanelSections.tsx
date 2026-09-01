@@ -275,6 +275,10 @@ export function renderAISettingsOverlaySection({
         onToggleAutoBackup={() => handleSaveAIPanelGlobalSettings({
           conversationAutoBackupEnabled: !normalizedGlobalAISettings.conversationAutoBackupEnabled,
         })}
+        autoBackupRetentionCount={normalizedGlobalAISettings.conversationAutoBackupRetentionCount}
+        onChangeAutoBackupRetentionCount={(value) => {
+          void handleSaveAIPanelGlobalSettings({ conversationAutoBackupRetentionCount: value })
+        }}
         soundEnabled={normalizedGlobalAISettings.soundEnabled !== false}
         soundVolume={normalizedGlobalAISettings.soundVolume ?? 0.06}
         terminalOutputLineLimit={terminalOutputLineLimit}

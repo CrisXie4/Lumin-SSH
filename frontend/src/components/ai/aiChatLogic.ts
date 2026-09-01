@@ -54,7 +54,6 @@ export interface AIPanelProps {
   showComposer?: boolean
   initialConversationId?: string
   tabBar?: React.ReactNode
-  onDevilModeChange?: (enabled: boolean, tabId?: string) => void
   onActiveTabChange?: (tabId: string) => void
   onActivateWorkspaceTab?: (terminalId: string, tabId: string) => void
   onGoHomeRequested?: () => void

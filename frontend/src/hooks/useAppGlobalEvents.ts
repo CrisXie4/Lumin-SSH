@@ -7,7 +7,6 @@ import { formatAIQuotedSelection, type SessionLike, type WorkspaceContentTab } f
 import type { TerminalPaneLayout } from '../utils/terminalPaneLayout.ts';
 
 export interface UseAppGlobalEventsOptions {
-  activeAIDevilMode: boolean;
   activeSessionIdRef: RefObject<string | null>;
   activeTerminalIdRef: RefObject<string | null>;
   lastTerminalRef: RefObject<Record<string, string>>;
@@ -24,7 +23,6 @@ export interface UseAppGlobalEventsOptions {
 }
 
 export default function useAppGlobalEvents({
-  activeAIDevilMode,
   activeSessionIdRef,
   activeTerminalIdRef,
   lastTerminalRef,
@@ -154,12 +152,9 @@ export default function useAppGlobalEvents({
     return mode === 'light' ? 'light' : 'dark';
   }, []);
 
-  const resolvedQuickThemeMode = activeAIDevilMode ? 'dark' : resolveQuickThemeMode(quickThemeMode);
+  const resolvedQuickThemeMode = resolveQuickThemeMode(quickThemeMode);
 
   const handleQuickThemeToggle = useCallback(() => {
-    if (activeAIDevilMode) {
-      return;
-    }
     const nextMode = resolvedQuickThemeMode === 'light' ? 'dark' : 'light';
     // 包一层 View Transition：切浅色=白圈从点击处扩散，切深色=旧画面收缩进点击点（不支持的内核直接切换）
     runThemeChangeWithTransition(() => {
@@ -171,7 +166,7 @@ export default function useAppGlobalEvents({
         window.dispatchEvent(new CustomEvent('theme-mode-changed'));
       });
     }, null, themeTransitionDirectionFor(nextMode));
-  }, [activeAIDevilMode, resolvedQuickThemeMode]);
+  }, [resolvedQuickThemeMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

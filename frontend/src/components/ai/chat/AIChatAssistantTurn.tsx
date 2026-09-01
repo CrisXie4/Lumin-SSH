@@ -30,11 +30,10 @@ interface AIChatAssistantTurnProps {
   onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
   onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
-  messageActionBarAtBottom?: boolean;
   perfMetricsText?: string;
 }
 
-export default function AIChatAssistantTurn({ assistant, reasoning = [], tools = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onDelete, onRetry, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked = false, messageActionBarAtBottom = false, perfMetricsText = '' }: AIChatAssistantTurnProps) {
+export default function AIChatAssistantTurn({ assistant, reasoning = [], tools = [], isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onDelete, onRetry, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked = false, perfMetricsText = '' }: AIChatAssistantTurnProps) {
   const title = assistant?.title || assistantTitleKey
   const time = assistant?.time || ''
   const assistantText = typeof assistant?.text === 'string' ? assistant.text.trim() : ''
@@ -81,14 +80,8 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
   )
 
   return (
-    <div className={cn('grid w-full', messageActionBarAtBottom ? 'gap-0' : 'gap-1.5')}>
-      <div className={messageActionBarAtBottom ? 'hidden' : 'block'}>
-        {renderActionBar(true)}
-      </div>
-      <div className={cn(
-        'grid w-full gap-0 rounded-[var(--radius-md)] border border-line bg-overlay shadow-[inset_0_1px_0_var(--border-light)]',
-        messageActionBarAtBottom ? 'px-3 pt-2.5' : 'px-3 py-2.5',
-      )}>
+    <div className="grid w-full gap-0">
+      <div className="grid w-full gap-0 rounded-[var(--radius-md)] border border-line bg-overlay px-3 pt-2.5 shadow-[inset_0_1px_0_var(--border-light)]">
         {hasError ? <AIChatErrorBlock text={assistantErrorText} /> : null}
         {hasReasoning ? (
           <div
@@ -121,7 +114,7 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
         ) : null}
         <div className={cn(
           hasSectionBeforeActionBar && 'border-t border-t-line-subtle',
-          messageActionBarAtBottom ? '-mx-3 block px-3' : 'hidden',
+          '-mx-3 block px-3',
         )}>
           {renderActionBar(true)}
         </div>

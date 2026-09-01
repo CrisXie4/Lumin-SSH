@@ -1,9 +1,10 @@
 import { ChevronLeft, History, MessagesSquare, RotateCcw, Trash2, type LucideIcon } from 'lucide-react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from '../../i18n.ts'
 import { Switch } from '../ui'
 import { deleteAIConversationBackup, getAIConversationBackupHistory, listAIConversationBackups, restoreAIConversationBackup } from './aiConversationBackupBridge.ts'
+import { DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT, MAX_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT } from './aiGlobalSettingsBridge.ts'
 import AIChatMarkdown from './chat/AIChatMarkdown.tsx'
 
 /** 备份条目（bridge 归一化后的宽松结构） */
@@ -117,6 +118,8 @@ export interface AIConversationBackupSettingsProps {
   onRestoreSnapshot?: (snapshot: unknown) => Promise<unknown> | void
   autoBackupEnabled?: boolean
   onToggleAutoBackup?: () => void
+  autoBackupRetentionCount?: number
+  onChangeAutoBackupRetentionCount?: (value: number) => void
 }
 
 export default function AIConversationBackupSettings({
@@ -125,8 +128,10 @@ export default function AIConversationBackupSettings({
   conversationUpdatedAt = 0,
   requestInFlight = false,
   onRestoreSnapshot,
-  autoBackupEnabled = false,
+  autoBackupEnabled = true,
   onToggleAutoBackup,
+  autoBackupRetentionCount = DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT,
+  onChangeAutoBackupRetentionCount,
 }: AIConversationBackupSettingsProps) {
   const { t, lang } = useTranslation()
   const [backups, setBackups] = useState<ConversationBackup[]>([])
@@ -139,6 +144,9 @@ export default function AIConversationBackupSettings({
   const [now, setNow] = useState(() => Date.now())
   const historyVirtuosoRef = useRef<VirtuosoHandle | null>(null)
   const historyAutoScrollBackupIdRef = useRef('')
+  const normalizedRetentionCount = Number.isFinite(Number(autoBackupRetentionCount))
+    ? Math.min(MAX_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT, Math.max(1, Math.trunc(Number(autoBackupRetentionCount))))
+    : DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT
 
   const loadBackups = useCallback(async (options: { background?: boolean } = {}) => {
     const background = options?.background === true
@@ -250,6 +258,15 @@ export default function AIConversationBackupSettings({
     await loadBackups()
   }, [conversationId, loadBackups, requestInFlight, selectedBackup?.id])
 
+  const handleRetentionCountChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const parsed = Number.parseInt(event.target.value, 10)
+    if (!Number.isFinite(parsed)) {
+      return
+    }
+    const nextValue = Math.min(MAX_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT, Math.max(1, parsed))
+    onChangeAutoBackupRetentionCount?.(nextValue)
+  }, [onChangeAutoBackupRetentionCount])
+
   if (!conversationId) {
     return null
   }
@@ -264,6 +281,28 @@ export default function AIConversationBackupSettings({
     </div>
   )
 
+  const retentionControl = (
+    <div className="bg-canvas p-3.5 rounded-[var(--radius-md)] border border-line flex justify-between items-center gap-4">
+      <div className="min-w-0">
+        <div className="text-primary text-base font-bold">{t('最多保留最新多少个')}</div>
+        <div className="text-tertiary text-sm leading-[1.6]">{t('每个对话仅保留最近的自动备份,范围 1-200,默认 30 个.')}</div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <input
+          type="number"
+          min={1}
+          max={MAX_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT}
+          step={1}
+          value={normalizedRetentionCount}
+          onChange={handleRetentionCountChange}
+          aria-label={t('最多保留最新多少个')}
+          className="w-24 h-9 px-2 rounded-[var(--radius-sm)] border border-line bg-canvas text-primary text-sm text-right"
+        />
+        <span className="text-sm text-secondary">{t('个')}</span>
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-3">
       <div className="grid shrink-0 gap-1">
@@ -271,6 +310,7 @@ export default function AIConversationBackupSettings({
         <div className="text-sm text-tertiary leading-[1.5]">{t('查看和恢复当前对话的自动备份记录。')}</div>
       </div>
       {autoBackupControl}
+      {retentionControl}
       <div className="relative flex flex-1 min-h-0">
         <div className={`flex flex-1 min-h-0 flex-col${selectedBackup ? ' invisible pointer-events-none' : ''}`}>
           {!isLoaded && backups.length === 0 ? (

@@ -56,6 +56,7 @@ export default function AIProviderSelector({
     providerBalanceDeltaLabel,
     providerBalanceDeltaPositive,
     providerBalanceDeltaTick,
+    providerSystemPromptAppendEnabled,
     quickModelLoading,
     quickModelError,
     quickModelConfig,
@@ -90,6 +91,10 @@ export default function AIProviderSelector({
     persistSelectedProviderId,
     dismissSignal,
   });
+
+  const systemPromptAppendBorderStyle = providerSystemPromptAppendEnabled
+    ? { borderColor: 'var(--warning)' }
+    : undefined;
 
   return (
     <>
@@ -131,6 +136,7 @@ export default function AIProviderSelector({
             style={{
               borderRadius: quickModelConfig.visible || quickReasoningConfig.visible ? '8px 0 0 8px' : 8,
               ...(providerTriggerWidth > 0 ? { maxWidth: providerTriggerWidth } : {}),
+              ...systemPromptAppendBorderStyle,
             }}
           >
             <span

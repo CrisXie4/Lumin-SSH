@@ -23,7 +23,7 @@ type LooseT = (key: I18nKey, vars?: Record<string, unknown>) => string
 // followup 应答、用户消息重试/编辑/删除、助理消息重试、上下文压缩（快速/全量摘要子任务）、
 // 会话恢复请求与主题调色启动事件。
 // 从 AIConversationTabPanel 原样搬移，闭包依赖经参数同名注入，代码零改动。
-export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, isWorkspaceTabActive, activeConversation, panelState, panelInstanceKey, terminalPanelsRef, sendPerfMetricsRef, setPanelState, setConversationList, setAIProviderState, setGlobalAISettings, setComposerEditState, setComposerInputValue, setComposerImages, resetComposerEditState, requestConversationSmoothScrollToBottom, clearRestorePreview, truncateConversationAfterMessage, saveConversationSnapshot, rebuildAIConversationTokenLedger, showAlert, requestDeleteConfirmation, resolveAvailableProviderId, buildConversationWithProviderId, resolveAIRequestModelMeta, setThemeToolPreview, globalAISettings, normalizedGlobalAISettings, aiProviderState, availableAIProviders, composerEditState, composerImages, temporarySessionEnabled, isDevilMode, isQueueBlocked, isArchivedAgentConversation, runtimePhase, effectiveProviderId, effectiveAutoApprovalEnabled, shouldLockAssistantCollaboration, collaborationFollowupInteractionLocked, terminalOutputLineLimit, terminalOutputCharacterLimit }: {
+export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, isWorkspaceTabActive, activeConversation, panelState, panelInstanceKey, terminalPanelsRef, sendPerfMetricsRef, setPanelState, setConversationList, setAIProviderState, setGlobalAISettings, setComposerEditState, setComposerInputValue, setComposerImages, resetComposerEditState, requestConversationSmoothScrollToBottom, clearRestorePreview, truncateConversationAfterMessage, saveConversationSnapshot, rebuildAIConversationTokenLedger, showAlert, requestDeleteConfirmation, resolveAvailableProviderId, buildConversationWithProviderId, resolveAIRequestModelMeta, setThemeToolPreview, globalAISettings, normalizedGlobalAISettings, aiProviderState, availableAIProviders, composerEditState, composerImages, temporarySessionEnabled, isQueueBlocked, isArchivedAgentConversation, runtimePhase, effectiveProviderId, effectiveAutoApprovalEnabled, shouldLockAssistantCollaboration, collaborationFollowupInteractionLocked, terminalOutputLineLimit, terminalOutputCharacterLimit }: {
   t: LooseT
   terminalId: string
   sessionId: string
@@ -60,7 +60,6 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
   composerEditState: import('./aiChatLogic.ts').ComposerEditState
   composerImages: string[]
   temporarySessionEnabled: boolean
-  isDevilMode: boolean
   isQueueBlocked: boolean
   isArchivedAgentConversation: boolean
   runtimePhase: string
@@ -358,7 +357,6 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
         autoApprove: effectiveAutoApprovalEnabled,
         skipNextAutomaticRequest: Boolean(panelState.skipNextAutomaticRequest),
         assistantFirstReplyText: assistantFirstReplyText || undefined,
-        isDemon: Boolean(isDevilMode),
         toolScope: effectiveToolScope || undefined,
         toolScopeSlot: effectiveToolScopeSlot || undefined,
         autoRecoverySubtaskHops: Number.isFinite(Number(normalizedRuntimeOptions.autoRecoverySubtaskHops))
@@ -420,7 +418,7 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
       await saveConversationSnapshot(erroredConversation, panelInstanceKey)
       return false
     }
-  }, [activeConversation, aiProviderState, availableAIProviders, buildConversationWithProviderId, composerEditState, composerImages, effectiveAutoApprovalEnabled, getAIAssistantFirstReply, globalAISettings, isDevilMode, isQueueBlocked, normalizedGlobalAISettings.slashCommands, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, requestConversationSmoothScrollToBottom, resetComposerEditState, resolveAIRequestModelMeta, resolveAvailableProviderId, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, temporarySessionEnabled, terminalId, terminalOutputCharacterLimit, terminalOutputLineLimit, truncateConversationAfterMessage])
+  }, [activeConversation, aiProviderState, availableAIProviders, buildConversationWithProviderId, composerEditState, composerImages, effectiveAutoApprovalEnabled, getAIAssistantFirstReply, globalAISettings, isQueueBlocked, normalizedGlobalAISettings.slashCommands, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, requestConversationSmoothScrollToBottom, resetComposerEditState, resolveAIRequestModelMeta, resolveAvailableProviderId, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, temporarySessionEnabled, terminalId, terminalOutputCharacterLimit, terminalOutputLineLimit, truncateConversationAfterMessage])
   const handleFollowupResponse = useCallback(async (payload: Record<string, unknown>) => {
     if (!payload || typeof payload !== 'object') {
       return false
@@ -568,7 +566,6 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
         sessionId: terminalId,
         autoApprove: effectiveAutoApprovalEnabled,
         skipNextAutomaticRequest: false,
-        isDemon: Boolean(isDevilMode),
         toolScope: currentConversationToolScope || undefined,
         toolScopeSlot: currentConversationToolScopeSlot || undefined,
         messages: requestMessages,
@@ -623,7 +620,7 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
       await saveConversationSnapshot(erroredConversation, panelInstanceKey)
       return false
     }
-  }, [activeConversation, effectiveAutoApprovalEnabled, isDevilMode, panelInstanceKey, requestConversationSmoothScrollToBottom, resolveAIRequestModelMeta, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId])
+  }, [activeConversation, effectiveAutoApprovalEnabled, panelInstanceKey, requestConversationSmoothScrollToBottom, resolveAIRequestModelMeta, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId])
   const handleConversationUserMessage = useCallback(async (payload: string | Record<string, unknown>) => {
     if (payload && typeof payload === 'object' && payload.kind === 'followup-response') {
       if (collaborationFollowupInteractionLocked) {
@@ -819,7 +816,6 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
         autoApprove: effectiveAutoApprovalEnabled,
         skipNextAutomaticRequest: Boolean(panelState.skipNextAutomaticRequest),
         assistantFirstReplyText: assistantFirstReplyText || undefined,
-        isDemon: Boolean(isDevilMode),
         toolScope: typeof activeConversation?.toolScope === 'string' && activeConversation.toolScope.trim() ? activeConversation.toolScope.trim() : undefined,
         toolScopeSlot: typeof activeConversation?.toolScopeSlot === 'string' && activeConversation.toolScopeSlot.trim() ? activeConversation.toolScopeSlot.trim() : undefined,
         messages: requestMessages,
@@ -873,7 +869,7 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
       await saveConversationSnapshot(erroredConversation, panelInstanceKey)
       return false
     }
-  }, [activeConversation, effectiveAutoApprovalEnabled, isDevilMode, isQueueBlocked, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, requestConversationSmoothScrollToBottom, resetComposerEditState, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId, truncateConversationAfterMessage])
+  }, [activeConversation, effectiveAutoApprovalEnabled, isQueueBlocked, panelInstanceKey, panelState.activeRequestId, panelState.requestPhase, requestConversationSmoothScrollToBottom, resetComposerEditState, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId, truncateConversationAfterMessage])
   const handleEditUserMessage = useCallback((messageId: string, text: string, images: unknown[] = []) => {
     if (!activeConversation) {
       return
@@ -1140,7 +1136,6 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
         sessionId: terminalId,
         autoApprove: effectiveAutoApprovalEnabled,
         skipNextAutomaticRequest: false,
-        isDemon: Boolean(isDevilMode),
         toolScope: typeof conversationSnapshot?.toolScope === 'string' && conversationSnapshot.toolScope.trim() ? conversationSnapshot.toolScope.trim() : undefined,
         toolScopeSlot: typeof conversationSnapshot?.toolScopeSlot === 'string' && conversationSnapshot.toolScopeSlot.trim() ? conversationSnapshot.toolScopeSlot.trim() : undefined,
         autoRecoverySubtaskHops,
@@ -1198,7 +1193,7 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
       await saveConversationSnapshot(erroredConversation, targetPanelKey)
       return false
     }
-  }, [effectiveAutoApprovalEnabled, effectiveProviderId, isDevilMode, panelInstanceKey, requestConversationSmoothScrollToBottom, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId])
+  }, [effectiveAutoApprovalEnabled, effectiveProviderId, panelInstanceKey, requestConversationSmoothScrollToBottom, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration, terminalId])
   return {
     handleSendMessage,
     handleFollowupResponse,

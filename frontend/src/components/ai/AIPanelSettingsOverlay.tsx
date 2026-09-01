@@ -14,7 +14,6 @@ import AIPanelAppearanceSettingsTab from './settings/AIPanelAppearanceSettingsTa
 interface GlobalAISettingsLike {
   approvalButtonOrder?: string;
   commandActionButtonOrder?: string;
-  messageActionBarAtBottom?: boolean;
   messageNavEnabled?: boolean;
   aiWorkspaceTabNumbersOnly?: boolean;
   mcpEnabled?: boolean;
@@ -49,6 +48,8 @@ export interface AIPanelSettingsOverlayProps {
   onRestoreConversationBackup: (snapshot: unknown) => Promise<unknown> | void;
   autoBackupEnabled: boolean;
   onToggleAutoBackup: () => void;
+  autoBackupRetentionCount: number;
+  onChangeAutoBackupRetentionCount: (value: number) => void;
   soundEnabled?: boolean;
   soundVolume?: number;
   terminalOutputLineLimit: number;
@@ -91,6 +92,8 @@ export default function AIPanelSettingsOverlay({
   onRestoreConversationBackup,
   autoBackupEnabled,
   onToggleAutoBackup,
+  autoBackupRetentionCount,
+  onChangeAutoBackupRetentionCount,
   soundEnabled,
   soundVolume,
   terminalOutputLineLimit,
@@ -237,7 +240,6 @@ export default function AIPanelSettingsOverlay({
 
   const approvalButtonOrder = globalAISettings?.approvalButtonOrder || 'reject-approve';
   const commandActionButtonOrder = globalAISettings?.commandActionButtonOrder || 'terminate-continue';
-  const messageActionBarAtBottom = Boolean(globalAISettings?.messageActionBarAtBottom);
   const messageNavEnabled = globalAISettings?.messageNavEnabled !== false;
   const aiWorkspaceTabNumbersOnly = globalAISettings?.aiWorkspaceTabNumbersOnly === true;
   const mcpEnabled = globalAISettings?.mcpEnabled !== false;
@@ -386,7 +388,6 @@ export default function AIPanelSettingsOverlay({
               <AIPanelAppearanceSettingsTab
                 approvalButtonOrder={approvalButtonOrder}
                 commandActionButtonOrder={commandActionButtonOrder}
-                messageActionBarAtBottom={messageActionBarAtBottom}
                 messageNavEnabled={messageNavEnabled}
                 aiWorkspaceTabNumbersOnly={aiWorkspaceTabNumbersOnly}
                 onSaveGlobalAISettings={onSaveGlobalAISettings}
@@ -401,6 +402,8 @@ export default function AIPanelSettingsOverlay({
                 onRestoreSnapshot={onRestoreConversationBackup}
                 autoBackupEnabled={autoBackupEnabled}
                 onToggleAutoBackup={onToggleAutoBackup}
+                autoBackupRetentionCount={autoBackupRetentionCount}
+                onChangeAutoBackupRetentionCount={onChangeAutoBackupRetentionCount}
               />
             ) : null}
           </div>

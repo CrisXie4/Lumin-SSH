@@ -61,7 +61,6 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
       probePanelPosition={panelLayout.probePanelPosition}
       getEffectiveTerminals={sessionState.getEffectiveTerminals}
       addToast={shared.addToast}
-      setAIPanelDevilModes={aiReview.setAIPanelDevilModes}
       setActiveAIWorkspaceTabs={aiReview.setActiveAIWorkspaceTabs}
       sessionsRef={sessionsRef}
       markWorkspaceRestoreNavigationOverride={sessionState.markWorkspaceRestoreNavigationOverride}

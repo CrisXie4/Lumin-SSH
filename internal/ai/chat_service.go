@@ -31,7 +31,6 @@ type AIChatRequestPayload struct {
 	AutoApprove                              bool                   `json:"autoApprove"`
 	SkipNextAutomaticRequest                 bool                   `json:"skipNextAutomaticRequest"`
 	AssistantFirstReplyText                  string                 `json:"assistantFirstReplyText,omitempty"`
-	IsDemon                                  bool                   `json:"isDemon,omitempty"`
 	SystemPromptOverride                     string                 `json:"systemPromptOverride,omitempty"`
 	SkipSystemPrompt                         bool                   `json:"skipSystemPrompt,omitempty"`
 	StreamEventPrefix                        string                 `json:"streamEventPrefix,omitempty"`
@@ -1829,6 +1828,44 @@ func (a *Service) getAIProviderProfileForConversation(conversationID string) (AI
 	}
 	globalSettings := a.configManager.GetAIGlobalSettings()
 	return a.getAIProviderProfileByID(globalSettings.CurrentProviderID)
+}
+
+// isAIChatSupportedProviderProfile 判定供应商快照是否可直接用于发起对话请求。
+// StartAIChat 保留自己的分段校验以便向用户返回具体原因, 此处只做可用性判定。
+func isAIChatSupportedProviderProfile(profile AIProviderProfile) bool {
+	switch profile.Provider {
+	case "Compatible", "Responses", "Messages":
+	default:
+		return false
+	}
+	return strings.TrimSpace(profile.BaseURL) != "" && strings.TrimSpace(profile.Model) != ""
+}
+
+// resolveAIChatContinuationProfile 在自动续跑轮次前重解析供应商快照,
+// 使请求进行中切换的供应商, 模型与思考档位从下一轮开始生效, 并写回批次保持后续轮次一致。
+// 只有读到会话快照且解析结果可用时才替换; 读不到会话快照时必须沿用批次内已固化的快照,
+// 因为临时会话不落在持久化目录, 回落全局设置会让同一任务中途跨到另一个供应商。
+func (a *Service) resolveAIChatContinuationProfile(batch *aiPendingToolBatch) AIProviderProfile {
+	if a == nil || batch == nil {
+		return AIProviderProfile{}
+	}
+	if a.configManager == nil {
+		return batch.Profile
+	}
+	trimmedConversationID := strings.TrimSpace(batch.Payload.ConversationID)
+	if trimmedConversationID == "" {
+		return batch.Profile
+	}
+	snapshot, err := a.configManager.GetAIConversation(trimmedConversationID)
+	if err != nil {
+		return batch.Profile
+	}
+	profile, err := a.getAIProviderProfileByID(snapshot.Settings.CurrentProviderID)
+	if err != nil || !isAIChatSupportedProviderProfile(profile) {
+		return batch.Profile
+	}
+	batch.Profile = profile
+	return profile
 }
 
 func (a *Service) getAIAutoApprovalSettingsForConversation(conversationID string) AIConversationTaskSettings {

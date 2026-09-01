@@ -33,6 +33,10 @@ export default function AIProviderQuickEditOverlay({
   const {
     draft,
     setDraft,
+    systemPromptPresets,
+    systemPromptPresetsSaving,
+    systemPromptPresetsError,
+    handleSystemPromptPresetsChange,
     modelQuery,
     setModelQuery,
     modelOptions: _modelOptions,
@@ -92,7 +96,6 @@ export default function AIProviderQuickEditOverlay({
     providers,
     onSave,
   });
-
   useOverlayScrollLock(open);
 
   if (!open) {
@@ -227,6 +230,10 @@ export default function AIProviderQuickEditOverlay({
             draft={draft}
             setDraft={setDraft}
             providerDefinition={providerDefinition}
+            systemPromptPresets={systemPromptPresets}
+            systemPromptPresetsSaving={systemPromptPresetsSaving}
+            systemPromptPresetsError={systemPromptPresetsError}
+            onSystemPromptPresetsChange={handleSystemPromptPresetsChange}
           />
         </div>
       </div>

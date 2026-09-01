@@ -13,7 +13,6 @@ import (
 
 const aiConversationBackupDirName = "backup"
 const aiConversationBackupSummaryFileName = "backup_summary.json"
-const aiConversationAutoBackupLimit = 200
 
 var aiConversationBackupExcludedRelativePaths = []string{
 	aiConversationBackupDirName,
@@ -309,6 +308,23 @@ func trimAIConversationBackupDirectoriesLocked(backupRootDir string, maxCount in
 	}
 }
 
+func (c *configBridge) trimAllAIConversationBackupsLocked(maxCount int) {
+	if c == nil || maxCount < 1 {
+		return
+	}
+	entries, err := os.ReadDir(c.aiConversationsRootDir())
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		backupRootDir := filepath.Join(c.aiConversationDir(entry.Name()), aiConversationBackupDirName)
+		trimAIConversationBackupDirectoriesLocked(backupRootDir, maxCount)
+	}
+}
+
 func (c *configBridge) createAIConversationAutoBackupLocked(conversationID string) (AIConversationBackup, error) {
 	trimmedConversationID := strings.TrimSpace(conversationID)
 	if trimmedConversationID == "" {
@@ -337,7 +353,8 @@ func (c *configBridge) createAIConversationAutoBackupLocked(conversationID strin
 	if err == nil {
 		backupTs = info.ModTime().UnixMilli()
 	}
-	trimAIConversationBackupDirectoriesLocked(backupRootDir, aiConversationAutoBackupLimit)
+	settings := c.readAIGlobalSettingsUnlocked()
+	trimAIConversationBackupDirectoriesLocked(backupRootDir, settings.ConversationAutoBackupRetentionCount)
 	return AIConversationBackup{
 		ID:          backupID,
 		Ts:          backupTs,
@@ -367,22 +384,22 @@ func (c *configBridge) buildAIConversationSnapshotLocked(conversationID string) 
 	}
 	fallbackSettings := defaultAIConversationTaskSettings(c.readAIGlobalSettingsUnlocked())
 	snapshot := AIConversationSnapshot{
-		ID:                        summary.ID,
-		Title:                     summary.Title,
-		CreatedAt:                 summary.CreatedAt,
-		UpdatedAt:                 summary.UpdatedAt,
-		Status:                    summary.Status,
-		ToolProtocol:              summary.ToolProtocol,
+		ID:                         summary.ID,
+		Title:                      summary.Title,
+		CreatedAt:                  summary.CreatedAt,
+		UpdatedAt:                  summary.UpdatedAt,
+		Status:                     summary.Status,
+		ToolProtocol:               summary.ToolProtocol,
 		PromptCacheBypassTimestamp: summary.PromptCacheBypassTimestamp,
-		ParentConversationID:      summary.ParentConversationID,
-		RootConversationID:        summary.RootConversationID,
-		RelationType:              summary.RelationType,
-		RelationSource:            summary.RelationSource,
-		ParentTitleSnapshot:       summary.ParentTitleSnapshot,
-		Archived:                  summary.Archived,
-		Messages:                  c.readAIConversationMessages(conversationID),
-		APIMessages:               c.readAIConversationAPIMessages(conversationID),
-		Settings:                  c.readAIConversationSettings(conversationID, fallbackSettings),
+		ParentConversationID:       summary.ParentConversationID,
+		RootConversationID:         summary.RootConversationID,
+		RelationType:               summary.RelationType,
+		RelationSource:             summary.RelationSource,
+		ParentTitleSnapshot:        summary.ParentTitleSnapshot,
+		Archived:                   summary.Archived,
+		Messages:                   c.readAIConversationMessages(conversationID),
+		APIMessages:                c.readAIConversationAPIMessages(conversationID),
+		Settings:                   c.readAIConversationSettings(conversationID, fallbackSettings),
 	}
 	return normalizeAIConversationSnapshot(snapshot, fallbackSettings), nil
 }

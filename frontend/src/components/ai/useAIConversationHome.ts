@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
-import { getAIProviderState, getAIProviderTokenGroup, type AIProviderState } from './aiProviderBridge.ts'
+import { getAIProviderState, type AIProviderState } from './aiProviderBridge.ts'
 import type { AIProviderLike } from './AIProviderSelector.tsx'
-import { isCallMyVipProviderHost } from './providerSpecialHosts.ts'
 import { AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_CONVERSATION_DIFF_TOOL_NAMES, buildAIRequestModelMeta, computeAILastAssistantTurnState, createEmptyPanelState, extractAIConversationDiffPrimaryPath, normalizeAIMessageStatus } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, AIPanelProps, ComposerEditState, PanelState, TokenLedger } from './aiChatLogic.ts'
 import { cancelAIChat } from './aiChatBridge.ts'
@@ -14,10 +13,10 @@ import { t as translate, type I18nKey } from '../../i18n.ts'
 
 type LooseT = (key: I18nKey, vars?: Record<string, unknown>) => string
 
-// 会话首页/导航状态簇：会话列表与供应商状态、首页数据刷新、恶魔模式、终端标签映射、
+// 会话首页/导航状态簇：会话列表与供应商状态、首页数据刷新、终端标签映射、
 // 会话打开/回首页/恢复备份/重命名/删除、供应商切换与 diff 汇总入口。
 // 从 AIConversationTabPanel 原样搬移，闭包依赖经参数同名注入，代码零改动。
-export function useAIConversationHome({ t, addToast, terminalId, sessionId, workspaceTabId, initialConversationId, isWorkspaceTabActive, sessionTerminals, onDevilModeChange, onGoHomeRequested, onOpenConversationRequested, panelInstanceKey, panelState, activeConversation, pendingConversationId, setPendingConversationId, setPanelState, setComposerEditState, terminalPanelsRef, deletedConversationIdsRef, isReturningHomeRef, conversationLoadRequestRef, panelMountedRef, tokenLedgerRef, rebuildAIConversationTokenLedger, saveConversationSnapshot, clearRestorePreview, resetComposerEditState, setThemeToolPreview, setShowSettingsPanel, setPopupDismissVersion, showAlert, refreshMCPServerInfo, refreshMCPOutputCompressionSettings, globalAISettings, setGlobalAISettings, conversationList: _conversationList, setConversationList, resetGlobalSearchState, resetConversationSearchState, locateConversationMessage, requestDeleteConfirmation }: {
+export function useAIConversationHome({ t, addToast, terminalId, sessionId, workspaceTabId, initialConversationId, isWorkspaceTabActive, sessionTerminals, onGoHomeRequested, onOpenConversationRequested, panelInstanceKey, panelState, activeConversation, pendingConversationId, setPendingConversationId, setPanelState, setComposerEditState, terminalPanelsRef, deletedConversationIdsRef, isReturningHomeRef, conversationLoadRequestRef, panelMountedRef, tokenLedgerRef, rebuildAIConversationTokenLedger, saveConversationSnapshot, clearRestorePreview, resetComposerEditState, setThemeToolPreview, setShowSettingsPanel, setPopupDismissVersion, showAlert, refreshMCPServerInfo, refreshMCPOutputCompressionSettings, globalAISettings, setGlobalAISettings, conversationList: _conversationList, setConversationList, resetGlobalSearchState, resetConversationSearchState, locateConversationMessage, requestDeleteConfirmation }: {
   t: LooseT
   addToast?: AIPanelProps['addToast']
   terminalId: string
@@ -26,7 +25,6 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
   initialConversationId: string
   isWorkspaceTabActive: boolean
   sessionTerminals: Array<{ id: string; label?: string }>
-  onDevilModeChange?: (enabled: boolean, tabId?: string) => void
   onGoHomeRequested?: () => void
   onOpenConversationRequested?: (conversationId: string, messageId?: string) => void | Promise<void>
   panelInstanceKey: string
@@ -62,7 +60,6 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
   requestDeleteConfirmation: (message: string) => Promise<boolean>
 }) {
   const [aiProviderState, setAIProviderState] = useState<AIProviderState>({ currentProviderId: '', providers: [] })
-  const [isDevilMode, setIsDevilMode] = useState(false)
   const refreshAIHomeData = useCallback(async () => {
     void getAIGlobalSettings()
       .then((value) => {
@@ -154,37 +151,6 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
     () => (Array.isArray(aiProviderState?.providers) ? aiProviderState.providers : []),
     [aiProviderState],
   )
-  const canToggleAIMode = useMemo(() => isCallMyVipProviderHost(selectedAIProvider?.baseUrl), [selectedAIProvider])
-  useEffect(() => {
-    if (!canToggleAIMode) {
-      setIsDevilMode(false)
-    }
-  }, [canToggleAIMode])
-  useEffect(() => {
-    onDevilModeChange?.(canToggleAIMode ? isDevilMode : false)
-  }, [canToggleAIMode, isDevilMode, onDevilModeChange])
-  const handleToggleDevilMode = useCallback(async () => {
-    if (isDevilMode) {
-      setIsDevilMode(false)
-      return
-    }
-    try {
-      const tokenGroup = await getAIProviderTokenGroup(selectedAIProvider || {})
-      const normalizedTokenGroup = typeof tokenGroup === 'string' ? tokenGroup.replace(/\s+/g, '') : ''
-      if (!normalizedTokenGroup.includes('支持破限')) {
-        addToast?.(t('当前供应商渠道不支持恶魔模式'), 'warning', 2400)
-        return
-      }
-      setIsDevilMode(true)
-    } catch (error) {
-      const errorText = error instanceof Error ? error.message.trim() : ''
-      if (errorText === t('Token 分组查询能力未就绪')) {
-        addToast?.(errorText, 'warning', 2400)
-        return
-      }
-      addToast?.(t('当前Token分组校验失败,无法进入恶魔模式'), 'warning', 2400)
-    }
-  }, [addToast, isDevilMode, selectedAIProvider, t])
   const resolveFirstAvailableProviderId = useCallback((providers: AIProviderLike[] = []) => {
     return typeof providers[0]?.id === 'string' ? providers[0].id.trim() : ''
   }, [])
@@ -743,15 +709,11 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
   return {
     aiProviderState,
     setAIProviderState,
-    isDevilMode,
-    setIsDevilMode,
     refreshAIHomeData,
     terminalLabelMap,
     enrichAIChatCommandMessage,
     selectedAIProvider,
     availableAIProviders,
-    canToggleAIMode,
-    handleToggleDevilMode,
     resolveFirstAvailableProviderId,
     resolveAvailableProviderId,
     buildConversationWithProviderId,

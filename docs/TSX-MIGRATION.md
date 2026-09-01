@@ -210,7 +210,7 @@
 - 潜在 bug 修复：`isCwdSystemPinnedTab` 恒 false 比较（改直接检查 systemPinnedType）
 
 **AIPanel 转换记录**（已随提交落地，要点保留备查）：
-- props 契约（App.tsx 调用处）：`width: string`、`side: 'left' | 'right'`、`sessionId: string`、`terminalId: string`、`sessionTerminals?: Array<{ id: string; label?: string }>`、`addToast`（宽松，同 SettingsModalProps）、`onDevilModeChange?: (enabled: boolean) => void`
+- props 契约（App.tsx 调用处）：`width: string`、`side: 'left' | 'right'`、`sessionId: string`、`terminalId: string`、`sessionTerminals?: Array<{ id: string; label?: string }>`、`addToast`（宽松，同 SettingsModalProps）
 - `sessionTerminals` 契约即 App 的 `getEffectiveTerminals(s)` 返回形状；App 调用处断言已移除（改回直接传）；`sessionId={String(s.id ?? '')}` 桥接（SessionLike 索引签名 unknown）；`addToast` 改传 `looseAddToast`（App 的 ToastAction[] 参数与宽松 unknown[] 逆变不兼容）
 - 类型资产：`BridgeData = any` 别名（外部数据桥接，带注释）、`AIPanelProps`/`PanelState`/`AIMessage`/`APIHistoryMessage`/`ConversationSummary`/`AIQueuedSubmission`/`TokenLedger` 等接口；`createEmptyPanelState(): PanelState` 返回类型标注后，`setPanelState(panelKey, updater: ((current: PanelState) => PanelState) | Partial<PanelState>)` 让事件流中大量 `(current) => ...` 回调查参自动类型化
 - 关键坑（TS 5.9）：`typeof any === 'object'` 收窄为 `object` → 后续 `obj.prop.filter(cb)` 回调查参报 TS7006；`Array.isArray(obj?.prop)` 后再写 `obj.prop` 同理 → **局部变量先接住**（`const raw = obj?.prop`）或 `as BridgeData` 桥接；`new Map()` 推断 `Map<unknown, unknown>` → sort/flatMap 回调报 TS7006 → 显式 `Map<string, X>()`

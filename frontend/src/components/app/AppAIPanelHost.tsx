@@ -2,7 +2,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type React from 'react';
 import AIPanel from '../AIPanel.tsx';
 import {
-  buildAIWorkspaceTabPanelKey,
   buildAIWorkspaceTerminalPanelKey,
   resolveAIWorkspaceTerminalBindingByTerminalId,
   type SessionLike,
@@ -20,7 +19,6 @@ export interface AppAIPanelHostProps {
   probePanelPosition: 'left' | 'right';
   getEffectiveTerminals: (s: SessionLike) => Array<{ id: string; label?: string }>;
   addToast: (message: string | Error, type?: string, duration?: number) => number;
-  setAIPanelDevilModes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setActiveAIWorkspaceTabs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   sessionsRef: React.RefObject<SessionLike[]>;
   markWorkspaceRestoreNavigationOverride: () => void;
@@ -41,7 +39,6 @@ export default function AppAIPanelHost({
   probePanelPosition,
   getEffectiveTerminals,
   addToast,
-  setAIPanelDevilModes,
   setActiveAIWorkspaceTabs,
   sessionsRef,
   markWorkspaceRestoreNavigationOverride,
@@ -106,15 +103,6 @@ export default function AppAIPanelHost({
                 isPanelVisible={isPanelActive}
                 sessionTerminals={getEffectiveTerminals(s)}
                 addToast={addToast}
-                onDevilModeChange={(enabled: boolean, tabId = '') => {
-                  const panelKey = buildAIWorkspaceTabPanelKey(s.id || '', t.id, tabId);
-                  if (!panelKey) return;
-                  setAIPanelDevilModes((prev) => (
-                    prev[panelKey] === enabled
-                      ? prev
-                      : { ...prev, [panelKey]: enabled }
-                  ));
-                }}
                 onActiveTabChange={(tabId: string) => {
                   const panelKey = buildAIWorkspaceTerminalPanelKey(s.id || '', t.id);
                   if (!panelKey) return;

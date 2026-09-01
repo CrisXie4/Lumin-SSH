@@ -91,6 +91,8 @@ func NormalizeAIProviderProfilesForBinding(profiles []AIProviderProfile) []AIPro
 		profile.BaseURL = strings.TrimSpace(profile.BaseURL)
 		profile.APIKey = strings.TrimSpace(profile.APIKey)
 		profile.DedicatedProxyID = strings.TrimSpace(profile.DedicatedProxyID)
+		profile.SystemPromptAppend = strings.TrimSpace(strings.ReplaceAll(profile.SystemPromptAppend, "\r\n", "\n"))
+		profile.SystemPromptPresetID = strings.TrimSpace(profile.SystemPromptPresetID)
 		profile.CacheStrategy = NormalizeAIProviderCacheStrategyForBinding(profile.CacheStrategy)
 		profile.ReasoningEffort = NormalizeAIProviderReasoningEffortForBinding(profile.ReasoningEffort)
 		profile.EnableReasoningEffort = profile.EnableReasoningEffort || (profile.ReasoningEffort != "" && profile.ReasoningEffort != "disable") || profile.ModelMaxTokens > 0 || profile.ModelMaxThinkingTokens > 0

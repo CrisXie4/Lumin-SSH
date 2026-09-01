@@ -18,6 +18,7 @@ type Profile struct {
 	OpenAILegacyReasoningFormatEnabled     bool
 	OpenAIResponsesUsePromptCacheRetention bool
 	OpenAIResponsesFinishOnCompletedEvent  bool
+	SystemPromptAppend                     string
 	ModelTemperature                       *float64
 	ModelTopP                              *float64
 	ModelMaxTokens                         int

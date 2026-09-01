@@ -27,7 +27,7 @@ import type { ConversationSummary } from './aiConversationSummary.ts'
 // ============================================================
 // ============================================================
 
-export function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId = '', sessionTerminals = [], workspaceTabId = '', isHomeView = false, isWorkspaceTabActive = true, showComposer = true, initialConversationId = '', tabBar = null, onDevilModeChange, onGoHomeRequested, onOpenConversationRequested, onWorkspaceTabDisplaySettingsChange, onWorkspaceTabStateChange, addToast }: AIPanelProps) {
+export function AIConversationTabPanel({ width, side, terminalId = 'global', sessionId = '', sessionTerminals = [], workspaceTabId = '', isHomeView = false, isWorkspaceTabActive = true, showComposer = true, initialConversationId = '', tabBar = null, onGoHomeRequested, onOpenConversationRequested, onWorkspaceTabDisplaySettingsChange, onWorkspaceTabStateChange, addToast }: AIPanelProps) {
   const { t } = useTranslation()
   const [conversationList, setConversationList] = useState<ConversationSummary[]>([])
   useEffect(() => subscribeAIWorkspaceTabGroups(() => setConversationList((current) => [...current])), [])
@@ -81,9 +81,9 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
   }, [globalAISettings, normalizedGlobalAISettings.aiWorkspaceTabNumbersOnly, onWorkspaceTabDisplaySettingsChange])
 
   const {
-    aiProviderState, setAIProviderState, isDevilMode,
+    aiProviderState, setAIProviderState,
     terminalLabelMap, enrichAIChatCommandMessage,
-    availableAIProviders, canToggleAIMode, handleToggleDevilMode,
+    availableAIProviders,
     resolveAvailableProviderId, buildConversationWithProviderId,
     resolveAIRequestModelMeta, effectiveProviderId,
     handleOpenConversationDiff, handleGoHome,
@@ -92,7 +92,7 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
     refreshConversationList, handleProviderChange,
   } = useAIConversationHome({
     t, addToast, terminalId, sessionId, workspaceTabId, initialConversationId, isWorkspaceTabActive, sessionTerminals,
-    onDevilModeChange, onGoHomeRequested, onOpenConversationRequested, panelInstanceKey, panelState, activeConversation,
+    onGoHomeRequested, onOpenConversationRequested, panelInstanceKey, panelState, activeConversation,
     pendingConversationId, setPendingConversationId, setPanelState, setComposerEditState, terminalPanelsRef,
     deletedConversationIdsRef, isReturningHomeRef, conversationLoadRequestRef, panelMountedRef, tokenLedgerRef,
     rebuildAIConversationTokenLedger, saveConversationSnapshot, clearRestorePreview, resetComposerEditState,
@@ -116,7 +116,6 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
   const shouldPersistProviderSelection = !activeConversation
   const approvalButtonOrder = normalizedGlobalAISettings.approvalButtonOrder
   const commandActionButtonOrder = normalizedGlobalAISettings.commandActionButtonOrder
-  const messageActionBarAtBottom = Boolean(normalizedGlobalAISettings.messageActionBarAtBottom)
   const messageNavEnabled = normalizedGlobalAISettings.messageNavEnabled !== false
   const shouldLockAssistantCollaboration = Boolean(effectiveAutoApprovalSettings.alwaysAllowFollowupQuestions)
   const collaborationLocked = Boolean(panelState.collaborationLocked) && Boolean(activeConversation)
@@ -177,7 +176,7 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
     saveConversationSnapshot, rebuildAIConversationTokenLedger, showAlert, requestDeleteConfirmation,
     resolveAvailableProviderId, buildConversationWithProviderId, resolveAIRequestModelMeta,
     setThemeToolPreview, globalAISettings, normalizedGlobalAISettings, aiProviderState,
-    availableAIProviders, composerEditState, composerImages, temporarySessionEnabled, isDevilMode,
+    availableAIProviders, composerEditState, composerImages, temporarySessionEnabled,
     isQueueBlocked, isArchivedAgentConversation, runtimePhase, effectiveProviderId,
     effectiveAutoApprovalEnabled, shouldLockAssistantCollaboration,
     collaborationFollowupInteractionLocked, terminalOutputLineLimit, terminalOutputCharacterLimit,
@@ -236,55 +235,30 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
 }`
   const configRows = Math.max(configText.split('\n').length, 1)
 
-  const renderedConversationList = useMemo(() => renderAIHomeView({ t, conversationList, conversationOrganizer, conversationFilter, setConversationFilter, conversationSelectionMode, setConversationSelectionMode, selectedConversationIds, moveToGroupOpen, setMoveToGroupOpen, editingConversationGroupId, editingConversationGroupName, setEditingConversationGroupName, draggingConversationGroupId, dragOverConversationGroupId, setDraggingConversationGroupId, setDragOverConversationGroupId, panelState, globalSearchOpen, globalSearchQuery, setGlobalSearchQuery, normalizedGlobalSearchQuery, globalSearchLoading, globalSearchResults, globalSearchInputRef, conversationGroupRenameInputRef, resetGlobalSearchState, handleOpenGlobalSearch, handleSelectGlobalSearchResult, toggleConversationSelection, clearConversationSelection, handleOpenConversation, handleMakeConversationPermanent, handleOpenConversationFolder, handleRenameConversationTitle, handleDeleteConversation, handleCreateConversationGroup, beginRenameConversationGroup, cancelRenameConversationGroup, commitRenameConversationGroup, reorderConversationGroup, showSystemGroupRenameUnsupported, handleDeleteConversationGroup, handleMoveSelectedConversations, handleSetSelectedArchived, handleDeleteSelectedConversations }), [beginRenameConversationGroup, cancelRenameConversationGroup, clearConversationSelection, commitRenameConversationGroup, conversationFilter, conversationList, conversationOrganizer, conversationSelectionMode, dragOverConversationGroupId, draggingConversationGroupId, editingConversationGroupId, editingConversationGroupName, getLanguage, globalSearchLoading, globalSearchOpen, globalSearchQuery, globalSearchResults, handleCreateConversationGroup, handleDeleteConversation, handleDeleteConversationGroup, handleDeleteSelectedConversations, handleMakeConversationPermanent, handleMoveSelectedConversations, handleOpenConversation, handleOpenConversationFolder, handleOpenGlobalSearch, handleSelectGlobalSearchResult, handleSetSelectedArchived, isDevilMode, moveToGroupOpen, normalizedGlobalSearchQuery, panelState.activeConversationId, reorderConversationGroup, resetGlobalSearchState, selectedConversationIds, showSystemGroupRenameUnsupported, t, toggleConversationSelection])
-
+  const renderedConversationList = useMemo(() => renderAIHomeView({ t, conversationList, conversationOrganizer, conversationFilter, setConversationFilter, conversationSelectionMode, setConversationSelectionMode, selectedConversationIds, moveToGroupOpen, setMoveToGroupOpen, editingConversationGroupId, editingConversationGroupName, setEditingConversationGroupName, draggingConversationGroupId, dragOverConversationGroupId, setDraggingConversationGroupId, setDragOverConversationGroupId, panelState, globalSearchOpen, globalSearchQuery, setGlobalSearchQuery, normalizedGlobalSearchQuery, globalSearchLoading, globalSearchResults, globalSearchInputRef, conversationGroupRenameInputRef, resetGlobalSearchState, handleOpenGlobalSearch, handleSelectGlobalSearchResult, toggleConversationSelection, clearConversationSelection, handleOpenConversation, handleMakeConversationPermanent, handleOpenConversationFolder, handleRenameConversationTitle, handleDeleteConversation, handleCreateConversationGroup, beginRenameConversationGroup, cancelRenameConversationGroup, commitRenameConversationGroup, reorderConversationGroup, showSystemGroupRenameUnsupported, handleDeleteConversationGroup, handleMoveSelectedConversations, handleSetSelectedArchived, handleDeleteSelectedConversations }), [beginRenameConversationGroup, cancelRenameConversationGroup, clearConversationSelection, commitRenameConversationGroup, conversationFilter, conversationList, conversationOrganizer, conversationSelectionMode, dragOverConversationGroupId, draggingConversationGroupId, editingConversationGroupId, editingConversationGroupName, getLanguage, globalSearchLoading, globalSearchOpen, globalSearchQuery, globalSearchResults, handleCreateConversationGroup, handleDeleteConversation, handleDeleteConversationGroup, handleDeleteSelectedConversations, handleMakeConversationPermanent, handleMoveSelectedConversations, handleOpenConversation, handleOpenConversationFolder, handleOpenGlobalSearch, handleSelectGlobalSearchResult, handleSetSelectedArchived, moveToGroupOpen, normalizedGlobalSearchQuery, panelState.activeConversationId, reorderConversationGroup, resetGlobalSearchState, selectedConversationIds, showSystemGroupRenameUnsupported, t, toggleConversationSelection])
 
   return (
     <AIWorkspaceTabProvider value={{ sessionId: sessionId || '', terminalId: terminalId || '', tabId: workspaceTabId || '' }}>
       <div
         data-ai-panel-root="true"
-      data-ai-devil-mode={isDevilMode ? 'true' : 'false'}
-      style={{
-        width: width || '100%',
-        minWidth: 0,
-        maxWidth: '100%',
-        height: '100%',
-        minHeight: 0,
-        background: isDevilMode ? 'rgba(10, 0, 2, 0.96)' : 'var(--surface-raised)',
-        flexShrink: 1,
-        borderRight: side === 'right' ? '1px solid var(--border)' : 'none',
-        borderLeft: side === 'left' ? '1px solid var(--border)' : 'none',
-        display: 'flex',
-        flexDirection: 'column',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        position: 'relative',
-        fontFamily: 'var(--font-ai-panel)',
-        ...(isDevilMode ? {
-          '--surface-raised': 'rgba(17, 2, 4, 0.84)',
-          '--surface-base': 'rgba(8, 1, 2, 0.90)',
-          '--surface-overlay': 'rgba(18, 2, 4, 0.90)',
-          '--surface-sunken': 'rgba(10, 1, 2, 0.96)',
-          '--text-primary': '#fff5f5',
-          '--text-secondary': 'rgba(255, 112, 112, 0.92)',
-          '--text-tertiary': 'rgba(255, 82, 82, 0.72)',
-          '--border': 'rgba(255, 68, 68, 0.22)',
-          '--border-subtle': 'rgba(255, 56, 56, 0.16)',
-          '--accent': '#ff3b3b',
-          '--accent-rgb': '255, 59, 59',
-          '--accent-border': 'rgba(255, 72, 72, 0.46)',
-          backgroundImage: [
-            'radial-gradient(circle at 50% 72%, rgba(140, 0, 20, 0.34) 0%, rgba(140, 0, 20, 0.12) 20%, transparent 46%)',
-            'radial-gradient(circle at 50% 8%, rgba(255, 0, 51, 0.16) 0%, transparent 24%)',
-            'radial-gradient(circle at 0% 0%, rgba(255, 0, 32, 0.12) 0%, transparent 18%)',
-            'radial-gradient(circle at 100% 0%, rgba(255, 0, 32, 0.12) 0%, transparent 18%)',
-            'repeating-linear-gradient(135deg, rgba(255, 0, 38, 0.035) 0 1px, transparent 1px 26px)',
-            'linear-gradient(180deg, rgba(22, 0, 3, 0.96) 0%, rgba(8, 0, 1, 0.99) 100%)',
-          ].join(', '),
-          boxShadow: 'inset 0 0 0 1px rgba(255, 56, 56, 0.14), inset 0 0 60px rgba(255, 0, 38, 0.08)',
-        } : {}),
-      }}
-    >
+        style={{
+          width: width || '100%',
+          minWidth: 0,
+          maxWidth: '100%',
+          height: '100%',
+          minHeight: 0,
+          background: 'var(--surface-raised)',
+          flexShrink: 1,
+          borderRight: side === 'right' ? '1px solid var(--border)' : 'none',
+          borderLeft: side === 'left' ? '1px solid var(--border)' : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+          position: 'relative',
+          fontFamily: 'var(--font-ai-panel)',
+        }}
+      >
       {tasksDirMigrating ? (
         <div className="absolute inset-0 bg-scrim/85 backdrop-blur-[3px] flex flex-col items-center justify-center gap-3" style={{ zIndex: Z.SETTINGS }}>
           <Loader2 size={36} className="animate-[spin_1s_linear_infinite] text-accent" />
@@ -296,9 +270,6 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
         showSettingsPanel={showSettingsPanel}
         onToggleSettings={handleToggleSettingsPanel}
         onGoHome={handleGoHome}
-        showModeToggle={canToggleAIMode}
-        isDevilMode={isDevilMode}
-        onToggleMode={handleToggleDevilMode}
         onOpenConversationSearch={handleOpenConversationSearch}
         onOpenConversationDiff={handleOpenConversationDiff}
         showConversationSearchButton={Boolean(activeConversation) && !isConversationLoading}
@@ -317,7 +288,7 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
       />
       {isWorkspaceTabActive ? tabBar : null}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {renderAIConversationStage({ t, side, sessionId, terminalId, workspaceTabId, isHomeView, activeConversation, isThemeTuningConversation, isConversationLoading, normalizedInitialConversationId, conversationSearchOpen, conversationSearchQuery, setConversationSearchQuery, conversationSearchInputRef, resetConversationSearchState, handleCycleConversationSearchResult, conversationSearchResults, conversationSearchIndex, panelState, handleConversationUserMessage, handleRetryUserMessage, handleRetryAssistantMessage, handleEditUserMessage, handleDeleteMessage, handlePreviewRestore, handlePreviewDiff, handleApplyRestore, handleRestoreToHere, handleReapplyRestore, collaborationFollowupInteractionLocked, messageActionBarAtBottom, messageNavEnabled, conversationScrollSignal, sendPerfMetricsRef, composerEditState, showAssistantCollaborationActiveImage, renderedConversationList, handleGoHome })}
+        {renderAIConversationStage({ t, side, sessionId, terminalId, workspaceTabId, isHomeView, activeConversation, isThemeTuningConversation, isConversationLoading, normalizedInitialConversationId, conversationSearchOpen, conversationSearchQuery, setConversationSearchQuery, conversationSearchInputRef, resetConversationSearchState, handleCycleConversationSearchResult, conversationSearchResults, conversationSearchIndex, panelState, handleConversationUserMessage, handleRetryUserMessage, handleRetryAssistantMessage, handleEditUserMessage, handleDeleteMessage, handlePreviewRestore, handlePreviewDiff, handleApplyRestore, handleRestoreToHere, handleReapplyRestore, collaborationFollowupInteractionLocked, messageNavEnabled, conversationScrollSignal, sendPerfMetricsRef, composerEditState, showAssistantCollaborationActiveImage, renderedConversationList, handleGoHome })}
         {renderAIComposerSection({ t, terminalId, showComposer, panelState, activeConversation, isStreaming, isQueueBlocked, isAwaitingToolApproval, isToolRunning, isAwaitingCommandAction, isAwaitingTerminalAssignment, collaborationLocked, collaborationActive, toolResumeAvailable, shouldPersistProviderSelection, composerInteractionLocked, composerInteractionLockedLabel, effectiveProviderId, effectiveAutoApprovalSettings, providerBalanceRefreshSignal, approvalButtonOrder, commandActionButtonOrder, composerEditState, composerInputValue, setComposerInputValue, composerImages, setComposerImages, temporarySessionEnabled, setTemporarySessionEnabled, normalizedGlobalAISettings, popupDismissVersion, handleComposerSendMessage, handleCancelMessage, handleStopAndResumeMessage, handleProviderChange, handleResumeTask, handleListCommandTerminalCandidates, handleAssignToolTerminal, handleCancelQueuedSubmission, handleToggleSkipNextAutomaticRequest, handlePatchAutoApprovalSettings, handleCollaborationExtraPromptChange, handleCollaborationPromptPresetsChange, handleInterruptCollaboration, handleApproveTools, handleRejectTools, handleContinueTool, handleTerminateTool, resetComposerEditState })}
       </div>
       {renderAISettingsOverlaySection({ showSettingsPanel, setShowSettingsPanel, activeSettingsTab, setActiveSettingsTab, mcpInfo, configText, configRows, normalizedGlobalAISettings, activeConversation, panelState, runtimePhase, terminalOutputLineLimit, terminalOutputCharacterLimit, mcpClientServers, mcpClientGlobalConfigPath, mcpClientGlobalConfigText, mcpEmbeddedFirecrawlApiKey, handleSaveAIPanelGlobalSettings, handleToggleAiTerminalIsolation, handleToggleConfirmDelete, handleRestoreConversationBackup, handleTerminalOutputLineLimitChange, handleTerminalOutputCharacterLimitChange, handleSaveMCPGlobalServer, handleSaveMCPEmbeddedFirecrawlApiKey, handleReloadMCPGlobalServers, handleDeleteMCPGlobalServer, handleRestartMCPClientServer, handleToggleMCPClientServer, handleToggleMCPClientServerDisabledForPrompts, handleToggleMCPClientServerToolDisabledForPrompts, handleUpdateMCPClientServerTimeout, setTasksDirMigrating })}

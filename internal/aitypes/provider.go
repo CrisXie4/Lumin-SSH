@@ -28,6 +28,8 @@ type AIProviderProfile struct {
 	ReasoningEffort                        string   `json:"reasoningEffort"`
 	EnableReasoningEffort                  bool     `json:"enableReasoningEffort"`
 	OpenAILegacyReasoningFormatEnabled     bool     `json:"openAiLegacyReasoningFormatEnabled"`
+	SystemPromptAppend                     string   `json:"systemPromptAppend,omitempty"`
+	SystemPromptPresetID                   string   `json:"systemPromptPresetId,omitempty"`
 	ModelMaxTokens                         int      `json:"modelMaxTokens,omitempty"`
 	ModelMaxThinkingTokens                 int      `json:"modelMaxThinkingTokens,omitempty"`
 	Pinned                                 bool     `json:"pinned"`
@@ -125,6 +127,8 @@ func NormalizeAIProviderProfiles(profiles []AIProviderProfile) []AIProviderProfi
 		profile.BaseURL = strings.TrimSpace(profile.BaseURL)
 		profile.APIKey = strings.TrimSpace(profile.APIKey)
 		profile.DedicatedProxyID = strings.TrimSpace(profile.DedicatedProxyID)
+		profile.SystemPromptAppend = strings.TrimSpace(strings.ReplaceAll(profile.SystemPromptAppend, "\r\n", "\n"))
+		profile.SystemPromptPresetID = strings.TrimSpace(profile.SystemPromptPresetID)
 		profile.CacheStrategy = NormalizeAIProviderCacheStrategy(profile.CacheStrategy)
 		profile.ReasoningEffort = NormalizeAIProviderReasoningEffort(profile.ReasoningEffort)
 		profile.EnableReasoningEffort = profile.EnableReasoningEffort || (profile.ReasoningEffort != "" && profile.ReasoningEffort != "disable") || profile.ModelMaxTokens > 0 || profile.ModelMaxThinkingTokens > 0

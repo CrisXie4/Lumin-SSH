@@ -175,11 +175,15 @@ export function useAIProviderSelector({
   const providerBalanceDeltaLabel = providerBalanceDelta === null ? '' : formatAIProviderBalanceDeltaLabel(providerBalanceDelta);
   const providerBalanceDeltaPositive = Number(providerBalanceDelta) > 0;
 
+  const providerSystemPromptAppendEnabled = typeof selectedProvider?.systemPromptAppend === 'string'
+    && selectedProvider.systemPromptAppend.trim() !== '';
+
   const providerSummaryRows = [
     { label: t('供应商'), value: selectedProvider?.name || t('选择供应商') },
     { label: t('模型'), value: getProviderModelSummary(t, selectedProvider) },
     { label: t('API兼容方式'), value: selectedProvider?.provider || 'Compatible' },
     { label: t('缓存策略'), value: getCacheStrategyLabel(t, selectedProvider?.cacheStrategy) },
+    { label: t('追加系统提示词'), value: providerSystemPromptAppendEnabled ? t('是') : t('否') },
     { label: 'Key', value: getApiKeyPreview(selectedProvider?.apiKey) || '-' },
   ];
 
@@ -399,6 +403,8 @@ export function useAIProviderSelector({
       openAiResponsesFinishOnCompletedEvent: draft.openAiResponsesFinishOnCompletedEvent === true,
       modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
       modelTopP: normalizeOptionalNumber(draft.modelTopP),
+      systemPromptAppend: typeof draft.systemPromptAppend === 'string' ? draft.systemPromptAppend.replace(/\r\n/g, '\n').trim() : '',
+      systemPromptPresetId: typeof draft.systemPromptPresetId === 'string' ? draft.systemPromptPresetId.trim() : '',
       webSearchEnabled: Boolean(draft.webSearchEnabled),
       dedicatedWebSearchEnabled: Boolean(draft.dedicatedWebSearchEnabled),
       dedicatedWebSearchProviderId: typeof draft.dedicatedWebSearchProviderId === 'string' ? draft.dedicatedWebSearchProviderId : '',
@@ -955,6 +961,7 @@ export function useAIProviderSelector({
     providerBalanceDeltaLabel,
     providerBalanceDeltaPositive,
     providerBalanceDeltaTick,
+    providerSystemPromptAppendEnabled,
     quickModelOptions,
     quickModelLoading,
     quickModelError,

@@ -107,12 +107,19 @@ func (c *configBridge) SaveAIGlobalSettings(settings AIGlobalSettings) error {
 		return nil
 	}
 
+	retentionCountChanged := existing.ConversationAutoBackupRetentionCount != normalized.ConversationAutoBackupRetentionCount
 	normalized.UpdatedAt = time.Now().UnixMilli()
 	settingsData, err := json.MarshalIndent(normalized, "", "  ")
 	if err != nil {
 		return err
 	}
-	return atomicWriteFile(c.aiGlobalSettingsPath(), settingsData, 0600)
+	if err := atomicWriteFile(c.aiGlobalSettingsPath(), settingsData, 0600); err != nil {
+		return err
+	}
+	if retentionCountChanged {
+		c.trimAllAIConversationBackupsLocked(normalized.ConversationAutoBackupRetentionCount)
+	}
+	return nil
 }
 
 func (a *Service) GetAIGlobalSettings() AIGlobalSettings {

@@ -35,7 +35,6 @@ export interface AIChatConversationProps {
   onRestoreToHere?: (artifactPath: string, targetTerminalId: string) => void;
   onReapplyRestore?: (artifactPath: string, targetTerminalId: string) => void;
   followupInteractionLocked?: boolean;
-  messageActionBarAtBottom?: boolean;
   messageNavEnabled?: boolean;
   side?: string;
   scrollToBottomSignal?: number;
@@ -60,7 +59,6 @@ export default function AIChatConversation({
   onRestoreToHere,
   onReapplyRestore,
   followupInteractionLocked = false,
-  messageActionBarAtBottom = false,
   messageNavEnabled = true,
   side = 'right',
   scrollToBottomSignal = 0,
@@ -257,7 +255,6 @@ export default function AIChatConversation({
                 onRestoreToHere,
                 onReapplyRestore,
                 followupInteractionLocked,
-                messageActionBarAtBottom,
                 sendPerfMetricsRef,
                 isEditingTarget: Boolean(isEditingTargetEntry),
               }, {
