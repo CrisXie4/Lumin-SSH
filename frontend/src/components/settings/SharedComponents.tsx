@@ -61,7 +61,7 @@ export function SettingsPanel({ children, style = {}, className, ...rest }: Sett
 
 export interface SettingsFieldProps {
   definition?: SettingsDefinitionNode;
-  title?: string;
+  title?: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
   children?: React.ReactNode;

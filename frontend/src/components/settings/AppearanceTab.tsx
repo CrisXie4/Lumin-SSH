@@ -1,6 +1,6 @@
 import React from 'react';
 import { t as $t } from '../../i18n.ts';
-import { Sun, Monitor, Moon } from 'lucide-react';
+import { Sun, Monitor, Moon, MonitorUp, Bot, SunMoon } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
 import { Button } from '../ui';
 import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch } from './SharedComponents';
@@ -148,11 +148,44 @@ export default function AppearanceTab({
       <div>
         <SettingsSectionTitle definition={appearanceSettings.sections.topbar} />
         <SettingsPanel>
-          <SettingRow title={$t('数据大屏')} description={$t('在顶栏显示数据大屏按钮')} action={<ToggleSwitch checked={showBigScreenQuickEntry} onChange={onToggleBigScreenQuickEntry} />} />
+          <SettingRow
+            title={(
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-7 h-7 text-secondary shrink-0">
+                  <MonitorUp size={16} />
+                </span>
+                {$t('数据大屏')}
+              </span>
+            )}
+            description={$t('在顶栏显示数据大屏按钮')}
+            action={<ToggleSwitch checked={showBigScreenQuickEntry} onChange={onToggleBigScreenQuickEntry} />}
+          />
           <SettingsDivider />
-          <SettingRow title={$t('主题切换')} description={$t('在顶栏显示主题切换按钮')} action={<ToggleSwitch checked={showThemeQuickEntry} onChange={onToggleThemeQuickEntry} />} />
+          <SettingRow
+            title={(
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-7 h-7 text-secondary shrink-0">
+                  <SunMoon size={16} />
+                </span>
+                {$t('主题切换')}
+              </span>
+            )}
+            description={$t('在顶栏显示主题切换按钮')}
+            action={<ToggleSwitch checked={showThemeQuickEntry} onChange={onToggleThemeQuickEntry} />}
+          />
           <SettingsDivider />
-          <SettingRow title={$t('AI助手')} description={$t('在顶栏显示 AI 助手按钮')} action={<ToggleSwitch checked={showAIQuickEntry} onChange={onToggleAIQuickEntry} />} />
+          <SettingRow
+            title={(
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-7 h-7 text-secondary shrink-0">
+                  <Bot size={16} />
+                </span>
+                {$t('AI助手')}
+              </span>
+            )}
+            description={$t('在顶栏显示 AI 助手按钮')}
+            action={<ToggleSwitch checked={showAIQuickEntry} onChange={onToggleAIQuickEntry} />}
+          />
         </SettingsPanel>
       </div>
 
