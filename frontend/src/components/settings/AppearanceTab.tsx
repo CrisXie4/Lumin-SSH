@@ -4,7 +4,6 @@ import { Sun, Monitor, Moon } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
 import { Button } from '../ui';
 import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch } from './SharedComponents';
-import { Switch } from '../ui';
 import { settings } from './settingDefinitions';
 import KeywordRulesPanel from './KeywordRulesPanel.tsx';
 import { type KeywordRule } from '../../utils/terminalKeywordHighlight.ts';
@@ -67,6 +66,10 @@ export interface AppearanceTabProps {
   themePackageBusy: boolean;
   showThemeQuickEntry: boolean;
   onToggleThemeQuickEntry: () => void;
+  showBigScreenQuickEntry: boolean;
+  onToggleBigScreenQuickEntry: () => void;
+  showAIQuickEntry: boolean;
+  onToggleAIQuickEntry: () => void;
   probePanelPosition: 'left' | 'right';
   onProbePanelPositionChange: (position: 'left' | 'right') => void;
   terminalToolbarIconOnly: boolean;
@@ -123,6 +126,8 @@ export default function AppearanceTab({
   onCopyThemePackageToMode,
   themePackageBusy,
   showThemeQuickEntry, onToggleThemeQuickEntry,
+  showBigScreenQuickEntry, onToggleBigScreenQuickEntry,
+  showAIQuickEntry, onToggleAIQuickEntry,
   probePanelPosition, onProbePanelPositionChange,
   terminalToolbarIconOnly, onToggleTerminalToolbarIconOnly,
   termBgImage, globalBgImage, globalCoverTerminal, onGlobalCoverTerminalChange,
@@ -140,6 +145,17 @@ export default function AppearanceTab({
 
   return (
     <SettingsTabRoot>
+      <div>
+        <SettingsSectionTitle definition={appearanceSettings.sections.topbar} />
+        <SettingsPanel>
+          <SettingRow title={$t('数据大屏')} description={$t('在顶栏显示数据大屏按钮')} action={<ToggleSwitch checked={showBigScreenQuickEntry} onChange={onToggleBigScreenQuickEntry} />} />
+          <SettingsDivider />
+          <SettingRow title={$t('主题切换')} description={$t('在顶栏显示主题切换按钮')} action={<ToggleSwitch checked={showThemeQuickEntry} onChange={onToggleThemeQuickEntry} />} />
+          <SettingsDivider />
+          <SettingRow title={$t('AI助手')} description={$t('在顶栏显示 AI 助手按钮')} action={<ToggleSwitch checked={showAIQuickEntry} onChange={onToggleAIQuickEntry} />} />
+        </SettingsPanel>
+      </div>
+
       <div>
         <SettingsSectionTitle definition={appearanceSettings.sections.terminal} />
         <SettingsPanel className="p-3 border-line-subtle">
@@ -232,21 +248,6 @@ export default function AppearanceTab({
               <div className="text-xs text-tertiary">{$t('浅色、深色和系统模式分别决定当前应用哪一套主题包')}</div>
             </div>
             <div className="flex items-center gap-3 flex-wrap justify-end">
-              <button
-                type="button"
-                onClick={onToggleThemeQuickEntry}
-                aria-pressed={showThemeQuickEntry}
-                aria-label={$t('快捷入口')}
-                className={cn(
-                  'inline-flex items-center gap-2 h-8.5 px-3 rounded-[var(--radius-sm)] cursor-pointer select-none whitespace-nowrap transition-colors duration-[80ms] border',
-                  showThemeQuickEntry
-                    ? 'border-accent-border bg-accent-dim text-accent font-semibold shadow-xs'
-                    : 'border-line bg-raised text-secondary hover:text-primary hover:bg-hover/60',
-                )}
-              >
-                <span className="text-xs font-semibold">{$t('快捷入口')}</span>
-                <Switch indicator checked={showThemeQuickEntry} size="sm" />
-              </button>
               <div className="inline-flex h-8.5 items-center gap-0.5 rounded-[var(--radius-sm)] border border-line-subtle bg-sunken p-0.5">
                 <button
                   type="button"

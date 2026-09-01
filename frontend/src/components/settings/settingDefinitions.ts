@@ -371,6 +371,13 @@ const settingsTreeSource = rootNode(
         fieldNode('appearance.monitor-panel', 'monitorPanel', '监控面板位置', '', { control: 'segmented', stateKey: 'probePanelPosition' }),
       ]),
     ], { targetId: 'appearance.theme' }),
+    sectionNode('appearance', 'topbar', '顶栏按钮', [
+      panelNode('appearance.panel.topbar', [
+        fieldNode('appearance.topbar-big-screen', 'topbarBigScreen', '数据大屏', '在顶栏显示数据大屏按钮', { control: 'toggle', stateKey: 'showBigScreenQuickEntry' }),
+        fieldNode('appearance.topbar-theme', 'topbarTheme', '主题切换', '在顶栏显示主题切换按钮', { control: 'toggle', stateKey: 'showThemeQuickEntry' }),
+        fieldNode('appearance.topbar-ai', 'topbarAI', 'AI助手', '在顶栏显示 AI 助手按钮', { control: 'toggle', stateKey: 'showAIQuickEntry' }),
+      ]),
+    ], { targetId: 'appearance.topbar-big-screen' }),
     sectionNode('appearance', 'preferences', '偏好设置', [
       panelNode('appearance.panel.preferences', [
         fieldNode('appearance.toolbar-icon-only', 'toolbarIconOnly', '终端工具栏仅显示图标', '开启后终端工具栏的进程管理、网络监控等按钮只显示图标', { control: 'toggle', stateKey: 'terminalToolbarIconOnly' }),

@@ -163,8 +163,12 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	if reason == "" {
 		reason = "transport"
 	}
-	log.Printf("[disconnect] cleanupClientTransport connKey=%s reason=%s terminalCount=%d netConn!=nil=%v sftpClient!=nil=%v",
-		connKey, reason, len(terminalIds), netConn != nil, sftpClient != nil)
+	remoteAddr := ""
+	if netConn != nil {
+		remoteAddr = netConn.RemoteAddr().String()
+	}
+	log.Printf("[disconnect] cleanupClientTransport connKey=%s reason=%s terminalCount=%d remoteAddr=%s netConn!=nil=%v sftpClient!=nil=%v",
+		connKey, reason, len(terminalIds), remoteAddr, netConn != nil, sftpClient != nil)
 	// 静默拆各终端 session，再发一次「整机连接断开」事件，避免 N 次误报。
 	// expected 指针确保旧 transport 的迟到清理不会误删同 ID 的新 session。
 	for _, terminalId := range terminalIds {

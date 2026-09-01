@@ -41,6 +41,8 @@ export default function useAppGlobalEvents({
 }: UseAppGlobalEventsOptions) {
   const [quickThemeMode, setQuickThemeMode] = useState<string>(localStorage.getItem('themeMode') || 'dark');
   const [showThemeQuickEntry, setShowThemeQuickEntry] = useState(localStorage.getItem('showThemeQuickEntry') !== 'false');
+  const [showBigScreenQuickEntry, setShowBigScreenQuickEntry] = useState(localStorage.getItem('showBigScreenQuickEntry') !== 'false');
+  const [showAIQuickEntry, setShowAIQuickEntry] = useState(localStorage.getItem('showAIQuickEntry') !== 'false');
   const [terminalToolbarIconOnly, setTerminalToolbarIconOnly] = useState(localStorage.getItem('terminalToolbarIconOnly') === 'true');
   const [showTopbarRefreshedLogo, setShowTopbarRefreshedLogo] = useState(false);
 
@@ -122,12 +124,18 @@ export default function useAppGlobalEvents({
     const refreshThemeQuickEntry = () => {
       setQuickThemeMode(localStorage.getItem('themeMode') || 'dark');
       setShowThemeQuickEntry(localStorage.getItem('showThemeQuickEntry') !== 'false');
+      setShowBigScreenQuickEntry(localStorage.getItem('showBigScreenQuickEntry') !== 'false');
+      setShowAIQuickEntry(localStorage.getItem('showAIQuickEntry') !== 'false');
     };
     window.addEventListener('theme-mode-changed', refreshThemeQuickEntry);
     window.addEventListener('theme-quick-entry-changed', refreshThemeQuickEntry);
+    window.addEventListener('big-screen-quick-entry-changed', refreshThemeQuickEntry);
+    window.addEventListener('ai-quick-entry-changed', refreshThemeQuickEntry);
     return () => {
       window.removeEventListener('theme-mode-changed', refreshThemeQuickEntry);
       window.removeEventListener('theme-quick-entry-changed', refreshThemeQuickEntry);
+      window.removeEventListener('big-screen-quick-entry-changed', refreshThemeQuickEntry);
+      window.removeEventListener('ai-quick-entry-changed', refreshThemeQuickEntry);
     };
   }, []);
 
@@ -308,6 +316,8 @@ export default function useAppGlobalEvents({
 
   return {
     showThemeQuickEntry,
+    showBigScreenQuickEntry,
+    showAIQuickEntry,
     terminalToolbarIconOnly,
     showTopbarRefreshedLogo,
     resolvedQuickThemeMode,

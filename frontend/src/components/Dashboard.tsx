@@ -52,7 +52,6 @@ export interface DashboardProps {
   onMoveGroup: (id: string, group: string) => void;
   addToast: (message: string | Error, type?: string, duration?: number, actions?: unknown[]) => number;
   onOpenImportExport: () => void;
-  onOpenBigScreen?: () => void;
   selectionMode?: boolean;
   selectedIds?: string[];
   onSelectChange: (payload: string | string[] | Array<{ id: string; selected: boolean }>) => void;
@@ -108,7 +107,6 @@ export default function Dashboard({
   onMoveGroup,
   addToast,
   onOpenImportExport,
-  onOpenBigScreen,
   selectionMode = false,
   selectedIds = [],
   onSelectChange,
@@ -296,7 +294,6 @@ export default function Dashboard({
             allCollapsed={allCollapsed}
             onToggleCollapseAllGroups={toggleCollapseAllGroups}
             onOpenImportExport={onOpenImportExport}
-            onOpenBigScreen={onOpenBigScreen}
             onClearRecent={handleClearRecent}
             hasRecentServers={recentServers.length > 0}
           />

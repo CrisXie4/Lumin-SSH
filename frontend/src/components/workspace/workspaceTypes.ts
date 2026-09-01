@@ -40,7 +40,6 @@ export interface SessionWorkspaceDashboardProps {
   handleGroupDelete: (groupName: string, ids: string[]) => Promise<void>;
   handleMoveGroup: (serverId: string, group: string) => Promise<void>;
   handleOpenImportExport: () => void;
-  handleOpenBigScreen: () => void;
   handleRefreshPing: () => void;
   handleRenameGroup: (groupName: string) => Promise<string | boolean>;
   handleSaveAndConnectServer: (data: ServerFormData, shouldClearAfterAdd?: boolean) => Promise<config.Connection | null>;

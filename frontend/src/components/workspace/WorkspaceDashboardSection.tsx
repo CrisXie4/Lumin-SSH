@@ -35,7 +35,6 @@ export default function WorkspaceDashboardSection({
     handleGroupDelete = async () => {},
     handleMoveGroup = async () => {},
     handleOpenImportExport = () => {},
-    handleOpenBigScreen,
     handleRefreshPing = () => {},
     handleRenameGroup = async () => false,
     handleSaveAndConnectServer = async () => null,
@@ -116,7 +115,6 @@ export default function WorkspaceDashboardSection({
         addToast={addToast}
         onOpenCredentials={() => setShowCredentials(true)}
         onOpenImportExport={handleOpenImportExport}
-        onOpenBigScreen={handleOpenBigScreen}
         selectionMode={batchSelectionMode}
         selectedIds={selectedServerIds}
         onSelectChange={toggleBatchSelection as (payload: string | string[] | Array<{ id: string; selected: boolean }>) => void}

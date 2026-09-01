@@ -106,7 +106,6 @@ export default function AppWorkspaceView({ orchestrator }: AppWorkspaceViewProps
         handleGroupDelete: serverOps.handleGroupDelete,
         handleMoveGroup: serverOps.handleMoveGroup,
         handleOpenImportExport: orchestrator.handleOpenImportExport,
-        handleOpenBigScreen: orchestrator.bigScreen.open,
         handleRefreshPing: orchestrator.handleRefreshPing,
         handleRenameGroup: serverOps.handleRenameGroup,
         handleSaveAndConnectServer: serverOps.handleSaveAndConnectServer,

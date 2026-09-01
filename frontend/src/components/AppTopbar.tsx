@@ -43,6 +43,8 @@ export interface AppTopbarProps {
     toggleSessionList: () => void;
   closeAllSessions: () => Promise<void>;
   showThemeQuickEntry: boolean;
+  showBigScreenQuickEntry: boolean;
+  showAIQuickEntry: boolean;
   activeAIDevilMode: boolean;
   resolvedQuickThemeMode: 'light' | 'dark';
   handleQuickThemeToggle: () => void;
@@ -68,7 +70,7 @@ export default function AppTopbar({
   sessions, tabScrollRef, tabListRef, activeSessionId, handleTabClick,
   closeSession, setTabContextMenu, sessionAuthPrompts, sshChannelUsage,
   tabActionsRef, sessionListBtnRef, showSessionList, toggleSessionList,
-  closeAllSessions, showThemeQuickEntry, activeAIDevilMode,
+   closeAllSessions, showThemeQuickEntry, showBigScreenQuickEntry, showAIQuickEntry, activeAIDevilMode,
   resolvedQuickThemeMode, handleQuickThemeToggle, isActiveSessionConnected,
   showAIPanel, setAIPanelVisibility, startupUpdateInfo, showUpdateBubble,
   isUpdateModalVisible, setShowUpdateBubble,
@@ -258,16 +260,18 @@ export default function AppTopbar({
           {sessions.length === 0 && <div className="flex-1" />}
 
           <div className="window-controls">
-            <Tiptop text={t('数据大屏')} placement="bottom">
-              <button
-                type="button"
-                className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
-                onClick={onOpenBigScreen}
-                aria-label={t('数据大屏')}
-              >
-                <MonitorUp size={16} />
-              </button>
-            </Tiptop>
+            {sessions.length > 0 && showBigScreenQuickEntry && (
+              <Tiptop text={t('数据大屏')} placement="bottom">
+                <button
+                  type="button"
+                  className="no-drag w-7 h-7 p-0 rounded-[var(--radius-sm)] inline-flex items-center justify-center shrink-0 text-secondary transition-colors duration-[80ms] hover:bg-hover hover:text-primary"
+                  onClick={onOpenBigScreen}
+                  aria-label={t('数据大屏')}
+                >
+                  <MonitorUp size={16} />
+                </button>
+              </Tiptop>
+            )}
             {showThemeQuickEntry && !activeAIDevilMode && (
               <Tiptop text={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')} placement="bottom">
                 <button
@@ -280,7 +284,7 @@ export default function AppTopbar({
                 </button>
               </Tiptop>
             )}
-            {activeSessionId !== null && isActiveSessionConnected && sessions.length > 0 && (
+            {showAIQuickEntry && activeSessionId !== null && isActiveSessionConnected && sessions.length > 0 && (
               <Tiptop text={showAIPanel ? t('收起 AI 助手面板') : t('打开 AI 助手面板')} placement="bottom">
                 <button
                   type="button"

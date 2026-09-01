@@ -60,7 +60,9 @@ export default function AppearanceTabPane({
     terminalDefaultMouseCursor, handleTerminalDefaultMouseCursorChange,
     terminalKeywordHighlight, handleTerminalKeywordHighlightChange,
     keywordRules, handleKeywordRulesChange, handleKeywordRulesReset,
-    showThemeQuickEntry, handleToggleThemeQuickEntry,
+     showThemeQuickEntry, handleToggleThemeQuickEntry,
+     showBigScreenQuickEntry, handleToggleBigScreenQuickEntry,
+     showAIQuickEntry, handleToggleAIQuickEntry,
     terminalToolbarIconOnly, handleToggleTerminalToolbarIconOnly,
   } = useTerminalPreferences();
 
@@ -131,8 +133,12 @@ export default function AppearanceTabPane({
           onDeleteThemePackage={(themePackage) => { void handleDeleteThemePackage(themePackage); }}
           onCopyThemePackageToMode={(themePackage, targetMode) => { void handleCopyThemePackageToMode(themePackage, targetMode); }}
           themePackageBusy={themePackageBusy}
-          showThemeQuickEntry={showThemeQuickEntry}
-          onToggleThemeQuickEntry={handleToggleThemeQuickEntry}
+           showThemeQuickEntry={showThemeQuickEntry}
+           onToggleThemeQuickEntry={handleToggleThemeQuickEntry}
+           showBigScreenQuickEntry={showBigScreenQuickEntry}
+           onToggleBigScreenQuickEntry={handleToggleBigScreenQuickEntry}
+           showAIQuickEntry={showAIQuickEntry}
+           onToggleAIQuickEntry={handleToggleAIQuickEntry}
           probePanelPosition={probePanelPosition}
           onProbePanelPositionChange={onProbePanelPositionChange}
           terminalToolbarIconOnly={terminalToolbarIconOnly}

@@ -841,6 +841,16 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       }
       const parentId = matchedSession.id!;
 
+      // ponytail: 决定性诊断——断线瞬间记录「掉的是不是当前前台/选中标签」。
+      // 配合后端 [disconnect] 里的 remoteAddr，可判定掉线是否与前台选中强相关。
+      try {
+        const rt = (window as unknown as { runtime?: { Log?: (m: string) => void } }).runtime;
+        if (rt && rt.Log) {
+          const isForeground = parentId === activeSessionIdRef.current;
+          rt.Log(`[diag-disconnect] parentSessionId=${parentId} activeSessionId=${activeSessionIdRef.current} isForeground=${isForeground} reason=${reason} connectionClosed=${connectionClosed}`);
+        }
+      } catch (_) { /* runtime 不可用时静默忽略 */ }
+
       const transportDead = reason === 'transport' || reason === 'keepalive';
       if (connectionClosed || transportDead) {
         setSessions((prev) => prev.map((s) => (s.id === parentId ? { ...s, status: 'closed' } : s)));

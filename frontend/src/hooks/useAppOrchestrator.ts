@@ -296,6 +296,8 @@ export default function useAppOrchestrator() {
     toggleSessionList: topbarState.toggleSessionList,
     closeAllSessions: sessionState.closeAllSessions,
     showThemeQuickEntry: globalEvents.showThemeQuickEntry,
+    showBigScreenQuickEntry: globalEvents.showBigScreenQuickEntry,
+    showAIQuickEntry: globalEvents.showAIQuickEntry,
     activeAIDevilMode,
     resolvedQuickThemeMode: globalEvents.resolvedQuickThemeMode,
     handleQuickThemeToggle: globalEvents.handleQuickThemeToggle,

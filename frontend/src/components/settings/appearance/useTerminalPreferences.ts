@@ -11,6 +11,8 @@ export function useTerminalPreferences() {
   const [keywordRules, setKeywordRulesState] = useState<KeywordRule[]>(() => loadKeywordRulesFromStorage());
   const [terminalDefaultMouseCursor, setTerminalDefaultMouseCursor] = useState(localStorage.getItem('terminalOutputDefaultMouseCursor') === 'true');
   const [showThemeQuickEntry, setShowThemeQuickEntry] = useState(localStorage.getItem('showThemeQuickEntry') !== 'false');
+  const [showBigScreenQuickEntry, setShowBigScreenQuickEntry] = useState(localStorage.getItem('showBigScreenQuickEntry') !== 'false');
+  const [showAIQuickEntry, setShowAIQuickEntry] = useState(localStorage.getItem('showAIQuickEntry') !== 'false');
   const [terminalToolbarIconOnly, setTerminalToolbarIconOnly] = useState(localStorage.getItem('terminalToolbarIconOnly') === 'true');
 
   const handleTerminalFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +72,20 @@ export function useTerminalPreferences() {
     window.dispatchEvent(new CustomEvent('theme-quick-entry-changed'));
   };
 
+  const handleToggleBigScreenQuickEntry = () => {
+    const next = !showBigScreenQuickEntry;
+    setShowBigScreenQuickEntry(next);
+    localStorage.setItem('showBigScreenQuickEntry', String(next));
+    window.dispatchEvent(new CustomEvent('big-screen-quick-entry-changed'));
+  };
+
+  const handleToggleAIQuickEntry = () => {
+    const next = !showAIQuickEntry;
+    setShowAIQuickEntry(next);
+    localStorage.setItem('showAIQuickEntry', String(next));
+    window.dispatchEvent(new CustomEvent('ai-quick-entry-changed'));
+  };
+
   const handleToggleTerminalToolbarIconOnly = () => {
     const next = !terminalToolbarIconOnly;
     setTerminalToolbarIconOnly(next);
@@ -95,6 +111,10 @@ export function useTerminalPreferences() {
     handleKeywordRulesReset,
     showThemeQuickEntry,
     handleToggleThemeQuickEntry,
+    showBigScreenQuickEntry,
+    handleToggleBigScreenQuickEntry,
+    showAIQuickEntry,
+    handleToggleAIQuickEntry,
     terminalToolbarIconOnly,
     handleToggleTerminalToolbarIconOnly,
   };
