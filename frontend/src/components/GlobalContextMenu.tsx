@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '../i18n.ts';
 import { formatShortcut } from '../utils/platform.ts';
+import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock.ts';
 import { GLOBAL_CONTEXT_MENU_OPEN_EVENT, type GlobalContextMenuDetail } from '../utils/contextMenu.ts';
 import {
   type ContextMenuItemInput,
@@ -35,6 +36,8 @@ export default function GlobalContextMenu() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [openSubmenuKey, setOpenSubmenuKey] = useState<string | null>(null);
   const [submenuAnchor, setSubmenuAnchor] = useState<SubmenuAnchor | null>(null);
+  // 菜单打开期间锁定背景滚动（Linux WebKitGTK 滚动条穿透，见 useOverlayScrollLock）
+  useOverlayScrollLock(menu !== null);
   // 防止子菜单切换时触发 MenuList 的自动 onClose 关闭整个菜单（同 ServerList 模式）
   const submenuToggleRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -290,6 +293,7 @@ export default function GlobalContextMenu() {
   return createPortal(
     <div
       ref={menuRef}
+      data-context-menu="true"
       onMouseDown={(event) => {
         event.stopPropagation();
       }}
@@ -302,7 +306,7 @@ export default function GlobalContextMenu() {
         style={{
           left: menu.x,
           top: menu.y,
-          zIndex: Z.MENU,
+          zIndex: Z.CONTEXT_MENU,
           overflow: hasSubmenu ? 'visible' : undefined,
         }}
       >
@@ -324,8 +328,8 @@ export default function GlobalContextMenu() {
             className="fixed animate-[fadeIn_0.12s_ease]"
             style={
               submenuToLeft
-                ? { top: anchor.top - 5, right: window.innerWidth - anchor.left + 2, zIndex: Z.SUBMENU }
-                : { top: anchor.top - 5, left: anchor.right + 2, zIndex: Z.SUBMENU }
+                ? { top: anchor.top - 5, right: window.innerWidth - anchor.left + 2, zIndex: Z.CONTEXT_SUBMENU }
+                : { top: anchor.top - 5, left: anchor.right + 2, zIndex: Z.CONTEXT_SUBMENU }
             }
           >
             <MenuList items={toUiItems(activeParent.children)} onClose={closeMenu} />

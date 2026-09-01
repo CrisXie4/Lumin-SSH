@@ -3,6 +3,7 @@ import type React from 'react';
 import { Rocket, Save, SquarePen, Trash2, Zap } from 'lucide-react';
 import { Z } from '../../constants/zIndex.ts';
 import { useTranslation } from '../../i18n.ts';
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock.ts';
 import { extractQuickCommandParams } from '../../utils/quickCommandParams.ts';
 import { Button, EmptyState, Select } from '../ui';
 import {
@@ -58,6 +59,8 @@ export function QuickCommandDetail({
   toggleAddCR,
 }: QuickCommandDetailProps) {
   const { t } = useTranslation();
+  // 历史下拉打开期间锁定背景滚动（Linux WebKitGTK 滚动条穿透，见 useOverlayScrollLock）
+  useOverlayScrollLock(historyDropdown !== null);
 
   if (selectedItem && selectedItem.type === 'group') {
     return (

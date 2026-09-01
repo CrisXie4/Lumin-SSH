@@ -1,6 +1,23 @@
 // 平台检测工具
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
+/**
+ * Linux WebKitGTK 环境（Wails Linux 端）。
+ * 其原生 overlay 滚动条以独立合成层绘制、不占布局空间，会穿透 position:fixed 弹层，
+ * 仅此环境需要弹层打开时锁定背景滚动（见 useOverlayScrollLock）；
+ * Windows WebView2 的经典滚动条占据布局空间，隐藏会引发背景 reflow；
+ * macOS WKWebView 的滚动条可被弹层正常裁剪，均无需加锁。
+ * 判定与 themeTransition.ts 的 WebKitGTK 检测保持一致：AppleWebKit（排除 Chrome/Chromium）且 Linux/X11。
+ */
+export const isLinuxWebKit = (() => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isAppleWebKit = /AppleWebKit/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua);
+  if (!isAppleWebKit) return false;
+  const platform = (navigator as unknown as { platform?: string }).platform || '';
+  return /Linux|X11/.test(ua) || /Linux/.test(platform);
+})();
+
 /** 修饰键事件（键盘/鼠标事件共有的 ctrlKey、metaKey 字段） */
 interface ModifierKeyEvent {
   ctrlKey: boolean;

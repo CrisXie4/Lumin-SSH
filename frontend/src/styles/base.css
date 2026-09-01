@@ -72,7 +72,9 @@
 [data-tab-context-menu],
 [data-tab-context-menu] *,
 [data-context-menu],
-[data-context-menu] * {
+[data-context-menu] *,
+[data-history-dropdown],
+[data-history-dropdown] * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb, rgba(120, 140, 165, 0.35)) transparent;
 }
@@ -92,7 +94,9 @@
 [data-tab-context-menu]::-webkit-scrollbar,
 [data-tab-context-menu] *::-webkit-scrollbar,
 [data-context-menu]::-webkit-scrollbar,
-[data-context-menu] *::-webkit-scrollbar {
+[data-context-menu] *::-webkit-scrollbar,
+[data-history-dropdown]::-webkit-scrollbar,
+[data-history-dropdown] *::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
@@ -111,7 +115,9 @@
 [data-tab-context-menu]::-webkit-scrollbar-button,
 [data-tab-context-menu] *::-webkit-scrollbar-button,
 [data-context-menu]::-webkit-scrollbar-button,
-[data-context-menu] *::-webkit-scrollbar-button {
+[data-context-menu] *::-webkit-scrollbar-button,
+[data-history-dropdown]::-webkit-scrollbar-button,
+[data-history-dropdown] *::-webkit-scrollbar-button {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
@@ -131,7 +137,9 @@
 [data-tab-context-menu]::-webkit-scrollbar-track,
 [data-tab-context-menu] *::-webkit-scrollbar-track,
 [data-context-menu]::-webkit-scrollbar-track,
-[data-context-menu] *::-webkit-scrollbar-track {
+[data-context-menu] *::-webkit-scrollbar-track,
+[data-history-dropdown]::-webkit-scrollbar-track,
+[data-history-dropdown] *::-webkit-scrollbar-track {
   background: transparent;
 }
 .app-layout::-webkit-scrollbar-thumb,
@@ -149,7 +157,9 @@
 [data-tab-context-menu]::-webkit-scrollbar-thumb,
 [data-tab-context-menu] *::-webkit-scrollbar-thumb,
 [data-context-menu]::-webkit-scrollbar-thumb,
-[data-context-menu] *::-webkit-scrollbar-thumb {
+[data-context-menu] *::-webkit-scrollbar-thumb,
+[data-history-dropdown]::-webkit-scrollbar-thumb,
+[data-history-dropdown] *::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb, rgba(120, 140, 165, 0.35));
   border-radius: var(--radius-full);
   transition: background 0.15s ease;
@@ -169,7 +179,9 @@
 [data-tab-context-menu]::-webkit-scrollbar-thumb:hover,
 [data-tab-context-menu] *::-webkit-scrollbar-thumb:hover,
 [data-context-menu]::-webkit-scrollbar-thumb:hover,
-[data-context-menu] *::-webkit-scrollbar-thumb:hover {
+[data-context-menu] *::-webkit-scrollbar-thumb:hover,
+[data-history-dropdown]::-webkit-scrollbar-thumb:hover,
+[data-history-dropdown] *::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover, rgba(140, 165, 195, 0.6));
 }
 .app-layout::-webkit-scrollbar-corner,
@@ -187,56 +199,43 @@
 [data-tab-context-menu]::-webkit-scrollbar-corner,
 [data-tab-context-menu] *::-webkit-scrollbar-corner,
 [data-context-menu]::-webkit-scrollbar-corner,
-[data-context-menu] *::-webkit-scrollbar-corner {
+[data-context-menu] *::-webkit-scrollbar-corner,
+[data-history-dropdown]::-webkit-scrollbar-corner,
+[data-history-dropdown] *::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* 弹层打开时，仅隐藏背景 .app-layout 的滚动条；portal 到 body 的弹层不受影响。
-   Linux WebKitGTK 的 overlay scrollbar 是独立合成层：滚动后 1s 内处于淡出动画中，
-   若仅用 scrollbar-width:none 且用 useEffect（paint 后才加类），首帧会把动画中的 thumb 画到 fixed 层之上。
-   因此：① Modal 改用 useLayoutEffect 同步加类（paint 前生效）；② 这里同时把背景滚动容器的 overflow 设为 hidden，
-   使 GTK 的 overlay indicator 立即失去可滚动依据而瞬间隐藏，而非等淡出超时。 */
+/* 弹层打开时，将背景 .app-layout 的滚动条透明化（而非隐藏/锁定 overflow）。
+   Linux WebKitGTK 的滚动条绘制为独立合成层，会盖过 position:fixed 弹层（穿透）。
+   曾用 scrollbar-width:none + overflow:hidden 强制隐藏，但两者都会移除滚动条槽位、
+   改变布局（overflow:hidden 打在 * 上还会破坏 sticky/虚拟列表的容器假设），导致背景
+   reflow——文件列表丢失滚动位置、监控面板排版跳动、虚拟列表闪烁（Windows/Linux 均受影响）。
+   改为仅把 thumb/track 绘制为透明：滚动条结构、槽位、overflow 全部不动，零布局变化；
+   GTK 画到弹层之上的 thumb 同样透明，穿透随之不可见。
+   注意：useLayoutEffect 同步加类（paint 前生效）仍是前提，避免滚动后立即开弹层的首帧穿透。 */
 html.modal-open .app-layout,
 html.modal-open .app-layout *,
 body.modal-open .app-layout,
 body.modal-open .app-layout * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-color: transparent transparent !important;
 }
-html.modal-open .app-layout::-webkit-scrollbar,
-html.modal-open .app-layout *::-webkit-scrollbar,
-body.modal-open .app-layout::-webkit-scrollbar,
-body.modal-open .app-layout *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-/* 背景滚动锁定：文件管理器(Virtuoso)、探针、首页等任意在 .app-layout 内的可滚动容器
-   在 Linux WebKitGTK 上滚动后 1s 内 overlay indicator 仍在淡出，scrollbar-width:none 无法瞬间隐藏
-   动画中的 native thumb，需 overflow:hidden。采用通用选择器而非枚举，避免遗漏 Virtuoso 等动态
-   生成的滚动容器（文件管理器截图即为此类）。portaled 弹层在 body 外不受影响，.modal-overlay 例外保留。 */
-html.modal-open .app-layout .dashboard-server-editor-body,
-html.modal-open .app-layout .hosts-scroll-area,
-html.modal-open .app-layout .data-page-scroll,
-html.modal-open .app-layout .probe-panel,
-html.modal-open .app-layout .terminal-tab-list-items,
-html.modal-open .app-layout .context-menu,
-html.modal-open .app-layout .term-quick-cmd-preview,
-/* 通用兜底：任意 .app-layout 内元素（排除仍在 .app-layout 内的 GlobalDialog） */
-html.modal-open .app-layout *:not(.modal-overlay):not(.modal-overlay *):not([data-modal-overlay]):not([data-modal-overlay] *),
-body.modal-open .app-layout .dashboard-server-editor-body,
-body.modal-open .app-layout .hosts-scroll-area,
-body.modal-open .app-layout .data-page-scroll,
-body.modal-open .app-layout .probe-panel,
-body.modal-open .app-layout .terminal-tab-list-items,
-body.modal-open .app-layout .context-menu,
-body.modal-open .app-layout .term-quick-cmd-preview,
-body.modal-open .app-layout *:not(.modal-overlay):not(.modal-overlay *):not([data-modal-overlay]):not([data-modal-overlay] *) {
-  overflow: hidden !important;
-}
-html.modal-open,
-body.modal-open {
-  overflow: hidden !important;
+html.modal-open .app-layout::-webkit-scrollbar-thumb,
+html.modal-open .app-layout *::-webkit-scrollbar-thumb,
+html.modal-open .app-layout::-webkit-scrollbar-thumb:hover,
+html.modal-open .app-layout *::-webkit-scrollbar-thumb:hover,
+html.modal-open .app-layout::-webkit-scrollbar-track,
+html.modal-open .app-layout *::-webkit-scrollbar-track,
+html.modal-open .app-layout::-webkit-scrollbar-corner,
+html.modal-open .app-layout *::-webkit-scrollbar-corner,
+body.modal-open .app-layout::-webkit-scrollbar-thumb,
+body.modal-open .app-layout *::-webkit-scrollbar-thumb,
+body.modal-open .app-layout::-webkit-scrollbar-thumb:hover,
+body.modal-open .app-layout *::-webkit-scrollbar-thumb:hover,
+body.modal-open .app-layout::-webkit-scrollbar-track,
+body.modal-open .app-layout *::-webkit-scrollbar-track,
+body.modal-open .app-layout::-webkit-scrollbar-corner,
+body.modal-open .app-layout *::-webkit-scrollbar-corner {
+  background: transparent !important;
 }
 
 /* 弹层自身始终保持 isolate 合成层，确保在 Linux 上盖过背景滚动条层 */
@@ -245,7 +244,8 @@ body.modal-open {
   isolation: isolate;
 }
 
-/* 若弹层仍在 .app-layout 内（如 GlobalDialog 未 portal），上面 .app-layout 隐藏会误伤弹层自身；显式恢复弹层滚动条 */
+/* 若弹层仍在 .app-layout 内（如 GlobalDialog 未 portal、仪表盘内的 Select 下拉），
+   上面的背景透明化会误伤弹层自身滚动条；显式恢复弹层滚动条可见 */
 html.modal-open [data-modal-overlay],
 html.modal-open [data-modal-overlay] *,
 html.modal-open .modal-overlay,
@@ -271,11 +271,16 @@ body.modal-open .modal-overlay *::-webkit-scrollbar {
 }
 
 /* Select 下拉在 .app-layout 内时（仪表盘/文件管理器等），其自身滚动需保留
-   （Select 的 useOverlayScrollLock 会在下拉打开时触发 modal-open） */
+   （Select 的 useOverlayScrollLock 会在下拉打开时触发 modal-open）。
+   [data-history-dropdown]（快捷命令历史下拉）同理由 useOverlayScrollLock 加锁，一并恢复 */
 html.modal-open [data-select-dropdown],
 html.modal-open [data-select-dropdown] *,
+html.modal-open [data-history-dropdown],
+html.modal-open [data-history-dropdown] *,
 body.modal-open [data-select-dropdown],
-body.modal-open [data-select-dropdown] * {
+body.modal-open [data-select-dropdown] *,
+body.modal-open [data-history-dropdown],
+body.modal-open [data-history-dropdown] * {
   scrollbar-width: thin !important;
   scrollbar-color: var(--scrollbar-thumb, rgba(120, 140, 165, 0.35)) transparent !important;
   overflow-y: auto !important;
@@ -283,8 +288,12 @@ body.modal-open [data-select-dropdown] * {
 }
 html.modal-open [data-select-dropdown]::-webkit-scrollbar,
 html.modal-open [data-select-dropdown] *::-webkit-scrollbar,
+html.modal-open [data-history-dropdown]::-webkit-scrollbar,
+html.modal-open [data-history-dropdown] *::-webkit-scrollbar,
 body.modal-open [data-select-dropdown]::-webkit-scrollbar,
-body.modal-open [data-select-dropdown] *::-webkit-scrollbar {
+body.modal-open [data-select-dropdown] *::-webkit-scrollbar,
+body.modal-open [data-history-dropdown]::-webkit-scrollbar,
+body.modal-open [data-history-dropdown] *::-webkit-scrollbar {
   display: block !important;
   width: 6px !important;
   height: 6px !important;

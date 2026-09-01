@@ -52,6 +52,11 @@ export const Z = {
   SETTINGS_DIALOG: 39001,
   SYSTEM_DIALOG: 39002,
 
+  // ── 全局右键菜单（document 级监听，可能从任意弹层内的输入框触发，
+  //    必须盖过所有弹层；仍低于 toast 与窗口缩放热区） ──
+  CONTEXT_MENU: 39500,
+  CONTEXT_SUBMENU: 39501,
+
   // ── Absolute top (toasts / system notices) ──
   TOAST: 40000,
 

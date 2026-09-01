@@ -10,6 +10,7 @@
     "i18n:orphans": "node scripts/check-i18n-orphans.mjs",
     "styles:check": "node scripts/check-styles.mjs",
     "styles:baseline": "node scripts/check-styles.mjs --baseline",
+    "overlay:check": "node scripts/check-overlay-lock.mjs",
     "lint": "oxlint src",
     "lint:fix": "oxlint --fix src"
   },
