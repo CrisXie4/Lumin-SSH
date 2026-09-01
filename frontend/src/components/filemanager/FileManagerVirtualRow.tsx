@@ -169,7 +169,13 @@ export function renderFileManagerVirtualRow(fm: FileManagerController, row: VRow
           setFileManagerPaneDropTarget('');
         } : undefined}
         onClick={isInteractive ? handleItemClick : undefined}
-        onDoubleClick={isInteractive ? () => {
+        onDoubleClick={isInteractive ? (event) => {
+          // 重命名时双击输入框应仅选中文字，不应冒泡触发打开文件
+          if (renamingItem) {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest?.('#fm-rename-input')) return;
+            if (renamingItem.name === item.name) return;
+          }
           if (isDeletedPlaceholder) return;
           setSelectedPaths([itemPath]);
           lastClickedPathRef.current = itemPath;

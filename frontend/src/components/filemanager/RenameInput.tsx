@@ -8,6 +8,8 @@ import type { RenameInputProps } from './fileManagerTypes.ts';
 //   - 非受控（defaultValue + ref 读值），避免受控渲染竞态丢字符。
 //   - suppressDragOutClick 抑制"框内 mousedown 拖出 mouseup"派生的 click，
 //     防止冒泡到行级 onClick 抢焦点、触发 onBlur 误提交。
+//   - onClick / onDoubleClick 均 stopPropagation，阻止冒泡到行级：
+//     单击不触发选中，双击仅在输入框内选中文字（按词选区），不触发行的双击打开文件。
 //   - committedRef 保证 onBlur / Enter / 外部取消 三条提交路径只生效一次。
 //   - 虚拟化卸载（Virtuoso 把该行滚出视口）时 React 不触发 onBlur，renamingItem
 //     会残留——卸载后 cleanup 故意保留已脱离 DOM 的元素引用，
@@ -59,6 +61,7 @@ export default function RenameInput({ initialValue, isDirectory, onConfirm, onCa
         }
       }}
       onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
       autoFocus
     />
   );
