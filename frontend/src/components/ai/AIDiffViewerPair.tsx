@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { I18nKey } from '../../i18n.ts';
 import { Z } from '../../constants/zIndex.ts';
+import { useEditorWordWrap } from '../../utils/editorWordWrap.ts';
 import {
   DIFF_EDITOR_BASE_OPTIONS,
   ensureMonacoConfigured,
@@ -50,6 +51,7 @@ export interface DiffEditorPairProps {
 
 export function DiffEditorPair({ block, index = 0, path = '', reviewId = '', showBlockBadge = false, t, onNavigateReady = null }: DiffEditorPairProps) {
   const [themeName, setThemeName] = useState(resolveMonacoThemeName());
+  const wordWrapEnabled = useEditorWordWrap();
   const [editorReady, setEditorReady] = useState(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
@@ -78,8 +80,9 @@ export function DiffEditorPair({ block, index = 0, path = '', reviewId = '', sho
   const showMetaBar = showBlockBadge || (Number.isFinite(matchedStartLine) && matchedStartLine > 0);
   const editorOptions = useMemo(() => ({
     ...DIFF_EDITOR_BASE_OPTIONS,
+    wordWrap: wordWrapEnabled ? 'on' as const : 'off' as const,
     ariaLabel: String(path || label || 'diff editor'),
-  }), [label, path]);
+  }), [label, path, wordWrapEnabled]);
   const goToDiff = useCallback((target: DiffNavigateTarget) => {
     editorRef.current?.goToDiff(target);
   }, []);

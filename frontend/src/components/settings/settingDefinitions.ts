@@ -381,6 +381,7 @@ const settingsTreeSource = rootNode(
     sectionNode('appearance', 'preferences', '偏好设置', [
       panelNode('appearance.panel.preferences', [
         fieldNode('appearance.toolbar-icon-only', 'toolbarIconOnly', '终端工具栏仅显示图标', '开启后终端工具栏的进程管理、网络监控等按钮只显示图标', { control: 'toggle', stateKey: 'terminalToolbarIconOnly' }),
+        fieldNode('appearance.editor-word-wrap', 'editorWordWrap', '编辑器与查看器自动换行', '开启后变更审阅台差异视图与文件管理器打开的文件编辑器超长行自动折行显示', { control: 'toggle', stateKey: 'editorWordWrap' }),
       ]),
     ], { targetId: 'appearance.toolbar-icon-only' }),
     sectionNode('appearance', 'background', '背景', [

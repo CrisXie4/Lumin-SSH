@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { EditorState, type Extension } from '@uiw/react-codemirror';
+import { EditorState, EditorView, type Extension } from '@uiw/react-codemirror';
 import { useTranslation } from '../../i18n.ts';
+import { useEditorWordWrap } from '../../utils/editorWordWrap.ts';
 import {
   getSessionUploadPanelState,
   getSessionWorkbenchState,
@@ -34,6 +35,7 @@ export function useFileEditor(props: FileEditorProps) {
   } = props;
 
   const { t, lang: i18nLang } = useTranslation();
+  const wordWrapEnabled = useEditorWordWrap();
 
   const [editedContents, setEditedContents] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -316,9 +318,10 @@ export function useFileEditor(props: FileEditorProps) {
 
   const extensions = useMemo(() => {
     const exts: Extension[] = [gotoLineKeymap, editorActiveLineTheme, editorPhrases];
+    if (wordWrapEnabled) exts.push(EditorView.lineWrapping);
     if (lang) exts.push(lang);
     return exts;
-  }, [lang, editorPhrases]);
+  }, [lang, editorPhrases, wordWrapEnabled]);
 
   const ext = activeFile ? (activeFile.name.split('.').pop() || '').toLowerCase() : '';
 

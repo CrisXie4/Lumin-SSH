@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { loadKeywordRulesFromStorage, saveKeywordRulesToStorage, resetKeywordRulesToDefault, setKeywordRules, type KeywordRule } from '../../../utils/terminalKeywordHighlight.ts';
+import { readEditorWordWrap, writeEditorWordWrap } from '../../../utils/editorWordWrap.ts';
 
 /** 终端显示偏好：字号、本地回显、时间戳、命令块、关键字高亮规则等（localStorage 直写型开关） */
 export function useTerminalPreferences() {
@@ -14,6 +15,7 @@ export function useTerminalPreferences() {
   const [showBigScreenQuickEntry, setShowBigScreenQuickEntry] = useState(localStorage.getItem('showBigScreenQuickEntry') !== 'false');
   const [showAIQuickEntry, setShowAIQuickEntry] = useState(localStorage.getItem('showAIQuickEntry') !== 'false');
   const [terminalToolbarIconOnly, setTerminalToolbarIconOnly] = useState(localStorage.getItem('terminalToolbarIconOnly') === 'true');
+  const [editorWordWrap, setEditorWordWrap] = useState(readEditorWordWrap);
 
   const handleTerminalFontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const size = parseInt(e.target.value, 10);
@@ -93,6 +95,12 @@ export function useTerminalPreferences() {
     window.dispatchEvent(new CustomEvent('terminal-toolbar-icon-only-changed'));
   };
 
+  const handleToggleEditorWordWrap = () => {
+    const next = !editorWordWrap;
+    setEditorWordWrap(next);
+    writeEditorWordWrap(next);
+  };
+
   return {
     terminalFontSize,
     handleTerminalFontChange,
@@ -117,5 +125,7 @@ export function useTerminalPreferences() {
     handleToggleAIQuickEntry,
     terminalToolbarIconOnly,
     handleToggleTerminalToolbarIconOnly,
+    editorWordWrap,
+    handleToggleEditorWordWrap,
   };
 }
