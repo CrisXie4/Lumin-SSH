@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { I18nKey } from '../../../../i18n.ts';
+import { useEditorWordWrap } from '../../../../utils/editorWordWrap.ts';
 import { cn } from '../../../../utils/cn.ts';
 import {
   buildCompactDiffRows,
@@ -16,6 +17,7 @@ export interface CompactDiffPreviewProps {
 }
 
 export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', loading = false, t, lang, maxHeight = 300 }: CompactDiffPreviewProps) {
+  const wordWrapEnabled = useEditorWordWrap();
   const normalizedRawDiff = typeof rawDiff === 'string' ? rawDiff.trim() : '';
   const rows = useMemo(() => buildCompactDiffRows(normalizedRawDiff, reviewBlocks, t), [normalizedRawDiff, reviewBlocks, t, lang]);
   if (loading) {
@@ -51,7 +53,7 @@ export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', lo
               <div
                 key={row.key}
                 style={{ background: palette.background, color: palette.color }}
-                className={cn('break-all px-2.5 py-1.5 font-bold', index === 0 ? '' : 'border-t border-t-[rgba(255,255,255,0.02)]')}>
+                className={cn(wordWrapEnabled ? 'break-all' : 'whitespace-nowrap', 'px-2.5 py-1.5 font-bold', index === 0 ? '' : 'border-t border-t-[rgba(255,255,255,0.02)]')}>
                 {row.text}
               </div>
             );
@@ -64,7 +66,7 @@ export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', lo
             <div
               key={row.key}
               style={{ background: palette.background }}
-              className={cn('grid min-w-0 grid-cols-[48px_18px_minmax(0,1fr)]', index === 0 ? '' : 'border-t border-t-[rgba(255,255,255,0.02)]')}>
+              className={cn('grid grid-cols-[48px_18px_minmax(0,1fr)]', wordWrapEnabled ? 'min-w-0' : 'min-w-max', index === 0 ? '' : 'border-t border-t-[rgba(255,255,255,0.02)]')}>
               <div
                 className="select-none border-r border-r-line-subtle px-2 text-right tabular-nums text-tertiary">
                 {lineNumber ?? ''}
@@ -76,7 +78,12 @@ export default function CompactDiffPreview({ reviewBlocks = [], rawDiff = '', lo
               </div>
               <div
                 style={{ color: palette.color }}
-                className="min-w-0 whitespace-pre-wrap px-2.5 [overflow-wrap:anywhere] [word-break:break-word]">
+                className={cn(
+                  wordWrapEnabled
+                    ? 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:break-word]'
+                    : 'min-w-max whitespace-pre',
+                  'px-2.5',
+                )}>
                 {row.text || ' '}
               </div>
             </div>
