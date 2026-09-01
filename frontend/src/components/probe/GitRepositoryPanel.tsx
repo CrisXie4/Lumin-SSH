@@ -1267,6 +1267,9 @@ function GitRepositoryPanel({
                 <span>{translate('未暂存')}</span>
                 <span className="git-repository-count">{unstaged.length}</span>
                 <span className="ml-auto" />
+                <Tiptop text={translate('还原所有')}>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-danger" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleDiscard(repoPath, unstaged); }}><X size={13} /></span>
+                </Tiptop>
                 <Tiptop text={translate('暂存所有')}>
                   <span role="button" tabIndex={0} className="git-repository-drawer-action text-success" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleStage(repoPath, unstaged); }}><Check size={13} /></span>
                 </Tiptop>
