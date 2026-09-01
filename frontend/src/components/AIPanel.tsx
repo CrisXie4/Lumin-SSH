@@ -8,7 +8,7 @@ import type { AIPanelProps } from './ai/aiChatLogic.ts'
 import { getCachedAIGlobalSettings } from './ai/aiGlobalSettingsBridge.ts'
 
 // AIPanel：AI 工作区多标签管理外壳。单个标签页面板见 ./ai/AIConversationTabPanel.tsx。
-export default function AIPanel({ width, side, sessionId, terminalId, sessionTerminals = [], sessionLabel = '', terminalLabel = '', isPanelVisible = true, onDevilModeChange, onActiveTabChange, onActivateWorkspaceTab, addToast }: AIPanelProps) {
+export default function AIPanel({ width, side, sessionId, terminalId, sessionTerminals = [], sessionLabel = '', terminalLabel = '', isPanelVisible = true, onActiveTabChange, onActivateWorkspaceTab, addToast }: AIPanelProps) {
   const { t } = useTranslation()
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [workspaceTabNumbersOnly, setWorkspaceTabNumbersOnly] = useState<boolean | null>(() => {
@@ -66,7 +66,6 @@ export default function AIPanel({ width, side, sessionId, terminalId, sessionTer
             isWorkspaceTabActive={isPanelVisible && activeTabId === tab.id}
             initialConversationId={tab.conversationId}
             tabBar={workspaceTabBar}
-            onDevilModeChange={isPanelVisible && activeTabId === tab.id ? (enabled) => onDevilModeChange?.(enabled, tab.id) : undefined}
             onGoHomeRequested={() => returnWorkspaceTabHome(tab.id)}
             onOpenConversationRequested={openConversationInWorkspaceTab}
             onWorkspaceTabStateChange={handleWorkspaceTabStateChange}

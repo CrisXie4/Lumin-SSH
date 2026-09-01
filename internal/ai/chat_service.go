@@ -31,7 +31,6 @@ type AIChatRequestPayload struct {
 	AutoApprove                              bool                   `json:"autoApprove"`
 	SkipNextAutomaticRequest                 bool                   `json:"skipNextAutomaticRequest"`
 	AssistantFirstReplyText                  string                 `json:"assistantFirstReplyText,omitempty"`
-	IsDemon                                  bool                   `json:"isDemon,omitempty"`
 	SystemPromptOverride                     string                 `json:"systemPromptOverride,omitempty"`
 	SkipSystemPrompt                         bool                   `json:"skipSystemPrompt,omitempty"`
 	StreamEventPrefix                        string                 `json:"streamEventPrefix,omitempty"`

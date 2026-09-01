@@ -45,7 +45,6 @@ export interface AppTopbarProps {
   showThemeQuickEntry: boolean;
   showBigScreenQuickEntry: boolean;
   showAIQuickEntry: boolean;
-  activeAIDevilMode: boolean;
   resolvedQuickThemeMode: 'light' | 'dark';
   handleQuickThemeToggle: () => void;
   isActiveSessionConnected: boolean;
@@ -70,7 +69,7 @@ export default function AppTopbar({
   sessions, tabScrollRef, tabListRef, activeSessionId, handleTabClick,
   closeSession, setTabContextMenu, sessionAuthPrompts, sshChannelUsage,
   tabActionsRef, sessionListBtnRef, showSessionList, toggleSessionList,
-   closeAllSessions, showThemeQuickEntry, showBigScreenQuickEntry, showAIQuickEntry, activeAIDevilMode,
+   closeAllSessions, showThemeQuickEntry, showBigScreenQuickEntry, showAIQuickEntry,
   resolvedQuickThemeMode, handleQuickThemeToggle, isActiveSessionConnected,
   showAIPanel, setAIPanelVisibility, startupUpdateInfo, showUpdateBubble,
   isUpdateModalVisible, setShowUpdateBubble,
@@ -272,7 +271,7 @@ export default function AppTopbar({
                 </button>
               </Tiptop>
             )}
-            {showThemeQuickEntry && !activeAIDevilMode && (
+            {showThemeQuickEntry && (
               <Tiptop text={resolvedQuickThemeMode === 'light' ? t('深色') : t('浅色')} placement="bottom">
                 <button
                   type="button"

@@ -26,9 +26,6 @@ interface AIPanelHeaderProps {
   showSettingsPanel: boolean
   onToggleSettings: () => void
   onGoHome: () => void
-  showModeToggle?: boolean
-  isDevilMode?: boolean
-  onToggleMode?: () => void
   onOpenConversationSearch?: () => void
   onOpenConversationDiff?: () => void
   showConversationSearchButton?: boolean
@@ -50,9 +47,6 @@ export default function AIPanelHeader({
   showSettingsPanel,
   onToggleSettings,
   onGoHome,
-  showModeToggle = false,
-  isDevilMode = false,
-  onToggleMode,
   onOpenConversationSearch,
   onOpenConversationDiff,
   showConversationSearchButton = false,
@@ -74,9 +68,6 @@ export default function AIPanelHeader({
   const condenseCloseTimerRef = useRef(0)
   const contextTokenLabel = useMemo(() => formatAIContextTokens(contextTokens), [contextTokens])
   const normalizedApiMessageCount = Number.isFinite(Number(apiMessageCount)) && Number(apiMessageCount) > 0 ? Math.trunc(Number(apiMessageCount)) : 0
-  const modeToggleLabel = isDevilMode
-    ? t('切换到天使模式:善良的天使会全心全意地保护你和你的设备,它有绝对的原则和信念来帮助你,同时也会感化你的不良行为')
-    : t('切换到恶魔模式:可恶的恶魔会不择手段地满足你所有的危险想法,它会诱导你突破边界,并纵容你一步步滑向失控')
   const condenseButtonTooltip = isCondensingContext ? t('正在智能压缩上下文') : t('当前对话上下文 Token,点击压缩')
   const canOpenCondenseActions = Boolean(canCondenseContext || canQuickCondenseContext || canSummaryCondenseContext)
   const clearCondenseCloseTimer = () => {
@@ -128,26 +119,9 @@ export default function AIPanelHeader({
   }
 
   return (
-    <div
-      className="h-[54px] px-3.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5 border-b border-line bg-raised shrink-0"
-      style={isDevilMode ? { backgroundImage: 'linear-gradient(180deg, rgba(255, 0, 38, 0.08) 0%, transparent 100%)', boxShadow: 'inset 0 -1px 0 rgba(255, 64, 64, 0.12), inset 0 0 28px rgba(255, 0, 38, 0.08)' } : undefined}>
+    <div className="h-[54px] px-3.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5 border-b border-line bg-raised shrink-0">
       <div className="flex items-center gap-1 min-w-0">
         <div className="text-md font-bold text-primary tracking-[0.2px]">{t('AI')}</div>
-        {showModeToggle ? (
-          <Tiptop
-            text={modeToggleLabel}
-            placement="top"
-          >
-            <button
-              type="button"
-              aria-label={modeToggleLabel}
-              onClick={onToggleMode}
-              className="p-0 m-0 inline-flex items-center justify-center bg-transparent border-none text-secondary cursor-pointer leading-none"
-            >
-              <span className="text-lg leading-none">{isDevilMode ? '😈' : '😇'}</span>
-            </button>
-          </Tiptop>
-        ) : null}
       </div>
       {showContextTokens ? (
         <div className="justify-self-center inline-flex items-center gap-1.5 min-w-0 max-w-full">

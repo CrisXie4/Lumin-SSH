@@ -244,9 +244,6 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 	if apiKey := strings.TrimSpace(profile.APIKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
-	if payload.IsDemon {
-		req.Header.Set("isdemon", "true")
-	}
 
 	client, err := a.newAINeverTimeoutHTTPClientForProfile(&profile)
 	if err != nil {

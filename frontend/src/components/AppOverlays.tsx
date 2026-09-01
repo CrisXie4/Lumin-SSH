@@ -22,7 +22,6 @@ export type { AppOverlaysProps, TabContextMenuState, TerminalTabContextMenuState
 
 export default function AppOverlays({ dialogs, importExport, notifications, menus, animation, shared }: AppOverlaysProps) {
   const {
-    activeAIDevilMode,
     activeSessionId,
     addToast,
     canCopySessionPassword,
@@ -155,7 +154,6 @@ export default function AppOverlays({ dialogs, importExport, notifications, menu
             onRestored={loadServers}
             probePanelPosition={probePanelPosition}
             onProbePanelPositionChange={setProbePanelPosition}
-            forceDarkTheme={activeAIDevilMode}
           />
         </Suspense>
       )}

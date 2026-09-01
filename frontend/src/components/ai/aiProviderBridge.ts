@@ -65,7 +65,6 @@ interface AIProviderBridgeShape {
   GetAIProviderState?: () => Promise<unknown>
   GetAIProviderPromptCachePolicy?: (modelId: string) => Promise<unknown>
   SaveAIProviderState?: (payload: string) => Promise<unknown>
-  GetAIProviderTokenGroup?: (payload: string) => Promise<unknown>
 }
 
 function getAppBridge(): AIProviderBridgeShape | null {
@@ -259,15 +258,6 @@ export async function getAIProviderPromptCachePolicy(modelId: unknown): Promise<
   } catch {
     return { ...EMPTY_PROMPT_CACHE_POLICY, modelId: normalizedModelId }
   }
-}
-
-export async function getAIProviderTokenGroup(provider: unknown): Promise<unknown> {
-  const bridge = getAppBridge()
-  if (!bridge?.GetAIProviderTokenGroup) {
-    throw new Error(t('Token 分组查询能力未就绪'))
-  }
-  const normalizedProvider = normalizeProvider(provider || {}, 0)
-  return bridge.GetAIProviderTokenGroup(JSON.stringify(normalizedProvider))
 }
 
 export async function saveAIProviderState(state: unknown): Promise<AIProviderState> {

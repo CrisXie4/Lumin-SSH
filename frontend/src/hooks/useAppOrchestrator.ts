@@ -165,7 +165,6 @@ export default function useAppOrchestrator() {
     dashboardHostPageMode,
   });
 
-  const [aiPanelDevilModes, setAIPanelDevilModes] = useState<Record<string, boolean>>({});
   const [activeAIWorkspaceTabs, setActiveAIWorkspaceTabs] = useState<Record<string, string>>({});
   const activeAIPanelKey = useMemo(() => buildAIWorkspaceTerminalPanelKey(sessionState.activeSessionId || '', sessionState.activeTerminalId || ''), [sessionState.activeSessionId, sessionState.activeTerminalId]);
   const activeAIWorkspaceTabId = activeAIPanelKey ? activeAIWorkspaceTabs[activeAIPanelKey] || '' : '';
@@ -173,7 +172,6 @@ export default function useAppOrchestrator() {
     () => buildAIWorkspaceTabPanelKey(sessionState.activeSessionId || '', sessionState.activeTerminalId || '', activeAIWorkspaceTabId),
     [activeAIWorkspaceTabId, sessionState.activeSessionId, sessionState.activeTerminalId],
   );
-  const activeAIDevilMode = activeAIWorkspaceTabKey ? aiPanelDevilModes[activeAIWorkspaceTabKey] === true : false;
 
   const handleQuickCommandsOpenChange = useCallback((open: boolean) => {
     if (open) {
@@ -188,7 +186,6 @@ export default function useAppOrchestrator() {
   }, []);
 
   const globalEvents = useAppGlobalEvents({
-    activeAIDevilMode,
     activeSessionIdRef: sessionState.activeSessionIdRef,
     activeTerminalIdRef: sessionState.activeTerminalIdRef,
     lastTerminalRef: sessionState.lastTerminalRef,
@@ -298,7 +295,6 @@ export default function useAppOrchestrator() {
     showThemeQuickEntry: globalEvents.showThemeQuickEntry,
     showBigScreenQuickEntry: globalEvents.showBigScreenQuickEntry,
     showAIQuickEntry: globalEvents.showAIQuickEntry,
-    activeAIDevilMode,
     resolvedQuickThemeMode: globalEvents.resolvedQuickThemeMode,
     handleQuickThemeToggle: globalEvents.handleQuickThemeToggle,
     isActiveSessionConnected: sessionState.isActiveSessionConnected,
@@ -319,7 +315,7 @@ export default function useAppOrchestrator() {
   const sharedProps = { addToast: looseAddToast, t: looseT };
 
   const dialogsProps = {
-    activeAIDevilMode, closePortForwardDialog, connectSerial: sessionState.connectSerial, loadServers: sessionState.loadServers, portForwardDialogSessionId, portForwardInitialMapping, portForwardInitialTab, probePanelPosition, setProbePanelPosition, setSettingsInitialTab, setShowCredentials, setShowSerialModal, setShowSettings, settingsInitialTab, showCredentials, showPortForwardDialog, showSerialModal, showSettings,
+    closePortForwardDialog, connectSerial: sessionState.connectSerial, loadServers: sessionState.loadServers, portForwardDialogSessionId, portForwardInitialMapping, portForwardInitialTab, probePanelPosition, setProbePanelPosition, setSettingsInitialTab, setShowCredentials, setShowSerialModal, setShowSettings, settingsInitialTab, showCredentials, showPortForwardDialog, showSerialModal, showSettings,
   };
 
   const importExportProps = {
@@ -412,7 +408,6 @@ export default function useAppOrchestrator() {
       handleSelectConversationDiffItem,
       setConversationDiffPanels,
       setRestorePreviewReviews,
-      setAIPanelDevilModes,
       setActiveAIWorkspaceTabs,
     },
     animations,
