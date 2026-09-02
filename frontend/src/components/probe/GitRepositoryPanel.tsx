@@ -24,6 +24,8 @@ type GitFile = {
   status: string;
   file: string;
   paths?: string[];
+  rowKey?: string;
+  deletedPlaceholder?: boolean;
 };
 
 type GitLog = {
@@ -33,6 +35,30 @@ type GitLog = {
   date: string;
   subject: string;
   files: GitFile[];
+  rowKey?: string;
+  deletedPlaceholder?: boolean;
+};
+
+type GitRowEffect = {
+  effect: 'added' | 'changed' | 'removed';
+  startedAt: number;
+  durationMs: number;
+};
+
+type GitRowDrawer = 'staged' | 'unstaged' | 'logs';
+
+type GitRowCleanup = {
+  drawer: GitRowDrawer;
+  rowKey: string;
+  removePlaceholder: boolean;
+};
+
+type GitVisualDiff = {
+  stagedRows: GitFile[];
+  unstagedRows: GitFile[];
+  logRows: GitLog[];
+  rowEffects: Record<string, GitRowEffect>;
+  cleanup: GitRowCleanup[];
 };
 
 type GitRepoState = {
@@ -47,6 +73,10 @@ type GitRepoState = {
   remoteSyncStatus: string;
   files: GitFile[];
   logs: GitLog[];
+  stagedRows: GitFile[];
+  unstagedRows: GitFile[];
+  logRows: GitLog[];
+  rowEffects: Record<string, GitRowEffect>;
   logsLoadFailed: boolean;
   commitMessage: string;
   stagedExpanded: boolean;
@@ -82,6 +112,8 @@ type GitFileContentCacheEntry = {
 type GitCommitActionMode = 'staged' | 'autostage' | 'disabled';
 
 const REPOSITORY_STORAGE_PREFIX = 'lumin.git.repository-paths.';
+const GIT_AUTO_REFRESH_STORAGE_PREFIX = 'lumin.git.auto-refresh.';
+const GIT_ROW_EFFECT_DURATION_MS = 1200;
 const CONFIRM_KEYS = {
   discard: 'skipGitDiscardConfirm',
   forcePush: 'skipGitForcePushConfirm',
@@ -101,6 +133,10 @@ function createEmptyRepoState(): GitRepoState {
     remoteSyncStatus: 'no-remote',
     files: [],
     logs: [],
+    stagedRows: [],
+    unstagedRows: [],
+    logRows: [],
+    rowEffects: {},
     logsLoadFailed: false,
     commitMessage: '',
     stagedExpanded: true,
@@ -139,6 +175,30 @@ function readRepositoryPaths(serverId: string): string[] {
   }
 }
 
+function getGitAutoRefreshStorageKey(serverId: string, repoPath: string): string {
+  return `${GIT_AUTO_REFRESH_STORAGE_PREFIX}${encodeURIComponent(serverId)}.${encodeURIComponent(repoPath)}`;
+}
+
+function readGitAutoRefreshInterval(serverId: string, repoPath: string): string {
+  if (typeof window === 'undefined') {
+    return '0';
+  }
+  const value = Number(window.localStorage.getItem(getGitAutoRefreshStorageKey(serverId, repoPath)) || 0);
+  return Number.isFinite(value) && value > 0 ? String(Math.floor(value)) : '0';
+}
+
+function writeGitAutoRefreshInterval(serverId: string, repoPath: string, value: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const next = Number(value);
+  if (!Number.isFinite(next) || next <= 0) {
+    window.localStorage.removeItem(getGitAutoRefreshStorageKey(serverId, repoPath));
+    return;
+  }
+  window.localStorage.setItem(getGitAutoRefreshStorageKey(serverId, repoPath), String(Math.floor(next)));
+}
+
 function normalizeGitStatusPath(value: string): string {
   return String(value || '')
     .trim()
@@ -170,6 +230,208 @@ function parseStatusOutput(output: string): GitFile[] {
       };
     })
     .filter((item) => item.file);
+}
+
+function getGitFileIdentity(file: GitFile): string {
+  return getGitFilePaths(file).join(' -> ') || String(file.file || '');
+}
+
+function getGitFileRowKey(drawer: Exclude<GitRowDrawer, 'logs'>, file: GitFile): string {
+  return `${drawer}:${getGitFileIdentity(file)}`;
+}
+
+function getGitLogRowKey(log: GitLog): string {
+  return `logs:${String(log.hash || '').trim() || `${log.subject}:${log.date}`}`;
+}
+
+function isGitDeletedPlaceholder(item: GitFile | GitLog): boolean {
+  return item.deletedPlaceholder === true;
+}
+
+function areGitFilesEqual(previous: GitFile, next: GitFile): boolean {
+  return previous.status === next.status
+    && previous.file === next.file
+    && JSON.stringify(previous.paths || []) === JSON.stringify(next.paths || []);
+}
+
+function areGitLogsEqual(previous: GitLog, next: GitLog): boolean {
+  return previous.hash === next.hash
+    && previous.shortHash === next.shortHash
+    && previous.author === next.author
+    && previous.date === next.date
+    && previous.subject === next.subject
+    && JSON.stringify(previous.files || []) === JSON.stringify(next.files || []);
+}
+
+function buildGitFileDrawerRows(drawer: Exclude<GitRowDrawer, 'logs'>, previousRows: GitFile[], nextItems: GitFile[], now: number) {
+  const previousItems = (Array.isArray(previousRows) ? previousRows : []).filter((item) => !isGitDeletedPlaceholder(item));
+  const previousPlaceholders = (Array.isArray(previousRows) ? previousRows : []).filter((item) => isGitDeletedPlaceholder(item));
+  const normalizedItems: GitFile[] = (Array.isArray(nextItems) ? nextItems : []).map((item) => ({
+    ...item,
+    rowKey: getGitFileRowKey(drawer, item),
+    deletedPlaceholder: false,
+  }));
+  const previousByIdentity = new Map(previousItems.map((item) => [getGitFileIdentity(item), item]));
+  const nextIdentities = new Set(normalizedItems.map(getGitFileIdentity));
+  const rowEffects: Record<string, GitRowEffect> = {};
+  const cleanup: GitRowCleanup[] = [];
+  normalizedItems.forEach((item) => {
+    const rowKey = item.rowKey || getGitFileRowKey(drawer, item);
+    const previous = previousByIdentity.get(getGitFileIdentity(item));
+    if (!previous) {
+      rowEffects[rowKey] = { effect: 'added', startedAt: now, durationMs: GIT_ROW_EFFECT_DURATION_MS };
+      cleanup.push({ drawer, rowKey, removePlaceholder: false });
+    } else if (!areGitFilesEqual(previous, item)) {
+      rowEffects[rowKey] = { effect: 'changed', startedAt: now, durationMs: GIT_ROW_EFFECT_DURATION_MS };
+      cleanup.push({ drawer, rowKey, removePlaceholder: false });
+    }
+  });
+  previousItems.forEach((item) => {
+    const identity = getGitFileIdentity(item);
+    if (nextIdentities.has(identity)) {
+      return;
+    }
+    const rowKey = `${drawer}:removed:${identity}`;
+    const existingPlaceholder = previousPlaceholders.find((entry) => entry.rowKey === rowKey);
+    normalizedItems.push(existingPlaceholder || {
+      ...item,
+      rowKey,
+      deletedPlaceholder: true,
+    });
+    if (!existingPlaceholder) {
+      rowEffects[rowKey] = { effect: 'removed', startedAt: now, durationMs: GIT_ROW_EFFECT_DURATION_MS };
+      cleanup.push({ drawer, rowKey, removePlaceholder: true });
+    }
+  });
+  return { rows: normalizedItems, rowEffects, cleanup };
+}
+
+function buildGitLogDrawerRows(previousRows: GitLog[], nextLogs: GitLog[], now: number) {
+  const previousItems = (Array.isArray(previousRows) ? previousRows : []).filter((item) => !isGitDeletedPlaceholder(item));
+  const previousPlaceholders = (Array.isArray(previousRows) ? previousRows : []).filter((item) => isGitDeletedPlaceholder(item));
+  const normalizedItems: GitLog[] = (Array.isArray(nextLogs) ? nextLogs : []).map((item) => ({
+    ...item,
+    rowKey: getGitLogRowKey(item),
+    deletedPlaceholder: false,
+  }));
+  const previousByHash = new Map(previousItems.map((item) => [item.hash, item]));
+  const nextHashes = new Set(normalizedItems.map((item) => item.hash));
+  const rowEffects: Record<string, GitRowEffect> = {};
+  const cleanup: GitRowCleanup[] = [];
+  normalizedItems.forEach((item) => {
+    const rowKey = item.rowKey || getGitLogRowKey(item);
+    const previous = previousByHash.get(item.hash);
+    if (!previous) {
+      rowEffects[rowKey] = { effect: 'added', startedAt: now, durationMs: GIT_ROW_EFFECT_DURATION_MS };
+      cleanup.push({ drawer: 'logs', rowKey, removePlaceholder: false });
+    } else if (!areGitLogsEqual(previous, item)) {
+      rowEffects[rowKey] = { effect: 'changed', startedAt: now, durationMs: GIT_ROW_EFFECT_DURATION_MS };
+      cleanup.push({ drawer: 'logs', rowKey, removePlaceholder: false });
+    }
+  });
+  previousItems.forEach((item) => {
+    if (nextHashes.has(item.hash)) {
+      return;
+    }
+    const rowKey = `logs:removed:${item.hash}`;
+    const existingPlaceholder = previousPlaceholders.find((entry) => entry.rowKey === rowKey);
+    normalizedItems.push(existingPlaceholder || {
+      ...item,
+      rowKey,
+      deletedPlaceholder: true,
+    });
+    if (!existingPlaceholder) {
+      rowEffects[rowKey] = { effect: 'removed', startedAt: now, durationMs: GIT_ROW_EFFECT_DURATION_MS };
+      cleanup.push({ drawer: 'logs', rowKey, removePlaceholder: true });
+    }
+  });
+  return { rows: normalizedItems, rowEffects, cleanup };
+}
+
+function buildGitInitialVisualRows(nextFiles: GitFile[], nextLogs: GitLog[]): GitVisualDiff {
+  return {
+    stagedRows: nextFiles.filter(isStagedFile).map((item) => ({ ...item, rowKey: getGitFileRowKey('staged', item) })),
+    unstagedRows: nextFiles.filter(isUnstagedFile).map((item) => ({ ...item, rowKey: getGitFileRowKey('unstaged', item) })),
+    logRows: nextLogs.map((item) => ({ ...item, rowKey: getGitLogRowKey(item) })),
+    rowEffects: {},
+    cleanup: [],
+  };
+}
+
+function buildGitVisualDiff(previousState: GitRepoState, nextFiles: GitFile[], nextLogs: GitLog[], now: number): GitVisualDiff {
+  const stagedDiff = buildGitFileDrawerRows('staged', previousState.stagedRows, nextFiles.filter(isStagedFile), now);
+  const unstagedDiff = buildGitFileDrawerRows('unstaged', previousState.unstagedRows, nextFiles.filter(isUnstagedFile), now);
+  const logsDiff = buildGitLogDrawerRows(previousState.logRows, nextLogs, now);
+  return {
+    stagedRows: stagedDiff.rows,
+    unstagedRows: unstagedDiff.rows,
+    logRows: logsDiff.rows,
+    rowEffects: {
+      ...previousState.rowEffects,
+      ...stagedDiff.rowEffects,
+      ...unstagedDiff.rowEffects,
+      ...logsDiff.rowEffects,
+    },
+    cleanup: [...stagedDiff.cleanup, ...unstagedDiff.cleanup, ...logsDiff.cleanup],
+  };
+}
+
+function parseGitConfigTemplateOutput(output: unknown): { origin: string; template: string } {
+  const line = String(output || '').trim().split(/\r?\n/).filter(Boolean).pop() || '';
+  const separator = line.indexOf('\t');
+  if (separator < 0) {
+    return { origin: '', template: normalizeGitStatusPath(line) };
+  }
+  return {
+    origin: normalizeGitStatusPath(line.slice(0, separator).replace(/^file:/, '')),
+    template: normalizeGitStatusPath(line.slice(separator + 1)),
+  };
+}
+
+function normalizeRemoteGitPath(value: string): string {
+  const normalized = String(value || '').trim().replace(/\\/g, '/');
+  if (!normalized) {
+    return '';
+  }
+  const parts: string[] = [];
+  normalized.split('/').forEach((part) => {
+    if (!part || part === '.') {
+      return;
+    }
+    if (part === '..') {
+      if (parts.length > 0) {
+        parts.pop();
+      }
+      return;
+    }
+    parts.push(part);
+  });
+  return `/${parts.join('/')}`;
+}
+
+function resolveRemoteGitTemplatePath(template: string, origin: string, repoPath: string): string {
+  const normalizedTemplate = normalizeGitStatusPath(template);
+  if (!normalizedTemplate) {
+    return '';
+  }
+  if (normalizedTemplate.startsWith('/')) {
+    return normalizeRemoteGitPath(normalizedTemplate);
+  }
+  const normalizedOrigin = normalizeRemoteGitPath(origin);
+  const originDir = normalizedOrigin.includes('/') ? normalizedOrigin.slice(0, normalizedOrigin.lastIndexOf('/')) : '';
+  const originIsRepositoryConfig = normalizedOrigin.endsWith('/.git/config') || normalizedOrigin.endsWith('/.git/config.worktree');
+  return normalizeRemoteGitPath(`${originIsRepositoryConfig ? repoPath : (originDir || repoPath)}/${normalizedTemplate}`);
+}
+
+function getGitRowAnimationStyle(effect: GitRowEffect | undefined) {
+  if (!effect) {
+    return undefined;
+  }
+  const elapsed = Math.max(0, Date.now() - effect.startedAt);
+  return {
+    animationDuration: `${effect.durationMs}ms`,
+    animationDelay: `-${Math.min(elapsed, Math.max(0, effect.durationMs - 16))}ms`,
+  };
 }
 
 function parseGitLogs(output: string): GitLog[] {
@@ -316,14 +578,22 @@ function GitRepositoryPanel({
   const [repositoryPaths, setRepositoryPaths] = useState(() => readRepositoryPaths(normalizedServerId));
   const [repositoryInput, setRepositoryInput] = useState('');
   const [repoStates, setRepoStates] = useState<Record<string, GitRepoState>>({});
+  const [autoRefreshIntervals, setAutoRefreshIntervals] = useState<Record<string, string>>(() => Object.fromEntries(repositoryPaths.map((repoPath) => [repoPath, readGitAutoRefreshInterval(normalizedServerId, repoPath)])));
+  const repoStatesRef = useRef<Record<string, GitRepoState>>({});
+  repoStatesRef.current = repoStates;
+  const gitRowEffectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [terminalCandidates, setTerminalCandidates] = useState<GitTerminalCandidate[]>([]);
   const [selectedTerminalId, setSelectedTerminalId] = useState(sessionId);
   const [terminalPickerOpen, setTerminalPickerOpen] = useState(false);
   const [terminalLoading, setTerminalLoading] = useState(false);
   const [diffLoadingKey, setDiffLoadingKey] = useState('');
+  const diffLoadingKeyRef = useRef('');
+  diffLoadingKeyRef.current = diffLoadingKey;
   const [interactiveBusy, setInteractiveBusy] = useState(false);
   const interactiveBusyRef = useRef(false);
   const diffFileCacheRef = useRef<Map<string, GitFileContentCacheEntry>>(new Map());
+  const gitDrawerScrollerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const gitDrawerPendingAnchorsRef = useRef<Record<string, { rowKey: string; offset: number; scrollTop: number }>>({});
   const [selectionAnchors, setSelectionAnchors] = useState({ staged: -1, unstaged: -1 });
   const [copiedRepositoryPath, setCopiedRepositoryPath] = useState('');
   const copiedRepositoryPathTimerRef = useRef(0);
@@ -381,6 +651,120 @@ function GitRepositoryPanel({
     return (result || {}) as GitResult;
   }, []);
 
+  const readGitCommitMessage = useCallback(async (repoPath: string) => {
+    for (const scope of ['local', 'global']) {
+      const configResult = await invokeGit(sessionId, repoPath, ['config', `--${scope}`, '--show-origin', '--path', '--get', 'commit.template'], false);
+      if (configResult.success !== true) {
+        continue;
+      }
+      const { origin, template } = parseGitConfigTemplateOutput(configResult.output);
+      const templatePath = resolveRemoteGitTemplatePath(template, origin, repoPath);
+      if (!templatePath) {
+        continue;
+      }
+      try {
+        const content = String(await AppGo.ReadFile(sessionId, templatePath) || '').trim();
+        if (content) {
+          return content;
+        }
+      } catch {}
+    }
+    return '';
+  }, [invokeGit, sessionId]);
+
+  const clearGitRowEffectTimer = useCallback((repoPath: string, rowKey: string) => {
+    const timerKey = `${repoPath}::${rowKey}`;
+    const timer = gitRowEffectTimersRef.current.get(timerKey);
+    if (timer) {
+      window.clearTimeout(timer);
+      gitRowEffectTimersRef.current.delete(timerKey);
+    }
+  }, []);
+
+  const cleanupGitRowEffect = useCallback((repoPath: string, cleanup: GitRowCleanup) => {
+    setRepoStates((previous) => {
+      const state = previous[repoPath];
+      if (!state) {
+        return previous;
+      }
+      const nextEffects = { ...state.rowEffects };
+      delete nextEffects[cleanup.rowKey];
+      const nextState: GitRepoState = {
+        ...state,
+        rowEffects: nextEffects,
+      };
+      if (cleanup.removePlaceholder) {
+        if (cleanup.drawer === 'staged') {
+          nextState.stagedRows = state.stagedRows.filter((item) => item.rowKey !== cleanup.rowKey);
+        } else if (cleanup.drawer === 'unstaged') {
+          nextState.unstagedRows = state.unstagedRows.filter((item) => item.rowKey !== cleanup.rowKey);
+        } else {
+          nextState.logRows = state.logRows.filter((item) => item.rowKey !== cleanup.rowKey);
+        }
+      }
+      return { ...previous, [repoPath]: nextState };
+    });
+    gitRowEffectTimersRef.current.delete(`${repoPath}::${cleanup.rowKey}`);
+  }, []);
+
+  const scheduleGitVisualDiffCleanup = useCallback((repoPath: string, visualDiff: GitVisualDiff) => {
+    visualDiff.cleanup.forEach((cleanup) => {
+      clearGitRowEffectTimer(repoPath, cleanup.rowKey);
+      const timerKey = `${repoPath}::${cleanup.rowKey}`;
+      const timer = window.setTimeout(() => cleanupGitRowEffect(repoPath, cleanup), GIT_ROW_EFFECT_DURATION_MS);
+      gitRowEffectTimersRef.current.set(timerKey, timer);
+    });
+  }, [clearGitRowEffectTimer, cleanupGitRowEffect]);
+
+  useEffect(() => () => {
+    gitRowEffectTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    gitRowEffectTimersRef.current.clear();
+  }, []);
+
+  const captureGitDrawerAnchors = useCallback((repoPath: string) => {
+    (['staged', 'unstaged', 'logs'] as GitRowDrawer[]).forEach((drawer) => {
+      const key = `${repoPath}::${drawer}`;
+      const listElement = gitDrawerScrollerRefs.current[key];
+      if (!listElement) {
+        return;
+      }
+      const viewportTop = listElement.getBoundingClientRect().top;
+      const rows = Array.from(listElement.querySelectorAll<HTMLElement>('[data-git-row-key]'));
+      const anchorRow = rows.find((row) => row.getBoundingClientRect().bottom > viewportTop + 1);
+      const anchorRect = anchorRow?.getBoundingClientRect();
+      gitDrawerPendingAnchorsRef.current[key] = {
+        rowKey: anchorRow?.dataset.gitRowKey || '',
+        offset: anchorRect ? anchorRect.top - viewportTop : 0,
+        scrollTop: listElement.scrollTop,
+      };
+    });
+  }, []);
+
+  const restoreGitDrawerAnchors = useCallback((repoPath: string) => {
+    window.requestAnimationFrame(() => {
+      (['staged', 'unstaged', 'logs'] as GitRowDrawer[]).forEach((drawer) => {
+        const key = `${repoPath}::${drawer}`;
+        const pendingAnchor = gitDrawerPendingAnchorsRef.current[key];
+        const listElement = gitDrawerScrollerRefs.current[key];
+        if (!pendingAnchor || !listElement) {
+          return;
+        }
+        const viewportTop = listElement.getBoundingClientRect().top;
+        const rows = Array.from(listElement.querySelectorAll<HTMLElement>('[data-git-row-key]'));
+        const anchorRow = rows.find((row) => row.dataset.gitRowKey === pendingAnchor.rowKey);
+        if (anchorRow) {
+          const delta = anchorRow.getBoundingClientRect().top - viewportTop - pendingAnchor.offset;
+          if (delta !== 0) {
+            listElement.scrollTop += delta;
+          }
+        } else {
+          listElement.scrollTop = pendingAnchor.scrollTop;
+        }
+        delete gitDrawerPendingAnchorsRef.current[key];
+      });
+    });
+  }, []);
+
   const loadTerminalCandidates = useCallback(async () => {
     if (!sessionId) {
       return [];
@@ -430,7 +814,8 @@ function GitRepositoryPanel({
       || '';
   }, [loadTerminalCandidates, selectedTerminalId]);
 
-  const loadRepository = useCallback(async (repoPath: string, interactiveRefresh = false) => {
+  const loadRepository = useCallback(async (repoPath: string, interactiveRefresh = false, refreshCommitMessage = false) => {
+    captureGitDrawerAnchors(repoPath);
     updateRepoState(repoPath, { loading: true, logsLoadFailed: false, error: '' });
     try {
       if (interactiveRefresh) {
@@ -453,6 +838,10 @@ function GitRepositoryPanel({
             error: '',
             files: [],
             logs: [],
+            stagedRows: [],
+            unstagedRows: [],
+            logRows: [],
+            rowEffects: {},
             logsLoadFailed: false,
           });
           return;
@@ -469,6 +858,12 @@ function GitRepositoryPanel({
         await new Promise<void>((resolve) => window.setTimeout(resolve, 160));
         logsResult = await invokeGit(sessionId, repoPath, ['log', '--name-status', '--pretty=format:%H%x1f%h%x1f%an%x1f%ad%x1f%s', '--date=format:%Y-%m-%d %H:%M', '-n', '200'], false);
       }
+      const nextFiles = parseStatusOutput(String(statusResult.output || ''));
+      const nextLogs = logsResult.success === true ? parseGitLogs(String(logsResult.output || '')) : [];
+      const previousState = repoStatesRef.current[repoPath] || createEmptyRepoState();
+      const visualDiff = previousState.loaded && previousState.isRepository === true
+        ? buildGitVisualDiff(previousState, nextFiles, nextLogs, Date.now())
+        : buildGitInitialVisualRows(nextFiles, nextLogs);
       const branchName = String(branchResult.output || '').trim();
       const upstreamName = upstreamResult.success === true ? String(upstreamResult.output || '').trim() : '';
       const headHash = headResult.success === true ? String(headResult.output || '').trim() : '';
@@ -481,6 +876,9 @@ function GitRepositoryPanel({
           : headHash && upstreamHeadHash && headHash === upstreamHeadHash
             ? 'synced'
             : 'diverged';
+      const commitMessage = refreshCommitMessage
+        ? await readGitCommitMessage(repoPath)
+        : previousState.commitMessage;
       updateRepoState(repoPath, {
         loading: false,
         loaded: true,
@@ -490,10 +888,17 @@ function GitRepositoryPanel({
         hasRemote,
         upstreamName,
         remoteSyncStatus,
-        files: parseStatusOutput(String(statusResult.output || '')),
-        logs: logsResult.success === true ? parseGitLogs(String(logsResult.output || '')) : [],
+        files: nextFiles,
+        logs: nextLogs,
+        stagedRows: visualDiff.stagedRows,
+        unstagedRows: visualDiff.unstagedRows,
+        logRows: visualDiff.logRows,
+        rowEffects: visualDiff.rowEffects,
+        commitMessage,
         logsLoadFailed: logsResult.success !== true,
       });
+      restoreGitDrawerAnchors(repoPath);
+      scheduleGitVisualDiffCleanup(repoPath, visualDiff);
     } catch (error) {
       updateRepoState(repoPath, {
         loading: false,
@@ -501,7 +906,7 @@ function GitRepositoryPanel({
         error: error instanceof Error ? error.message : String(error || translate('加载失败')),
       });
     }
-  }, [invokeGit, resolveInteractiveTerminal, sessionId, updateRepoState]);
+  }, [captureGitDrawerAnchors, invokeGit, readGitCommitMessage, resolveInteractiveTerminal, restoreGitDrawerAnchors, scheduleGitVisualDiffCleanup, sessionId, updateRepoState]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -509,10 +914,18 @@ function GitRepositoryPanel({
     }
     repositoryPaths.forEach((repoPath) => {
       if (!repoStates[repoPath]?.loaded && !repoStates[repoPath]?.loading) {
-        void loadRepository(repoPath);
+        void loadRepository(repoPath, false, true);
       }
     });
   }, [isConnected, loadRepository, repoStates, repositoryPaths]);
+
+  const refreshGitCommitMessage = useCallback(async (repoPath: string) => {
+    const commitMessage = await readGitCommitMessage(repoPath);
+    if (repoStatesRef.current[repoPath]) {
+      updateRepoState(repoPath, { commitMessage });
+    }
+    return commitMessage;
+  }, [readGitCommitMessage, updateRepoState]);
 
   const executeQuietSequence = useCallback(async (repoPath: string, commands: string[][]) => {
     const state = repoStates[repoPath] || createEmptyRepoState();
@@ -602,9 +1015,13 @@ function GitRepositoryPanel({
       return;
     }
     persistRepositoryPaths([...repositoryPaths, nextPath]);
+    setAutoRefreshIntervals((current) => ({
+      ...current,
+      [nextPath]: readGitAutoRefreshInterval(normalizedServerId, nextPath),
+    }));
     setRepositoryInput('');
-    void loadRepository(nextPath);
-  }, [loadRepository, persistRepositoryPaths, repositoryInput, repositoryPaths]);
+    void loadRepository(nextPath, false, true);
+  }, [loadRepository, normalizedServerId, persistRepositoryPaths, repositoryInput, repositoryPaths]);
 
   const handleRemoveRepository = useCallback((repoPath: string) => {
     persistRepositoryPaths(repositoryPaths.filter((item) => item !== repoPath));
@@ -768,8 +1185,11 @@ function GitRepositoryPanel({
     if (push) {
       commands.push(['push']);
     }
-    await executeInteractiveSequence(repoPath, commands);
-  }, [executeInteractiveSequence, repoStates]);
+    const success = await executeInteractiveSequence(repoPath, commands);
+    if (success) {
+      await refreshGitCommitMessage(repoPath);
+    }
+  }, [executeInteractiveSequence, refreshGitCommitMessage, repoStates]);
 
   const handleToggleAmendMessage = useCallback(async (repoPath: string) => {
     const state = repoStates[repoPath] || createEmptyRepoState();
@@ -835,6 +1255,50 @@ function GitRepositoryPanel({
       setInteractiveBusy(false);
     }
   }, [diffLoadingKey, loadRepository]);
+
+  const handleGitAutoRefreshIntervalChange = useCallback((repoPath: string, value: string) => {
+    const normalizedValue = String(value || '').replace(/[^\d]/g, '');
+    setAutoRefreshIntervals((current) => ({ ...current, [repoPath]: normalizedValue || '0' }));
+    writeGitAutoRefreshInterval(normalizedServerId, repoPath, normalizedValue || '0');
+  }, [normalizedServerId]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      return undefined;
+    }
+    let cancelled = false;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const schedule = (repoPath: string) => {
+      const intervalSeconds = Number(autoRefreshIntervals[repoPath] || 0);
+      if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) {
+        return;
+      }
+      const timer = window.setTimeout(async () => {
+        timers.delete(timer);
+        if (cancelled) {
+          return;
+        }
+        if (
+          !interactiveBusyRef.current
+          && !diffLoadingKeyRef.current
+          && !repoStatesRef.current[repoPath]?.busy
+          && repoStatesRef.current[repoPath]?.loaded
+        ) {
+          await loadRepository(repoPath);
+        }
+        if (!cancelled) {
+          schedule(repoPath);
+        }
+      }, Math.max(1, Math.floor(intervalSeconds)) * 1000);
+      timers.add(timer);
+    };
+    repositoryPaths.forEach(schedule);
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }, [autoRefreshIntervals, isConnected, loadRepository, repositoryPaths]);
 
   const readLatestGitFileContent = useCallback(async (repoPath: string, filePath: string, status: string) => {
     if (getPrimaryStatus(status) === 'D') {
@@ -1055,98 +1519,109 @@ function GitRepositoryPanel({
     if (items.length === 0) {
       return <div className="px-2 py-3 text-center text-xs text-tertiary">{translate('无内容')}</div>;
     }
-    return items.map((file, index) => (
-      <div
-        key={`${type}-${file.status}-${file.file}`}
-        className={`group flex min-h-[36px] min-w-0 items-center gap-2 border-b border-line-subtle px-2 py-1.5 text-xs ${selected.includes(file.file) ? 'bg-accent-dim' : 'hover:bg-hover'}`}
-        onClick={(event) => {
-          if (!controlsDisabled) {
-            handleFileSelection(repoPath, type, items, index, event);
-          }
-        }}
-        onContextMenu={(event) => {
-          if (!controlsDisabled) {
-            openGitFileContextMenu(event, repoPath, type, items, index);
-          }
-        }}
-        onDoubleClick={() => {
-          if (!controlsDisabled) {
-            void handleOpenDiff(repoPath, file, type === 'staged');
-          }
-        }}
-      >
-        <span className={`w-4 shrink-0 text-center font-mono font-bold ${getStatusClass(file.status)}`}>{getPrimaryStatus(file.status)}</span>
-        <Tiptop text={file.file} className="min-w-0 flex-1">
-          <span className="block min-w-0 truncate text-primary">{file.file}</span>
-        </Tiptop>
-        <Tiptop text={translate('打开差异')}>
-          <button
-            type="button"
-            aria-label={translate('打开差异')}
-            disabled={controlsDisabled}
-            className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-muted hover:bg-hover hover:text-primary group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
-            onClick={(event) => {
-              event.stopPropagation();
+    return items.map((file, index) => {
+      const deletedPlaceholder = file.deletedPlaceholder === true;
+      const rowEffect = state.rowEffects[file.rowKey || ''];
+      const rowInteractive = !controlsDisabled && !deletedPlaceholder;
+      return (
+        <div
+          key={file.rowKey || `${type}-${file.status}-${file.file}`}
+          className={`git-repository-file-row group flex min-h-[36px] min-w-0 items-center gap-2 border-b border-line-subtle px-2 py-1.5 text-xs ${selected.includes(file.file) ? 'bg-accent-dim' : 'hover:bg-hover'}${deletedPlaceholder ? ' git-repository-deleted-placeholder' : ''}${rowEffect ? ` git-repository-visual-effect git-repository-visual-effect-${rowEffect.effect}` : ''}`}
+          style={getGitRowAnimationStyle(rowEffect)}
+          onClick={(event) => {
+            if (rowInteractive) {
+              handleFileSelection(repoPath, type, items, index, event);
+            }
+          }}
+          onContextMenu={(event) => {
+            if (rowInteractive) {
+              openGitFileContextMenu(event, repoPath, type, items, index);
+            }
+          }}
+          onDoubleClick={() => {
+            if (rowInteractive) {
               void handleOpenDiff(repoPath, file, type === 'staged');
-            }}
-          >
-            {diffLoadingKey === `${repoPath}::${file.file}` ? <RefreshCw size={13} className="animate-spin" /> : <GitCommit size={13} />}
-          </button>
-        </Tiptop>
-        {type === 'unstaged' ? (
-          <>
-            <Tiptop text={translate('放弃更改')}>
+            }
+          }}
+          data-git-row-key={file.rowKey || `${type}:${file.file}`}
+        >
+          <span className={`w-4 shrink-0 text-center font-mono font-bold ${getStatusClass(file.status)}`}>{getPrimaryStatus(file.status)}</span>
+          <Tiptop text={file.file} className="min-w-0 flex-1">
+            <span className="block min-w-0 truncate text-primary">{file.file}</span>
+          </Tiptop>
+          {!deletedPlaceholder ? (
+            <Tiptop text={translate('打开差异')}>
               <button
                 type="button"
-                aria-label={translate('放弃更改')}
-                disabled={controlsDisabled}
-                className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-danger hover:bg-hover group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label={translate('打开差异')}
+                disabled={!rowInteractive}
+                className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-muted hover:bg-hover hover:text-primary group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
                 onClick={(event) => {
                   event.stopPropagation();
-                  void handleDiscard(repoPath, [file], true);
+                  void handleOpenDiff(repoPath, file, type === 'staged');
                 }}
               >
-                <X size={13} />
+                {diffLoadingKey === `${repoPath}::${file.file}` ? <RefreshCw size={13} className="animate-spin" /> : <GitCommit size={13} />}
               </button>
             </Tiptop>
-            <Tiptop text={translate('暂存更改')}>
-              <button
-                type="button"
-                aria-label={translate('暂存更改')}
-                disabled={controlsDisabled}
-                className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-success hover:bg-hover group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void handleStage(repoPath, [file], true);
-                }}
-              >
-                <Check size={13} />
-              </button>
-            </Tiptop>
-            <Tiptop text={translate('取消跟踪')}>
-              <button
-                type="button"
-                aria-label={translate('取消跟踪')}
-                disabled={controlsDisabled}
-                className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-warning hover:bg-hover group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  void handleUntrack(repoPath, [file], true);
-                }}
-              >
-                <Trash2 size={13} />
-              </button>
-            </Tiptop>
-          </>
-        ) : null}
-      </div>
-    ));
+          ) : null}
+          {type === 'unstaged' && !deletedPlaceholder ? (
+            <>
+              <Tiptop text={translate('放弃更改')}>
+                <button
+                  type="button"
+                  aria-label={translate('放弃更改')}
+                  disabled={!rowInteractive}
+                  className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-danger hover:bg-hover group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleDiscard(repoPath, [file], true);
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              </Tiptop>
+              <Tiptop text={translate('暂存更改')}>
+                <button
+                  type="button"
+                  aria-label={translate('暂存更改')}
+                  disabled={!rowInteractive}
+                  className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-success hover:bg-hover group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleStage(repoPath, [file], true);
+                  }}
+                >
+                  <Check size={13} />
+                </button>
+              </Tiptop>
+              <Tiptop text={translate('取消跟踪')}>
+                <button
+                  type="button"
+                  aria-label={translate('取消跟踪')}
+                  disabled={!rowInteractive}
+                  className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-warning hover:bg-hover group-hover:inline-flex disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleUntrack(repoPath, [file], true);
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </Tiptop>
+            </>
+          ) : null}
+        </div>
+      );
+    });
   };
 
   const renderRepository = (repoPath: string) => {
     const state = repoStates[repoPath] || createEmptyRepoState();
-    const staged = state.files.filter(isStagedFile);
-    const unstaged = state.files.filter(isUnstagedFile);
+    const staged = state.stagedRows;
+    const unstaged = state.unstagedRows;
+    const stagedItems = state.files.filter(isStagedFile);
+    const unstagedItems = state.files.filter(isUnstagedFile);
     const selectedCandidate = terminalCandidates.find((item) => item.sessionId === selectedTerminalId);
     const controlsDisabled = Boolean(diffLoadingKey || interactiveBusy);
     const commitMode = getGitCommitActionMode(state, false);
@@ -1200,6 +1675,20 @@ function GitRepositoryPanel({
             <div className="git-repository-terminal-row">
               <Terminal size={13} className="shrink-0 text-tertiary" />
               <span className="truncate text-xs text-secondary">{translate('操作终端')}: {selectedCandidate ? getCandidateLabel(selectedCandidate) : translate('当前终端')}</span>
+              <label className="git-repository-auto-refresh">
+                <span>{translate('自动刷新')}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  value={autoRefreshIntervals[repoPath] || '0'}
+                  aria-label={translate('自动刷新')}
+                  disabled={controlsDisabled || state.busy}
+                  onChange={(event) => handleGitAutoRefreshIntervalChange(repoPath, event.target.value)}
+                />
+                <span>s</span>
+              </label>
               <div className="relative ml-auto">
                 <Tiptop text={translate('指派终端')}>
                   <button type="button" aria-label={translate('指派终端')} className="git-repository-terminal-button" disabled={controlsDisabled} onClick={() => { setTerminalPickerOpen((open) => !open); void loadTerminalCandidates(); }}><ChevronDown size={13} /></button>
@@ -1253,31 +1742,31 @@ function GitRepositoryPanel({
               <button type="button" className={`git-repository-commit-${commitPushMode}`} disabled={controlsDisabled || state.busy || commitPushMode === 'disabled'} onClick={() => void handleCommit(repoPath, false, true)}><Send size={13} />{translate('提交并推送')}</button>
             </div>
             <div className="git-repository-drawer">
-              <button type="button" className="git-repository-drawer-header" disabled={controlsDisabled} onClick={() => updateRepoState(repoPath, { stagedExpanded: !state.stagedExpanded })} onContextMenu={(event) => openGitDrawerContextMenu(event, repoPath, 'staged', staged)}>
+              <button type="button" className="git-repository-drawer-header" disabled={controlsDisabled} onClick={() => updateRepoState(repoPath, { stagedExpanded: !state.stagedExpanded })} onContextMenu={(event) => openGitDrawerContextMenu(event, repoPath, 'staged', stagedItems)}>
                 {state.stagedExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                 <span>{translate('已暂存')}</span>
-                <span className="git-repository-count">{staged.length}</span>
+                <span className="git-repository-count">{stagedItems.length}</span>
                 <span className="ml-auto" />
                 <Tiptop text={translate('取消暂存所有')}>
-                  <span role="button" tabIndex={0} className="git-repository-drawer-action" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleUnstage(repoPath, staged, true); }}><X size={13} /></span>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleUnstage(repoPath, stagedItems, true); }}><X size={13} /></span>
                 </Tiptop>
               </button>
-              {state.stagedExpanded ? <div className="git-repository-file-list">{renderFileList(repoPath, 'staged', staged)}</div> : null}
+              {state.stagedExpanded ? <div className="git-repository-file-list" ref={(element) => { gitDrawerScrollerRefs.current[`${repoPath}::staged`] = element; }}>{renderFileList(repoPath, 'staged', staged)}</div> : null}
             </div>
             <div className="git-repository-drawer">
-              <button type="button" className="git-repository-drawer-header" disabled={controlsDisabled} onClick={() => updateRepoState(repoPath, { unstagedExpanded: !state.unstagedExpanded })} onContextMenu={(event) => openGitDrawerContextMenu(event, repoPath, 'unstaged', unstaged)}>
+              <button type="button" className="git-repository-drawer-header" disabled={controlsDisabled} onClick={() => updateRepoState(repoPath, { unstagedExpanded: !state.unstagedExpanded })} onContextMenu={(event) => openGitDrawerContextMenu(event, repoPath, 'unstaged', unstagedItems)}>
                 {state.unstagedExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                 <span>{translate('未暂存')}</span>
-                <span className="git-repository-count">{unstaged.length}</span>
+                <span className="git-repository-count">{unstagedItems.length}</span>
                 <span className="ml-auto" />
                 <Tiptop text={translate('还原所有')}>
-                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-danger" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleDiscard(repoPath, unstaged, true); }}><X size={13} /></span>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-danger" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleDiscard(repoPath, unstagedItems, true); }}><X size={13} /></span>
                 </Tiptop>
                 <Tiptop text={translate('暂存所有')}>
-                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-success" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleStage(repoPath, unstaged, true); }}><Check size={13} /></span>
+                  <span role="button" tabIndex={0} className="git-repository-drawer-action text-success" onClick={(event) => { event.stopPropagation(); if (!controlsDisabled) void handleStage(repoPath, unstagedItems, true); }}><Check size={13} /></span>
                 </Tiptop>
               </button>
-              {state.unstagedExpanded ? <div className="git-repository-file-list">{renderFileList(repoPath, 'unstaged', unstaged)}</div> : null}
+              {state.unstagedExpanded ? <div className="git-repository-file-list" ref={(element) => { gitDrawerScrollerRefs.current[`${repoPath}::unstaged`] = element; }}>{renderFileList(repoPath, 'unstaged', unstaged)}</div> : null}
             </div>
             <div className={`git-repository-drawer git-repository-log-sync-${state.remoteSyncStatus}`}>
               <button type="button" className="git-repository-drawer-header" disabled={controlsDisabled} onClick={() => updateRepoState(repoPath, { logsExpanded: !state.logsExpanded })}>
@@ -1297,15 +1786,20 @@ function GitRepositoryPanel({
                 </Tiptop>
               </button>
               {state.logsExpanded ? (
-                <div className="git-repository-log-list">
-                  {state.loading ? (
+                <div className="git-repository-log-list" ref={(element) => { gitDrawerScrollerRefs.current[`${repoPath}::logs`] = element; }}>
+                  {state.loading && state.logRows.length === 0 ? (
                     <div className="git-repository-loading"><RefreshCw size={13} className="animate-spin" />{translate('加载中...')}</div>
                   ) : state.logsLoadFailed ? (
                     <div className="px-2 py-3 text-center text-xs text-danger">{translate('加载提交记录失败')}</div>
-                  ) : state.logs.length === 0 ? (
+                  ) : state.logRows.length === 0 ? (
                     <div className="px-2 py-3 text-center text-xs text-tertiary">{translate('暂无历史')}</div>
-                  ) : state.logs.map((log) => (
-                    <div key={log.hash} className="git-repository-log-item">
+                  ) : state.logRows.map((log) => (
+                    <div
+                      key={log.rowKey || log.hash}
+                      data-git-row-key={log.rowKey || `logs:${log.hash}`}
+                      className={`git-repository-log-item${log.deletedPlaceholder ? ' git-repository-deleted-placeholder' : ''}${state.rowEffects[log.rowKey || ''] ? ` git-repository-visual-effect git-repository-visual-effect-${state.rowEffects[log.rowKey || ''].effect}` : ''}`}
+                      style={getGitRowAnimationStyle(state.rowEffects[log.rowKey || ''])}
+                    >
                       <button type="button" className="git-repository-log-main" disabled={controlsDisabled} onClick={() => updateRepoState(repoPath, { expandedLogHash: state.expandedLogHash === log.hash ? '' : log.hash })} onContextMenu={(event) => openGitLogContextMenu(event, repoPath, log)}>
                         <Tiptop text={translate('复制哈希')}>
                           <span
