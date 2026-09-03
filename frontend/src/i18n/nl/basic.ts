@@ -1217,6 +1217,7 @@ export default {
   "助手": "assistent",
   "正在智能压缩上下文": "Slimme compressie van context",
   "当前对话上下文 Token,点击压缩": "Huidige conversatiecontexttoken, klik om te comprimeren",
+  "上游实际用量,输入/输出 Token": "Werkelijk upstream-gebruik, invoer-/uitvoertoken",
   "快速智能压缩": "Snelle en slimme compressie",
   "全量摘要压缩": "Volledige verteringscompressie",
   "摘要创建子任务能力未就绪": "De mogelijkheid voor het maken van subtaken voor het maken van samenvattingen is nog niet gereed",

@@ -1217,6 +1217,7 @@ export default {
   "助手": "trợ lý",
   "正在智能压缩上下文": "Nén bối cảnh thông minh",
   "当前对话上下文 Token,点击压缩": "Mã thông báo ngữ cảnh cuộc trò chuyện hiện tại, nhấp để nén",
+  "上游实际用量,输入/输出 Token": "Mức sử dụng ngược dòng thực tế, Mã thông báo đầu vào/đầu ra",
   "快速智能压缩": "Nén nhanh và thông minh",
   "全量摘要压缩": "Nén thông báo đầy đủ",
   "摘要创建子任务能力未就绪": "Khả năng tạo nhiệm vụ con tóm tắt chưa sẵn sàng",

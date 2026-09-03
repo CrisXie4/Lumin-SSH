@@ -1217,6 +1217,7 @@ export default {
   "助手": "asistan",
   "正在智能压缩上下文": "Bağlamın akıllı sıkıştırılması",
   "当前对话上下文 Token,点击压缩": "Mevcut konuşma bağlamı belirteci, sıkıştırmak için tıklayın",
+  "上游实际用量,输入/输出 Token": "Gerçek yukarı akış kullanımı, giriş/çıkış Tokenı",
   "快速智能压缩": "Hızlı ve akıllı sıkıştırma",
   "全量摘要压缩": "Tam özet sıkıştırma",
   "摘要创建子任务能力未就绪": "Özet oluşturma alt görev yeteneği hazır değil",
