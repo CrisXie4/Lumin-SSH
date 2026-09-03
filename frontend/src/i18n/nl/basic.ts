@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Herstel tot dit punt",
   "重新应用": "opnieuw solliciteren",
   "已重新应用": "opnieuw toegepast",
+  "暂无 API 请求": "Nog geen API-verzoeken",
+  "缓存命中": "cache-hit",
+  "缓存未命中": "cache gemist",
 } satisfies I18nDict;

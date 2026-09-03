@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Przywróć do tego punktu",
   "重新应用": "ponownie zastosować",
   "已重新应用": "ponownie zastosować",
+  "暂无 API 请求": "Nie ma jeszcze żadnych żądań API",
+  "缓存命中": "trafienie w pamięć podręczną",
+  "缓存未命中": "brak pamięci podręcznej",
 } satisfies I18nDict;

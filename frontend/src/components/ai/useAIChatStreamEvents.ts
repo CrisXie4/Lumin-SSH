@@ -428,6 +428,7 @@ export function useAIChatStreamEvents({
               streaming: Boolean(payload.streaming),
               extra: {
                 ...(message.extra || {}),
+                cacheReadTokens: Number.isFinite(Number(payload.cacheReadTokens)) ? Math.max(0, Math.trunc(Number(payload.cacheReadTokens))) : undefined,
                 requestStatusLive: false,
                 finishedAtMs: Date.now(),
                 errorText: '',
@@ -1056,6 +1057,7 @@ export function useAIChatStreamEvents({
             streaming: false,
             extra: {
               ...(message.extra || {}),
+              cacheReadTokens: Number.isFinite(Number(payload.cacheReadTokens)) ? Math.max(0, Math.trunc(Number(payload.cacheReadTokens))) : undefined,
               requestStatusLive: false,
               finishedAtMs: Date.now(),
               errorText: '',

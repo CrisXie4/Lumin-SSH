@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Ripristina a questo punto",
   "重新应用": "riapplicare",
   "已重新应用": "riapplicato",
+  "暂无 API 请求": "Nessuna richiesta API ancora",
+  "缓存命中": "colpo alla cache",
+  "缓存未命中": "mancanza di cache",
 } satisfies I18nDict;

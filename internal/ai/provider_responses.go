@@ -16,8 +16,13 @@ import (
 )
 
 type aiChatResponsesUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens      int `json:"input_tokens"`
+	OutputTokens     int `json:"output_tokens"`
+	CacheReadTokens  int `json:"cache_read_input_tokens,omitempty"`
+	InputTokensDetails *struct {
+		CachedTokens    int `json:"cached_tokens,omitempty"`
+		CacheReadTokens int `json:"cache_read_input_tokens,omitempty"`
+	} `json:"input_tokens_details,omitempty"`
 }
 
 type aiChatResponsesEvent struct {
@@ -314,6 +319,13 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 				if result.InputTokens == 0 && event.Response.Usage != nil {
 					result.InputTokens = event.Response.Usage.InputTokens
 					result.OutputTokens = event.Response.Usage.OutputTokens
+					result.CacheReadTokens = event.Response.Usage.CacheReadTokens
+					if result.CacheReadTokens == 0 && event.Response.Usage.InputTokensDetails != nil {
+						result.CacheReadTokens = event.Response.Usage.InputTokensDetails.CacheReadTokens
+						if result.CacheReadTokens == 0 {
+							result.CacheReadTokens = event.Response.Usage.InputTokensDetails.CachedTokens
+						}
+					}
 				}
 				if contentBuilder.Len() == 0 && event.Response.OutputText != "" {
 					bodyDelta, taggedReasoningDelta := contentParser.Feed(event.Response.OutputText)
@@ -352,6 +364,13 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 			if event.Usage != nil {
 				result.InputTokens = event.Usage.InputTokens
 				result.OutputTokens = event.Usage.OutputTokens
+				result.CacheReadTokens = event.Usage.CacheReadTokens
+				if result.CacheReadTokens == 0 && event.Usage.InputTokensDetails != nil {
+					result.CacheReadTokens = event.Usage.InputTokensDetails.CacheReadTokens
+					if result.CacheReadTokens == 0 {
+						result.CacheReadTokens = event.Usage.InputTokensDetails.CachedTokens
+					}
+				}
 			}
 			// 部分中转站在发送终态事件后既不发送 [DONE] 也不关闭连接, scanner.Scan() 会一直阻塞
 			// 到读超时。终态事件已携带完整正文, 用量与缓存对象, 且上面已全部落到 result 与

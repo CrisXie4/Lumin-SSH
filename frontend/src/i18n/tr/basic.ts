@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Bu noktaya geri yükle",
   "重新应用": "yeniden uygula",
   "已重新应用": "yeniden uygulandı",
+  "暂无 API 请求": "Henüz API isteği yok",
+  "缓存命中": "önbellek isabeti",
+  "缓存未命中": "önbellek kaçırma",
 } satisfies I18nDict;

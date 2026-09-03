@@ -2656,6 +2656,7 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 					"elapsedMs":       roundResult.ElapsedMs,
 					"inputTokens":     roundResult.InputTokens,
 					"outputTokens":    roundResult.OutputTokens,
+					"cacheReadTokens": roundResult.CacheReadTokens,
 					"tokensPerSecond": roundResult.TokensPerSecond,
 				})
 				requestMessages = nextRequestMessages
@@ -2690,6 +2691,7 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 					"elapsedMs":       roundResult.ElapsedMs,
 					"inputTokens":     roundResult.InputTokens,
 					"outputTokens":    roundResult.OutputTokens,
+					"cacheReadTokens": roundResult.CacheReadTokens,
 					"tokensPerSecond": roundResult.TokensPerSecond,
 				})
 				if a.consumeAIChatSkipNextAutomaticRequest(requestID) {
@@ -2748,6 +2750,7 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 				"elapsedMs":       roundResult.ElapsedMs,
 				"inputTokens":     roundResult.InputTokens,
 				"outputTokens":    roundResult.OutputTokens,
+				"cacheReadTokens": roundResult.CacheReadTokens,
 				"tokensPerSecond": roundResult.TokensPerSecond,
 				"extra": map[string]interface{}{
 					"errorText": errorText,
@@ -2821,6 +2824,7 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 			"elapsedMs":       roundResult.ElapsedMs,
 			"inputTokens":     roundResult.InputTokens,
 			"outputTokens":    roundResult.OutputTokens,
+			"cacheReadTokens": roundResult.CacheReadTokens,
 			"tokensPerSecond": roundResult.TokensPerSecond,
 		})
 
