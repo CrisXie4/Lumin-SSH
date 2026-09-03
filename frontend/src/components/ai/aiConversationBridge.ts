@@ -138,6 +138,8 @@ export type AIConversationSnapshot = {
   parentTitleSnapshot: string
   archived: boolean
   transient?: boolean
+  upstreamInputTokens: number
+  upstreamOutputTokens: number
   messages: AIConversationMessage[]
   apiMessages: AIConversationAPIMessage[]
   settings: AIConversationTaskSettings
@@ -168,6 +170,11 @@ export type AIConversationTokenLedger = {
 
 function normalizeAIPromptCacheBypassTimestamp(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function normalizeAIConversationUpstreamTokenValue(value: unknown): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 0
 }
 
 function normalizeAIFollowUpOption(option: unknown, index = 0, questionId = 'question-1'): AIFollowUpOption | null {
@@ -387,6 +394,8 @@ export function normalizeAIConversationSnapshot(snapshot: unknown): AIConversati
     parentTitleSnapshot: typeof s.parentTitleSnapshot === 'string' ? s.parentTitleSnapshot.trim() : '',
     archived: s.archived === true,
     transient: s.transient === true,
+    upstreamInputTokens: normalizeAIConversationUpstreamTokenValue(s.upstreamInputTokens),
+    upstreamOutputTokens: normalizeAIConversationUpstreamTokenValue(s.upstreamOutputTokens),
     messages: Array.isArray(s.messages) ? s.messages.map(normalizeAIConversationMessage) : [],
     apiMessages: Array.isArray(s.apiMessages) ? s.apiMessages.map(normalizeAIConversationAPIMessage) : [],
     settings: normalizeAIConversationTaskSettings(s.settings),

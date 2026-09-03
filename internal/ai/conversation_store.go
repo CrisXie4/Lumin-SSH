@@ -117,6 +117,8 @@ type AIConversationSummary struct {
 	ParentTitleSnapshot        string `json:"parentTitleSnapshot,omitempty"`
 	Archived                   bool   `json:"archived,omitempty"`
 	Transient                  bool   `json:"transient,omitempty"`
+	UpstreamInputTokens        int    `json:"upstreamInputTokens,omitempty"`
+	UpstreamOutputTokens       int    `json:"upstreamOutputTokens,omitempty"`
 }
 
 type AIConversationSnapshot struct {
@@ -134,6 +136,8 @@ type AIConversationSnapshot struct {
 	ParentTitleSnapshot        string                     `json:"parentTitleSnapshot,omitempty"`
 	Archived                   bool                       `json:"archived,omitempty"`
 	Transient                  bool                       `json:"transient,omitempty"`
+	UpstreamInputTokens        int                        `json:"upstreamInputTokens,omitempty"`
+	UpstreamOutputTokens       int                        `json:"upstreamOutputTokens,omitempty"`
 	Messages                   []AIConversationMessage    `json:"messages"`
 	APIMessages                []AIConversationAPIMessage `json:"apiMessages"`
 	Settings                   AIConversationTaskSettings `json:"settings"`
@@ -455,6 +459,12 @@ func normalizeAIConversationSnapshot(snapshot AIConversationSnapshot, fallbackSe
 	snapshot.RelationType = normalizeAIConversationRelationType(snapshot.RelationType)
 	snapshot.RelationSource = normalizeAIConversationRelationSource(snapshot.RelationSource)
 	snapshot.ParentTitleSnapshot = strings.TrimSpace(snapshot.ParentTitleSnapshot)
+	if snapshot.UpstreamInputTokens < 0 {
+		snapshot.UpstreamInputTokens = 0
+	}
+	if snapshot.UpstreamOutputTokens < 0 {
+		snapshot.UpstreamOutputTokens = 0
+	}
 	if snapshot.Messages == nil {
 		snapshot.Messages = []AIConversationMessage{}
 	}
@@ -602,6 +612,9 @@ func (c *configBridge) writeAIConversationSnapshot(snapshot AIConversationSnapsh
 		RelationSource:             snapshot.RelationSource,
 		ParentTitleSnapshot:        snapshot.ParentTitleSnapshot,
 		Archived:                   snapshot.Archived,
+		Transient:                  snapshot.Transient,
+		UpstreamInputTokens:        snapshot.UpstreamInputTokens,
+		UpstreamOutputTokens:       snapshot.UpstreamOutputTokens,
 	})
 
 	metadataBytes, err := marshalAIConversationJSON(summary)
@@ -729,6 +742,9 @@ func (c *configBridge) GetAIConversation(conversationID string) (AIConversationS
 		RelationSource:             summary.RelationSource,
 		ParentTitleSnapshot:        summary.ParentTitleSnapshot,
 		Archived:                   summary.Archived,
+		Transient:                  summary.Transient,
+		UpstreamInputTokens:        summary.UpstreamInputTokens,
+		UpstreamOutputTokens:       summary.UpstreamOutputTokens,
 		Messages:                   c.readAIConversationMessages(conversationID),
 		APIMessages:                c.readAIConversationAPIMessages(conversationID),
 		Settings:                   c.readAIConversationSettings(conversationID, fallbackSettings),

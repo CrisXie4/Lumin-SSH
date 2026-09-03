@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { EventsOn } from '../../../wailsjs/runtime/runtime.js'
 import {
+  buildAIUpstreamTokenUsage,
+  normalizeAIUpstreamTokenValue,
   AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_FOLLOWUP_PENDING_STATUS_KEY, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
 } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, PanelState } from './aiChatLogic.ts'
@@ -425,6 +427,8 @@ export function useAIChatStreamEvents({
               ...message,
               text: typeof payload.text === 'string' ? payload.text : '',
               metrics: buildMetrics(payload),
+              upstreamInputTokens: normalizeAIUpstreamTokenValue(payload.inputTokens),
+              upstreamOutputTokens: normalizeAIUpstreamTokenValue(payload.outputTokens),
               streaming: Boolean(payload.streaming),
               extra: {
                 ...(message.extra || {}),
@@ -435,9 +439,12 @@ export function useAIChatStreamEvents({
               },
             }
           })
+          const upstreamTokenUsage = buildAIUpstreamTokenUsage(payload, current.upstreamInputTokens, current.upstreamOutputTokens)
           if (current.conversation) {
             snapshotBeforeAssistantMessagePersist = {
               ...current.conversation,
+              upstreamInputTokens: upstreamTokenUsage.upstreamInputTokens,
+              upstreamOutputTokens: upstreamTokenUsage.upstreamOutputTokens,
               updatedAt: Date.now(),
               status: current.conversation.status,
               messages: Array.isArray(current.messages)
@@ -456,6 +463,15 @@ export function useAIChatStreamEvents({
           }
           return {
             ...current,
+            conversation: current.conversation
+              ? {
+                  ...current.conversation,
+                  upstreamInputTokens: upstreamTokenUsage.upstreamInputTokens,
+                  upstreamOutputTokens: upstreamTokenUsage.upstreamOutputTokens,
+                }
+              : current.conversation,
+            upstreamInputTokens: upstreamTokenUsage.upstreamInputTokens,
+            upstreamOutputTokens: upstreamTokenUsage.upstreamOutputTokens,
             messages: nextMessages,
           }
         })
@@ -1038,6 +1054,7 @@ export function useAIChatStreamEvents({
       if (payload.kind === 'done') {
         const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
         const metrics = buildMetrics(payload)
+        const upstreamTokenUsage = buildAIUpstreamTokenUsage(payload, matchedPanel.upstreamInputTokens, matchedPanel.upstreamOutputTokens)
         const reasoningDuration = buildReasoningDuration(payload)
         const shouldClearSummarySubtaskCollaboration = matchedPanel.collaborationMode === 'summary_subtask'
         const nextMessages = matchedPanel.messages.map((message) => {
@@ -1054,6 +1071,8 @@ export function useAIChatStreamEvents({
             ...message,
             text: payload.text || String(message.text || '').replace(/▍$/u, ''),
             metrics,
+            upstreamInputTokens: upstreamTokenUsage.upstreamInputTokens,
+            upstreamOutputTokens: upstreamTokenUsage.upstreamOutputTokens,
             streaming: false,
             extra: {
               ...(message.extra || {}),
@@ -1068,6 +1087,8 @@ export function useAIChatStreamEvents({
           ...conversation,
           updatedAt: Date.now(),
           status: 'idle',
+          upstreamInputTokens: upstreamTokenUsage.upstreamInputTokens,
+          upstreamOutputTokens: upstreamTokenUsage.upstreamOutputTokens,
           messages: nextMessages,
           apiMessages: upsertAPIHistoryMessage(
             matchedPanel.apiMessages,
@@ -1094,6 +1115,8 @@ export function useAIChatStreamEvents({
           requestPhase: 'idle',
           skipNextAutomaticRequest: false,
           isCondensingContext: false,
+          upstreamInputTokens: upstreamTokenUsage.upstreamInputTokens,
+          upstreamOutputTokens: upstreamTokenUsage.upstreamOutputTokens,
           conversation: nextConversation,
           messages: nextMessages,
           apiMessages: nextConversation.apiMessages,

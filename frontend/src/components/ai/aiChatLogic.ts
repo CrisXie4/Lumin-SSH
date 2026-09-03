@@ -20,6 +20,25 @@ export interface AIMetricsPayload {
   tokensPerSecond?: unknown
 }
 
+export interface AIUpstreamTokenUsagePayload {
+  inputTokens?: unknown
+  outputTokens?: unknown
+}
+
+export function normalizeAIUpstreamTokenValue(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 0
+}
+
+export function buildAIUpstreamTokenUsage(payload: AIUpstreamTokenUsagePayload, previousInputTokens: number, previousOutputTokens: number) {
+  const inputTokens = normalizeAIUpstreamTokenValue(payload?.inputTokens)
+  const outputTokens = normalizeAIUpstreamTokenValue(payload?.outputTokens)
+  return {
+    upstreamInputTokens: inputTokens > 0 ? inputTokens : normalizeAIUpstreamTokenValue(previousInputTokens),
+    upstreamOutputTokens: outputTokens > 0 ? outputTokens : normalizeAIUpstreamTokenValue(previousOutputTokens),
+  }
+}
+
 /** API 历史消息的宽松形状（upsertAPIHistoryMessage 输入，字段守卫读取） */
 export interface AIAPIHistoryMessageLike {
   role?: unknown
@@ -85,6 +104,8 @@ export interface AIConversationSnapshot {
   rootConversationId?: string
   parentTitleSnapshot?: string
   promptCacheBypassTimestamp?: string
+  upstreamInputTokens?: number
+  upstreamOutputTokens?: number
   [key: string]: unknown
 }
 
@@ -176,6 +197,8 @@ export interface PanelState {
   lastAssistantTurnId: string
   lastTurnBusinessMessageKind: string
   contextTokens: number
+  upstreamInputTokens: number
+  upstreamOutputTokens: number
   isCondensingContext: boolean
   collaborationLocked: boolean
   collaborationActive: boolean
@@ -247,6 +270,8 @@ export function createEmptyPanelState(): PanelState {
     lastAssistantTurnId: '',
     lastTurnBusinessMessageKind: '',
     contextTokens: 0,
+    upstreamInputTokens: 0,
+    upstreamOutputTokens: 0,
     isCondensingContext: false,
     collaborationLocked: false,
     collaborationActive: false,
