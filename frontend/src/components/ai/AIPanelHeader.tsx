@@ -1,4 +1,4 @@
-import { House, MessagesSquare, Settings } from 'lucide-react'
+import { ArrowDown, ArrowUp, House, MessagesSquare, Settings } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '../../i18n.ts'
 import Tiptop from '../Tiptop.tsx'
@@ -28,6 +28,8 @@ interface AIPanelHeaderProps {
   onGoHome: () => void
   showContextTokens?: boolean
   contextTokens?: number
+  upstreamInputTokens?: number
+  upstreamOutputTokens?: number
   apiMessageCount?: number
   isCondensingContext?: boolean
   canCondenseContext?: boolean
@@ -44,6 +46,8 @@ export default function AIPanelHeader({
   onGoHome,
   showContextTokens = false,
   contextTokens = 0,
+  upstreamInputTokens = 0,
+  upstreamOutputTokens = 0,
   apiMessageCount = 0,
   isCondensingContext = false,
   canCondenseContext = false,
@@ -57,6 +61,11 @@ export default function AIPanelHeader({
   const [condenseActionsVisible, setCondenseActionsVisible] = useState(false)
   const condenseCloseTimerRef = useRef(0)
   const contextTokenLabel = useMemo(() => formatAIContextTokens(contextTokens), [contextTokens])
+  const normalizedUpstreamInputTokens = Number.isFinite(Number(upstreamInputTokens)) && Number(upstreamInputTokens) > 0 ? Math.trunc(Number(upstreamInputTokens)) : 0
+  const normalizedUpstreamOutputTokens = Number.isFinite(Number(upstreamOutputTokens)) && Number(upstreamOutputTokens) > 0 ? Math.trunc(Number(upstreamOutputTokens)) : 0
+  const hasUpstreamTokenUsage = normalizedUpstreamInputTokens > 0 || normalizedUpstreamOutputTokens > 0
+  const upstreamInputTokenLabel = useMemo(() => formatAIContextTokens(normalizedUpstreamInputTokens), [normalizedUpstreamInputTokens])
+  const upstreamOutputTokenLabel = useMemo(() => formatAIContextTokens(normalizedUpstreamOutputTokens), [normalizedUpstreamOutputTokens])
   const normalizedApiMessageCount = Number.isFinite(Number(apiMessageCount)) && Number(apiMessageCount) > 0 ? Math.trunc(Number(apiMessageCount)) : 0
   const condenseButtonTooltip = isCondensingContext ? t('正在智能压缩上下文') : t('当前对话上下文 Token,点击压缩')
   const canOpenCondenseActions = Boolean(canCondenseContext || canQuickCondenseContext || canSummaryCondenseContext)
@@ -115,6 +124,23 @@ export default function AIPanelHeader({
       </div>
       {showContextTokens ? (
         <div className="justify-self-center inline-flex items-center gap-1.5 min-w-0 max-w-full">
+          {hasUpstreamTokenUsage ? (
+            <Tiptop text={t('上游实际用量,输入/输出 Token')} placement="top">
+              <span
+                aria-label={t('上游实际用量,输入/输出 Token')}
+                className="inline-flex items-center justify-center gap-1.5 w-fit min-w-0 h-7 px-2.5 rounded-[var(--radius-sm)] border border-line bg-transparent text-secondary text-sm font-bold whitespace-nowrap leading-none tabular-nums cursor-default select-none"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <ArrowUp size={11} />
+                  <span>{upstreamInputTokenLabel}</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <ArrowDown size={11} />
+                  <span>{upstreamOutputTokenLabel}</span>
+                </span>
+              </span>
+            </Tiptop>
+          ) : null}
           <div
             className="relative inline-flex items-center"
             onMouseEnter={showCondenseActions}
