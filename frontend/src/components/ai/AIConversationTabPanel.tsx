@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Columns2, Database, Loader2, Search } from 'lucide-react'
 import { useTranslation, getLanguage } from '../../i18n.ts'
 import { Z } from '../../constants/zIndex'
+import Tiptop from '../Tiptop.tsx'
 import AIPanelHeader from './AIPanelHeader.tsx'
 import { normalizeAIConversationTaskSettings } from './aiConversationBridge.ts'
 import { useAIChatStreamEvents } from './useAIChatStreamEvents.ts'
@@ -21,7 +22,6 @@ import { AIWorkspaceTabProvider } from './aiWorkspaceTabContext.ts'
 import { subscribeAIWorkspaceTabGroups } from '../../utils/aiWorkspaceTabs.ts'
 import type { AIPanelProps } from './aiChatLogic.ts'
 import type { ConversationSummary } from './aiConversationSummary.ts'
-
 // ============================================================
 // AIConversationTabPanel：单个工作区标签页的对话面板（外壳见 ../../AIPanel.tsx）。
 // ============================================================
@@ -270,11 +270,6 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
         showSettingsPanel={showSettingsPanel}
         onToggleSettings={handleToggleSettingsPanel}
         onGoHome={handleGoHome}
-        onOpenConversationSearch={handleOpenConversationSearch}
-        onOpenConversationDiff={handleOpenConversationDiff}
-        showConversationSearchButton={Boolean(activeConversation) && !isConversationLoading}
-        showConversationDiffButton={Boolean(activeConversation) && !isConversationLoading}
-        conversationSearchActive={conversationSearchOpen}
         showContextTokens={Boolean(activeConversation) && !isConversationLoading}
         contextTokens={panelState.contextTokens}
         apiMessageCount={Array.isArray(panelState.apiMessages) ? panelState.apiMessages.length : 0}
@@ -287,6 +282,75 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
         fullSummaryCondenseAvailable={true}
       />
       {isWorkspaceTabActive ? tabBar : null}
+      {activeConversation && !isConversationLoading ? (
+        <div className="h-[26px] shrink-0 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 border-b border-line bg-raised leading-none">
+          <div />
+          <div className="justify-self-center flex items-center gap-2">
+            {(() => {
+              const recentAssistantMessages = Array.isArray(panelState.messages)
+                ? panelState.messages.filter((message) => message.kind === 'assistant').slice(-8)
+                : []
+              return Array.from({ length: 8 }, (_, index) => {
+                const message = recentAssistantMessages[index - (8 - recentAssistantMessages.length)]
+                const cacheReadTokens = Number(message?.extra?.cacheReadTokens)
+                const hasCacheReadTokens = Boolean(message) && Number.isFinite(cacheReadTokens)
+                const isCacheHit = hasCacheReadTokens && cacheReadTokens >= 4000
+                const statusKey = !hasCacheReadTokens ? 'pending' : (isCacheHit ? 'hit' : 'miss')
+                const colorClassName = !hasCacheReadTokens
+                  ? 'text-tertiary'
+                  : isCacheHit
+                    ? 'text-success'
+                    : 'text-danger'
+                const animationClassName = statusKey === 'hit'
+                  ? 'animate-[ai-cache-status-hit-pop_2000ms_cubic-bezier(0.22,1,0.36,1)_both]'
+                  : statusKey === 'miss'
+                    ? 'animate-[ai-cache-status-miss-pop_2400ms_cubic-bezier(0.34,1.1,0.32,1)_both]'
+                    : ''
+                const label = !hasCacheReadTokens
+                  ? t('暂无 API 请求')
+                  : isCacheHit
+                    ? t('缓存命中')
+                    : t('缓存未命中')
+                // key 绑定消息与状态：状态首次确定时重挂载播放一次，列表滑动不重播
+                const statusNodeKey = message ? `${message.id}:${statusKey}` : `ai-cache-status-placeholder-${index}`
+                return (
+                  <Tiptop key={statusNodeKey} text={label} placement="top">
+                    <span className={`inline-flex items-center leading-none ${colorClassName} ${animationClassName}`} aria-label={label}>
+                      <Database size={16} className="block" fill="currentColor" fillOpacity={0.3} strokeWidth={2} />
+                    </span>
+                  </Tiptop>
+                )
+              })
+            })()}
+          </div>
+          <div className="justify-self-end flex items-center gap-1">
+            <Tiptop text={t('当前对话搜索')} placement="bottom">
+              <button
+                type="button"
+                aria-label={t('当前对话搜索')}
+                onClick={handleOpenConversationSearch}
+                className={`inline-flex items-center justify-center w-[20px] h-[20px] rounded-md border cursor-pointer transition-colors duration-[80ms] ${
+                  conversationSearchOpen
+                    ? 'text-accent bg-accent-dim border-accent-border'
+                    : 'text-secondary bg-transparent border-transparent'
+                }`}
+              >
+                <Search size={14} className="block" />
+              </button>
+            </Tiptop>
+            <Tiptop text={t('当前对话文件变更')} placement="bottom">
+              <button
+                type="button"
+                aria-label={t('当前对话文件变更')}
+                onClick={handleOpenConversationDiff}
+                className="inline-flex items-center justify-center w-[20px] h-[20px] rounded-md border border-transparent bg-transparent text-secondary cursor-pointer transition-colors duration-[80ms]"
+              >
+                <Columns2 size={14} className="block" />
+              </button>
+            </Tiptop>
+          </div>
+        </div>
+      ) : null}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {renderAIConversationStage({ t, side, sessionId, terminalId, workspaceTabId, isHomeView, activeConversation, isThemeTuningConversation, isConversationLoading, normalizedInitialConversationId, conversationSearchOpen, conversationSearchQuery, setConversationSearchQuery, conversationSearchInputRef, resetConversationSearchState, handleCycleConversationSearchResult, conversationSearchResults, conversationSearchIndex, panelState, handleConversationUserMessage, handleRetryUserMessage, handleRetryAssistantMessage, handleEditUserMessage, handleDeleteMessage, handlePreviewRestore, handlePreviewDiff, handleApplyRestore, handleRestoreToHere, handleReapplyRestore, collaborationFollowupInteractionLocked, messageNavEnabled, conversationScrollSignal, sendPerfMetricsRef, composerEditState, showAssistantCollaborationActiveImage, renderedConversationList, handleGoHome })}
         {renderAIComposerSection({ t, terminalId, showComposer, panelState, activeConversation, isStreaming, isQueueBlocked, isAwaitingToolApproval, isToolRunning, isAwaitingCommandAction, isAwaitingTerminalAssignment, collaborationLocked, collaborationActive, toolResumeAvailable, shouldPersistProviderSelection, composerInteractionLocked, composerInteractionLockedLabel, effectiveProviderId, effectiveAutoApprovalSettings, providerBalanceRefreshSignal, approvalButtonOrder, commandActionButtonOrder, composerEditState, composerInputValue, setComposerInputValue, composerImages, setComposerImages, temporarySessionEnabled, setTemporarySessionEnabled, normalizedGlobalAISettings, popupDismissVersion, handleComposerSendMessage, handleCancelMessage, handleStopAndResumeMessage, handleProviderChange, handleResumeTask, handleListCommandTerminalCandidates, handleAssignToolTerminal, handleCancelQueuedSubmission, handleToggleSkipNextAutomaticRequest, handlePatchAutoApprovalSettings, handleCollaborationExtraPromptChange, handleCollaborationPromptPresetsChange, handleInterruptCollaboration, handleApproveTools, handleRejectTools, handleContinueTool, handleTerminateTool, resetComposerEditState })}

@@ -18,6 +18,11 @@ import (
 type aiChatCompatibleUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
+	CacheReadTokens  int `json:"cache_read_input_tokens,omitempty"`
+	PromptTokensDetails *struct {
+		CachedTokens    int `json:"cached_tokens,omitempty"`
+		CacheReadTokens int `json:"cache_read_input_tokens,omitempty"`
+	} `json:"prompt_tokens_details,omitempty"`
 }
 
 type aiChatCompatibleChunk struct {
@@ -37,10 +42,10 @@ type aiChatRoundResult struct {
 	ElapsedMs           int64
 	InputTokens         int
 	OutputTokens        int
+	CacheReadTokens     int
 	TokensPerSecond     float64
 	NextRequestMessages []AIChatRequestMessage
 }
-
 type aiProviderModelsResponse struct {
 	Data []struct {
 		ID string `json:"id"`
@@ -362,15 +367,17 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 		}
 
 		var chunk aiChatCompatibleChunk
-		if err := json.Unmarshal([]byte(chunkPayload), &chunk); err != nil {
-			continue
-		}
-
 		if chunk.Usage != nil {
 			result.InputTokens = chunk.Usage.PromptTokens
 			result.OutputTokens = chunk.Usage.CompletionTokens
+			result.CacheReadTokens = chunk.Usage.CacheReadTokens
+			if result.CacheReadTokens == 0 && chunk.Usage.PromptTokensDetails != nil {
+				result.CacheReadTokens = chunk.Usage.PromptTokensDetails.CacheReadTokens
+				if result.CacheReadTokens == 0 {
+					result.CacheReadTokens = chunk.Usage.PromptTokensDetails.CachedTokens
+				}
+			}
 		}
-
 		for _, choice := range chunk.Choices {
 			reasoningDelta := choice.Delta.ReasoningContent
 			if reasoningDelta == "" {

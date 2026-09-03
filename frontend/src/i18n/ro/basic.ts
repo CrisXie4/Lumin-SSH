@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Restabiliți în acest punct",
   "重新应用": "reaplicați",
   "已重新应用": "reaplicat",
+  "暂无 API 请求": "Nu există încă solicitări API",
+  "缓存命中": "lovitura cache",
+  "缓存未命中": "cache miss",
 } satisfies I18nDict;

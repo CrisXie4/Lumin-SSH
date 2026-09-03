@@ -240,6 +240,7 @@ func (a *Service) requestMessagesAIChatRound(ctx context.Context, requestID stri
 				result.InputTokens = event.Message.Usage.InputTokens
 				lastOutputTokens = event.Message.Usage.OutputTokens
 				result.OutputTokens = lastOutputTokens
+				result.CacheReadTokens = event.Message.Usage.CacheReadTokens
 			}
 		case "message_delta":
 			if event.Usage != nil {

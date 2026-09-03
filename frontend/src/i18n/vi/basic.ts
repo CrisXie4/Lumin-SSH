@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Khôi phục lại điểm này",
   "重新应用": "nộp đơn xin lại",
   "已重新应用": "áp dụng lại",
+  "暂无 API 请求": "Chưa có yêu cầu API nào",
+  "缓存命中": "nhấn bộ nhớ cache",
+  "缓存未命中": "nhớ cache",
 } satisfies I18nDict;

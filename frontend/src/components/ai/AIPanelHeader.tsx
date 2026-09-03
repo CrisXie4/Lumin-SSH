@@ -1,4 +1,4 @@
-import { Columns2, House, MessagesSquare, Search, Settings } from 'lucide-react'
+import { House, MessagesSquare, Settings } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '../../i18n.ts'
 import Tiptop from '../Tiptop.tsx'
@@ -26,10 +26,6 @@ interface AIPanelHeaderProps {
   showSettingsPanel: boolean
   onToggleSettings: () => void
   onGoHome: () => void
-  onOpenConversationSearch?: () => void
-  onOpenConversationDiff?: () => void
-  showConversationSearchButton?: boolean
-  showConversationDiffButton?: boolean
   showContextTokens?: boolean
   contextTokens?: number
   apiMessageCount?: number
@@ -37,7 +33,6 @@ interface AIPanelHeaderProps {
   canCondenseContext?: boolean
   canQuickCondenseContext?: boolean
   canSummaryCondenseContext?: boolean
-  conversationSearchActive?: boolean
   onCondenseContext?: () => void
   onCondenseContextFullSummary?: () => void
   fullSummaryCondenseAvailable?: boolean
@@ -47,10 +42,6 @@ export default function AIPanelHeader({
   showSettingsPanel,
   onToggleSettings,
   onGoHome,
-  onOpenConversationSearch,
-  onOpenConversationDiff,
-  showConversationSearchButton = false,
-  showConversationDiffButton = false,
   showContextTokens = false,
   contextTokens = 0,
   apiMessageCount = 0,
@@ -58,7 +49,6 @@ export default function AIPanelHeader({
   canCondenseContext = false,
   canQuickCondenseContext = false,
   canSummaryCondenseContext = false,
-  conversationSearchActive = false,
   onCondenseContext,
   onCondenseContextFullSummary,
   fullSummaryCondenseAvailable: _fullSummaryCondenseAvailable = false,
@@ -197,16 +187,6 @@ export default function AIPanelHeader({
         <IconActionButton title={t('返回主页')} onClick={onGoHome}>
           <House size={16} />
         </IconActionButton>
-        {showConversationSearchButton ? (
-          <IconActionButton title={t('当前对话搜索')} active={conversationSearchActive} onClick={onOpenConversationSearch}>
-            <Search size={16} />
-          </IconActionButton>
-        ) : null}
-        {showConversationDiffButton ? (
-          <IconActionButton title={t('当前对话文件变更')} onClick={onOpenConversationDiff}>
-            <Columns2 size={16} />
-          </IconActionButton>
-        ) : null}
         <IconActionButton title={showSettingsPanel ? t('关闭设置面板') : t('打开设置面板')} active={showSettingsPanel} onClick={onToggleSettings}>
           <Settings size={16} />
         </IconActionButton>

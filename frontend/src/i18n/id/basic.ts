@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Kembalikan ke titik ini",
   "重新应用": "melamar lagi",
   "已重新应用": "diterapkan kembali",
+  "暂无 API 请求": "Belum ada permintaan API",
+  "缓存命中": "cache terkena",
+  "缓存未命中": "cache ketinggalan",
 } satisfies I18nDict;

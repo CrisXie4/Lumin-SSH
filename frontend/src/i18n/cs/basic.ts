@@ -1977,4 +1977,7 @@ export default {
   "还原至此": "Obnovit do tohoto bodu",
   "重新应用": "znovu použít",
   "已重新应用": "znovu aplikováno",
+  "暂无 API 请求": "Zatím žádné požadavky API",
+  "缓存命中": "cache hit",
+  "缓存未命中": "cache miss",
 } satisfies I18nDict;
