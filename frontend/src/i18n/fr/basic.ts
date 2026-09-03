@@ -1217,6 +1217,7 @@ export default {
   "助手": "assistant",
   "正在智能压缩上下文": "Compression intelligente du contexte",
   "当前对话上下文 Token,点击压缩": "Jeton de contexte de conversation actuel, cliquez pour compresser",
+  "上游实际用量,输入/输出 Token": "Utilisation réelle en amont, jeton d'entrée/sortie",
   "快速智能压缩": "Compression rapide et intelligente",
   "全量摘要压缩": "Compression complète du résumé",
   "摘要创建子任务能力未就绪": "La fonctionnalité de sous-tâche de création de résumé n'est pas prête",

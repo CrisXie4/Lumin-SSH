@@ -1217,6 +1217,7 @@ export default {
   "助手": "asistent",
   "正在智能压缩上下文": "Comprimarea inteligentă a contextului",
   "当前对话上下文 Token,点击压缩": "Indicativ de context al conversației curente, faceți clic pentru a comprima",
+  "上游实际用量,输入/输出 Token": "Utilizare reală în amonte, Jeton de intrare/ieșire",
   "快速智能压缩": "Compresie rapidă și inteligentă",
   "全量摘要压缩": "Compresie completă a digestiei",
   "摘要创建子任务能力未就绪": "Capacitatea subsarcinii de creare a rezumatului nu este gata",
