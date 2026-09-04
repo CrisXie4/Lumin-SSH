@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "De huidige staat ondersteunt geen restauratie",
   "差异预览失败": "Voorbeeld van verschillen mislukt",
   "{path} 等 {count} 个文件": "{path} en {count} bestanden",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Er is een fout opgetreden. Voor de huidige taakrecord is foutopsporing door de ontwikkelaar vereist. Neem contact op met de ontwikkelaar om het probleem op te lossen (taak: {conversationId}, bericht: {messageId})",
   "交换位置": "Wissel van plaats",
   "控制底部审批与命令处理按钮的左右位置。": "Regelt de linker- en rechterpositie van de goedkeurings- en opdrachtverwerkingsknoppen onderaan.",
   "工具审批按钮位置": "Locatie van gereedschapgoedkeuringsknop",

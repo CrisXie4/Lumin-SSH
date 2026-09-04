@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "Keadaan saat ini tidak mendukung restorasi",
   "差异预览失败": "Pratinjau perbedaan gagal",
   "{path} 等 {count} 个文件": "File {path} dan {count}",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Terjadi kesalahan. Catatan tugas saat ini memerlukan proses debug pengembang. Silakan hubungi pengembang untuk menyelesaikannya (tugas: {conversationId}, pesan: {messageId})",
   "交换位置": "Tukar tempat",
   "控制底部审批与命令处理按钮的左右位置。": "Mengontrol posisi kiri dan kanan tombol persetujuan dan pemrosesan perintah di bagian bawah.",
   "工具审批按钮位置": "Lokasi Tombol Persetujuan Alat",

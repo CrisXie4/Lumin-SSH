@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "Mevcut durum restorasyonu desteklemiyor",
   "差异预览失败": "Fark önizlemesi başarısız oldu",
   "{path} 等 {count} 个文件": "{path} ve {count} dosyaları",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Bir hata oluştu. Mevcut görev kaydı geliştiricinin hata ayıklamasını gerektiriyor. Lütfen sorunu çözmek için geliştiriciyle iletişime geçin (görev: {conversationId}, mesaj: {messageId})",
   "交换位置": "Yerleri değiştir",
   "控制底部审批与命令处理按钮的左右位置。": "Alttaki onay ve komut işleme butonlarının sol ve sağ konumlarını kontrol eder.",
   "工具审批按钮位置": "Takım Onay Düğmesinin Konumu",

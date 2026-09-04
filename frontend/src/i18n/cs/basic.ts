@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "Současný stav obnovu nepodporuje",
   "差异预览失败": "Náhled rozdílu se nezdařil",
   "{path} 等 {count} 个文件": "{path} a {count} souborů",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Došlo k chybě. Aktuální záznam úlohy vyžaduje ladění vývojáře. Chcete-li to vyřešit, kontaktujte vývojáře (úkol: {conversationId}, zpráva: {messageId})",
   "交换位置": "Vyměňte si místa",
   "控制底部审批与命令处理按钮的左右位置。": "Ovládá levou a pravou polohu tlačítek schválení a zpracování příkazů ve spodní části.",
   "工具审批按钮位置": "Umístění tlačítka pro schválení nástroje",
