@@ -80,6 +80,7 @@ type PendingToolBatch struct {
 	AutoApprovalSettingsRefreshed  bool
 	ForceCollaboration             bool
 	ForceCollaborationReason       string
+	SkippedStandaloneToolNames     []string
 }
 
 type aiPendingToolBatch = PendingToolBatch
@@ -1568,17 +1569,43 @@ func isAIStandaloneOnlyBatchTool(name string) bool {
 	}
 }
 
+// validateAIStandaloneOnlyBatchTools 只在整批都是独占工具且多于一个时报协议错误。
+// 混合批次(独占工具 + 普通工具)不再整批作废, 由 filterAIStandaloneOnlyBatchTools 在执行层剔除独占工具。
 func validateAIStandaloneOnlyBatchTools(tools []aiParsedToolUse) error {
 	if len(tools) <= 1 {
 		return nil
 	}
+	standaloneToolCount := 0
 	for _, tool := range tools {
-		if !isAIStandaloneOnlyBatchTool(tool.Name) {
+		if isAIStandaloneOnlyBatchTool(tool.Name) {
+			standaloneToolCount++
+		}
+	}
+	if standaloneToolCount != len(tools) {
+		return nil
+	}
+	return fmt.Errorf("%s must be the only tool call in the reply", strings.TrimSpace(tools[0].Name))
+}
+
+// filterAIStandaloneOnlyBatchTools 仅过滤执行列表, 不改写 assistant 原文与 API 历史,
+// 因此下一轮请求前缀与提示缓存亲和性不受影响。
+func filterAIStandaloneOnlyBatchTools(tools []aiParsedToolUse) ([]aiParsedToolUse, []string) {
+	if len(tools) <= 1 {
+		return tools, nil
+	}
+	filteredTools := make([]aiParsedToolUse, 0, len(tools))
+	skippedToolNames := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		if isAIStandaloneOnlyBatchTool(tool.Name) {
+			skippedToolNames = append(skippedToolNames, strings.TrimSpace(tool.Name))
 			continue
 		}
-		return fmt.Errorf("%s must be the only tool call in the reply", strings.TrimSpace(tool.Name))
+		filteredTools = append(filteredTools, tool)
 	}
-	return nil
+	if len(filteredTools) == 0 {
+		return tools, nil
+	}
+	return filteredTools, skippedToolNames
 }
 
 // rebuildAIAssistantToolOnlyContent keeps only successfully parsed tool XML.
@@ -1675,6 +1702,45 @@ func (a *Service) emitAIDuplicateToolProtocolConflictMessage(requestID string, d
 		"requestId": requestID,
 		"message": map[string]interface{}{
 			"messageId": fmt.Sprintf("api-tool-protocol-conflict-%d", time.Now().UnixNano()),
+			"role":      "user",
+			"content":   content,
+			"ts":        time.Now().UnixMilli(),
+		},
+	})
+	return AIChatRequestMessage{Role: "user", Content: content}
+}
+
+func buildAIStandaloneToolSkippedMessage(skippedToolNames []string) string {
+	normalizedToolNames := make([]string, 0, len(skippedToolNames))
+	for _, name := range skippedToolNames {
+		if trimmed := strings.TrimSpace(name); trimmed != "" {
+			normalizedToolNames = append(normalizedToolNames, trimmed)
+		}
+	}
+	if len(normalizedToolNames) == 0 {
+		return ""
+	}
+	toolLabel := "tool"
+	pronounLabel := "it"
+	if len(normalizedToolNames) != 1 {
+		toolLabel = "tools"
+		pronounLabel = "them"
+	}
+	return strings.TrimSpace(fmt.Sprintf(`[SYSTEM_TOOL_PROTOCOL_CONFLICT]
+The following standalone-only %s appeared alongside other tool calls in the same assistant response and was skipped: %s. A standalone-only tool must be the only tool call in the reply.
+The remaining tool calls in that response were executed normally, and their results follow the current host protocol. Do not repeat the executed tool calls. If you still need the skipped %s, call %s alone in a separate reply with no other tool call.`, toolLabel, strings.Join(normalizedToolNames, ", "), toolLabel, pronounLabel))
+}
+
+func (a *Service) emitAIStandaloneToolSkippedMessage(requestID string, skippedToolNames []string) AIChatRequestMessage {
+	content := buildAIStandaloneToolSkippedMessage(skippedToolNames)
+	if content == "" {
+		return AIChatRequestMessage{}
+	}
+	a.emitAIChatEvent(map[string]interface{}{
+		"kind":      "api_message_append",
+		"requestId": requestID,
+		"message": map[string]interface{}{
+			"messageId": fmt.Sprintf("api-standalone-tool-skipped-%d", time.Now().UnixNano()),
 			"role":      "user",
 			"content":   content,
 			"ts":        time.Now().UnixMilli(),
@@ -2830,6 +2896,10 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 
 		forceCollaboration, forceCollaborationReason := buildAIForcedCollaborationFlags(requestMessages, roundResult.Text, parsedTools)
 
+		// 混合批次只剔除独占工具的执行资格, 普通工具照原顺序继续执行。
+		// 这里必须在 assistant 原文与 api_message_append 落库之后进行, 避免改写请求前缀破坏提示缓存。
+		executableTools, skippedStandaloneToolNames := filterAIStandaloneOnlyBatchTools(parsedTools)
+
 		nextRequestMessages := roundResult.NextRequestMessages
 		if len(nextRequestMessages) == 0 {
 			nextRequestMessages = append([]AIChatRequestMessage{}, requestMessages...)
@@ -2841,19 +2911,20 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 		requestMessages = nextRequestMessages
 
 		batch := &aiPendingToolBatch{
-			RequestID:                requestID,
-			AssistantMessageID:       assistantMessageID,
-			Payload:                  payload,
-			Profile:                  profile,
-			RequestMessages:          requestMessages,
-			ParsedTools:              parsedTools,
-			NextToolIndex:            0,
-			DuplicateToolCount:       duplicateToolCount,
-			AssistantRetryCount:      assistantRetryCount,
-			CollaborationRetryCount:  collaborationRetryCount,
-			AutoApprovalSettings:     autoApprovalSettings,
-			ForceCollaboration:       forceCollaboration,
-			ForceCollaborationReason: forceCollaborationReason,
+			RequestID:                  requestID,
+			AssistantMessageID:         assistantMessageID,
+			Payload:                    payload,
+			Profile:                    profile,
+			RequestMessages:            requestMessages,
+			ParsedTools:                executableTools,
+			NextToolIndex:              0,
+			DuplicateToolCount:         duplicateToolCount,
+			AssistantRetryCount:        assistantRetryCount,
+			CollaborationRetryCount:    collaborationRetryCount,
+			AutoApprovalSettings:       autoApprovalSettings,
+			ForceCollaboration:         forceCollaboration,
+			ForceCollaborationReason:   forceCollaborationReason,
+			SkippedStandaloneToolNames: skippedStandaloneToolNames,
 		}
 		a.advanceAIChatToolBatch(requestID, batch)
 		return

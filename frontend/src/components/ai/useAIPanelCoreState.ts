@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { cancelAIChat } from './aiChatBridge.ts'
 import { buildAIConversationTokenLedger, countAIConversationAPIMessageRawTokens, saveAIConversation, saveTemporaryAIConversation } from './aiConversationBridge.ts'
 import { getConversationBranchAnchor } from './chat/aiChatMessageTopology.ts'
-import { createEmptyPanelState, findApiAnchorIndexByUiMessageId, isAIQueueBlocked, normalizeAIRuntimePhase } from './aiChatLogic.ts'
+import { AI_API_HISTORY_TRUNCATE_UNSAFE_ERROR, collectRetainedUIMessageIds, createEmptyPanelState, isAIQueueBlocked, normalizeAIRuntimePhase, resolveAPIHistoryCutIndex } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, AIPanelProps, ComposerEditState, PanelState, PerfRecord, TokenLedger } from './aiChatLogic.ts'
 import { upsertTemporaryAIConversation } from './aiTemporaryConversations.ts'
 import { upsertConversationSummary, type ConversationSummary } from './aiConversationSummary.ts'
@@ -149,7 +149,7 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
   const getMessageApiLengthBefore = useCallback((message: AIMessage) => {
     const rawValue = message?.extra?.apiLengthBefore
     const parsedValue = Number(rawValue)
-    return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : 0
+    return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : -1
   }, [])
 
   const truncateConversationAfterMessage = useCallback((conversation: AIConversationSnapshot, messageId: string) => {
@@ -168,14 +168,19 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
     const nextMessages = messages.slice(0, cutIndex)
     // Assistant-turn child messages truncate from their owning assistant turn.
     // Plain user messages remain independent round boundaries.
-    const apiAnchorUIMessageId = targetTurnId || anchorMessage?.id || messageId
-    let apiCutIndex = findApiAnchorIndexByUiMessageId(conversation.apiMessages, apiAnchorUIMessageId)
-
-    if (apiCutIndex < 0) {
-      apiCutIndex = getMessageApiLengthBefore(anchorMessage)
-    }
-    if (apiCutIndex < 0) {
-      apiCutIndex = 0
+    const apiMessages = Array.isArray(conversation.apiMessages) ? conversation.apiMessages : []
+    // 锚点/簿记/归属反查全部失效时必须保留整段 API 历史, 严禁回落成 0 把上下文清空。
+    const retainedUIMessageIds = collectRetainedUIMessageIds(nextMessages)
+    const apiCutIndex = resolveAPIHistoryCutIndex(
+      apiMessages,
+      retainedUIMessageIds,
+      targetTurnId || anchorMessage?.id || messageId,
+      getMessageApiLengthBefore(anchorMessage),
+    )
+    // 结果级防御: 切点归零却还有 UI 消息保留属于数据矛盾, 直接抛出交由调用侧阻断并提示,
+    // 不截断不落盘, 原始 API 历史保持完整。
+    if (apiMessages.length > 0 && retainedUIMessageIds.size > 0 && apiCutIndex <= 0) {
+      throw new Error(AI_API_HISTORY_TRUNCATE_UNSAFE_ERROR)
     }
 
     return {
@@ -183,7 +188,7 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
       updatedAt: Date.now(),
       status: 'idle',
       messages: nextMessages,
-      apiMessages: Array.isArray(conversation.apiMessages) ? conversation.apiMessages.slice(0, apiCutIndex) : [],
+      apiMessages: apiMessages.slice(0, apiCutIndex),
     }
   }, [getMessageApiLengthBefore])
 
@@ -377,7 +382,7 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
           updatedAt: Date.now(),
           status: 'idle',
           messages,
-          apiMessages: Array.isArray(panel.apiMessages) ? panel.apiMessages : [],
+          apiMessages: Array.isArray(panel.apiMessages) ? panel.apiMessages : (Array.isArray(conversation.apiMessages) ? conversation.apiMessages : []),
         }).catch(() => {})
       }
       void cancelAIChat(requestId)

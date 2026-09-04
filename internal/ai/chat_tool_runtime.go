@@ -1292,6 +1292,9 @@ func (a *Service) continueCompatibleAIChatAfterResolvedTools(ctx context.Context
 	if batch.DuplicateToolCount > 0 {
 		requestMessages = append(requestMessages, a.emitAIDuplicateToolProtocolConflictMessage(requestID, batch.DuplicateToolCount))
 	}
+	if len(batch.SkippedStandaloneToolNames) > 0 {
+		requestMessages = append(requestMessages, a.emitAIStandaloneToolSkippedMessage(requestID, batch.SkippedStandaloneToolNames))
+	}
 	nextAssistantMessageID := fmt.Sprintf("%s-cont-%d", requestID, time.Now().UnixNano())
 	a.emitAIChatRuntimePhase(requestID, "api_request")
 	a.emitAIChatEvent(map[string]interface{}{

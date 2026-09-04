@@ -499,6 +499,55 @@ export function findApiAnchorIndexByUiMessageId(apiMessages: unknown, uiMessageI
     : -1
 }
 
+// 截断结果不可信的标记: 计算出的切点会清空整段 API 历史, 但 UI 侧仍有消息保留。
+// 这是数据矛盾态, 必须阻断本次操作而不是静默落盘一个空上下文。
+export const AI_API_HISTORY_TRUNCATE_UNSAFE_ERROR = 'AI_API_HISTORY_TRUNCATE_UNSAFE'
+
+export function normalizeAPIHistoryUIMessageIds(uiMessageIds: unknown) {
+  return Array.isArray(uiMessageIds)
+    ? uiMessageIds.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim())
+    : []
+}
+
+export function collectRetainedUIMessageIds(messages: unknown) {
+  const retained = new Set<string>()
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const messageId = typeof message?.id === 'string' ? message.id.trim() : ''
+    if (messageId) {
+      retained.add(messageId)
+    }
+  }
+  return retained
+}
+
+export function resolveAPIHistoryCutIndex(apiMessages: unknown, retainedUIMessageIds: unknown, anchorUIMessageId = '', apiLengthBefore = -1) {
+  const list = Array.isArray(apiMessages) ? apiMessages : []
+  if (list.length === 0) {
+    return 0
+  }
+  const retained = retainedUIMessageIds instanceof Set ? retainedUIMessageIds as Set<string> : new Set<string>()
+  if (retained.size === 0) {
+    return 0
+  }
+  const anchorIndex = findApiAnchorIndexByUiMessageId(list, anchorUIMessageId)
+  if (anchorIndex > 0) {
+    return anchorIndex
+  }
+  const parsedApiLengthBefore = Number(apiLengthBefore)
+  const normalizedApiLengthBefore = Number.isFinite(parsedApiLengthBefore) ? Math.trunc(parsedApiLengthBefore) : -1
+  if (normalizedApiLengthBefore > 0 && normalizedApiLengthBefore <= list.length) {
+    return normalizedApiLengthBefore
+  }
+  for (let index = 1; index < list.length; index += 1) {
+    const uiMessageIds = normalizeAPIHistoryUIMessageIds(list[index]?.uiMessageIds)
+    if (uiMessageIds.length === 0 || uiMessageIds.some((messageId) => retained.has(messageId))) {
+      continue
+    }
+    return index
+  }
+  return list.length
+}
+
 export function upsertAPIHistoryMessage(apiMessages: unknown, rawMessage: AIAPIHistoryMessageLike, currentMessages: unknown = []): APIHistoryMessage[] {
   const role = rawMessage?.role === 'assistant' ? 'assistant' : (rawMessage?.role === 'system' ? 'system' : 'user')
   const content = typeof rawMessage?.content === 'string' ? rawMessage.content.trim() : ''
