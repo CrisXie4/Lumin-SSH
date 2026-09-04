@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "The current state does not support revert",
   "差异预览失败": "Diff preview failed",
   "{path} 等 {count} 个文件": "{path} and {count} files total",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "An error occurred. The current task record requires developer debugging. Please contact the developer to solve it (task: {conversationId}, message: {messageId})",
   "交换位置": "Swap Positions",
   "控制底部审批与命令处理按钮的左右位置。": "Control the left-right order of the approval and command action buttons at the bottom.",
   "工具审批按钮位置": "Tool Approval Button Position",

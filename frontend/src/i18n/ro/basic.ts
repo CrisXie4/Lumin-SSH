@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "Starea actuală nu acceptă restaurarea",
   "差异预览失败": "Previzualizarea diferențelor a eșuat",
   "{path} 等 {count} 个文件": "Fișierele {path} și {count}",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "A apărut o eroare. Înregistrarea curentă a sarcinii necesită depanare de dezvoltator. Vă rugăm să contactați dezvoltatorul pentru a o rezolva (sarcina: {conversationId}, mesaj: {messageId})",
   "交换位置": "Schimbați locurile",
   "控制底部审批与命令处理按钮的左右位置。": "Controlează pozițiile stânga și dreapta ale butoanelor de aprobare și procesare a comenzilor din partea de jos.",
   "工具审批按钮位置": "Locația butonului de aprobare a instrumentului",

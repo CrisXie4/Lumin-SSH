@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "Trạng thái hiện tại không hỗ trợ khôi phục",
   "差异预览失败": "Xem trước sự khác biệt không thành công",
   "{path} 等 {count} 个文件": "Tệp {path} và {count}",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Đã xảy ra lỗi. Bản ghi tác vụ hiện tại yêu cầu nhà phát triển gỡ lỗi. Vui lòng liên hệ với nhà phát triển để giải quyết (tác vụ: {conversationId}, tin nhắn: {messageId})",
   "交换位置": "Trao đổi địa điểm",
   "控制底部审批与命令处理按钮的左右位置。": "Kiểm soát vị trí bên trái và bên phải của các nút phê duyệt và xử lý lệnh ở phía dưới.",
   "工具审批按钮位置": "Vị trí nút phê duyệt công cụ",

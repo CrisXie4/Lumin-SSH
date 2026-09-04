@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "O estado atual não suporta restauração",
   "差异预览失败": "Falha na visualização da diferença",
   "{path} 等 {count} 个文件": "Arquivos {path} e {count}",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Ocorreu um erro. O registro de tarefa atual requer depuração do desenvolvedor. Entre em contato com o desenvolvedor para resolvê-lo (tarefa: {conversationId}, mensagem: {messageId})",
   "交换位置": "Trocar de lugar",
   "控制底部审批与命令处理按钮的左右位置。": "Controla as posições esquerda e direita dos botões de aprovação e processamento de comandos na parte inferior.",
   "工具审批按钮位置": "Localização do botão de aprovação da ferramenta",

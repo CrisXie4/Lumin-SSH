@@ -1256,6 +1256,7 @@ export default {
   "当前状态不支持还原": "Obecny stan nie pozwala na przywrócenie",
   "差异预览失败": "Podgląd różnic nie powiódł się",
   "{path} 等 {count} 个文件": "{path} i {count} pliki",
+  "发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})": "Wystąpił błąd. Bieżący rekord zadania wymaga debugowania przez programistę. Skontaktuj się z programistą, aby go rozwiązać (zadanie: {conversationId}, wiadomość: {messageId})",
   "交换位置": "Zamień miejsca",
   "控制底部审批与命令处理按钮的左右位置。": "Kontroluje lewą i prawą pozycję przycisków zatwierdzania i przetwarzania poleceń znajdujących się na dole.",
   "工具审批按钮位置": "Lokalizacja przycisku zatwierdzania narzędzia",
