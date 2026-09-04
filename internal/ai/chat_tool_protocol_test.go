@@ -133,8 +133,7 @@ attempt_completion>
 	}
 }
 
-func TestParseAssistantToolUses_StillRejectsStandaloneToolMixedBatch(t *testing.T) {
-	// attempt_completion must be alone; leftover recognized tool must not be ignored.
+func TestParseAssistantToolUses_FiltersStandaloneToolFromMixedBatch(t *testing.T) {
 	raw := `<list_files>
 <path>/root</path>
 <session_id>session_1</session_id>
@@ -143,9 +142,19 @@ func TestParseAssistantToolUses_StillRejectsStandaloneToolMixedBatch(t *testing.
 <attempt_completion>
 <result>done</result>
 </attempt_completion>`
-	_, err := parseAssistantToolUses(raw)
-	if err == nil {
-		t.Fatal("expected standalone-only batch validation error")
+	tools, err := parseAssistantToolUses(raw)
+	if err != nil {
+		t.Fatalf("expected mixed batch parse success, got %v", err)
+	}
+	if len(tools) != 2 {
+		t.Fatalf("expected 2 parsed tools, got %d (%v)", len(tools), toolNames(tools))
+	}
+	filteredTools, skippedToolNames := filterAIStandaloneOnlyBatchTools(tools)
+	if len(filteredTools) != 1 || filteredTools[0].Name != "list_files" {
+		t.Fatalf("unexpected executable tools: %+v", filteredTools)
+	}
+	if len(skippedToolNames) != 1 || skippedToolNames[0] != "attempt_completion" {
+		t.Fatalf("unexpected skipped standalone tools: %v", skippedToolNames)
 	}
 }
 
