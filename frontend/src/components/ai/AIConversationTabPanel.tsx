@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Columns2, Database, Loader2, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, Columns2, Database, Loader2, Search } from 'lucide-react'
 import { useTranslation, getLanguage } from '../../i18n.ts'
 import { Z } from '../../constants/zIndex'
 import Tiptop from '../Tiptop.tsx'
-import AIPanelHeader from './AIPanelHeader.tsx'
+import AIPanelHeader, { formatAIContextTokens } from './AIPanelHeader.tsx'
 import { normalizeAIConversationTaskSettings } from './aiConversationBridge.ts'
 import { useAIChatStreamEvents } from './useAIChatStreamEvents.ts'
 import { useAIPanelCoreState } from './useAIPanelCoreState.ts'
@@ -234,6 +234,9 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
   "disabledForPrompts": false
 }`
   const configRows = Math.max(configText.split('\n').length, 1)
+  const normalizedUpstreamInputTokens = Number.isFinite(Number(panelState.upstreamInputTokens)) && Number(panelState.upstreamInputTokens) > 0 ? Math.trunc(Number(panelState.upstreamInputTokens)) : 0
+  const normalizedUpstreamOutputTokens = Number.isFinite(Number(panelState.upstreamOutputTokens)) && Number(panelState.upstreamOutputTokens) > 0 ? Math.trunc(Number(panelState.upstreamOutputTokens)) : 0
+  const hasUpstreamTokenUsage = normalizedUpstreamInputTokens > 0 || normalizedUpstreamOutputTokens > 0
 
   const renderedConversationList = useMemo(() => renderAIHomeView({ t, conversationList, conversationOrganizer, conversationFilter, setConversationFilter, conversationSelectionMode, setConversationSelectionMode, selectedConversationIds, moveToGroupOpen, setMoveToGroupOpen, editingConversationGroupId, editingConversationGroupName, setEditingConversationGroupName, draggingConversationGroupId, dragOverConversationGroupId, setDraggingConversationGroupId, setDragOverConversationGroupId, panelState, globalSearchOpen, globalSearchQuery, setGlobalSearchQuery, normalizedGlobalSearchQuery, globalSearchLoading, globalSearchResults, globalSearchInputRef, conversationGroupRenameInputRef, resetGlobalSearchState, handleOpenGlobalSearch, handleSelectGlobalSearchResult, toggleConversationSelection, clearConversationSelection, handleOpenConversation, handleMakeConversationPermanent, handleOpenConversationFolder, handleRenameConversationTitle, handleDeleteConversation, handleCreateConversationGroup, beginRenameConversationGroup, cancelRenameConversationGroup, commitRenameConversationGroup, reorderConversationGroup, showSystemGroupRenameUnsupported, handleDeleteConversationGroup, handleMoveSelectedConversations, handleSetSelectedArchived, handleDeleteSelectedConversations }), [beginRenameConversationGroup, cancelRenameConversationGroup, clearConversationSelection, commitRenameConversationGroup, conversationFilter, conversationList, conversationOrganizer, conversationSelectionMode, dragOverConversationGroupId, draggingConversationGroupId, editingConversationGroupId, editingConversationGroupName, getLanguage, globalSearchLoading, globalSearchOpen, globalSearchQuery, globalSearchResults, handleCreateConversationGroup, handleDeleteConversation, handleDeleteConversationGroup, handleDeleteSelectedConversations, handleMakeConversationPermanent, handleMoveSelectedConversations, handleOpenConversation, handleOpenConversationFolder, handleOpenGlobalSearch, handleSelectGlobalSearchResult, handleSetSelectedArchived, moveToGroupOpen, normalizedGlobalSearchQuery, panelState.activeConversationId, reorderConversationGroup, resetGlobalSearchState, selectedConversationIds, showSystemGroupRenameUnsupported, t, toggleConversationSelection])
 
@@ -272,8 +275,6 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
         onGoHome={handleGoHome}
         showContextTokens={Boolean(activeConversation) && !isConversationLoading}
         contextTokens={panelState.contextTokens}
-        upstreamInputTokens={panelState.upstreamInputTokens}
-        upstreamOutputTokens={panelState.upstreamOutputTokens}
         apiMessageCount={Array.isArray(panelState.apiMessages) ? panelState.apiMessages.length : 0}
         isCondensingContext={Boolean(panelState.isCondensingContext)}
         canCondenseContext={canQuickCondenseConversation || canSummaryCondenseConversation}
@@ -285,7 +286,7 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
       />
       {isWorkspaceTabActive ? tabBar : null}
       {activeConversation && !isConversationLoading ? (
-        <div className="h-[26px] shrink-0 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 border-b border-line bg-raised leading-none">
+        <div className="h-[26px] shrink-0 grid grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-2 px-2 border-b border-line bg-raised leading-none">
           <div />
           <div className="justify-self-center flex items-center gap-2">
             {(() => {
@@ -325,6 +326,23 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
               })
             })()}
           </div>
+          {hasUpstreamTokenUsage ? (
+            <Tiptop text={t('上游实际用量,输入/输出 Token')} placement="bottom">
+              <span
+                aria-label={t('上游实际用量,输入/输出 Token')}
+                className="inline-flex items-center justify-center gap-1.5 w-fit min-w-0 h-5 px-2 rounded-[var(--radius-sm)] border border-line bg-transparent text-secondary text-xs font-bold whitespace-nowrap leading-none tabular-nums cursor-default select-none"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <ArrowUp size={11} />
+                  <span>{formatAIContextTokens(normalizedUpstreamInputTokens)}</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <ArrowDown size={11} />
+                  <span>{formatAIContextTokens(normalizedUpstreamOutputTokens)}</span>
+                </span>
+              </span>
+            </Tiptop>
+          ) : <div />}
           <div className="justify-self-end flex items-center gap-1">
             <Tiptop text={t('当前对话搜索')} placement="bottom">
               <button
