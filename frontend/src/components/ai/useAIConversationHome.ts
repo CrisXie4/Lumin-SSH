@@ -339,7 +339,7 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
             updatedAt: Date.now(),
             status: 'idle',
             messages,
-            apiMessages: Array.isArray(previousPanel?.apiMessages) ? previousPanel.apiMessages : [],
+            apiMessages: Array.isArray(previousPanel?.apiMessages) ? previousPanel.apiMessages : (Array.isArray(previousConversation.apiMessages) ? previousConversation.apiMessages : []),
           }).then((saved) => { upsertTemporaryAIConversation(saved); return saved })
         })()
       : (previousConversation && !deletedConversationIdsRef.current.has(previousConversation.id)
@@ -356,7 +356,7 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
             updatedAt: Date.now(),
             status: 'idle',
             messages,
-            apiMessages: Array.isArray(previousPanel?.apiMessages) ? previousPanel.apiMessages : [],
+            apiMessages: Array.isArray(previousPanel?.apiMessages) ? previousPanel.apiMessages : (Array.isArray(previousConversation.apiMessages) ? previousConversation.apiMessages : []),
           }).catch(() => {})
         })()
       : Promise.resolve())

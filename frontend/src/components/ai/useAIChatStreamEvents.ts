@@ -369,6 +369,7 @@ export function useAIChatStreamEvents({
           ? payload.messageId.trim()
           : (matchedPanel.activeAssistantMessageId || requestId)
         setPanelState(matchedPanelKey, (current) => {
+          const nextApiMessages = trimLatestAssistantAPIHistoryMessage(current.apiMessages)
           const nextMessages = (Array.isArray(current.messages) ? current.messages : [])
             .filter((message) => {
               if (!message || typeof message !== 'object') {
@@ -393,6 +394,9 @@ export function useAIChatStreamEvents({
                 streaming: true,
                 extra: {
                   ...(message.extra || {}),
+                  // 该轮 assistant 的 API 记录刚被 trim 掉, 簿记必须同步收缩,
+                  // 否则删除本节点时 apiLengthBefore 偏大会被判为无效而丢失锚点。
+                  apiLengthBefore: nextApiMessages.length,
                   requestStatusLive: true,
                   firstTokenAtMs: 0,
                   statusStartedAtMs: Date.now(),
@@ -400,7 +404,6 @@ export function useAIChatStreamEvents({
                 },
               }
             })
-          const nextApiMessages = trimLatestAssistantAPIHistoryMessage(current.apiMessages)
           return {
             ...current,
             activeAssistantMessageId: assistantMessageId,
@@ -513,6 +516,9 @@ export function useAIChatStreamEvents({
                 metrics: buildMetrics(payload),
                 streaming: true,
                 extra: {
+                  // 续跑轮次同样要写入簿记: 该轮若请求失败不会产生 API 记录,
+                  // 删除这条错误 assistant 时需要靠它定位截断点, 不能让 API 历史被清空。
+                  apiLengthBefore: Array.isArray(current.apiMessages) ? current.apiMessages.length : 0,
                   statusStartedAtMs: Date.now(),
                   firstTokenAtMs: 0,
                   requestStatusLive: true,

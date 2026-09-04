@@ -70,6 +70,12 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
   terminalOutputLineLimit: number
   terminalOutputCharacterLimit: number
 }) {
+  const showAPIHistoryTruncateUnsafeAlert = useCallback(async (conversationId: string, messageId: string) => {
+    await showAlert(t('发生错误,当前任务记录需要开发者debug,请联系开发者解决 (任务: {conversationId}, 消息: {messageId})', {
+      conversationId: typeof conversationId === 'string' && conversationId.trim() ? conversationId.trim() : '-',
+      messageId: typeof messageId === 'string' && messageId.trim() ? messageId.trim() : '-',
+    }))
+  }, [showAlert, t])
   const handleSendMessage = useCallback(async (text: string, sendOptionsOrEditState: Record<string, unknown> | null = null, explicitEditState: Record<string, unknown> | null = null, runtimeOptions: Record<string, unknown> = {}) => {
     const perfStages: Array<{ label: string; ms: number }> = []
     let perfLastMark = performance.now()
@@ -252,9 +258,16 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
       .join('\n\n')
       .trim()
 
-    const baseConversation = isEditingExistingMessage || isRetryingMessage
-      ? truncateConversationAfterMessage(targetConversation, String(activeComposerState.targetMessageId || ''))
-      : targetConversation
+    let baseConversation = targetConversation
+    if (isEditingExistingMessage || isRetryingMessage) {
+      const truncateTargetMessageId = String(activeComposerState.targetMessageId || '')
+      try {
+        baseConversation = truncateConversationAfterMessage(targetConversation, truncateTargetMessageId)
+      } catch {
+        await showAPIHistoryTruncateUnsafeAlert(targetConversation.id, truncateTargetMessageId)
+        return false
+      }
+    }
     const shouldInjectAssistantFirstReply = shouldUseAssistantFirstReplyForConversation(baseConversation)
 
     const requestId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -737,7 +750,13 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
       return false
     }
 
-    const baseConversation = truncateConversationAfterMessage(activeConversation, messageId)
+    let baseConversation = activeConversation
+    try {
+      baseConversation = truncateConversationAfterMessage(activeConversation, messageId)
+    } catch {
+      await showAPIHistoryTruncateUnsafeAlert(activeConversation.id, messageId)
+      return false
+    }
     const requestApiMessages = Array.isArray(baseConversation.apiMessages) ? baseConversation.apiMessages : []
     if (requestApiMessages.length === 0) {
       return false
@@ -892,7 +911,13 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
     if (!confirmed) {
       return
     }
-    const nextConversation = truncateConversationAfterMessage(activeConversation, messageId)
+    let nextConversation = activeConversation
+    try {
+      nextConversation = truncateConversationAfterMessage(activeConversation, messageId)
+    } catch {
+      await showAPIHistoryTruncateUnsafeAlert(activeConversation.id, messageId)
+      return
+    }
     const nextLastTurnState = computeAILastAssistantTurnState(nextConversation.messages)
     setPanelState(panelInstanceKey, (current) => ({
       ...current,
