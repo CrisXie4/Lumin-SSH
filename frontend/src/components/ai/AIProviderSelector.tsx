@@ -102,7 +102,7 @@ export default function AIProviderSelector({
         ref={containerRef}
         className="relative flex-[1_1_0] w-0 max-w-full overflow-visible"
         style={{
-          zIndex: open || modelMenuOpen || reasoningMenuOpen ? 40 : 'auto',
+          zIndex: providerBalanceDeltaLabel ? Z.TOAST : (open || modelMenuOpen || reasoningMenuOpen ? 40 : 'auto'),
           ...(minSelectorWidth > 0 ? { minWidth: minSelectorWidth } : {}),
         }}
       >
