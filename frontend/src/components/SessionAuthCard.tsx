@@ -7,6 +7,8 @@ interface AuthButton {
   label: string;
   value: string | number;
   primary?: boolean;
+  // 字母快捷键，按下该字母直接触发；渲染为「标签 (S)」式下划线提示
+  accessKey?: string;
 }
 
 interface SessionAuthCardProps {
@@ -35,9 +37,9 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
         { label: t('取消'), value: 'cancel' },
       ]
     : [
-        { label: t('只接受本次'), value: 1 },
-        { label: t('接受并保存'), value: 2, primary: true },
-        { label: t('取消'), value: 0 },
+        { label: t('只接受本次'), value: 1, accessKey: 'o' },
+        { label: t('接受并保存'), value: 2, primary: true, accessKey: 's' },
+        { label: t('取消'), value: 0, accessKey: 'c' },
       ];
 
   // 密钥已变更（可能中间人）时默认落在「取消」，避免回车误接受；首次连接落在主按钮
@@ -97,6 +99,16 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
           return e.key === 'ArrowLeft' ? (prev - 1 + n) % n : (prev + 1) % n;
         });
         return;
+      }
+      // 按字母快捷键（o/s/c）直接触发，无修饰键以免干扰复制等操作
+      if (!isPassword && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        const hit = buttons.find((b) => b.accessKey && e.key.toLowerCase() === b.accessKey);
+        if (hit) {
+          e.preventDefault();
+          e.stopPropagation();
+          submit(hit.value);
+          return;
+        }
       }
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -215,7 +227,13 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                   focusIdx === i ? 'outline-2 outline-offset-2 outline-accent' : 'outline-none'
                 }`}
               >
-                {btn.label}
+                {btn.accessKey ? (
+                  <>
+                    {btn.label} (<u className="underline">{btn.accessKey.toUpperCase()}</u>)
+                  </>
+                ) : (
+                  btn.label
+                )}
               </button>
             );
           })}
