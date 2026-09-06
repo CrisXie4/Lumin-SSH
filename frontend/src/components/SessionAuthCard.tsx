@@ -219,6 +219,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                 disabled={disabled}
                 onClick={() => submit(btn.value)}
                 onMouseEnter={() => setFocusIdx(i)}
+                aria-keyshortcuts={btn.accessKey?.toUpperCase()}
                 className={`flex-1 py-[9px] text-[12.5px] rounded-[var(--radius-sm)] whitespace-nowrap ${
                   btn.primary
                     ? 'bg-accent text-white border border-accent'
@@ -227,13 +228,7 @@ export default function SessionAuthCard({ prompt, isActive, t, onResolve }: Sess
                   focusIdx === i ? 'outline-2 outline-offset-2 outline-accent' : 'outline-none'
                 }`}
               >
-                {btn.accessKey ? (
-                  <>
-                    {btn.label} (<u className="underline">{btn.accessKey.toUpperCase()}</u>)
-                  </>
-                ) : (
-                  btn.label
-                )}
+                {btn.accessKey ? `${btn.label}(${btn.accessKey.toUpperCase()})` : btn.label}
               </button>
             );
           })}
