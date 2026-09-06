@@ -204,7 +204,7 @@ func TestStartRemoteClosesIncomingConnectionWhenLocalDialFails(t *testing.T) {
 
 func TestContextCancellationClosesListener(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	forwarder, err := StartLocal(ctx, &fakeDialer{}, "127.0.0.1:0", "example.com:80")
+	forwarder, err := StartLocal(ctx, &fakeDialer{err: errors.New("dial failed")}, "127.0.0.1:0", "example.com:80")
 	if err != nil {
 		t.Fatal(err)
 	}
