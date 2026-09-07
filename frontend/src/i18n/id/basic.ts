@@ -1982,7 +1982,7 @@ export default {
   "暂无 API 请求": "Belum ada permintaan API",
   "缓存命中": "cache terkena",
   "缓存未命中": "cache ketinggalan",
-  "自动重连": "Sambungkan ulang SSH otomatis",
+  "自动重连": "Sambungkan ulang otomatis",
   "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Menyambungkan ulang sesi ini secara otomatis saat koneksi terputus tak terduga. Hingga 10 percobaan dengan interval yang meningkat",
   "SSH 已自动重新连接": "SSH berhasil tersambung ulang secara otomatis",
   "自动重连失败,已达最大重试次数,请手动重连": "Sambungkan ulang otomatis gagal setelah jumlah percobaan maksimum; silakan sambungkan ulang secara manual",

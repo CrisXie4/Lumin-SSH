@@ -1982,7 +1982,7 @@ export default {
   "暂无 API 请求": "Chưa có yêu cầu API nào",
   "缓存命中": "nhấn bộ nhớ cache",
   "缓存未命中": "nhớ cache",
-  "自动重连": "Tự động kết nối lại SSH",
+  "自动重连": "Tự động kết nối lại",
   "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Tự động kết nối lại phiên này khi kết nối bị ngắt đột ngột. Tối đa 10 lần thử với khoảng cách tăng dần",
   "SSH 已自动重新连接": "Đã tự động kết nối lại SSH",
   "自动重连失败,已达最大重试次数,请手动重连": "Tự động kết nối lại thất bại sau số lần thử tối đa; vui lòng kết nối lại thủ công",
