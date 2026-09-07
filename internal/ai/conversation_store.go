@@ -581,6 +581,37 @@ func (c *configBridge) readAIConversationSettings(conversationID string, fallbac
 	return normalizeAIConversationTaskSettings(settings)
 }
 
+func (c *configBridge) GetAIConversationTaskSettings(conversationID string) AIConversationTaskSettings {
+	if c == nil {
+		return AIConversationTaskSettings{}
+	}
+	fallback := defaultAIConversationTaskSettings(c.GetAIGlobalSettings())
+	trimmedConversationID := strings.TrimSpace(conversationID)
+	if trimmedConversationID == "" {
+		return fallback
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.readAIConversationSettings(trimmedConversationID, fallback)
+}
+
+func (c *configBridge) GetAIConversationPromptCacheBypassTimestamp(conversationID string) string {
+	if c == nil {
+		return ""
+	}
+	trimmedConversationID := strings.TrimSpace(conversationID)
+	if trimmedConversationID == "" {
+		return ""
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	summary, err := c.readAIConversationSummary(trimmedConversationID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(summary.PromptCacheBypassTimestamp)
+}
+
 func marshalAIConversationJSON(value interface{}) ([]byte, error) {
 	var builder strings.Builder
 	encoder := json.NewEncoder(&builder)

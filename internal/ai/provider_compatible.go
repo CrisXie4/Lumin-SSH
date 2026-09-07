@@ -16,9 +16,9 @@ import (
 )
 
 type aiChatCompatibleUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	CacheReadTokens  int `json:"cache_read_input_tokens,omitempty"`
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	CacheReadTokens     int `json:"cache_read_input_tokens,omitempty"`
 	PromptTokensDetails *struct {
 		CachedTokens    int `json:"cached_tokens,omitempty"`
 		CacheReadTokens int `json:"cache_read_input_tokens,omitempty"`
@@ -311,7 +311,6 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 	if err != nil {
 		return result, err
 	}
-
 	endpoint := strings.TrimRight(profile.BaseURL, "/") + "/chat/completions"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
