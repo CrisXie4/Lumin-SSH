@@ -1982,7 +1982,7 @@ export default {
   "暂无 API 请求": "Henüz API isteği yok",
   "缓存命中": "önbellek isabeti",
   "缓存未命中": "önbellek kaçırma",
-  "SSH 断线自动重连": "SSH otomatik yeniden bağlanma",
+  "自动重连": "SSH otomatik yeniden bağlanma",
   "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Bağlantı beklenmedik şekilde kesildiğinde bu oturumu otomatik olarak yeniden bağlar. Artan aralıklarla 10 denemeye kadar",
   "SSH 已自动重新连接": "SSH otomatik olarak yeniden bağlandı",
   "自动重连失败,已达最大重试次数,请手动重连": "Otomatik yeniden bağlanma, maksimum deneme sayısından sonra başarısız oldu; lütfen elle yeniden bağlanın",

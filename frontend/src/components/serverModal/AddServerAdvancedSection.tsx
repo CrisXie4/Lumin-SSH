@@ -100,7 +100,7 @@ export function AddServerAdvancedSection({
             onChange={(e) => setForm((f) => ({ ...f, autoReconnect: e.target.checked }))}
           />
           <span>
-            <strong>{t('SSH 断线自动重连')}</strong>
+            <strong>{t('自动重连')}</strong>
             <small>{t('连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长')}</small>
           </span>
         </label>
