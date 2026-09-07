@@ -18,6 +18,7 @@ export default function ContextMenu({ pos, item, mode = 'item', isPinned = false
   const shouldShowDeleteActions = Boolean(item) && !isTabMenu;
   const shouldShowDividerBeforeDelete = shouldShowDeleteActions;
   const icon = (Icon: LucideIcon) => <Icon size={14} />;
+  const actionItemCountSuffix = clipboardItemCount > 1 ? ` (${clipboardItemCount}${t('项')})` : '';
 
   return (
     <UiContextMenu x={pos.x} y={pos.y} items={((): UiMenuItem[] => {
@@ -65,10 +66,10 @@ export default function ContextMenu({ pos, item, mode = 'item', isPinned = false
         entries.push({ label: t('指定编辑器打开'), icon: icon(PencilLine), onSelect: onOpenWithEditor });
       }
       if (item) {
-        entries.push({ label: item.isDirectory ? t('下载文件夹到本地') : t('下载到本地'), icon: icon(Download), onSelect: onDownload });
+        entries.push({ label: `${item.isDirectory ? t('下载文件夹到本地') : t('下载到本地')}${actionItemCountSuffix}`, icon: icon(Download), onSelect: onDownload });
       }
       if (item) {
-        entries.push({ label: t('压缩 (tar.gz)'), icon: icon(Archive), onSelect: onCompress });
+        entries.push({ label: `${t('压缩 (tar.gz)')}${actionItemCountSuffix}`, icon: icon(Archive), onSelect: onCompress });
       }
       if (item && !item.isDirectory && isArchive(item.name)) {
         entries.push({ label: t('解压'), icon: icon(FileArchive), onSelect: onUncompress });
@@ -77,7 +78,7 @@ export default function ContextMenu({ pos, item, mode = 'item', isPinned = false
         entries.push({ label: isTabMenu ? t('重命名标签标题') : t('重命名'), icon: icon(PenLine), onSelect: onRename });
       }
       if (item) {
-        entries.push({ label: t('修改权限'), icon: icon(Lock), onSelect: onChmod });
+        entries.push({ label: `${t('修改权限')}${actionItemCountSuffix}`, icon: icon(Lock), onSelect: onChmod });
       }
       if (shouldShowDividerBeforeCreate) {
         entries.push('separator');

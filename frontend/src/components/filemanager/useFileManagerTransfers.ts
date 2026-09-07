@@ -1140,6 +1140,15 @@ export function useFileManagerTransfers(deps: ReturnType<typeof useFileManagerCo
     }
   }, [sessionId, sessionGroupId, currentPath, addToast, t, getDefaultDownloadDir, getDownloadConflictSettings, getTransferTaskRunner, getUploadSettings, resolvePromptDownloadConflict, openTransferQueueIfNeeded]);
 
+  const handleDownloadItems = useCallback(async (items: FileManagerFileItem[], options: Record<string, unknown> = {}) => {
+    const normalizedItems = Array.isArray(items)
+      ? items.filter((item) => item && typeof item.name === 'string' && item.name.trim())
+      : [];
+    for (const item of normalizedItems) {
+      await handleDownload(item, options);
+    }
+  }, [handleDownload]);
+
   return {
     addToast,
     operationProgress, setOperationProgress, operationInProgressRef,
@@ -1151,6 +1160,6 @@ export function useFileManagerTransfers(deps: ReturnType<typeof useFileManagerCo
     pushFileManagerUndoEntry, handleUndoFileManagerAction,
     uploadNativePaths, uploadEntries,
     handleSelectedFiles, handleUpload, handleUploadFolder,
-    transferFileManagerItems, handleDownload,
+    transferFileManagerItems, handleDownload, handleDownloadItems,
   };
 }

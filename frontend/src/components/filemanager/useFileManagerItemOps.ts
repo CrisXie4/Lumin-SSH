@@ -19,6 +19,11 @@ import type { useFileManagerTransfers } from './useFileManagerTransfers.ts';
 import type { useFileManagerLocator } from './useFileManagerLocator.ts';
 import type { FileManagerChmodTarget, FileManagerFileItem, FileManagerProps } from './fileManagerTypes.ts';
 
+type FileManagerChmodBatchItem = {
+  item: FileManagerFileItem
+  path: string
+}
+
 // 条目操作：复制/剪切路径、删除（单项/批量/标签目录）、文件列表键盘快捷键、
 // 粘贴、新建文件/文件夹、压缩/解压、重命名、右键菜单与 chmod 保存
 export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore> & ReturnType<typeof useFileManagerWorkspaceSync> & ReturnType<typeof useFileManagerPaneView> & ReturnType<typeof useFileManagerClipboard> & ReturnType<typeof useFileManagerEditorState> & ReturnType<typeof useFileManagerDirectoryLoader> & ReturnType<typeof useFileManagerTransfers> & ReturnType<typeof useFileManagerLocator> & {
@@ -371,6 +376,15 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
     }
   };
 
+  const handleCompressItems = async (items: FileManagerFileItem[], options: Record<string, unknown> = {}) => {
+    const normalizedItems = Array.isArray(items)
+      ? items.filter((item) => item && typeof item.name === 'string' && item.name.trim())
+      : [];
+    for (const item of normalizedItems) {
+      await handleCompress(item, options);
+    }
+  };
+
   // Uncompress
   const handleUncompress = async (item: FileManagerFileItem, options: Record<string, unknown> = {}) => {
     const basePath = typeof options.basePath === 'string' ? options.basePath : currentPath;
@@ -501,7 +515,7 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
     ? joinPath(contextMenu.itemBasePath || currentPath, contextMenu.item.name)
     : '';
 
-  const openChmodTarget = useCallback(async (itemPath: unknown, item: FileManagerFileItem) => {
+  const openChmodTarget = useCallback(async (itemPath: unknown, item: FileManagerFileItem, batchItems: FileManagerChmodBatchItem[] = []) => {
     let rememberedMode = '';
     let rememberedIncludeSubdirectories = false;
     let rememberedAutoApplyLastSettings = false;
@@ -511,37 +525,67 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
       rememberedIncludeSubdirectories = settings?.includeSubdirectories === true;
       rememberedAutoApplyLastSettings = settings?.autoApplyLastSettings === true;
     } catch (_) {}
-    let resolvedItem = item;
+
+    const primaryPath = String(itemPath ?? '');
     const getPathOwnership = window?.go?.wailsapp?.App?.GetPathOwnership;
-    const needsMetadata = !item?.permission || !item?.mode || !item?.uid || item?.uid === '-' || !item?.gid || item?.gid === '-';
-    if (needsMetadata && typeof getPathOwnership === 'function') {
-      try {
-        const ownership = await getPathOwnership(sessionId, String(itemPath || ''));
-        if (ownership && typeof ownership === 'object') {
-          const ownershipData = ownership as unknown as Record<string, unknown>
-          resolvedItem = {
-            ...item,
-            permission: typeof ownershipData.permission === 'string' ? ownershipData.permission : String(item?.permission || ''),
-            mode: typeof ownershipData.mode === 'string' ? ownershipData.mode : String(item?.mode || ''),
-            uid: typeof ownershipData.uid === 'string' ? ownershipData.uid : String(item?.uid || '-'),
-            gid: typeof ownershipData.gid === 'string' ? ownershipData.gid : String(item?.gid || '-'),
-          };
+    const resolveItemOwnership = async (targetPath: string, targetItem: FileManagerFileItem) => {
+      let resolvedTargetItem = targetItem;
+      const needsMetadata = !targetItem?.permission
+        || !targetItem?.mode
+        || !targetItem?.uid
+        || targetItem?.uid === '-'
+        || !targetItem?.gid
+        || targetItem?.gid === '-';
+      if (needsMetadata && typeof getPathOwnership === 'function') {
+        try {
+          const ownership = await getPathOwnership(sessionId, targetPath);
+          if (ownership && typeof ownership === 'object') {
+            const ownershipData = ownership as unknown as Record<string, unknown>;
+            resolvedTargetItem = {
+              ...targetItem,
+              permission: typeof ownershipData.permission === 'string' ? ownershipData.permission : String(targetItem?.permission || ''),
+              mode: typeof ownershipData.mode === 'string' ? ownershipData.mode : String(targetItem?.mode || ''),
+              uid: typeof ownershipData.uid === 'string' ? ownershipData.uid : String(targetItem?.uid || '-'),
+              gid: typeof ownershipData.gid === 'string' ? ownershipData.gid : String(targetItem?.gid || '-'),
+            };
+          }
+        } catch (error) {
+          console.warn('GetPathOwnership failed:', error);
         }
-      } catch (error) {
-        console.warn('GetPathOwnership failed:', error);
       }
+      return resolvedTargetItem;
+    };
+
+    const resolvedTargets: FileManagerChmodBatchItem[] = [{
+      item: await resolveItemOwnership(primaryPath, item),
+      path: primaryPath,
+    }];
+    const seenPaths = new Set([primaryPath]);
+    for (const target of Array.isArray(batchItems) ? batchItems : []) {
+      const targetPath = String(target?.path || '');
+      if (!targetPath || seenPaths.has(targetPath) || !target?.item) {
+        continue;
+      }
+      seenPaths.add(targetPath);
+      resolvedTargets.push({
+        item: await resolveItemOwnership(targetPath, target.item),
+        path: targetPath,
+      });
     }
+
+    const resolvedItem = resolvedTargets[0].item;
     const actualMode = normalizeChmodMode(resolvedItem?.mode);
     setChmodTarget({
       item: resolvedItem,
-      path: String(itemPath ?? ''),
+      path: primaryPath,
       mode: actualMode || '',
       rememberedMode,
       autoApplyLastSettings: rememberedAutoApplyLastSettings,
       ownerCandidates: [],
       groupCandidates: [],
       includeSubdirectories: rememberedIncludeSubdirectories,
-      showIncludeSubdirectories: resolvedItem.isDirectory,
+      showIncludeSubdirectories: resolvedTargets.some((target) => target.item.isDirectory),
+      items: resolvedTargets,
     });
     const listOwnershipCandidates = window?.go?.wailsapp?.App?.ListOwnershipCandidates;
     if (typeof listOwnershipCandidates !== 'function') {
@@ -550,7 +594,7 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
     try {
       const nextCandidates = await listOwnershipCandidates(sessionId);
       setChmodTarget((current: FileManagerChmodTarget | null) => {
-        if (!current || current.path !== itemPath) {
+        if (!current || current.path !== primaryPath) {
           return current;
         }
         return {
@@ -570,65 +614,152 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
     await openChmodTarget(itemPath, item);
   };
 
+  const handleChmodItems = async (items: FileManagerFileItem[], basePath = currentPath) => {
+    const normalizedItems = Array.isArray(items)
+      ? items.filter((item) => item && typeof item.name === 'string' && item.name.trim())
+      : [];
+    if (normalizedItems.length === 0) {
+      return;
+    }
+    const targets = normalizedItems.map((item) => ({
+      item,
+      path: joinPath(basePath, item.name),
+    }));
+    await openChmodTarget(targets[0].path, targets[0].item, targets.slice(1));
+  };
+
   const handleChmodSave = async (modeStr: unknown, includeSubdirectories: unknown, ownerValue: unknown, groupValue: unknown) => {
     if (!chmodTarget) return;
+    const storedTargets = Array.isArray(chmodTarget.items)
+      ? chmodTarget.items as FileManagerChmodBatchItem[]
+      : [];
+    const targetItems = storedTargets.length > 0
+      ? storedTargets
+      : (chmodTarget.item ? [{ item: chmodTarget.item, path: chmodTarget.path }] : []);
+    if (targetItems.length === 0) {
+      return;
+    }
+
     const normalizedMode = normalizeChmodMode(modeStr) || '644';
-    const currentMode = normalizeChmodMode(chmodTarget.item?.mode) || normalizeChmodMode(chmodTarget.mode) || normalizedMode;
+    const primaryItem = targetItems[0].item;
+    const currentMode = normalizeChmodMode(primaryItem.mode) || normalizeChmodMode(chmodTarget.mode) || normalizedMode;
     const modeChanged = normalizedMode !== currentMode;
+    const isBatch = targetItems.length > 1;
     const rememberedIncludeSubdirectories = Boolean(includeSubdirectories);
-    const recursive = Boolean(chmodTarget.showIncludeSubdirectories && rememberedIncludeSubdirectories);
     const ownerCandidates = Array.isArray(chmodTarget.ownerCandidates) ? chmodTarget.ownerCandidates : [];
     const groupCandidates = Array.isArray(chmodTarget.groupCandidates) ? chmodTarget.groupCandidates : [];
-    const chmodItem = chmodTarget.item as FileManagerFileItem;
-    const currentOwnerId = normalizeIdentityId(chmodItem.uid);
-    const currentGroupId = normalizeIdentityId(chmodItem.gid);
+    const currentOwnerId = normalizeIdentityId(primaryItem.uid);
+    const currentGroupId = normalizeIdentityId(primaryItem.gid);
     const ownerChanged = resolveIdentityCompareKey(ownerValue, ownerCandidates, currentOwnerId) !== (currentOwnerId ? `id:${currentOwnerId}` : '');
     const groupChanged = resolveIdentityCompareKey(groupValue, groupCandidates, currentGroupId) !== (currentGroupId ? `id:${currentGroupId}` : '');
     const ownerSpec = ownerChanged ? resolveIdentityInputSpec(ownerValue, ownerCandidates, currentOwnerId) : '';
     const groupSpec = groupChanged ? resolveIdentityInputSpec(groupValue, groupCandidates, currentGroupId) : '';
-    if (!modeChanged && !ownerChanged && !groupChanged) {
+
+    if (!modeChanged && !ownerChanged && !groupChanged && !isBatch) {
       setChmodTarget(null);
       return;
     }
+
     try {
       try {
         await AppGo.SaveChmodDialogSettings(normalizedMode, rememberedIncludeSubdirectories);
       } catch (saveErr) {
         console.warn('SaveChmodDialogSettings failed:', saveErr);
       }
-      if (ownerChanged || groupChanged) {
-        const chownFile = window?.go?.wailsapp?.App?.ChownFile;
-        if (typeof chownFile !== 'function') {
-          throw new Error(t('应用不可用'));
-        }
-        await chownFile(sessionId, chmodTarget.path, ownerSpec, groupSpec, recursive);
-      }
-      if (modeChanged) {
-        await AppGo.ChmodFile(sessionId, chmodTarget.path, normalizedMode, recursive);
-      }
-      pushFileManagerUndoEntry({
-        undo: async () => {
+
+      const appliedTargets: Array<{
+        path: string
+        currentMode: string
+        currentOwnerId: string
+        currentGroupId: string
+        recursive: boolean
+        ownerApplied: boolean
+        modeApplied: boolean
+      }> = [];
+      const failures: string[] = [];
+
+      for (const target of targetItems) {
+        const targetCurrentMode = normalizeChmodMode(target.item.mode) || normalizedMode;
+        const targetRecursive = Boolean(target.item.isDirectory && rememberedIncludeSubdirectories);
+        const applied = {
+          path: target.path,
+          currentMode: targetCurrentMode,
+          currentOwnerId: normalizeIdentityId(target.item.uid),
+          currentGroupId: normalizeIdentityId(target.item.gid),
+          recursive: targetRecursive,
+          ownerApplied: false,
+          modeApplied: false,
+        };
+        try {
           if (ownerChanged || groupChanged) {
             const chownFile = window?.go?.wailsapp?.App?.ChownFile;
             if (typeof chownFile !== 'function') {
               throw new Error(t('应用不可用'));
             }
-            await chownFile(sessionId, chmodTarget.path, ownerChanged ? currentOwnerId : '', groupChanged ? currentGroupId : '', recursive);
+            await chownFile(sessionId, target.path, ownerSpec, groupSpec, targetRecursive);
+            applied.ownerApplied = true;
           }
-          if (modeChanged) {
-            await AppGo.ChmodFile(sessionId, chmodTarget.path, currentMode, recursive);
+          if (isBatch || modeChanged) {
+            await AppGo.ChmodFile(sessionId, target.path, normalizedMode, targetRecursive);
+            applied.modeApplied = true;
           }
-          if (getParentPath(chmodTarget.path) === (currentPathRef.current || currentPath)) {
-            await loadDir(currentPathRef.current || currentPath, { preserveView: true, showLoading: false });
-          } else {
-            await refreshDirectoryAfterTransfer(getParentPath(chmodTarget.path));
+        } catch (err) {
+          if (applied.ownerApplied || applied.modeApplied) {
+            appliedTargets.push(applied);
+          }
+          failures.push(`${target.path}: ${err}`);
+          continue;
+        }
+        if (applied.ownerApplied || applied.modeApplied) {
+          appliedTargets.push(applied);
+        }
+      }
+
+      if (appliedTargets.length === 0) {
+        addToast?.(`${t('权限修改失败')}: ${failures.slice(0, 3).join('；') || t('操作失败')}`, 'error');
+        return;
+      }
+
+      const undoTargets = [...appliedTargets];
+      pushFileManagerUndoEntry({
+        undo: async () => {
+          for (let index = undoTargets.length - 1; index >= 0; index -= 1) {
+            const target = undoTargets[index];
+            if (target.ownerApplied) {
+              const chownFile = window?.go?.wailsapp?.App?.ChownFile;
+              if (typeof chownFile !== 'function') {
+                throw new Error(t('应用不可用'));
+              }
+              await chownFile(
+                sessionId,
+                target.path,
+                ownerChanged ? target.currentOwnerId : '',
+                groupChanged ? target.currentGroupId : '',
+                target.recursive,
+              );
+            }
+            if (target.modeApplied) {
+              await AppGo.ChmodFile(sessionId, target.path, target.currentMode, target.recursive);
+            }
+          }
+          const refreshTargets = new Set(undoTargets.map((target) => getParentPath(target.path)));
+          for (const refreshPath of refreshTargets) {
+            await refreshDirectoryAfterTransfer(refreshPath);
           }
         },
       });
-      addToast?.(t('权限修改成功'), 'success');
+
+      addToast?.(
+        isBatch ? `${t('权限修改成功')}: ${appliedTargets.length}${t('项')}` : t('权限修改成功'),
+        'success',
+      );
+      if (failures.length > 0) {
+        addToast?.(`${t('权限修改失败')}: ${failures.slice(0, 3).join('；')}`, 'error');
+      }
       setChmodTarget(null);
-      if (getParentPath(chmodTarget.path) === currentPathRef.current) {
-        await loadDir(currentPathRef.current, { preserveView: true, showLoading: false });
+      const refreshTargets = new Set(appliedTargets.map((target) => getParentPath(target.path)));
+      for (const refreshPath of refreshTargets) {
+        await refreshDirectoryAfterTransfer(refreshPath);
       }
     } catch (err) {
       addToast?.(`${t('权限修改失败')}: ${err}`, 'error');
@@ -640,9 +771,9 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
     handleDelete, handleDeleteShell, handleDeleteItems,
     handleFileListKeyDown,
     handlePaste, handleMkdir, handleNewFile,
-    handleCompress, handleUncompress,
+    handleCompress, handleCompressItems, handleUncompress,
     startRename, renameCommittingRef, confirmRename,
     closeContextMenu, contextMenuTargetPath,
-    openChmodTarget, handleChmod, handleChmodSave,
+    openChmodTarget, handleChmod, handleChmodItems, handleChmodSave,
   };
 }

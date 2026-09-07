@@ -19,15 +19,15 @@ export function renderFileManagerOverlays(fm: FileManagerController) {
     contextMenu, clipboard, isDualPaneLayout, activePaneKey,
     fileManagerWorkspace, hideFileManagerTabCloseButton,
     closeContextMenu, handleToggleFileManagerTabPinned, handleCloseFileManagerTab,
-    handleCopyPath, currentPath, selectedPathsRef, joinPath,
+    handleCopyPath, currentPath, selectedPathsRef, joinPath, sortedItems,
     getInactiveFileManagerPaneState, transferFileManagerItems,
-    handleClipboardCopy, handleClipboardCut, handlePaste, handleDownload,
+    handleClipboardCopy, handleClipboardCut, handlePaste, handleDownload, handleDownloadItems,
     openFileManagerPathInNewTab, handleEdit,
     handleOpenSystemEditor, handleOpenWithEditor,
-    handleRenameFileManagerTabTitle, startRename, openChmodTarget, handleChmod,
+    handleRenameFileManagerTabTitle, startRename, openChmodTarget, handleChmod, handleChmodItems,
     operationInProgressRef, handleDeleteItems, handleDeleteTabDirectory,
     handleDelete, handleDeleteShell, handleMkdir, handleNewFile,
-    handleCompress, handleUncompress,
+    handleCompress, handleCompressItems, handleUncompress,
     uploadQueueItems, uploadPanelState, uploadPanelClosing, setUploadPanelOpen,
     isUploadAbortable, abortUploadItem, abortUploadItems, removeUploadItems,
     openEditFiles, activeEditPath, handleSaveFile, closeEditFile, closeAllEditFiles,
@@ -36,6 +36,22 @@ export function renderFileManagerOverlays(fm: FileManagerController) {
     chmodTarget, handleChmodSave, setChmodTarget,
     operationProgress,
   } = fm;
+
+  const resolveContextMenuActionItems = (): FileManagerFileItem[] => {
+    if (!contextMenu?.item) {
+      return [];
+    }
+    if (!contextMenu.clipboardUsesSelectedPaths || !Array.isArray(selectedPathsRef.current) || selectedPathsRef.current.length <= 1) {
+      return [contextMenu.item];
+    }
+    const basePath = contextMenu.itemBasePath || currentPath;
+    const selectedItems = selectedPathsRef.current
+      .map((selectedPath) => sortedItems.find((candidate) => joinPath(basePath, candidate.name) === selectedPath))
+      .filter((candidate): candidate is FileManagerFileItem => Boolean(candidate));
+    return selectedItems.length === selectedPathsRef.current.length ? selectedItems : [contextMenu.item];
+  };
+  const chmodTargetCount = chmodTarget && Array.isArray(chmodTarget.items) ? chmodTarget.items.length : 1;
+
   return (
     <>
       {/* Context Menu */}
@@ -150,8 +166,11 @@ export function renderFileManagerOverlays(fm: FileManagerController) {
             closeContextMenu();
           }}
           onDownload={() => {
-            if (contextMenu.item) {
-              void handleDownload(contextMenu.item, { basePath: contextMenu.itemBasePath || currentPath });
+            const actionItems = resolveContextMenuActionItems();
+            if (actionItems.length > 1) {
+              void handleDownloadItems(actionItems, { basePath: contextMenu?.itemBasePath || currentPath });
+            } else if (actionItems[0]) {
+              void handleDownload(actionItems[0], { basePath: contextMenu?.itemBasePath || currentPath });
             }
             closeContextMenu();
           }}
@@ -195,8 +214,13 @@ export function renderFileManagerOverlays(fm: FileManagerController) {
           onChmod={() => {
             if (contextMenu.mode === 'tab' && contextMenu.item) {
               void openChmodTarget(contextMenu.tabPath, contextMenu.item);
-            } else if (contextMenu.item) {
-              void handleChmod(contextMenu.item, contextMenu.itemBasePath || currentPath);
+            } else {
+              const actionItems = resolveContextMenuActionItems();
+              if (actionItems.length > 1) {
+                void handleChmodItems(actionItems, contextMenu.itemBasePath || currentPath);
+              } else if (actionItems[0]) {
+                void handleChmod(actionItems[0], contextMenu.itemBasePath || currentPath);
+              }
             }
             closeContextMenu();
           }}
@@ -225,8 +249,11 @@ export function renderFileManagerOverlays(fm: FileManagerController) {
           onMkdir={() => { void handleMkdir(contextMenu.createBasePath || currentPath); closeContextMenu(); }}
           onNewFile={() => { void handleNewFile(contextMenu.createBasePath || currentPath); closeContextMenu(); }}
           onCompress={() => {
-            if (contextMenu.item) {
-              void handleCompress(contextMenu.item, { basePath: contextMenu.itemBasePath || currentPath });
+            const actionItems = resolveContextMenuActionItems();
+            if (actionItems.length > 1) {
+              void handleCompressItems(actionItems, { basePath: contextMenu?.itemBasePath || currentPath });
+            } else if (actionItems[0]) {
+              void handleCompress(actionItems[0], { basePath: contextMenu?.itemBasePath || currentPath });
             }
             closeContextMenu();
           }}
@@ -279,7 +306,7 @@ export function renderFileManagerOverlays(fm: FileManagerController) {
       {/* Chmod Dialog */}
       {chmodTarget && (
         <ChmodDialog
-          path={chmodTarget.path}
+          path={chmodTargetCount > 1 ? `${chmodTarget.path} (${chmodTargetCount}${t('项')})` : chmodTarget.path}
           permission={(chmodTarget.item as FileManagerFileItem).permission ?? ''}
           mode={chmodTarget.mode}
           rememberedMode={chmodTarget.rememberedMode}
