@@ -1982,7 +1982,7 @@ export default {
   "暂无 API 请求": "Nenhuma solicitação de API ainda",
   "缓存命中": "acerto no cache",
   "缓存未命中": "falta de cache",
-  "自动重连": "Reconexão automática de",
+  "自动重连": "Reconexão automática",
   "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Reconecta automaticamente esta sessão quando a conexão cai inesperadamente. Até 10 tentativas com intervalos crescentes",
   "SSH 已自动重新连接": "SSH reconectado automaticamente",
   "自动重连失败,已达最大重试次数,请手动重连": "A reconexão automática falhou após o número máximo de tentativas; reconecte manualmente",

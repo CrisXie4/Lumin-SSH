@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -215,6 +216,39 @@ func (m *SSHManager) ReconnectDisconnectedSession(sessionId string) (ReconnectOu
 	if err != nil {
 		return ReconnectOutcome{}, m.recordMCPReconnectFailure(record.ParentSessionId, record.ConnKey, err)
 	}
+	// 按 connKey 串行化整个恢复序列(解析→拨号→重开子终端→清理记录):
+	// 并发 reconnect_server 对同一服务器只执行一次恢复,后续调用在锁释放后
+	// 因记录已清,会走幂等路径(会话在线→AlreadyConnected),不会重复重开子终端。
+	m.reconnectLocksMu.Lock()
+	reconnectLock := m.reconnectLocks[record.ConnKey]
+	if reconnectLock == nil {
+		reconnectLock = &sync.Mutex{}
+		m.reconnectLocks[record.ConnKey] = reconnectLock
+	}
+	m.reconnectLocksMu.Unlock()
+	reconnectLock.Lock()
+	defer reconnectLock.Unlock()
+
+	// 拿锁后复查:前一个并发调用可能已完成恢复并清掉记录,此时走幂等路径,
+	// 不重复拨号,更不重复重开子终端。
+	if _, stillDead := m.LookupDisconnectedSession(record.ParentSessionId); !stillDead {
+		m.mu.RLock()
+		parent := m.parentForSessionIdLocked(record.ParentSessionId)
+		_, alive := m.sessions[record.ParentSessionId]
+		m.mu.RUnlock()
+		if alive && parent != "" {
+			return ReconnectOutcome{
+				SessionId:        parent,
+				ConnKey:          record.ConnKey,
+				OldToNew:         map[string]string{parent: parent},
+				TerminalCount:    1,
+				AlreadyConnected: true,
+			}, nil
+		}
+		// 记录已消费但会话不在线(如过期),不再重复恢复
+		return ReconnectOutcome{}, ErrReconnectUnavailable
+	}
+
 	// 是否允许外部 AI 重连由 MCP 全局授权控制(MCP 服务器启用即放行);
 	// MCP 服务器关闭时不注入 reconnect 能力,MCP 工具目录里本就没有 reconnect_server。
 	// 复用原 parentSessionId 重新拨号;主机密钥变更时 Connect 会挂起待用户确认并返回错误,

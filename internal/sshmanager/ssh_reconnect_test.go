@@ -2,8 +2,11 @@ package sshmanager
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
+
+	"luminssh-go/internal/config"
 )
 
 // TestRecordAndLookupDisconnectedSession 验证整机断开后记录可按父/子会话 id 查到。
@@ -167,5 +170,62 @@ func TestEvictionClearsFailureCounts(t *testing.T) {
 	manager.mu.RUnlock()
 	if hasFail || fails != 0 {
 		t.Fatalf("记录被替换后失败计数应被清除, 残留: %d", fails)
+	}
+}
+
+// TestConcurrentReconnectSingleRecovery 并发 reconnect_server 同一断连会话时,
+// 只执行一次完整恢复(单次拨号/重开子终端),其余调用幂等命中 AlreadyConnected,
+// 不重复创建子终端(回归:per-connKey 序列锁覆盖整个恢复序列)。
+func TestConcurrentReconnectSingleRecovery(t *testing.T) {
+	host, port, hostKeyLine, cleanup := newCycleTestServer(t)
+	defer cleanup()
+	manager := setupCycleTestManager(t, host, port, hostKeyLine)
+	// 隔离配置目录,避免测试写入真实用户配置
+	tmp := t.TempDir()
+	t.Setenv("APPDATA", tmp)
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	cm := config.NewConfigManager()
+	cm.SaveConnection(Connection{ID: "srv-1", Username: "test", Host: host, Port: port}, true)
+	manager.SetConfigManager(cm)
+
+	// 整机断开现场:parent=root,子终端 term_a/term_b
+	manager.recordDisconnectedConn("srv-1", []string{"root", "term_a", "term_b"}, "root", "transport")
+
+	const n = 8
+	var wg sync.WaitGroup
+	results := make([]ReconnectOutcome, n)
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = manager.ReconnectDisconnectedSession("root")
+		}(i)
+	}
+	wg.Wait()
+
+	// 恰好一次完整恢复(非 AlreadyConnected),其余全部幂等成功
+	recovered := 0
+	for i := 0; i < n; i++ {
+		if errs[i] != nil {
+			t.Fatalf("调用 %d 不应失败: %v", i, errs[i])
+		}
+		if !results[i].AlreadyConnected {
+			recovered++
+		}
+	}
+	if recovered != 1 {
+		t.Fatalf("完整恢复应恰好执行 1 次, 实际: %d", recovered)
+	}
+	// 终端不重复:parent(1) + 重开的 2 个子终端 = 3;若无序列锁会翻倍
+	manager.mu.RLock()
+	terms := append([]string(nil), manager.connTerminals["srv-1"]...)
+	fails := manager.mcpReconnectFailures["root"]
+	manager.mu.RUnlock()
+	if len(terms) != 3 {
+		t.Fatalf("恢复后终端数应 = 3(parent+2 子), 实际: %d (%v) —— 疑似重复重开子终端", len(terms), terms)
+	}
+	if fails != 0 {
+		t.Fatalf("成功重连后失败计数应为 0, 实际: %d", fails)
 	}
 }

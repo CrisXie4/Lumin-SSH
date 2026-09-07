@@ -248,6 +248,11 @@ type SSHManager struct {
 	// connectLocksMu 保护 connectLocks 表本身;表随服务器数量增长,量级很小(数百以内)。
 	connectLocks   map[string]*sync.Mutex
 	connectLocksMu sync.Mutex
+	// reconnectLocks 按 connKey 串行化 MCP ReconnectDisconnectedSession 的完整恢复
+	// 序列(解析配置→拨号→重开子终端→清理记录),避免并发 reconnect_server 拿到同一
+	// 条断连记录后重复重开子终端。与 connectLocks 相互独立,不会与 Connect 内的锁死锁。
+	reconnectLocks   map[string]*sync.Mutex
+	reconnectLocksMu sync.Mutex
 	bufPool          sync.Pool
 	// nextGen is the monotonic source of SessionData.Gen values, used to tell
 	// apart two local/serial sessions that reused the same sessionId (fast
@@ -297,6 +302,7 @@ func NewSSHManager() *SSHManager {
 		tempAcceptedKeys: make(map[string]string),
 		pendingCancels:   make(map[string]context.CancelFunc),
 		connectLocks:     make(map[string]*sync.Mutex),
+		reconnectLocks:   make(map[string]*sync.Mutex),
 		portForwards:     make(map[string]*managedPortForward),
 		bufPool: sync.Pool{
 			New: func() any {
