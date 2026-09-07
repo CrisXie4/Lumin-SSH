@@ -613,23 +613,18 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     }
   }, [addToast, awaitDisconnectTerminals, t, postConnectSetup]);
 
-  // ── 断线自动重连(设置开关,默认关;指数退避,最多 10 次)────────
+  // ── 断线自动重连(按服务器开关,默认关;指数退避,最多 10 次)────
   const AUTO_RECONNECT_MAX_ATTEMPTS = 10;
-  const autoReconnectEnabledRef = useRef(localStorage.getItem('sshAutoReconnect') === 'true');
   const autoReconnectTimersRef = useRef<Map<string, { timer: number; attempt: number }>>(new Map());
 
-  useEffect(() => {
-    const handleSettingChange = (e: Event) => {
-      autoReconnectEnabledRef.current = (e as CustomEvent<boolean>).detail === true;
-      // 关闭设置时取消所有尚未发起的重连尝试
-      if (!autoReconnectEnabledRef.current) {
-        autoReconnectTimersRef.current.forEach((state) => window.clearTimeout(state.timer));
-        autoReconnectTimersRef.current.clear();
-      }
-    };
-    window.addEventListener('ssh-auto-reconnect-changed', handleSettingChange);
-    return () => window.removeEventListener('ssh-auto-reconnect-changed', handleSettingChange);
-  }, []);
+  // 该会话对应的服务器是否开启了断线自动重连(本地/串口无 transport 断连语义,恒不启用)
+  const isSessionAutoReconnectEnabled = useCallback((session: SessionLike) => {
+    if (session.isLocal || session.isSerial) {
+      return false;
+    }
+    const server = serversRef.current.find((sv) => sv.id === session.serverId);
+    return !!server?.autoReconnect;
+  }, [serversRef]);
 
   // 卸载时清掉所有挂起的重连定时器
   useEffect(() => () => {
@@ -646,25 +641,21 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
   }, []);
 
   const scheduleAutoReconnect = useCallback((sessionId: string) => {
-    if (!autoReconnectEnabledRef.current) {
-      return;
-    }
     const session = sessionsRef.current.find((s) => s.id === sessionId);
-    // 仅 SSH 会话支持断线自动重连(本地/串口没有 transport 断连语义)
-    if (!session || session.isLocal || session.isSerial) {
+    if (!session || !isSessionAutoReconnectEnabled(session)) {
       return;
     }
     cancelAutoReconnect(sessionId);
     const state = { timer: 0, attempt: 0 };
     autoReconnectTimersRef.current.set(sessionId, state);
     const runAttempt = () => {
-      if (!autoReconnectTimersRef.current.has(sessionId) || !autoReconnectEnabledRef.current) {
-        autoReconnectTimersRef.current.delete(sessionId);
+      if (!autoReconnectTimersRef.current.has(sessionId)) {
         return;
       }
       const current = sessionsRef.current.find((s) => s.id === sessionId);
-      // 会话已删除、已被用户手动重连或正在等待主机密钥确认(Connecting)时终止
-      if (!current || (current.status !== 'closed' && current.status !== 'error')) {
+      // 会话已删除、已被用户手动重连、正在等待主机密钥确认(connecting)、
+      // 或服务器已关闭自动重连开关时终止
+      if (!current || (current.status !== 'closed' && current.status !== 'error') || !isSessionAutoReconnectEnabled(current)) {
         autoReconnectTimersRef.current.delete(sessionId);
         return;
       }
@@ -691,7 +682,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       });
     };
     state.timer = window.setTimeout(runAttempt, 2000);
-  }, [addToast, cancelAutoReconnect, reconnectSession, t]);
+  }, [addToast, cancelAutoReconnect, isSessionAutoReconnectEnabled, reconnectSession, sessionsRef, t]);
 
   useEffect(() => {
     if (!serversLoaded || !rememberWorkspaceLoaded || workspaceRestoreStartedRef.current) {

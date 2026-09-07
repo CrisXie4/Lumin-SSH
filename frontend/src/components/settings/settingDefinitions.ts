@@ -215,11 +215,6 @@ const settingsTreeSource = rootNode(
         ]),
       ]),
     ], { targetId: 'general.remember-workspace' }),
-    sectionNode('general', 'connection', '连接', [
-      panelNode('general.panel.connection', [
-        fieldNode('general.auto-reconnect', 'autoReconnect', 'SSH 断线自动重连', '连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长', { control: 'toggle', stateKey: 'sshAutoReconnect' }),
-      ]),
-    ], { targetId: 'general.auto-reconnect' }),
     sectionNode('general', 'update', '更新下载', [
       panelNode('general.panel.update', [
         fieldNode('general.update-use-proxy', 'updateUseProxy', '优先使用镜像下载', '优先通过多个镜像地址下载 GitHub 更新,失败后自动回退为官方直连下载', { control: 'toggle', stateKey: 'updateUseProxy' }),

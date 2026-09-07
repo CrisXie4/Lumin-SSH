@@ -121,6 +121,8 @@ export function useAddServerForm({
       data.fileManagerInitPath = String(data.fileManagerInitPath || '').trim();
       data.terminalEncoding = String(data.terminalEncoding || '').trim() || 'utf-8';
       data.allowLegacySshRsa = !!form.allowLegacySshRsa;
+      data.autoReconnect = !!form.autoReconnect;
+      data.allowMcpReconnect = !!form.allowMcpReconnect;
       data.proxyMode = form.proxyMode || 'direct';
       data.proxyNodeId = String(data.proxyNodeId || '').trim();
       data.proxyType = form.proxyType || 'socks5';

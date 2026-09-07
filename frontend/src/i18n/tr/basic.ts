@@ -1988,4 +1988,6 @@ export default {
   "自动重连失败,已达最大重试次数,请手动重连": "Otomatik yeniden bağlanma, maksimum deneme sayısından sonra başarısız oldu; lütfen elle yeniden bağlanın",
   "外部 AI 已重新连接该服务器": "Harici AI bu sunucuyu yeniden bağladı",
   "外部 AI 自动重连服务器失败,请手动处理": "Harici AI sunucuyu yeniden bağlayamadı; lütfen elle işleme alın",
+  "允许外部 MCP 重连": "Harici MCP yeniden bağlanmasına izin ver",
+  "开启后, 外部 AI 可通过 MCP reconnect_server 工具重连本服务器; 关闭时 AI 重连会被拒绝并提醒你": "Etkinleştirildiğinde harici AI, MCP reconnect_server aracıyla bu sunucuyu yeniden bağlayabilir; devre dışı bırakıldığında AI yeniden bağlanma girişimleri reddedilir ve size bildirilir",
 } satisfies I18nDict;

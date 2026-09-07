@@ -78,7 +78,11 @@ type Connection struct {
 	FileManagerInitPath string `json:"fileManagerInitPath,omitempty"`
 	TerminalEncoding    string `json:"terminalEncoding,omitempty"`
 	AllowLegacySSHRSA   bool   `json:"allowLegacySshRsa,omitempty"`
-	ProxyMode           string `json:"proxyMode,omitempty"`
+	// AutoReconnect 断线自动重连(按服务器粒度,默认关):传输/保活断开后前端自动重连该会话。
+	AutoReconnect bool `json:"autoReconnect,omitempty"`
+	// AllowMCPReconnect 允许外部 AI 通过 MCP reconnect_server 工具重连本服务器(默认关)。
+	AllowMCPReconnect bool `json:"allowMcpReconnect,omitempty"`
+	ProxyMode         string `json:"proxyMode,omitempty"`
 	ProxyNodeID         string `json:"proxyNodeId,omitempty"`
 	ProxyType           string `json:"proxyType,omitempty"`
 	ProxyHost           string `json:"proxyHost,omitempty"`

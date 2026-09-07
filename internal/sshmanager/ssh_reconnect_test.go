@@ -5,6 +5,35 @@ import (
 	"testing"
 )
 
+// TestMCPReconnectAllowedGate 验证按服务器粒度的 MCP 重连门控。
+func TestMCPReconnectAllowedGate(t *testing.T) {
+	if err := mcpReconnectAllowedError(Connection{AllowMCPReconnect: true}); err != nil {
+		t.Fatalf("开启 AllowMCPReconnect 时应放行: %v", err)
+	}
+	err := mcpReconnectAllowedError(Connection{AllowMCPReconnect: false})
+	if !errors.Is(err, ErrMCPReconnectDisabled) {
+		t.Fatalf("未开启 AllowMCPReconnect 应返回 ErrMCPReconnectDisabled, 实际: %v", err)
+	}
+	if err == nil || err.Error() == ErrMCPReconnectDisabled.Error() {
+		t.Fatal("错误信息应包含面向 AI 的指引文本")
+	}
+}
+
+// TestReconnectDisabledNotCountedAsFailure 用户关闭 MCP 重连时,不应累计连续失败计数。
+func TestReconnectDisabledNotCountedAsFailure(t *testing.T) {
+	manager := NewSSHManager()
+	manager.recordDisconnectedConn("srv-1", []string{"root"}, "root", "transport")
+	if err := mcpReconnectAllowedError(Connection{AllowMCPReconnect: false}); !errors.Is(err, ErrMCPReconnectDisabled) {
+		t.Fatalf("应返回 ErrMCPReconnectDisabled, 实际: %v", err)
+	}
+	manager.mu.RLock()
+	fails := manager.mcpReconnectFailures["root"]
+	manager.mu.RUnlock()
+	if fails != 0 {
+		t.Fatalf("门控拒绝不应计入失败计数, 实际: %d", fails)
+	}
+}
+
 // TestRecordAndLookupDisconnectedSession 验证整机断开后记录可按父/子会话 id 查到。
 func TestRecordAndLookupDisconnectedSession(t *testing.T) {
 	manager := NewSSHManager()

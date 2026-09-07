@@ -26,6 +26,10 @@ const (
 // ErrReconnectUnavailable 表示该会话没有可用的断连记录(AI 应改用 list_connected_sessions)。
 var ErrReconnectUnavailable = errors.New("no disconnected session record for this session id")
 
+// ErrMCPReconnectDisabled 表示该服务器未开启「允许外部 MCP 重连」。这是用户的选择,
+// 不计入连续失败计数,也不触发用户提醒。
+var ErrMCPReconnectDisabled = errors.New("mcp reconnect disabled for this server")
+
 // DisconnectedSessionRecord 一次整机断开的现场快照。
 type DisconnectedSessionRecord struct {
 	ConnKey         string    `json:"connKey"`
@@ -208,6 +212,11 @@ func (m *SSHManager) ReconnectDisconnectedSession(sessionId string) (ReconnectOu
 	if err != nil {
 		return ReconnectOutcome{}, m.recordMCPReconnectFailure(record.ParentSessionId, record.ConnKey, err)
 	}
+	// 按服务器粒度门控:未开启「允许外部 MCP 重连」的服务器拒绝 AI 重连。
+	// 这是用户的显式选择,不计入连续失败、不触发提醒,避免反复打扰。
+	if err := mcpReconnectAllowedError(conn); err != nil {
+		return ReconnectOutcome{}, err
+	}
 
 	// 复用原 parentSessionId 重新拨号;主机密钥变更时 Connect 会挂起待用户确认并返回错误,
 	// 该错误计入连续失败,达到阈值即提醒用户(与整体流程一致)。
@@ -256,6 +265,15 @@ func (m *SSHManager) ReconnectDisconnectedSession(sessionId string) (ReconnectOu
 		OldToNew:      oldToNew,
 		TerminalCount: terminalCount,
 	}, nil
+}
+
+// mcpReconnectAllowedError 校验该服务器是否允许外部 MCP 重连。
+// 未开启时返回带 AI 指引文本的 ErrMCPReconnectDisabled。
+func mcpReconnectAllowedError(conn Connection) error {
+	if conn.AllowMCPReconnect {
+		return nil
+	}
+	return fmt.Errorf("%w: 该服务器未开启「允许外部 MCP 重连」, 请提醒用户在 Lumin 的服务器设置中开启或手动重连 / MCP reconnect is disabled for this server; ask the user to enable it in the Lumin server settings or reconnect manually", ErrMCPReconnectDisabled)
 }
 
 // resolveDisconnectedConn 把断连记录里的 ConnKey 还原成可拨号的服务器配置。

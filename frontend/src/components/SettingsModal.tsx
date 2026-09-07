@@ -131,7 +131,6 @@ export default function SettingsModal({
     confirmTerminalSelectionPaste,
     windowCloseAction,
     updateUseProxy,
-    sshAutoReconnect,
     rememberWorkspace,
     workspacePersistenceLevel,
     webviewGpuDisabled,
@@ -152,7 +151,6 @@ export default function SettingsModal({
     handleToggleConfirmTerminalSelectionPaste,
     handleWindowCloseActionChange,
     handleToggleUpdateUseProxy,
-    handleToggleSshAutoReconnect,
     handleToggleRememberWorkspace,
     handleWorkspacePersistenceLevelChange,
     handleToggleWebviewGpuDisabled,
@@ -277,8 +275,6 @@ export default function SettingsModal({
                 onWindowCloseActionChange={handleWindowCloseActionChange}
                 updateUseProxy={updateUseProxy}
                 onToggleUpdateUseProxy={handleToggleUpdateUseProxy}
-                sshAutoReconnect={sshAutoReconnect}
-                onToggleSshAutoReconnect={handleToggleSshAutoReconnect}
                 rememberWorkspace={rememberWorkspace}
                 onToggleRememberWorkspace={handleToggleRememberWorkspace}
                 workspacePersistenceLevel={workspacePersistenceLevel}

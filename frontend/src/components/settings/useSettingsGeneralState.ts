@@ -73,7 +73,6 @@ export function useSettingsGeneralState(addToast: ToastFn) {
   const [confirmGitUntrack, setConfirmGitUntrack] = useState(localStorage.getItem('skipGitUntrackConfirm') !== 'true');
   const [windowCloseAction, setWindowCloseAction] = useState(localStorage.getItem('windowCloseAction') || 'ask');
   const [updateUseProxy, setUpdateUseProxy] = useState(localStorage.getItem('updateUseProxy') === 'true');
-  const [sshAutoReconnect, setSshAutoReconnect] = useState(() => localStorage.getItem('sshAutoReconnect') === 'true');
   const [rememberWorkspace, setRememberWorkspace] = useState(false);
   const [workspacePersistenceLevel, setWorkspacePersistenceLevel] = useState('program');
   const [webviewGpuDisabled, setWebviewGpuDisabled] = useState(false);
@@ -135,12 +134,6 @@ export function useSettingsGeneralState(addToast: ToastFn) {
     setUpdateUseProxy(next);
     if (next) localStorage.setItem('updateUseProxy', 'true');
     else localStorage.removeItem('updateUseProxy');
-  };
-  const handleToggleSshAutoReconnect = () => {
-    const next = !sshAutoReconnect;
-    setSshAutoReconnect(next);
-    localStorage.setItem('sshAutoReconnect', String(next));
-    window.dispatchEvent(new CustomEvent('ssh-auto-reconnect-changed', { detail: next }));
   };
   const handleToggleRememberWorkspace = async () => {
     const next = !rememberWorkspace;
@@ -223,7 +216,6 @@ export function useSettingsGeneralState(addToast: ToastFn) {
     confirmGitUntrack,
     windowCloseAction,
     updateUseProxy,
-    sshAutoReconnect,
     rememberWorkspace,
     workspacePersistenceLevel,
     webviewGpuDisabled,
@@ -244,7 +236,6 @@ export function useSettingsGeneralState(addToast: ToastFn) {
     handleToggleConfirmGitUntrack,
     handleWindowCloseActionChange,
     handleToggleUpdateUseProxy,
-    handleToggleSshAutoReconnect,
     handleToggleRememberWorkspace,
     handleWorkspacePersistenceLevelChange,
     handleToggleWebviewGpuDisabled,
