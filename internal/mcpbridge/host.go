@@ -57,6 +57,51 @@ func (h Host) MCPActivityReporter() mcpserver.ActivityReporter {
 	return h.reporter
 }
 
+// MCPDisconnectTracker satisfies mcp.ReconnectCarrier.
+func (h Host) MCPDisconnectTracker() mcpserver.DisconnectTracker {
+	return h
+}
+
+// MCPReconnectProvider satisfies mcp.ReconnectCarrier.
+func (h Host) MCPReconnectProvider() mcpserver.ReconnectProvider {
+	return h
+}
+
+// LookupDisconnectedSession implements mcpserver.DisconnectTracker.
+func (h Host) LookupDisconnectedSession(sessionID string) (mcpserver.DisconnectedSessionInfo, bool) {
+	if h.sshMgr == nil {
+		return mcpserver.DisconnectedSessionInfo{}, false
+	}
+	record, ok := h.sshMgr.LookupDisconnectedSession(sessionID)
+	if !ok {
+		return mcpserver.DisconnectedSessionInfo{}, false
+	}
+	return mcpserver.DisconnectedSessionInfo{
+		SessionID: record.ParentSessionId,
+		ConnKey:   record.ConnKey,
+		Reason:    record.Reason,
+		ClosedAt:  record.ClosedAt.Format(time.RFC3339),
+	}, true
+}
+
+// ReconnectDisconnectedSession implements mcpserver.ReconnectProvider.
+func (h Host) ReconnectDisconnectedSession(sessionID string) (mcpserver.ReconnectResult, error) {
+	if h.sshMgr == nil {
+		return mcpserver.ReconnectResult{}, fmt.Errorf("ssh manager unavailable")
+	}
+	outcome, err := h.sshMgr.ReconnectDisconnectedSession(sessionID)
+	if err != nil {
+		return mcpserver.ReconnectResult{}, err
+	}
+	return mcpserver.ReconnectResult{
+		SessionID:        outcome.SessionId,
+		ConnKey:          outcome.ConnKey,
+		OldToNew:         outcome.OldToNew,
+		TerminalCount:    outcome.TerminalCount,
+		AlreadyConnected: outcome.AlreadyConnected,
+	}, nil
+}
+
 func (h Host) RegistryKey() any {
 	return h.regKey
 }

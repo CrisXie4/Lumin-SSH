@@ -42,3 +42,12 @@ type CommandCallbackExecutor interface {
 type ActivityReporterCarrier interface {
 	MCPActivityReporter() mcpserver.ActivityReporter
 }
+
+// ReconnectCarrier is an optional capability interface for the SSH disconnect
+// recovery flow: hosts implementing it expose the dead-session lookup (used to
+// turn tool calls on disconnected sessions into actionable errors) and the
+// reconnect provider (which adds the reconnect_server tool to the catalog).
+type ReconnectCarrier interface {
+	MCPDisconnectTracker() mcpserver.DisconnectTracker
+	MCPReconnectProvider() mcpserver.ReconnectProvider
+}

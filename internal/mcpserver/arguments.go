@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -107,5 +108,12 @@ func requireSessionArgument(service *Service, arguments map[string]any) (Connect
 	if err != nil {
 		return ConnectedSession{}, err
 	}
-	return service.GetConnectedSession(sessionID)
+	session, err := service.GetConnectedSession(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return ConnectedSession{}, fmt.Errorf("session %q not found among connected sessions; call list_connected_sessions to get valid session ids, or reconnect_server if the server was disconnected", sessionID)
+		}
+		return ConnectedSession{}, err
+	}
+	return session, nil
 }
