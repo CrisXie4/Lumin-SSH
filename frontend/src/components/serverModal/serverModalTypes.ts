@@ -15,7 +15,6 @@ export interface ServerEditorForm {
   terminalEncoding: string;
   allowLegacySshRsa: boolean;
   autoReconnect: boolean;
-  allowMcpReconnect: boolean;
   proxyMode: string;
   proxyNodeId: string;
   proxyType: string;
@@ -50,7 +49,6 @@ export const defaultForm: ServerEditorForm = {
   terminalEncoding: 'utf-8',
   allowLegacySshRsa: false,
   autoReconnect: false,
-  allowMcpReconnect: false,
   proxyMode: 'direct',
   proxyNodeId: '',
   proxyType: 'socks5',

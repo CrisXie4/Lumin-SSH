@@ -104,19 +104,6 @@ export function AddServerAdvancedSection({
             <small>{t('连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长')}</small>
           </span>
         </label>
-        <label className="server-editor-compat-check" htmlFor="server-allow-mcp-reconnect">
-          <input
-            id="server-allow-mcp-reconnect"
-            name="allowMcpReconnect"
-            type="checkbox"
-            checked={!!form.allowMcpReconnect}
-            onChange={(e) => setForm((f) => ({ ...f, allowMcpReconnect: e.target.checked }))}
-          />
-          <span>
-            <strong>{t('允许外部 MCP 重连')}</strong>
-            <small>{t('开启后, 外部 AI 可通过 MCP reconnect_server 工具重连本服务器; 关闭时 AI 重连会被拒绝并提醒你')}</small>
-          </span>
-        </label>
       </div>
     </div>
   );
