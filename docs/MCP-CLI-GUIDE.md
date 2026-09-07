@@ -53,6 +53,7 @@ claude mcp add lumin --transport http http://127.0.0.1:5779/mcp
 1. 在 Lumin 中**连接你的 SSH 服务器**（MCP 只能操控已连接的会话）
 2. CLI 连接 MCP 后，先调用 `list_connected_sessions` 获取 `session_id`
 3. 使用 `session_id` 调用其他工具：`execute_command`、`list_files`、`read_file`、`write_to_file` 等
+4. 若某个工具提示服务器已断开连接，调用 `reconnect_server`（传原来的 `session_id`）重连后重试
 
 ## 可用工具
 
@@ -67,6 +68,15 @@ claude mcp add lumin --transport http http://127.0.0.1:5779/mcp
 | `transfer_batch` | 批量传输文件 |
 | `transfer_list` | 查看传输队列 |
 | `search_replace` / `apply_diff` / `apply_patch` / `edit_file` | 远程文件编辑 |
+| `reconnect_server` | 重连已断开的 SSH 会话（复用原父会话 id，返回新旧终端 id 映射） |
+
+## 断线重连
+
+SSH 服务器意外断开（网络波动、保活超时等）时：
+
+1. 对该会话的任何工具调用都会返回明确错误，提示「服务器已断开连接，请调用 reconnect_server」
+2. AI 调用 `reconnect_server`（`session_id` 传原父会话 id 或任一子终端 id），Lumin 会在后台重新拨号，复用原父会话 id 并按原数量重开子终端；界面会自动恢复该会话的终端、布局与工作区
+3. 若连续 3 次重连失败（网络不通、认证失败、主机密钥变更等），Lumin 会弹窗提醒用户手动处理；主机密钥变更时会在界面弹出确认框，用户确认后 AI 再次调用 `reconnect_server` 即可成功
 
 ## 可见性
 

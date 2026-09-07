@@ -28,6 +28,8 @@ interface GeneralTabProps {
   onWindowCloseActionChange: (value: string) => void;
   updateUseProxy: boolean;
   onToggleUpdateUseProxy: () => void;
+  sshAutoReconnect: boolean;
+  onToggleSshAutoReconnect: () => void;
   terminalRightClickPasteOnEmpty: boolean;
   onTerminalRightClickPasteOnEmptyChange: (value: boolean) => void;
   terminalRightClickPasteMode: string;
@@ -80,6 +82,8 @@ export default function GeneralTab({
   onWindowCloseActionChange,
   updateUseProxy,
   onToggleUpdateUseProxy,
+  sshAutoReconnect,
+  onToggleSshAutoReconnect,
   terminalRightClickPasteOnEmpty,
   onTerminalRightClickPasteOnEmptyChange,
   terminalRightClickPasteMode,
@@ -123,6 +127,7 @@ export default function GeneralTab({
     terminalTabDoubleClickActionEnabled: { checked: terminalTabDoubleClickActionEnabled, onChange: () => onTerminalTabDoubleClickActionEnabledChange(!terminalTabDoubleClickActionEnabled) },
     rememberWorkspace: { checked: rememberWorkspace, onChange: onToggleRememberWorkspace },
     updateUseProxy: { checked: updateUseProxy, onChange: onToggleUpdateUseProxy },
+    sshAutoReconnect: { checked: sshAutoReconnect, onChange: onToggleSshAutoReconnect },
     webviewGpuDisabled: { checked: webviewGpuDisabled, onChange: onToggleWebviewGpuDisabled },
   };
   const selectBindings: Record<string, SelectBinding> = {

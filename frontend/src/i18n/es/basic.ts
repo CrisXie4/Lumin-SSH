@@ -1982,4 +1982,10 @@ export default {
   "暂无 API 请求": "Aún no hay solicitudes de API",
   "缓存命中": "golpe de caché",
   "缓存未命中": "pérdida de caché",
+  "SSH 断线自动重连": "Reconexión automática SSH",
+  "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Reconecta automáticamente esta sesión cuando la conexión se interrumpe inesperadamente. Hasta 10 intentos con intervalos crecientes",
+  "SSH 已自动重新连接": "SSH se ha reconectado automáticamente",
+  "自动重连失败,已达最大重试次数,请手动重连": "La reconexión automática falló tras el número máximo de intentos; reconecte manualmente",
+  "外部 AI 已重新连接该服务器": "La IA externa ha reconectado este servidor",
+  "外部 AI 自动重连服务器失败,请手动处理": "La IA externa no pudo reconectar el servidor; por favor, gestione manualmente",
 } satisfies I18nDict;

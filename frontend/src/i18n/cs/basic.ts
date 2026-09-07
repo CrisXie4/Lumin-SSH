@@ -1982,4 +1982,10 @@ export default {
   "暂无 API 请求": "Zatím žádné požadavky API",
   "缓存命中": "cache hit",
   "缓存未命中": "cache miss",
+  "SSH 断线自动重连": "Automatické obnovení SSH",
+  "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Automaticky obnoví tuto relaci při neočekávaném přerušení spojení. Až 10 pokusů s rostoucími intervaly",
+  "SSH 已自动重新连接": "SSH bylo automaticky obnoveno",
+  "自动重连失败,已达最大重试次数,请手动重连": "Automatické obnovení selhalo po maximálním počtu pokusů; obnovte ručně",
+  "外部 AI 已重新连接该服务器": "Externí AI obnovilo připojení k tomuto serveru",
+  "外部 AI 自动重连服务器失败,请手动处理": "Externí AI se nepodařilo obnovit připojení k serveru; vyřešte ručně",
 } satisfies I18nDict;
