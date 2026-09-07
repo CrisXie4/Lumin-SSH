@@ -90,6 +90,10 @@ func StartServer(host Host, settings ServiceSettings) {
 	if carrier, ok := host.(ActivityReporterCarrier); ok {
 		catalog.SetReporter(carrier.MCPActivityReporter())
 	}
+	if carrier, ok := host.(ReconnectCarrier); ok {
+		catalog.SetDisconnectTracker(carrier.MCPDisconnectTracker())
+		catalog.SetReconnectProvider(carrier.MCPReconnectProvider())
+	}
 	allowedOrigins := []string{mcpserver.BrowserCallsDisabledOriginSentinel}
 	if settings.AllowBrowserCalls {
 		allowedOrigins = nil
@@ -105,7 +109,7 @@ func StartServer(host Host, settings ServiceSettings) {
 				Version:     "0.1.0",
 				Description: "MCP server for connected Lumin SSH terminal sessions",
 			},
-			Instructions: "Call list_connected_sessions first and use the returned session_id for subsequent SSH-scoped tools.",
+			Instructions: "Call list_connected_sessions first and use the returned session_id for subsequent SSH-scoped tools. If a tool reports that the session's server is disconnected, call reconnect_server with that session_id to restore the connection, then retry.",
 			Logger:       appendMCPLog,
 		},
 		catalog,
@@ -152,7 +156,7 @@ func GetServerInfo(host Host, settings ServiceSettings) map[string]interface{} {
 			"url":          "",
 			"transport":    "streamable-http",
 			"endpoint":     "/mcp",
-			"instructions": "",
+			"instructions": "Call list_connected_sessions first; if a tool reports the session's server is disconnected, call reconnect_server to restore it.",
 			"logs":         getMCPLogText(),
 			"tools":        tools,
 		}
@@ -161,7 +165,7 @@ func GetServerInfo(host Host, settings ServiceSettings) map[string]interface{} {
 		URL:          server.URL(),
 		Transport:    "streamable-http",
 		Endpoint:     "/mcp",
-		Instructions: "Call list_connected_sessions first, then use the returned session_id for subsequent tools.",
+		Instructions: "Call list_connected_sessions first, then use the returned session_id for subsequent tools. If a tool reports that the session's server is disconnected, call reconnect_server with that session_id, then retry.",
 		Logs:         getMCPLogText(),
 		Tools:        tools,
 	}
@@ -204,6 +208,10 @@ func buildMCPToolDefinitions(host Host) []map[string]interface{} {
 	}
 	service := mcpserver.NewService(NewSessionProvider(host))
 	catalog := mcpserver.NewCatalog(service, NewFileProvider(host), NewCommandProvider(host), NewRemoteEditExecutor(host), NewTransferProvider(host))
+	// 与 StartServer 一致地注入重连能力,保证工具列表展示与服务端实际下发一致。
+	if carrier, ok := host.(ReconnectCarrier); ok {
+		catalog.SetReconnectProvider(carrier.MCPReconnectProvider())
+	}
 	definitions := catalog.List()
 	result := make([]map[string]interface{}, 0, len(definitions))
 	for _, definition := range definitions {

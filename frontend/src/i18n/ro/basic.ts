@@ -1982,4 +1982,10 @@ export default {
   "暂无 API 请求": "Nu există încă solicitări API",
   "缓存命中": "lovitura cache",
   "缓存未命中": "cache miss",
+  "自动重连": "Reconectare automată",
+  "连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长": "Reconectează automat această sesiune când conexiunea se întrerupe neașteptat. Până la 10 încercări cu intervale tot mai mari",
+  "SSH 已自动重新连接": "SSH s-a reconectat automat",
+  "自动重连失败,已达最大重试次数,请手动重连": "Reconectarea automată a eșuat după numărul maxim de încercări; reconectați manual",
+  "外部 AI 已重新连接该服务器": "IA externă a reconectat acest server",
+  "外部 AI 自动重连服务器失败,请手动处理": "IA externă nu a reușit să reconecteze serverul; gestionați manual",
 } satisfies I18nDict;

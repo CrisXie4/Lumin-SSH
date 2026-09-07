@@ -14,6 +14,7 @@ export interface ServerEditorForm {
   fileManagerInitPath: string;
   terminalEncoding: string;
   allowLegacySshRsa: boolean;
+  autoReconnect: boolean;
   proxyMode: string;
   proxyNodeId: string;
   proxyType: string;
@@ -47,6 +48,7 @@ export const defaultForm: ServerEditorForm = {
   fileManagerInitPath: '',
   terminalEncoding: 'utf-8',
   allowLegacySshRsa: false,
+  autoReconnect: false,
   proxyMode: 'direct',
   proxyNodeId: '',
   proxyType: 'socks5',

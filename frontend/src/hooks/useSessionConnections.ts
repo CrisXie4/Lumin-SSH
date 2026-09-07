@@ -470,9 +470,12 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
   const reconnectSession = useCallback(async (
     session: SessionLike,
     requestingTerminalId?: string,
-    options: { deferState?: boolean } = {},
+    options: { deferState?: boolean; quiet?: boolean } = {},
   ): Promise<ReconnectSessionResult | null> => {
     const deferState = options?.deferState === true;
+    // quiet:仅抑制失败 toast(自动重连的中间尝试使用),不影响状态更新
+    const quiet = options?.quiet === true;
+    const suppressToast = deferState || quiet;
     updateSessionStatus(session.id!, 'connecting');
 
     if (session.isLocal) {
@@ -493,7 +496,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
           prev.map((s) => (s.id === session.id ? { ...s, status: 'error' } : s))
         );
         setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
-        if (!deferState) {
+        if (!suppressToast) {
           addToast(`${t('重新连接失败')}: ${String(err)}`, 'error', 5000);
         }
         return null;
@@ -531,7 +534,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
           prev.map((s) => (s.id === session.id ? { ...s, status: 'error' } : s))
         );
         setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
-        if (!deferState) {
+        if (!suppressToast) {
           addToast(`${t('重新连接失败')}: ${String(err)}`, 'error', 5000);
         }
         return null;
@@ -602,13 +605,84 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       );
       if (!isHostKeyChange) {
         setConnectingServers((prev) => prev.filter((s) => s.sessionId !== session.id));
-        if (!deferState) {
+        if (!suppressToast) {
           addToast(`${t('重新连接失败')}: ${String(err)}`, 'error', 5000);
         }
       }
       return null;
     }
   }, [addToast, awaitDisconnectTerminals, t, postConnectSetup]);
+
+  // ── 断线自动重连(按服务器开关,默认关;指数退避,最多 10 次)────
+  const AUTO_RECONNECT_MAX_ATTEMPTS = 10;
+  const autoReconnectTimersRef = useRef<Map<string, { timer: number; attempt: number }>>(new Map());
+
+  // 该会话对应的服务器是否开启了断线自动重连(本地/串口无 transport 断连语义,恒不启用)
+  const isSessionAutoReconnectEnabled = useCallback((session: SessionLike) => {
+    if (session.isLocal || session.isSerial) {
+      return false;
+    }
+    const server = serversRef.current.find((sv) => sv.id === session.serverId);
+    return !!server?.autoReconnect;
+  }, [serversRef]);
+
+  // 卸载时清掉所有挂起的重连定时器
+  useEffect(() => () => {
+    autoReconnectTimersRef.current.forEach((state) => window.clearTimeout(state.timer));
+    autoReconnectTimersRef.current.clear();
+  }, []);
+
+  const cancelAutoReconnect = useCallback((sessionId: string) => {
+    const state = autoReconnectTimersRef.current.get(sessionId);
+    if (state) {
+      window.clearTimeout(state.timer);
+      autoReconnectTimersRef.current.delete(sessionId);
+    }
+  }, []);
+
+  const scheduleAutoReconnect = useCallback((sessionId: string) => {
+    const session = sessionsRef.current.find((s) => s.id === sessionId);
+    if (!session || !isSessionAutoReconnectEnabled(session)) {
+      return;
+    }
+    cancelAutoReconnect(sessionId);
+    const state = { timer: 0, attempt: 0 };
+    autoReconnectTimersRef.current.set(sessionId, state);
+    const runAttempt = () => {
+      if (!autoReconnectTimersRef.current.has(sessionId)) {
+        return;
+      }
+      const current = sessionsRef.current.find((s) => s.id === sessionId);
+      // 会话已删除、已被用户手动重连、正在等待主机密钥确认(connecting)、
+      // 或服务器已关闭自动重连开关时终止
+      if (!current || (current.status !== 'closed' && current.status !== 'error') || !isSessionAutoReconnectEnabled(current)) {
+        autoReconnectTimersRef.current.delete(sessionId);
+        return;
+      }
+      state.attempt += 1;
+      const isFinalAttempt = state.attempt >= AUTO_RECONNECT_MAX_ATTEMPTS;
+      void reconnectSession(current, undefined, { quiet: !isFinalAttempt }).then((result) => {
+        // 期间被取消/替换则丢弃结果
+        if (autoReconnectTimersRef.current.get(sessionId) !== state) {
+          return;
+        }
+        if (result) {
+          autoReconnectTimersRef.current.delete(sessionId);
+          addToast(t('SSH 已自动重新连接'), 'success', 3000);
+          return;
+        }
+        if (isFinalAttempt) {
+          autoReconnectTimersRef.current.delete(sessionId);
+          addToast(t('自动重连失败,已达最大重试次数,请手动重连'), 'error', 6000);
+          return;
+        }
+        // 指数退避:2s 起步,封顶 30s
+        const delay = Math.min(2000 * 2 ** (state.attempt - 1), 30000);
+        state.timer = window.setTimeout(runAttempt, delay);
+      });
+    };
+    state.timer = window.setTimeout(runAttempt, 2000);
+  }, [addToast, cancelAutoReconnect, isSessionAutoReconnectEnabled, reconnectSession, sessionsRef, t]);
 
   useEffect(() => {
     if (!serversLoaded || !rememberWorkspaceLoaded || workspaceRestoreStartedRef.current) {
@@ -857,6 +931,8 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         // 仅传输/保活导致的整机断开视为「意外」；最后一终端正常 exit 只标 closed，不误报
         if (transportDead) {
           addToast(t('SSH 连接已意外断开'), 'error', 4000);
+          // 设置开启时自动重连该会话(指数退避)
+          scheduleAutoReconnect(parentId);
         }
         return;
       }
@@ -880,7 +956,72 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     return () => {
       if (unbind) unbind();
     };
-  }, [addToast, clearAIWorkspaceTabGroup, t]);
+  }, [addToast, clearAIWorkspaceTabGroup, scheduleAutoReconnect, t]);
+
+  // ── 外部 AI 通过 MCP 代为重连成功:后端已复用原会话 id 重新拨号,前端收编状态 ──
+  useEffect(() => {
+    const unbind = EventsOn('ssh-mcp-reconnected', (payload: unknown) => {
+      const data = (payload && typeof payload === 'object' ? payload : {}) as {
+        sessionId?: unknown;
+        oldToNew?: unknown;
+        failedTerminals?: unknown;
+      };
+      const parentId = typeof data.sessionId === 'string' ? data.sessionId : '';
+      const oldToNew = (data.oldToNew && typeof data.oldToNew === 'object' ? data.oldToNew : {}) as Record<string, string>;
+      const failedTerminals = Array.isArray(data.failedTerminals) ? data.failedTerminals.map(String) : [];
+      if (!parentId) {
+        return;
+      }
+      const session = sessionsRef.current.find((s) => s.id === parentId);
+      if (!session) {
+        return;
+      }
+      const savedTerminals = session.terminals?.length
+        ? session.terminals
+        : [{ id: parentId, label: `${t('终端')}1` }];
+      // 重连成功但未能重开的子终端(failedTerminals)不进入新列表,
+      // 并清理其 AI 工作区与文件管理器工作区,避免残留无通道的死终端。
+      failedTerminals.forEach((terminalId) => clearAIWorkspaceTabGroup(terminalId));
+      const newTerminals = savedTerminals
+        .map((term, index) => ({
+          id: oldToNew[term.id!],
+          label: String(term.label || `${t('终端')}${index + 1}`),
+        }))
+        .filter((term) => !!term.id);
+      // 文件管理器工作区:重映射后跳过失败终端(旧 id/new id 都删),其余原样保留
+      const nextFileManagerWorkspaces: Record<string, unknown> = {};
+      Object.entries(getAllSessionFileManagerWorkspaces() || {}).forEach(([key, state]) => {
+        const mapped = oldToNew[key] || key;
+        if (failedTerminals.includes(key) || failedTerminals.includes(mapped)) {
+          return;
+        }
+        nextFileManagerWorkspaces[mapped] = state;
+      });
+      replaceAllSessionFileManagerWorkspaces(nextFileManagerWorkspaces);
+      remapAIWorkspaceTabGroups(oldToNew);
+      const remappedLayouts = remapTerminalPaneLayouts(terminalPaneLayoutsRef.current, oldToNew, parentId);
+      terminalPaneLayoutsRef.current = remappedLayouts;
+      setTerminalPaneLayouts(remappedLayouts);
+      setSessions((prev) => prev.map((s) => (s.id === parentId ? { ...s, status: 'connected', terminals: newTerminals } : s)));
+      void postConnectSetup(parentId, String(session.serverId));
+      addToast(t('外部 AI 已重新连接该服务器'), 'info', 4000);
+    });
+    return () => {
+      if (unbind) unbind();
+    };
+  }, [addToast, clearAIWorkspaceTabGroup, getAllSessionFileManagerWorkspaces, postConnectSetup, remapAIWorkspaceTabGroups, remapTerminalPaneLayouts, replaceAllSessionFileManagerWorkspaces, t]);
+
+  // ── 外部 AI 连续重连失败达到阈值:提醒用户手动处理 ──────────────
+  useEffect(() => {
+    const unbind = EventsOn('mcp-reconnect-failed', (payload: unknown) => {
+      const data = (payload && typeof payload === 'object' ? payload : {}) as { attempts?: unknown };
+      const attempts = typeof data.attempts === 'number' ? data.attempts : 0;
+      addToast(`${t('外部 AI 自动重连服务器失败,请手动处理')}${attempts > 0 ? ` (${attempts})` : ''}`, 'error', 8000);
+    });
+    return () => {
+      if (unbind) unbind();
+    };
+  }, [addToast, t]);
 
   // ── 主机密钥确认：用户在会话卡片上做出选择后 ──────────────────
   // chosen: 0=取消, 1=仅本次接受, 2=接受并保存
@@ -1279,12 +1420,14 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
         if (parent) sess = parent;
       }
       if (sess) {
+        // 用户手动重连优先,取消该会话挂起的自动重连
+        cancelAutoReconnect(sess.id!);
         reconnectSession(sess, sessId);
       }
     };
     window.addEventListener('ssh-reconnect-trigger', handleReconnectTrigger);
     return () => window.removeEventListener('ssh-reconnect-trigger', handleReconnectTrigger);
-  }, [reconnectSession]);
+  }, [cancelAutoReconnect, reconnectSession]);
 
   // ── Connect to server ──────────────────────────────────────
   const connectServerInner = useCallback(async (server: config.Connection) => {

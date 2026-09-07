@@ -91,6 +91,19 @@ export function AddServerAdvancedSection({
             <small>{t('仅当服务器只支持 ssh-rsa 时启用；不支持低于 1024 位的 RSA 主机密钥')}</small>
           </span>
         </label>
+        <label className="server-editor-compat-check" htmlFor="server-auto-reconnect">
+          <input
+            id="server-auto-reconnect"
+            name="autoReconnect"
+            type="checkbox"
+            checked={!!form.autoReconnect}
+            onChange={(e) => setForm((f) => ({ ...f, autoReconnect: e.target.checked }))}
+          />
+          <span>
+            <strong>{t('自动重连')}</strong>
+            <small>{t('连接意外断开时自动重新连接该会话, 最多尝试 10 次, 重试间隔逐渐加长')}</small>
+          </span>
+        </label>
       </div>
     </div>
   );
