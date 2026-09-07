@@ -3,6 +3,7 @@ package sshmanager
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 // TestMCPReconnectAllowedGate 验证按服务器粒度的 MCP 重连门控。
@@ -146,5 +147,54 @@ func TestReconnectRecordsCapped(t *testing.T) {
 	manager.mu.RUnlock()
 	if count > mcpReconnectMaxRecords {
 		t.Fatalf("断连记录应不超过 %d 条, 实际: %d", mcpReconnectMaxRecords, count)
+	}
+}
+
+// TestEvictionClearsFailureCounts 记录被覆盖或 FIFO 淘汰的会话,其连续失败计数应一并清除,
+// 防止残留计数使该会话后续再次断连时提前触发用户提醒。
+func TestEvictionClearsFailureCounts(t *testing.T) {
+	manager := NewSSHManager()
+	// 填满上限,最早的记录将被后续新记录淘汰
+	for i := 0; i < mcpReconnectMaxRecords; i++ {
+		parent := "parent-" + string(rune('a'+i%26)) + string(rune('0'+i/26))
+		manager.recordDisconnectedConn("srv", []string{parent}, parent, "transport")
+	}
+	manager.mu.Lock()
+	// 显式把最早插入的记录时间调早,保证 FIFO 淘汰的一定是它(同一周期内时间戳可能相等)
+	if rec := manager.recentDisconnects["parent-a0"]; rec != nil {
+		rec.ClosedAt = time.Now().Add(-time.Hour)
+	}
+	manager.mcpReconnectFailures["parent-a0"] = 3
+	manager.mu.Unlock()
+	// 再登记一条,触发 FIFO 淘汰最早的记录
+	manager.recordDisconnectedConn("srv", []string{"newest"}, "newest", "transport")
+
+	manager.mu.RLock()
+	fails, hasFail := manager.mcpReconnectFailures["parent-a0"]
+	_, hasRecord := manager.recentDisconnects["parent-a0"]
+	manager.mu.RUnlock()
+	if hasRecord {
+		t.Fatal("最旧记录应已被 FIFO 淘汰")
+	}
+	if hasFail || fails != 0 {
+		t.Fatalf("被淘汰会话的失败计数应被清除, 残留: %d", fails)
+	}
+
+	// 同 parent 再次断开:旧记录被替换(overlap 清理),失败计数同样应被清掉
+	manager.recordDisconnectedConn("srv", []string{"root", "term_a"}, "root", "transport")
+	manager.mu.Lock()
+	manager.mcpReconnectFailures["root"] = 2
+	manager.mu.Unlock()
+	manager.recordDisconnectedConn("srv", []string{"root", "term_a"}, "root", "keepalive")
+
+	manager.mu.RLock()
+	fails, hasFail = manager.mcpReconnectFailures["root"]
+	if _, ok := manager.recentDisconnects["root"]; !ok {
+		manager.mu.RUnlock()
+		t.Fatal("同 parent 再次断开应保留最新记录")
+	}
+	manager.mu.RUnlock()
+	if hasFail || fails != 0 {
+		t.Fatalf("记录被替换后失败计数应被清除, 残留: %d", fails)
 	}
 }

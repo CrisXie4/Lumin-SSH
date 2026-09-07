@@ -243,6 +243,11 @@ type SSHManager struct {
 	mcpReconnectFailures map[string]int
 	mu                   sync.RWMutex
 	pendingMu            sync.Mutex
+	// connectLocks 按 connKey 串行化 Connect 的拨号流程:防止前端手动/自动重连与
+	// MCP reconnect_server 并发对同一服务器各建一条 transport(重复连接泄漏)。
+	// connectLocksMu 保护 connectLocks 表本身;表随服务器数量增长,量级很小(数百以内)。
+	connectLocks   map[string]*sync.Mutex
+	connectLocksMu sync.Mutex
 	bufPool          sync.Pool
 	// nextGen is the monotonic source of SessionData.Gen values, used to tell
 	// apart two local/serial sessions that reused the same sessionId (fast
@@ -291,6 +296,7 @@ func NewSSHManager() *SSHManager {
 		pendingHostKeys:  make(map[string]*PendingHostKey),
 		tempAcceptedKeys: make(map[string]string),
 		pendingCancels:   make(map[string]context.CancelFunc),
+		connectLocks:     make(map[string]*sync.Mutex),
 		portForwards:     make(map[string]*managedPortForward),
 		bufPool: sync.Pool{
 			New: func() any {
@@ -412,6 +418,18 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 	if connKey == "" {
 		connKey = fmt.Sprintf("%s@%s", conn.Username, dialAddr(conn.Host, conn.Port))
 	}
+
+	// 按 connKey 串行化拨号:同一服务器的并发 Connect(前端自动/手动重连 vs MCP
+	// reconnect_server)只会建一条 transport,后到者复用先建好的 client。
+	m.connectLocksMu.Lock()
+	connLock := m.connectLocks[connKey]
+	if connLock == nil {
+		connLock = &sync.Mutex{}
+		m.connectLocks[connKey] = connLock
+	}
+	m.connectLocksMu.Unlock()
+	connLock.Lock()
+	defer connLock.Unlock()
 
 	m.mu.RLock()
 	existingEntry, clientExists := m.clients[connKey]

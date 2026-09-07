@@ -46,6 +46,9 @@ type ReconnectOutcome struct {
 	OldToNew         map[string]string `json:"oldToNew"`
 	TerminalCount    int               `json:"terminalCount"`
 	AlreadyConnected bool              `json:"alreadyConnected"`
+	// FailedTerminals 重连后未能重新打开的旧子终端 id;前端应删除这些终端及其
+	// 布局/工作区引用,避免把实际已死、没有通道的终端继续显示为已连接。
+	FailedTerminals []string `json:"failedTerminals,omitempty"`
 }
 
 // recordDisconnectedConn 在整机断开(cleanupClientTransport)时登记断连现场。
@@ -75,6 +78,9 @@ func (m *SSHManager) recordDisconnectedConn(connKey string, terminalIds []string
 		}
 		if parent == parentSessionId || overlapsSessionId(record.SessionIds, terminalIds) {
 			delete(m.recentDisconnects, parent)
+			// 记录被替换/移除的会话不再可重连,失败计数一并清掉,防止残留计数
+			// 使后续再次断连的会话在累计失败时提前触发用户提醒。
+			delete(m.mcpReconnectFailures, parent)
 		}
 	}
 	ids := append([]string(nil), terminalIds...)
@@ -85,7 +91,7 @@ func (m *SSHManager) recordDisconnectedConn(connKey string, terminalIds []string
 		Reason:          reason,
 		ClosedAt:        now,
 	}
-	// FIFO 淘汰最旧
+	// FIFO 淘汰最旧:被淘汰的会话不再可重连,同步清理其失败计数
 	for len(m.recentDisconnects) > mcpReconnectMaxRecords {
 		oldestParent := ""
 		var oldestTime time.Time
@@ -99,6 +105,7 @@ func (m *SSHManager) recordDisconnectedConn(connKey string, terminalIds []string
 			break
 		}
 		delete(m.recentDisconnects, oldestParent)
+		delete(m.mcpReconnectFailures, oldestParent)
 	}
 }
 
@@ -230,9 +237,11 @@ func (m *SSHManager) ReconnectDisconnectedSession(sessionId string) (ReconnectOu
 		return ReconnectOutcome{}, m.recordMCPReconnectFailure(record.ParentSessionId, record.ConnKey, wrapped)
 	}
 
-	// 重开子终端,保持终端数量一致;失败的逐个跳过(尽力而为)
+	// 重开子终端,保持终端数量一致;失败的逐个跳过并明确上报,
+	// 前端据此删除对应旧终端(避免残留无通道的死终端)。
 	oldToNew := map[string]string{record.ParentSessionId: record.ParentSessionId}
 	terminalCount := 1
+	var failedTerminals []string
 	for _, oldId := range record.SessionIds {
 		if oldId == record.ParentSessionId {
 			continue
@@ -240,6 +249,7 @@ func (m *SSHManager) ReconnectDisconnectedSession(sessionId string) (ReconnectOu
 		newId, termErr := m.OpenTerminal(record.ParentSessionId)
 		if termErr != nil {
 			log.Printf("[mcp-reconnect] 重开子终端失败 parent=%s old=%s err=%v", record.ParentSessionId, oldId, termErr)
+			failedTerminals = append(failedTerminals, oldId)
 			continue
 		}
 		oldToNew[oldId] = newId
@@ -253,17 +263,19 @@ func (m *SSHManager) ReconnectDisconnectedSession(sessionId string) (ReconnectOu
 
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, "ssh-mcp-reconnected", map[string]interface{}{
-			"sessionId": record.ParentSessionId,
-			"connKey":   record.ConnKey,
-			"oldToNew":  oldToNew,
+			"sessionId":       record.ParentSessionId,
+			"connKey":         record.ConnKey,
+			"oldToNew":        oldToNew,
+			"failedTerminals": failedTerminals,
 		})
 	}
-	log.Printf("[mcp-reconnect] 会话已重连 parent=%s connKey=%s terminals=%d", record.ParentSessionId, record.ConnKey, terminalCount)
+	log.Printf("[mcp-reconnect] 会话已重连 parent=%s connKey=%s terminals=%d failed=%d", record.ParentSessionId, record.ConnKey, terminalCount, len(failedTerminals))
 	return ReconnectOutcome{
-		SessionId:     record.ParentSessionId,
-		ConnKey:       record.ConnKey,
-		OldToNew:      oldToNew,
-		TerminalCount: terminalCount,
+		SessionId:        record.ParentSessionId,
+		ConnKey:          record.ConnKey,
+		OldToNew:         oldToNew,
+		TerminalCount:    terminalCount,
+		FailedTerminals:  failedTerminals,
 	}, nil
 }
 

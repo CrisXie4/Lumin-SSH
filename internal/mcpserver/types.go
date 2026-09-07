@@ -49,6 +49,8 @@ type ReconnectResult struct {
 	OldToNew         map[string]string `json:"old_to_new,omitempty"`
 	TerminalCount    int               `json:"terminal_count"`
 	AlreadyConnected bool              `json:"already_connected"`
+	// FailedTerminals 重连后未能重新打开的旧子终端 id,调用方应提示用户这些终端已失效。
+	FailedTerminals []string `json:"failed_terminals,omitempty"`
 }
 
 // ReconnectProvider 由宿主实现:按断连记录重连会话(复用原父会话 id,重开子终端)。

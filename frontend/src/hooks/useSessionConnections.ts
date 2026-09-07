@@ -961,9 +961,14 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
   // ── 外部 AI 通过 MCP 代为重连成功:后端已复用原会话 id 重新拨号,前端收编状态 ──
   useEffect(() => {
     const unbind = EventsOn('ssh-mcp-reconnected', (payload: unknown) => {
-      const data = (payload && typeof payload === 'object' ? payload : {}) as { sessionId?: unknown; oldToNew?: unknown };
+      const data = (payload && typeof payload === 'object' ? payload : {}) as {
+        sessionId?: unknown;
+        oldToNew?: unknown;
+        failedTerminals?: unknown;
+      };
       const parentId = typeof data.sessionId === 'string' ? data.sessionId : '';
       const oldToNew = (data.oldToNew && typeof data.oldToNew === 'object' ? data.oldToNew : {}) as Record<string, string>;
+      const failedTerminals = Array.isArray(data.failedTerminals) ? data.failedTerminals.map(String) : [];
       if (!parentId) {
         return;
       }
@@ -974,13 +979,25 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
       const savedTerminals = session.terminals?.length
         ? session.terminals
         : [{ id: parentId, label: `${t('终端')}1` }];
+      // 重连成功但未能重开的子终端(failedTerminals)不进入新列表,
+      // 并清理其 AI 工作区与文件管理器工作区,避免残留无通道的死终端。
+      failedTerminals.forEach((terminalId) => clearAIWorkspaceTabGroup(terminalId));
       const newTerminals = savedTerminals
         .map((term, index) => ({
-          id: oldToNew[term.id!] || term.id!,
+          id: oldToNew[term.id!],
           label: String(term.label || `${t('终端')}${index + 1}`),
         }))
         .filter((term) => !!term.id);
-      remapSessionFileManagerWorkspaces(oldToNew);
+      // 文件管理器工作区:重映射后跳过失败终端(旧 id/new id 都删),其余原样保留
+      const nextFileManagerWorkspaces: Record<string, unknown> = {};
+      Object.entries(getAllSessionFileManagerWorkspaces() || {}).forEach(([key, state]) => {
+        const mapped = oldToNew[key] || key;
+        if (failedTerminals.includes(key) || failedTerminals.includes(mapped)) {
+          return;
+        }
+        nextFileManagerWorkspaces[mapped] = state;
+      });
+      replaceAllSessionFileManagerWorkspaces(nextFileManagerWorkspaces);
       remapAIWorkspaceTabGroups(oldToNew);
       const remappedLayouts = remapTerminalPaneLayouts(terminalPaneLayoutsRef.current, oldToNew, parentId);
       terminalPaneLayoutsRef.current = remappedLayouts;
@@ -992,7 +1009,7 @@ export default function useSessionConnections(deps: UseSessionConnectionsDeps): 
     return () => {
       if (unbind) unbind();
     };
-  }, [addToast, postConnectSetup, remapAIWorkspaceTabGroups, remapSessionFileManagerWorkspaces, t]);
+  }, [addToast, clearAIWorkspaceTabGroup, getAllSessionFileManagerWorkspaces, postConnectSetup, remapAIWorkspaceTabGroups, remapTerminalPaneLayouts, replaceAllSessionFileManagerWorkspaces, t]);
 
   // ── 外部 AI 连续重连失败达到阈值:提醒用户手动处理 ──────────────
   useEffect(() => {

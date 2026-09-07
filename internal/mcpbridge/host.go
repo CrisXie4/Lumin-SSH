@@ -99,6 +99,7 @@ func (h Host) ReconnectDisconnectedSession(sessionID string) (mcpserver.Reconnec
 		OldToNew:         outcome.OldToNew,
 		TerminalCount:    outcome.TerminalCount,
 		AlreadyConnected: outcome.AlreadyConnected,
+		FailedTerminals:  outcome.FailedTerminals,
 	}, nil
 }
 
