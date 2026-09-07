@@ -98,7 +98,6 @@ export function useAIChatRequests({ t, terminalId, sessionId, workspaceTabId, is
     if (!nextText && messageImages.length === 0) {
       return false
     }
-
     clearRestorePreview()
 
     const targetConversationFromOptions = normalizedRuntimeOptions?.targetConversationSnapshot && typeof normalizedRuntimeOptions.targetConversationSnapshot === 'object'

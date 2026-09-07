@@ -14,11 +14,6 @@ import (
 const aiConversationBackupDirName = "backup"
 const aiConversationBackupSummaryFileName = "backup_summary.json"
 
-var aiConversationBackupExcludedRelativePaths = []string{
-	aiConversationBackupDirName,
-	"setting.json",
-}
-
 type AIConversationBackupSummary struct {
 	Message     string `json:"message"`
 	MessageRole string `json:"messageRole,omitempty"`
@@ -92,47 +87,6 @@ func buildAIConversationBackupSummary(messages []AIConversationAPIMessage, backu
 	return normalizeAIConversationBackupSummary(summary, backupID)
 }
 
-func normalizeAIConversationBackupRelativePath(value string) string {
-	normalized := filepath.ToSlash(filepath.Clean(strings.TrimSpace(value)))
-	if normalized == "." {
-		return ""
-	}
-	return strings.TrimPrefix(normalized, "./")
-}
-
-func isAIConversationBackupExcludedDirectory(rootDir string, relativePath string) bool {
-	raw := strings.TrimSpace(relativePath)
-	if strings.HasSuffix(raw, "/") || strings.HasSuffix(raw, "\\") {
-		return true
-	}
-	normalized := normalizeAIConversationBackupRelativePath(relativePath)
-	if normalized == "" {
-		return false
-	}
-	info, err := os.Stat(filepath.Join(rootDir, filepath.FromSlash(normalized)))
-	return err == nil && info.IsDir()
-}
-
-func isAIConversationBackupExcludedRelativePath(rootDir string, relativePath string) bool {
-	normalized := normalizeAIConversationBackupRelativePath(relativePath)
-	if normalized == "" {
-		return false
-	}
-	for _, item := range aiConversationBackupExcludedRelativePaths {
-		excluded := normalizeAIConversationBackupRelativePath(item)
-		if excluded == "" {
-			continue
-		}
-		if normalized == excluded {
-			return true
-		}
-		if isAIConversationBackupExcludedDirectory(rootDir, item) && strings.HasPrefix(normalized, excluded+"/") {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *configBridge) aiConversationBackupRootDir(conversationID string) string {
 	return filepath.Join(c.aiConversationDir(conversationID), aiConversationBackupDirName)
 }
@@ -176,30 +130,26 @@ func copyAIConversationFile(sourcePath string, targetPath string, mode os.FileMo
 	return os.Rename(tmpPath, targetPath)
 }
 
-func copyAIConversationDirExcludingBackups(sourceDir string, targetDir string) error {
-	return filepath.Walk(sourceDir, func(currentPath string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+func copyAIConversationRootJSON(sourceDir string, targetDir string) error {
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".json") {
+			continue
 		}
-		relativePath, err := filepath.Rel(sourceDir, currentPath)
+		info, err := entry.Info()
 		if err != nil {
 			return err
 		}
-		if relativePath == "." {
-			return nil
+		sourcePath := filepath.Join(sourceDir, entry.Name())
+		targetPath := filepath.Join(targetDir, entry.Name())
+		if err := copyAIConversationFile(sourcePath, targetPath, info.Mode()); err != nil {
+			return err
 		}
-		if isAIConversationBackupExcludedRelativePath(sourceDir, relativePath) {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		targetPath := filepath.Join(targetDir, relativePath)
-		if info.IsDir() {
-			return os.MkdirAll(targetPath, info.Mode().Perm())
-		}
-		return copyAIConversationFile(currentPath, targetPath, info.Mode())
-	})
+	}
+	return nil
 }
 
 func copyAIConversationBackupDir(sourceDir string, targetDir string) error {
@@ -214,7 +164,7 @@ func copyAIConversationBackupDir(sourceDir string, targetDir string) error {
 		if relativePath == "." {
 			return nil
 		}
-		if relativePath == aiConversationBackupSummaryFileName || isAIConversationBackupExcludedRelativePath(sourceDir, relativePath) {
+		if relativePath == aiConversationBackupSummaryFileName {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -343,7 +293,7 @@ func (c *configBridge) createAIConversationAutoBackupLocked(conversationID strin
 	if err := os.MkdirAll(backupDir, 0700); err != nil {
 		return AIConversationBackup{}, err
 	}
-	if err := copyAIConversationDirExcludingBackups(sourceDir, backupDir); err != nil {
+	if err := copyAIConversationRootJSON(sourceDir, backupDir); err != nil {
 		_ = os.RemoveAll(backupDir)
 		return AIConversationBackup{}, err
 	}

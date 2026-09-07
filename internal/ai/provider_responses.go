@@ -16,9 +16,9 @@ import (
 )
 
 type aiChatResponsesUsage struct {
-	InputTokens      int `json:"input_tokens"`
-	OutputTokens     int `json:"output_tokens"`
-	CacheReadTokens  int `json:"cache_read_input_tokens,omitempty"`
+	InputTokens        int `json:"input_tokens"`
+	OutputTokens       int `json:"output_tokens"`
+	CacheReadTokens    int `json:"cache_read_input_tokens,omitempty"`
 	InputTokensDetails *struct {
 		CachedTokens    int `json:"cached_tokens,omitempty"`
 		CacheReadTokens int `json:"cache_read_input_tokens,omitempty"`
@@ -204,9 +204,7 @@ func (a *Service) requestResponsesAIChatRound(ctx context.Context, requestID str
 	promptCacheSelection := aiprovider.ResolveResponsesPromptCacheSelection(runtimeProfile)
 	promptCacheBypassTimestamp := ""
 	if a != nil && a.configManager != nil && strings.TrimSpace(payload.ConversationID) != "" {
-		if snapshot, err := a.configManager.GetAIConversation(payload.ConversationID); err == nil {
-			promptCacheBypassTimestamp = snapshot.PromptCacheBypassTimestamp
-		}
+		promptCacheBypassTimestamp = a.configManager.GetAIConversationPromptCacheBypassTimestamp(payload.ConversationID)
 	}
 
 	requestBody := map[string]any{

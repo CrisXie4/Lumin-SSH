@@ -1939,17 +1939,7 @@ func (a *Service) getAIAutoApprovalSettingsForConversation(conversationID string
 		return AIConversationTaskSettings{}
 	}
 	globalSettings := a.configManager.GetAIGlobalSettings()
-	trimmedConversationID := strings.TrimSpace(conversationID)
-	if trimmedConversationID != "" {
-		snapshot, err := a.configManager.GetAIConversation(trimmedConversationID)
-		if err == nil {
-			settings := normalizeAIConversationTaskSettings(snapshot.Settings)
-			settings.AllowedCommands = normalizeAIStringList(globalSettings.AllowedCommands)
-			settings.DeniedCommands = normalizeAIStringList(globalSettings.DeniedCommands)
-			return settings
-		}
-	}
-	settings := defaultAIConversationTaskSettings(globalSettings)
+	settings := a.configManager.GetAIConversationTaskSettings(conversationID)
 	settings.AllowedCommands = normalizeAIStringList(globalSettings.AllowedCommands)
 	settings.DeniedCommands = normalizeAIStringList(globalSettings.DeniedCommands)
 	return settings
@@ -2204,7 +2194,6 @@ func (a *Service) StartAIChat(requestID string, messagesJSON string) error {
 	if requestID == "" {
 		return fmt.Errorf("缺少请求 ID")
 	}
-
 	payload, err := decodeAIChatRequestPayload(messagesJSON)
 	if err != nil {
 		return err
@@ -2238,7 +2227,6 @@ func (a *Service) StartAIChat(requestID string, messagesJSON string) error {
 	a.setAIChatRequestCancel(requestID, cancel)
 	a.setAIChatSkipNextAutomaticRequest(requestID, payload.SkipNextAutomaticRequest)
 	go a.runCompatibleAIChat(ctx, requestID, payload, profile)
-
 	return nil
 }
 
