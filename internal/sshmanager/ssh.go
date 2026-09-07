@@ -236,8 +236,13 @@ type SSHManager struct {
 	pendingCancels   map[string]context.CancelFunc // sessionId -> cancel func for in-progress Connect
 	transferService  *transfer.Service
 	portForwards     map[string]*managedPortForward
-	mu               sync.RWMutex
-	pendingMu        sync.Mutex
+	// recentDisconnects 整机断开(transport/keepalive)现场记录,parentSessionId 为键,
+	// 供 MCP reconnect_server 定位并重连;mcpReconnectFailures 记录同一会话连续重连
+	// 失败次数,每达阈值提醒用户。均由 mu 保护,详见 ssh_reconnect.go。
+	recentDisconnects    map[string]*DisconnectedSessionRecord
+	mcpReconnectFailures map[string]int
+	mu                   sync.RWMutex
+	pendingMu            sync.Mutex
 	bufPool          sync.Pool
 	// nextGen is the monotonic source of SessionData.Gen values, used to tell
 	// apart two local/serial sessions that reused the same sessionId (fast
@@ -1118,6 +1123,9 @@ func (m *SSHManager) DisconnectConnection(sessionId string, terminalIds []string
 }
 
 func (m *SSHManager) Disconnect(sessionId string) bool {
+	// 主动断开(用户关闭/换密码重连等)时清除断连记录与连续失败计数,
+	// 避免 MCP reconnect_server 之后误重连一个用户已放弃的会话。
+	m.clearDisconnectedRecordsForSession(sessionId)
 	return m.disconnect(sessionId, nil)
 }
 

@@ -174,6 +174,8 @@ func (m *SSHManager) cleanupClientTransport(connKey string, client *ssh.Client, 
 	for _, terminalId := range terminalIds {
 		_ = m.disconnect(terminalId, terminalSessions[terminalId])
 	}
+	// 登记断连现场:外部 AI 可通过 MCP reconnect_server 一键重连该会话。
+	m.recordDisconnectedConn(connKey, terminalIds, parentSessionId, reason)
 	if sftpClient != nil {
 		closeWithTimeout(sftpClient, 3*time.Second)
 	}
