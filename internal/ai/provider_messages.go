@@ -189,6 +189,7 @@ func (a *Service) requestMessagesAIChatRound(ctx context.Context, requestID stri
 	if promptCacheStrategy != "off" {
 		req.Header.Set("anthropic-beta", anthropicPromptCachingBetaHeader)
 	}
+	aiprovider.ApplyCustomHeaders(req.Header, runtimeProfile.CustomHeaders)
 
 	client, err := a.newAINeverTimeoutHTTPClientForProfile(&profile)
 	if err != nil {

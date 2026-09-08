@@ -117,6 +117,7 @@ func (a *Service) ValidateAIProviderWebSearch(jsonStr string) AIProviderWebSearc
 	request.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
 	request.Header.Set("Accept", "text/event-stream")
 	request.Header.Set("Authorization", "Bearer "+resolvedProfile.APIKey)
+	aiprovider.ApplyCustomHeaders(request.Header, toAIProviderRuntimeProfile(resolvedProfile).CustomHeaders)
 
 	client, err := a.newAIHTTPClientForProfile(&resolvedProfile, 0)
 	if err != nil {

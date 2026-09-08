@@ -41,6 +41,18 @@ function isLongTextWrapPath(value: unknown): boolean {
   return normalized.toLowerCase().endsWith(longTextWrapExtension)
 }
 
+function formatMentionFileContent(value: unknown): string {
+  const content = String(value || '').trim()
+  if (!content) {
+    return ''
+  }
+  return content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line, index) => `${index + 1} | ${line}`)
+    .join('\n')
+}
+
 export function buildRemoteFileMention(value: unknown): string {
   const remotePath = isValidRemoteAbsolutePath(value)
   if (!remotePath) {
@@ -387,7 +399,7 @@ async function buildRemoteFolderMentionContent(
     try {
       const content = await (readFile as (sessionId: string, path: string) => Promise<unknown> | unknown)(sessionId, childPath)
       fileContents.push(
-        `<file_content path="${escapeMentionPathSpaces(childPath)}">\n${String(content || '').trim()}\n</file_content>`,
+        `<file_content path="${escapeMentionPathSpaces(childPath)}">\n${formatMentionFileContent(content)}\n</file_content>`,
       )
     } catch (error) {
       const errorText = error instanceof Error ? error.message : String(error)
@@ -497,7 +509,7 @@ async function processAIMentions(
       const pathLabel = escapeMentionPathSpaces(mention.path)
       try {
         const content = typeof readLocalWrappedFile === 'function' ? await readLocalWrappedFile(mention.path || '') : ''
-        contentBlocks.push(`<file_content path="${pathLabel}">\n${String(content || '').trim()}\n</file_content>`)
+        contentBlocks.push(`<file_content path="${pathLabel}">\n${formatMentionFileContent(content)}\n</file_content>`)
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error)
         contentBlocks.push(`<file_content path="${pathLabel}">\nError fetching content: ${errorText}\n</file_content>`)
@@ -520,7 +532,7 @@ async function processAIMentions(
     const pathLabel = escapeMentionPathSpaces(mention.path)
     try {
       const content = typeof readFile === 'function' ? await readFile(sessionId, mention.path || '') : ''
-      contentBlocks.push(`<file_content path="${pathLabel}">\n${String(content || '').trim()}\n</file_content>`)
+      contentBlocks.push(`<file_content path="${pathLabel}">\n${formatMentionFileContent(content)}\n</file_content>`)
     } catch (error) {
       const errorText = error instanceof Error ? error.message : String(error)
       contentBlocks.push(`<file_content path="${pathLabel}">\nError fetching content: ${errorText}\n</file_content>`)

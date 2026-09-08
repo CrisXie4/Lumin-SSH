@@ -52,8 +52,8 @@ type aiProviderModelsResponse struct {
 	} `json:"data"`
 }
 
-func fetchCompatibleProviderModels(client *http.Client, baseURL string, apiKey string) ([]string, error) {
-	trimmedBaseURL := strings.TrimSpace(baseURL)
+func fetchCompatibleProviderModels(client *http.Client, profile AIProviderProfile) ([]string, error) {
+	trimmedBaseURL := strings.TrimSpace(profile.BaseURL)
 	if trimmedBaseURL == "" {
 		return nil, fmt.Errorf("请先填写 OpenAI 基础 URL")
 	}
@@ -66,9 +66,10 @@ func fetchCompatibleProviderModels(client *http.Client, baseURL string, apiKey s
 
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
-	if key := strings.TrimSpace(apiKey); key != "" {
+	if key := strings.TrimSpace(profile.APIKey); key != "" {
 		request.Header.Set("Authorization", "Bearer "+key)
 	}
+	aiprovider.ApplyCustomHeaders(request.Header, toAIProviderRuntimeProfile(profile).CustomHeaders)
 
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second}
@@ -116,8 +117,8 @@ func fetchCompatibleProviderModels(client *http.Client, baseURL string, apiKey s
 	return models, nil
 }
 
-func fetchMessagesProviderModels(client *http.Client, baseURL string, apiKey string) ([]string, error) {
-	trimmedBaseURL := aiprovider.NormalizeMessagesBaseURL(baseURL)
+func fetchMessagesProviderModels(client *http.Client, profile AIProviderProfile) ([]string, error) {
+	trimmedBaseURL := aiprovider.NormalizeMessagesBaseURL(profile.BaseURL)
 	if trimmedBaseURL == "" {
 		return nil, fmt.Errorf("请先填写 Anthropic 基础 URL")
 	}
@@ -130,9 +131,10 @@ func fetchMessagesProviderModels(client *http.Client, baseURL string, apiKey str
 
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("anthropic-version", "2023-06-01")
-	if key := strings.TrimSpace(apiKey); key != "" {
+	if key := strings.TrimSpace(profile.APIKey); key != "" {
 		request.Header.Set("x-api-key", key)
 	}
+	aiprovider.ApplyCustomHeaders(request.Header, toAIProviderRuntimeProfile(profile).CustomHeaders)
 
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second}
@@ -162,9 +164,10 @@ func fetchMessagesProviderModels(client *http.Client, baseURL string, apiKey str
 			}
 			fallbackReq.Header.Set("Accept", "application/json")
 			fallbackReq.Header.Set("User-Agent", aiprovider.GetUserAgent(""))
-			if key := strings.TrimSpace(apiKey); key != "" {
+			if key := strings.TrimSpace(profile.APIKey); key != "" {
 				fallbackReq.Header.Set("Authorization", "Bearer "+key)
 			}
+			aiprovider.ApplyCustomHeaders(fallbackReq.Header, toAIProviderRuntimeProfile(profile).CustomHeaders)
 			fallbackResp, err := client.Do(fallbackReq)
 			if err != nil {
 				fallbackErr = err
@@ -239,7 +242,7 @@ func (a *Service) RequestAIProviderModels(baseURL string, apiKey string) ([]stri
 	if err != nil {
 		return nil, err
 	}
-	return fetchCompatibleProviderModels(client, baseURL, apiKey)
+	return fetchCompatibleProviderModels(client, AIProviderProfile{BaseURL: baseURL, APIKey: apiKey})
 }
 
 func (a *Service) RequestAIProviderModelsWithProfile(jsonStr string) ([]string, error) {
@@ -256,9 +259,9 @@ func (a *Service) RequestAIProviderModelsWithProfile(jsonStr string) ([]string, 
 		return nil, err
 	}
 	if profile.Provider == "Messages" {
-		return fetchMessagesProviderModels(client, profile.BaseURL, profile.APIKey)
+		return fetchMessagesProviderModels(client, profile)
 	}
-	return fetchCompatibleProviderModels(client, profile.BaseURL, profile.APIKey)
+	return fetchCompatibleProviderModels(client, profile)
 }
 
 func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile, requestMessages []AIChatRequestMessage) (aiChatRoundResult, error) {
@@ -323,6 +326,7 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 	if apiKey := strings.TrimSpace(profile.APIKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+	aiprovider.ApplyCustomHeaders(req.Header, runtimeProfile.CustomHeaders)
 
 	client, err := a.newAINeverTimeoutHTTPClientForProfile(&profile)
 	if err != nil {

@@ -8,32 +8,38 @@ import (
 	aiprovider "luminssh-go/internal/ai/provider"
 )
 
+type AIProviderCustomHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type AIProviderProfile struct {
-	ID                                     string   `json:"id"`
-	Name                                   string   `json:"name"`
-	Provider                               string   `json:"provider"`
-	Model                                  string   `json:"model"`
-	BaseURL                                string   `json:"baseUrl"`
-	APIKey                                 string   `json:"apiKey"`
-	ModelTemperature                       *float64 `json:"modelTemperature,omitempty"`
-	ModelTopP                              *float64 `json:"modelTopP,omitempty"`
-	CacheStrategy                          string   `json:"cacheStrategy"`
-	OpenAIResponsesUsePromptCacheRetention bool     `json:"openAiResponsesUsePromptCacheRetention"`
-	OpenAIResponsesFinishOnCompletedEvent  bool     `json:"openAiResponsesFinishOnCompletedEvent"`
-	WebSearchEnabled                       bool     `json:"webSearchEnabled"`
-	DedicatedWebSearchEnabled              bool     `json:"dedicatedWebSearchEnabled"`
-	DedicatedWebSearchProviderID           string   `json:"dedicatedWebSearchProviderId,omitempty"`
-	DedicatedProxyEnabled                  bool     `json:"dedicatedProxyEnabled"`
-	DedicatedProxyID                       string   `json:"dedicatedProxyId,omitempty"`
-	ReasoningEffort                        string   `json:"reasoningEffort"`
-	EnableReasoningEffort                  bool     `json:"enableReasoningEffort"`
-	OpenAILegacyReasoningFormatEnabled     bool     `json:"openAiLegacyReasoningFormatEnabled"`
-	SystemPromptAppend                     string   `json:"systemPromptAppend,omitempty"`
-	SystemPromptPresetID                   string   `json:"systemPromptPresetId,omitempty"`
-	ModelMaxTokens                         int      `json:"modelMaxTokens,omitempty"`
-	ModelMaxThinkingTokens                 int      `json:"modelMaxThinkingTokens,omitempty"`
-	Pinned                                 bool     `json:"pinned"`
-	UpdatedAt                              int64    `json:"updatedAt,omitempty"`
+	ID                                     string                   `json:"id"`
+	Name                                   string                   `json:"name"`
+	Provider                               string                   `json:"provider"`
+	Model                                  string                   `json:"model"`
+	BaseURL                                string                   `json:"baseUrl"`
+	APIKey                                 string                   `json:"apiKey"`
+	CustomHeaders                          []AIProviderCustomHeader `json:"customHeaders,omitempty"`
+	ModelTemperature                       *float64                 `json:"modelTemperature,omitempty"`
+	ModelTopP                              *float64                 `json:"modelTopP,omitempty"`
+	CacheStrategy                          string                   `json:"cacheStrategy"`
+	OpenAIResponsesUsePromptCacheRetention bool                     `json:"openAiResponsesUsePromptCacheRetention"`
+	OpenAIResponsesFinishOnCompletedEvent  bool                     `json:"openAiResponsesFinishOnCompletedEvent"`
+	WebSearchEnabled                       bool                     `json:"webSearchEnabled"`
+	DedicatedWebSearchEnabled              bool                     `json:"dedicatedWebSearchEnabled"`
+	DedicatedWebSearchProviderID           string                   `json:"dedicatedWebSearchProviderId,omitempty"`
+	DedicatedProxyEnabled                  bool                     `json:"dedicatedProxyEnabled"`
+	DedicatedProxyID                       string                   `json:"dedicatedProxyId,omitempty"`
+	ReasoningEffort                        string                   `json:"reasoningEffort"`
+	EnableReasoningEffort                  bool                     `json:"enableReasoningEffort"`
+	OpenAILegacyReasoningFormatEnabled     bool                     `json:"openAiLegacyReasoningFormatEnabled"`
+	SystemPromptAppend                     string                   `json:"systemPromptAppend,omitempty"`
+	SystemPromptPresetID                   string                   `json:"systemPromptPresetId,omitempty"`
+	ModelMaxTokens                         int                      `json:"modelMaxTokens,omitempty"`
+	ModelMaxThinkingTokens                 int                      `json:"modelMaxThinkingTokens,omitempty"`
+	Pinned                                 bool                     `json:"pinned"`
+	UpdatedAt                              int64                    `json:"updatedAt,omitempty"`
 }
 
 type AIProviderRegistry struct {
@@ -102,6 +108,32 @@ func NormalizeAIProviderReasoningEffort(value string) string {
 	}
 }
 
+func NormalizeAIProviderCustomHeaders(headers []AIProviderCustomHeader) []AIProviderCustomHeader {
+	if len(headers) == 0 {
+		return nil
+	}
+	normalized := make([]AIProviderCustomHeader, 0, len(headers))
+	indexByName := make(map[string]int, len(headers))
+	for _, header := range headers {
+		name := strings.TrimSpace(header.Name)
+		if name == "" {
+			continue
+		}
+		normalizedHeader := AIProviderCustomHeader{
+			Name:  name,
+			Value: strings.TrimSpace(header.Value),
+		}
+		key := strings.ToLower(name)
+		if existingIndex, exists := indexByName[key]; exists {
+			normalized[existingIndex] = normalizedHeader
+			continue
+		}
+		indexByName[key] = len(normalized)
+		normalized = append(normalized, normalizedHeader)
+	}
+	return normalized
+}
+
 func NormalizeAIProviderProfiles(profiles []AIProviderProfile) []AIProviderProfile {
 	if profiles == nil {
 		profiles = []AIProviderProfile{}
@@ -126,6 +158,7 @@ func NormalizeAIProviderProfiles(profiles []AIProviderProfile) []AIProviderProfi
 		}
 		profile.BaseURL = strings.TrimSpace(profile.BaseURL)
 		profile.APIKey = strings.TrimSpace(profile.APIKey)
+		profile.CustomHeaders = NormalizeAIProviderCustomHeaders(profile.CustomHeaders)
 		profile.DedicatedProxyID = strings.TrimSpace(profile.DedicatedProxyID)
 		profile.SystemPromptAppend = strings.TrimSpace(strings.ReplaceAll(profile.SystemPromptAppend, "\r\n", "\n"))
 		profile.SystemPromptPresetID = strings.TrimSpace(profile.SystemPromptPresetID)
