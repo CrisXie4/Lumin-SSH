@@ -28,6 +28,15 @@ export default function QuickEditAdvancedTab({
 }: QuickEditAdvancedTabProps) {
   const { t } = useTranslation();
   const isResponsesProvider = (providerDefinition?.value || draft.provider) === 'Responses';
+  const customHeaders = Array.isArray(draft.customHeaders) ? draft.customHeaders : [];
+  const updateCustomHeader = (index: number, field: 'name' | 'value', value: string) => {
+    setDraft((previous) => ({
+      ...previous,
+      customHeaders: previous.customHeaders.map((header, headerIndex) => (
+        headerIndex === index ? { ...header, [field]: value } : header
+      )),
+    }));
+  };
 
   return (
     <div className={`${active ? 'grid' : 'hidden'} gap-1.5 py-0.5`}>
@@ -92,6 +101,58 @@ export default function QuickEditAdvancedTab({
         ) : (
           <div className="text-xs leading-[1.25] text-tertiary">{t('关闭后不发送该参数')}</div>
         )}
+      </div>
+      <div className="grid gap-2 py-2 px-2.5 border border-line rounded-[var(--radius-md)] bg-overlay">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-primary">{t('自定义请求头')}</div>
+          <button
+            type="button"
+            onClick={() => setDraft((previous) => ({
+              ...previous,
+              customHeaders: [...previous.customHeaders, { name: '', value: '' }],
+            }))}
+            className="h-7 px-2 inline-flex items-center rounded-[var(--radius-sm)] border border-line bg-canvas text-secondary text-xs font-medium hover:bg-hover hover:text-primary transition-colors duration-[120ms]">
+            + {t('添加请求头')}
+          </button>
+        </div>
+        <div className="text-xs leading-[1.35] text-tertiary">
+          {t('会追加到该供应商的模型刷新、对话和联网请求。名称非空即会发送，值可以留空。')}
+        </div>
+        {customHeaders.length > 0 ? (
+          <div className="grid gap-1.5">
+            {customHeaders.map((header, index) => (
+              <div key={`${header.name}-${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_28px] gap-1.5 items-center">
+                <input
+                  aria-label={t('请求头名称')}
+                  autoComplete="off"
+                  value={header.name}
+                  placeholder="X-Custom-Header"
+                  onChange={(event) => updateCustomHeader(index, 'name', event.target.value)}
+                  className="h-[32px] min-w-0 rounded-[var(--radius-sm)] border border-line bg-sunken text-primary text-sm px-2 box-border outline-none"
+                />
+                <input
+                  aria-label={t('请求头值')}
+                  autoComplete="off"
+                  value={header.value}
+                  placeholder={t('请求头值')}
+                  onChange={(event) => updateCustomHeader(index, 'value', event.target.value)}
+                  className="h-[32px] min-w-0 rounded-[var(--radius-sm)] border border-line bg-sunken text-primary text-sm px-2 box-border outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label={t('删除请求头')}
+                  title={t('删除请求头')}
+                  onClick={() => setDraft((previous) => ({
+                    ...previous,
+                    customHeaders: previous.customHeaders.filter((_, headerIndex) => headerIndex !== index),
+                  }))}
+                  className="w-7 h-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-transparent bg-transparent text-tertiary hover:bg-danger/15 hover:text-danger transition-colors duration-[120ms]">
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
       <QuickEditSystemPromptSection
         draft={draft}

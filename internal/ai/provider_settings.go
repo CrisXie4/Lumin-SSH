@@ -112,11 +112,19 @@ func (a *Service) SaveAIProviderState(jsonStr string) error {
 }
 
 func toAIProviderRuntimeProfile(profile AIProviderProfile) aiprovider.Profile {
+	customHeaders := make([]aiprovider.CustomHeader, 0, len(profile.CustomHeaders))
+	for _, header := range profile.CustomHeaders {
+		customHeaders = append(customHeaders, aiprovider.CustomHeader{
+			Name:  strings.TrimSpace(header.Name),
+			Value: strings.TrimSpace(header.Value),
+		})
+	}
 	return aiprovider.Profile{
 		Provider:                               profile.Provider,
 		Model:                                  profile.Model,
 		BaseURL:                                profile.BaseURL,
 		APIKey:                                 profile.APIKey,
+		CustomHeaders:                          customHeaders,
 		ModelTemperature:                       profile.ModelTemperature,
 		ModelTopP:                              profile.ModelTopP,
 		CacheStrategy:                          profile.CacheStrategy,

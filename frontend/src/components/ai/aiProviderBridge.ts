@@ -1,6 +1,11 @@
 import { t } from '../../i18n.ts'
 import { canUseDedicatedWebSearchCandidate } from './providers/index.ts'
 
+export type AIProviderCustomHeader = {
+  name: string
+  value: string
+}
+
 type AIProvider = {
   id: string
   name: string
@@ -9,6 +14,7 @@ type AIProvider = {
   baseUrl: string
   apiKey: string
   cacheStrategy: string
+  customHeaders: AIProviderCustomHeader[]
   webSearchEnabled: boolean
   dedicatedWebSearchEnabled: boolean
   dedicatedWebSearchProviderId: string
@@ -107,6 +113,32 @@ function normalizeOptionalNumber(value: unknown): number | null {
   return Number.isFinite(nextValue) ? nextValue : null
 }
 
+export function normalizeAIProviderCustomHeaders(value: unknown): AIProviderCustomHeader[] {
+  const headers = Array.isArray(value) ? value : []
+  const normalized: AIProviderCustomHeader[] = []
+  const indexByName = new Map<string, number>()
+  for (const header of headers) {
+    const candidate = (header ?? {}) as Record<string, unknown>
+    const name = typeof candidate.name === 'string' ? candidate.name.trim() : ''
+    if (!name) {
+      continue
+    }
+    const normalizedHeader = {
+      name,
+      value: typeof candidate.value === 'string' ? candidate.value.trim() : '',
+    }
+    const key = name.toLowerCase()
+    const existingIndex = indexByName.get(key)
+    if (existingIndex === undefined) {
+      indexByName.set(key, normalized.length)
+      normalized.push(normalizedHeader)
+    } else {
+      normalized[existingIndex] = normalizedHeader
+    }
+  }
+  return normalized
+}
+
 function normalizePromptCacheFormatPolicy(value: unknown): AIProviderPromptCacheFormatPolicy | null {
   const option = (value ?? {}) as Record<string, unknown>
   const format = typeof option.format === 'string' && VALID_PROMPT_CACHE_FORMATS.has(option.format)
@@ -166,6 +198,7 @@ function normalizeProvider(provider: unknown, index: number): AIProvider {
     baseUrl: typeof p.baseUrl === 'string' ? p.baseUrl.trim() : '',
     apiKey: typeof p.apiKey === 'string' ? p.apiKey.trim() : '',
     cacheStrategy: normalizeCacheStrategy(p.cacheStrategy),
+    customHeaders: normalizeAIProviderCustomHeaders(p.customHeaders),
     webSearchEnabled: p.webSearchEnabled !== false,
     dedicatedWebSearchEnabled: Boolean(p.dedicatedWebSearchEnabled),
     dedicatedWebSearchProviderId: typeof p.dedicatedWebSearchProviderId === 'string' ? p.dedicatedWebSearchProviderId.trim() : '',

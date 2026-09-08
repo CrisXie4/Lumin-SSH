@@ -11,6 +11,7 @@ export interface AIProviderLike {
   baseUrl?: string;
   pinned?: boolean;
   cacheStrategy?: string;
+  customHeaders?: Array<{ name?: string; value?: string }>;
   openAiResponsesUsePromptCacheRetention?: boolean;
   openAiResponsesFinishOnCompletedEvent?: boolean;
   modelTemperature?: number | null;

@@ -5,7 +5,7 @@ import {
   saveAIGlobalSettings,
   type AISystemPromptPreset,
 } from '../aiGlobalSettingsBridge.ts';
-import { getAIProviderPromptCachePolicy, type AIProviderPromptCachePolicy } from '../aiProviderBridge.ts';
+import { getAIProviderPromptCachePolicy, normalizeAIProviderCustomHeaders, type AIProviderPromptCachePolicy } from '../aiProviderBridge.ts';
 import {
   availableAIProviders,
   canUseDedicatedWebSearchCandidate,
@@ -229,7 +229,7 @@ export function useAIProviderQuickEdit({
       return false;
     }
 
-    const refreshKey = `${trimmedProvider}::${trimmedBaseUrl}::${trimmedApiKey}`;
+    const refreshKey = `${trimmedProvider}::${trimmedBaseUrl}::${trimmedApiKey}::${JSON.stringify(draft.customHeaders)}`;
     lastAutoRefreshKeyRef.current = refreshKey;
     setModelRefreshing(true);
     setModelRefreshError('');
@@ -393,7 +393,7 @@ export function useAIProviderQuickEdit({
       return undefined;
     }
 
-    const refreshKey = `${draft.provider.trim()}::${trimmedBaseUrl}::${trimmedApiKey}`;
+    const refreshKey = `${draft.provider.trim()}::${trimmedBaseUrl}::${trimmedApiKey}::${JSON.stringify(draft.customHeaders)}`;
     if (refreshKey === lastAutoRefreshKeyRef.current) {
       return undefined;
     }
@@ -411,7 +411,7 @@ export function useAIProviderQuickEdit({
         window.clearTimeout(autoRefreshTimerRef.current);
       }
     };
-  }, [open, draft.provider, draft.baseUrl, draft.apiKey, draft.model]);
+  }, [open, draft.provider, draft.baseUrl, draft.apiKey, draft.model, draft.customHeaders]);
 
   const filteredModels = useMemo(() => {
     const keyword = modelQuery.trim().toLowerCase();
@@ -599,6 +599,7 @@ export function useAIProviderQuickEdit({
       openAiResponsesUsePromptCacheRetention: providerDefinition.value === 'Responses' && draft.openAiResponsesUsePromptCacheRetention === true,
       modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
       modelTopP: normalizeOptionalNumber(draft.modelTopP),
+      customHeaders: normalizeAIProviderCustomHeaders(draft.customHeaders),
       systemPromptAppend: draft.systemPromptAppend.replace(/\r\n/g, '\n').trim(),
       systemPromptPresetId: draft.systemPromptPresetId.trim(),
       webSearchEnabled: draft.webSearchEnabled,

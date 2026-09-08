@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../i18n.ts';
-import { getAIProviderState, normalizeAIProviderState, saveAIProviderState } from '../aiProviderBridge.ts';
+import { getAIProviderState, normalizeAIProviderCustomHeaders, normalizeAIProviderState, saveAIProviderState } from '../aiProviderBridge.ts';
 import { getAIProviderDefinition } from '../providers/index.ts';
 import {
   buildDisplayModelCapability,
@@ -399,6 +399,7 @@ export function useAIProviderSelector({
       baseUrl: typeof draft.baseUrl === 'string' ? draft.baseUrl.trim() : '',
       apiKey: typeof draft.apiKey === 'string' ? draft.apiKey.trim() : '',
       cacheStrategy: typeof draft.cacheStrategy === 'string' ? draft.cacheStrategy : 'model',
+      customHeaders: normalizeAIProviderCustomHeaders(draft.customHeaders),
       openAiResponsesUsePromptCacheRetention: draft.openAiResponsesUsePromptCacheRetention === true,
       openAiResponsesFinishOnCompletedEvent: draft.openAiResponsesFinishOnCompletedEvent === true,
       modelTemperature: normalizeOptionalNumber(draft.modelTemperature),
@@ -666,6 +667,7 @@ export function useAIProviderSelector({
     selectedProvider?.provider,
     selectedProvider?.baseUrl,
     selectedProvider?.apiKey,
+    selectedProvider?.customHeaders,
     selectedProvider?.dedicatedProxyEnabled,
     selectedProvider?.dedicatedProxyId,
   ]);

@@ -4,14 +4,21 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"strings"
 )
+
+type CustomHeader struct {
+	Name  string
+	Value string
+}
 
 type Profile struct {
 	Provider                               string
 	Model                                  string
 	BaseURL                                string
 	APIKey                                 string
+	CustomHeaders                          []CustomHeader
 	CacheStrategy                          string
 	ReasoningEffort                        string
 	EnableReasoningEffort                  bool
@@ -47,6 +54,20 @@ func GetUserAgent(taskID string) string {
 		return strings.Replace(strings.Replace(defaultAIUserAgentTemplate, "${taskHash}_", "", 1), "${taskHash}", "", 1)
 	}
 	return strings.Replace(defaultAIUserAgentTemplate, "${taskHash}", taskHash, 1)
+}
+
+func ApplyCustomHeaders(headers http.Header, customHeaders []CustomHeader) {
+	if headers == nil {
+		return
+	}
+	for _, header := range customHeaders {
+		name := strings.TrimSpace(header.Name)
+		if name == "" || strings.ContainsAny(name, "\r\n: \t") {
+			continue
+		}
+		// 名称存在即发送,即使值为空也保留该请求头,以兼容只检查字段存在性的网关。
+		headers.Set(name, strings.TrimSpace(header.Value))
+	}
 }
 
 func ApplySamplingParameters(requestBody map[string]any, profile Profile) {
@@ -696,4 +717,3 @@ func ResolveMaxOutputTokens(profile Profile, capability AIProviderModelCapabilit
 	}
 	return defaultAIProviderMaxOutputTokens
 }
-

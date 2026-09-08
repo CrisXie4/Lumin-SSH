@@ -1,5 +1,6 @@
 import { t as translate, type I18nKey } from '../../../i18n.ts';
 import { getAIProviderDefinition } from '../providers/index.ts';
+import { normalizeAIProviderCustomHeaders, type AIProviderCustomHeader } from '../aiProviderBridge.ts';
 import type { AIProviderLike } from '../AIProviderSelector.tsx';
 
 export const defaultCacheOptions: Array<{ value: string; labelKey: I18nKey }> = [
@@ -145,6 +146,7 @@ export interface ProviderDraft {
   name: string;
   provider: string;
   cacheStrategy: string;
+  customHeaders: AIProviderCustomHeader[];
   openAiResponsesUsePromptCacheRetention: boolean;
   openAiResponsesFinishOnCompletedEvent: boolean;
   modelTemperature: number | null;
@@ -206,6 +208,7 @@ export function buildDraft(provider?: AIProviderLike | null): ProviderDraft {
     cacheStrategy: typeof provider?.cacheStrategy === 'string' && provider.cacheStrategy.trim()
       ? provider.cacheStrategy.trim()
       : (providerDefinition.value === 'Responses' ? 'model' : '5m'),
+    customHeaders: normalizeAIProviderCustomHeaders(provider?.customHeaders),
     openAiResponsesUsePromptCacheRetention: provider?.openAiResponsesUsePromptCacheRetention === true,
     openAiResponsesFinishOnCompletedEvent: provider?.openAiResponsesFinishOnCompletedEvent === true,
     modelTemperature: normalizeOptionalNumber(provider?.modelTemperature),

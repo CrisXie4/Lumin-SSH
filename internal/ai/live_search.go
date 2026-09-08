@@ -101,6 +101,7 @@ func (a *Service) searchAIProviderWeb(ctx context.Context, requestID string, pro
 	request.Header.Set("User-Agent", aiprovider.GetUserAgent(requestID))
 	request.Header.Set("Accept", "text/event-stream")
 	request.Header.Set("Authorization", "Bearer "+resolvedProfile.APIKey)
+	aiprovider.ApplyCustomHeaders(request.Header, runtimeProfile.CustomHeaders)
 
 	client, err := a.newAINeverTimeoutHTTPClientForProfile(&resolvedProfile)
 	if err != nil {
