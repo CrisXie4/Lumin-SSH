@@ -25,6 +25,12 @@ type aiChatCompatibleUsage struct {
 	} `json:"prompt_tokens_details,omitempty"`
 }
 
+type aiChatCompatibleStreamError struct {
+	Message string `json:"message"`
+	Type    string `json:"type"`
+	Code    string `json:"code"`
+}
+
 type aiChatCompatibleChunk struct {
 	Choices []struct {
 		Delta struct {
@@ -33,7 +39,24 @@ type aiChatCompatibleChunk struct {
 			ReasoningContent string `json:"reasoning_content"`
 		} `json:"delta"`
 	} `json:"choices"`
-	Usage *aiChatCompatibleUsage `json:"usage,omitempty"`
+	Usage *aiChatCompatibleUsage       `json:"usage,omitempty"`
+	Error *aiChatCompatibleStreamError `json:"error,omitempty"`
+}
+
+func aiChatCompatibleErrorText(err *aiChatCompatibleStreamError) string {
+	if err == nil {
+		return ""
+	}
+	if text := strings.TrimSpace(err.Message); text != "" {
+		return text
+	}
+	if text := strings.TrimSpace(err.Code); text != "" {
+		return text
+	}
+	if text := strings.TrimSpace(err.Type); text != "" {
+		return text
+	}
+	return "upstream stream error"
 }
 
 type aiChatRoundResult struct {
@@ -357,7 +380,22 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 		}
 
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || !strings.HasPrefix(line, "data:") {
+		if line == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(line, "data:") {
+			// SSE 注释/控制行(如 ": keep-alive")可忽略。部分 OpenAI 兼容网关在其上游失败时,
+			// 会先把流打开(HTTP 200),随后把一段不带 "data:" 前缀的原始 JSON 错误对象
+			// 直接追加进流体再关闭。若不识别,该轮会以"空内容"结束并回落到兜底文案,
+			// 上层既看不到错误也无法自动重试。此处将其识别为错误并返回。
+			if strings.HasPrefix(line, "{") {
+				var rawChunk aiChatCompatibleChunk
+				if json.Unmarshal([]byte(line), &rawChunk) == nil && rawChunk.Error != nil {
+					finalizeRoundResult()
+					return result, fmt.Errorf("%s", aiChatCompatibleErrorText(rawChunk.Error))
+				}
+			}
 			continue
 		}
 
@@ -372,6 +410,10 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 		var chunk aiChatCompatibleChunk
 		if err := json.Unmarshal([]byte(chunkPayload), &chunk); err != nil {
 			continue
+		}
+		if chunk.Error != nil {
+			finalizeRoundResult()
+			return result, fmt.Errorf("%s", aiChatCompatibleErrorText(chunk.Error))
 		}
 
 		if chunk.Usage != nil {
