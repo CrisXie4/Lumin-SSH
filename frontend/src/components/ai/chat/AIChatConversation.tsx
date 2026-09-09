@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { useTranslation } from '../../../i18n.ts';
 import { Z } from '../../../constants/zIndex.ts';
@@ -83,6 +83,29 @@ export default function AIChatConversation({
       }
     });
     return result;
+  }, [groupedMessages]);
+
+  // 圆点导航"当前位置"点亮：可视区内最靠下的用户消息；没有则取其上方最近的一条。
+  // ponytail: rangeChanged 含 overscan（increaseViewportBy 1200/800px），点位最多偏差约一屏，
+  // 如需精确可改用 scrollTop + 条目高度换算
+  const [activeNavIndex, setActiveNavIndex] = useState(-1);
+  const handleRangeChanged = useCallback(({ startIndex, endIndex }: { startIndex: number; endIndex: number }) => {
+    let next = -1;
+    for (let i = Math.min(endIndex, groupedMessages.length - 1); i >= startIndex; i -= 1) {
+      if (groupedMessages[i]?.type === 'user') {
+        next = i;
+        break;
+      }
+    }
+    if (next < 0) {
+      for (let i = Math.min(startIndex, groupedMessages.length - 1) - 1; i >= 0; i -= 1) {
+        if (groupedMessages[i]?.type === 'user') {
+          next = i;
+          break;
+        }
+      }
+    }
+    setActiveNavIndex((prev) => (prev === next ? prev : next));
   }, [groupedMessages]);
 
   const {
@@ -218,6 +241,7 @@ export default function AIChatConversation({
         initialTopMostItemIndex={{ index: Math.max(groupedMessages.length - 1, 0), align: 'end' }}
         atBottomThreshold={24}
         totalListHeightChanged={handleTotalListHeightChanged}
+        rangeChanged={handleRangeChanged}
         followOutput={() => (followIntentRef.current ? 'auto' : false)}
         atBottomStateChange={(isAtBottom) => {
           if (isAtBottom && !isScrollbarDraggingRef.current && !isContentHeightSettling()) {
@@ -270,6 +294,7 @@ export default function AIChatConversation({
         userMessageEntries={userMessageEntries}
         messageNavEnabled={messageNavEnabled}
         isLeftSide={isLeftSide}
+        activeMessageIndex={activeNavIndex}
         onJumpToUserMessage={handleJumpToUserMessage}
       />
       {showScrollToBottom ? (

@@ -655,6 +655,14 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
     const ownerSpec = ownerChanged ? resolveIdentityInputSpec(ownerValue, ownerCandidates, currentOwnerId) : '';
     const groupSpec = groupChanged ? resolveIdentityInputSpec(groupValue, groupCandidates, currentGroupId) : '';
 
+    const requireChownFile = () => {
+      const chownFile = window?.go?.wailsapp?.App?.ChownFile;
+      if (typeof chownFile !== 'function') {
+        throw new Error(t('应用不可用'));
+      }
+      return chownFile;
+    };
+
     if (!modeChanged && !ownerChanged && !groupChanged && !isBatch) {
       setChmodTarget(null);
       return;
@@ -692,11 +700,7 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
         };
         try {
           if (ownerChanged || groupChanged) {
-            const chownFile = window?.go?.wailsapp?.App?.ChownFile;
-            if (typeof chownFile !== 'function') {
-              throw new Error(t('应用不可用'));
-            }
-            await chownFile(sessionId, target.path, ownerSpec, groupSpec, targetRecursive);
+            await requireChownFile()(sessionId, target.path, ownerSpec, groupSpec, targetRecursive);
             applied.ownerApplied = true;
           }
           if (isBatch || modeChanged) {
@@ -726,11 +730,7 @@ export function useFileManagerItemOps(deps: ReturnType<typeof useFileManagerCore
           for (let index = undoTargets.length - 1; index >= 0; index -= 1) {
             const target = undoTargets[index];
             if (target.ownerApplied) {
-              const chownFile = window?.go?.wailsapp?.App?.ChownFile;
-              if (typeof chownFile !== 'function') {
-                throw new Error(t('应用不可用'));
-              }
-              await chownFile(
+              await requireChownFile()(
                 sessionId,
                 target.path,
                 ownerChanged ? target.currentOwnerId : '',
