@@ -370,6 +370,10 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 		}
 
 		var chunk aiChatCompatibleChunk
+		if err := json.Unmarshal([]byte(chunkPayload), &chunk); err != nil {
+			continue
+		}
+
 		if chunk.Usage != nil {
 			result.InputTokens = chunk.Usage.PromptTokens
 			result.OutputTokens = chunk.Usage.CompletionTokens
