@@ -32,6 +32,7 @@ export default function AIChatMessageDotNav({
   const [listOpen, setListOpen] = useState(false);
   const [anchorY, setAnchorY] = useState(0);
   const [listTop, setListTop] = useState(0);
+  const [scrollAnchorIndex, setScrollAnchorIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef(0);
@@ -63,12 +64,15 @@ export default function AIChatMessageDotNav({
       setAnchorY(dotRect.top - wrapperRect.top + dotRect.height / 2);
     }
     setHoveredGroupedIndex(groupedIdx);
+    setScrollAnchorIndex(groupedIdx);
     setListOpen(true);
   };
 
   useEffect(() => () => cancelClose(), []);
 
-  // 列表渲染后按实测高度垂直居中并夹进容器范围，保证任何点位弹出都完整可见
+  // 列表渲染后按实测高度垂直居中并夹进容器范围，保证任何点位弹出都完整可见；
+  // 滚动定位只由圆点悬停驱动（scrollAnchorIndex），列表行内悬停只改高亮，
+  // 否则滚轮滚动时指针下行的 mouseenter 会与定位互相打架，列表被拽回
   useLayoutEffect(() => {
     if (!listOpen) {
       return;
@@ -82,7 +86,12 @@ export default function AIChatMessageDotNav({
     const wrapperH = wrapper.clientHeight;
     const centered = anchorY - listH / 2;
     setListTop(Math.max(0, Math.min(centered, wrapperH - listH)));
-  }, [listOpen, anchorY]);
+    const rowIdx = userMessageEntries.findIndex(({ index }) => index === scrollAnchorIndex);
+    const row = rowIdx >= 0 ? list.children[rowIdx] : undefined;
+    if (row instanceof HTMLElement) {
+      list.scrollTop = Math.max(0, row.offsetTop - 4);
+    }
+  }, [listOpen, anchorY, scrollAnchorIndex, userMessageEntries]);
 
   if (userMessageEntries.length < 1 || !messageNavEnabled) {
     return null;
