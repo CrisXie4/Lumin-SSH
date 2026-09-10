@@ -427,36 +427,37 @@ export function useFileManagerTransfers(deps: ReturnType<typeof useFileManagerCo
     openTransferQueueIfNeeded();
     const settings = getUploadSettings();
     const createdAt = Date.now();
-    const queueSeed: TransferQueueItem[] = localPaths.map((localPath, index) => {
-      const name = localPath.split(/[\\/]/).filter(Boolean).pop() || t('文件');
-      return {
-        id: `native-upload-${createdAt}-${index}`,
-        name,
-        relativePath: name,
-        remotePath: joinPath(uploadTargetPath, name),
-        status: 'queued',
-        progress: 0,
-        bytesUploaded: 0,
-        bytesTotal: 0,
-        chunkSizeBytes: Math.max(1, settings.chunkSizeKiB * 1024),
-        chunksTotal: 0,
-        chunksCompleted: 0,
-        chunksFailed: 0,
-        chunks: [],
-        error: '',
-        sourceTerminalId: sessionId,
-        mode: 'compressed',
-        phase: 'preparing',
-        phaseProgress: 0,
-        phaseCurrent: '',
-        phaseDetail: t('准备上传'),
-        localPathCount: 1,
-        createdAt: createdAt + index,
-        updatedAt: createdAt + index,
-      };
-    });
-    updateSessionUploadQueue(sessionGroupId, (current) => [...queueSeed, ...current]);
-    const patchQueueItem = (queueId: unknown, patch: Record<string, unknown> | ((item: TransferQueueItem) => TransferQueueItem)) => {
+    const displayName = localPaths.length === 1
+      ? (localPaths[0].split(/[\\/]/).filter(Boolean).pop() || t('文件'))
+      : `${localPaths.length} ${t('项')}`;
+    const queueId = `native-upload-${createdAt}`;
+    const queueItem: TransferQueueItem = {
+      id: queueId,
+      name: displayName,
+      relativePath: displayName,
+      remotePath: joinPath(uploadTargetPath, displayName),
+      status: 'queued',
+      progress: 0,
+      bytesUploaded: 0,
+      bytesTotal: 0,
+      chunkSizeBytes: Math.max(1, settings.chunkSizeKiB * 1024),
+      chunksTotal: 0,
+      chunksCompleted: 0,
+      chunksFailed: 0,
+      chunks: [],
+      error: '',
+      sourceTerminalId: sessionId,
+      mode: 'compressed',
+      phase: 'preparing',
+      phaseProgress: 0,
+      phaseCurrent: '',
+      phaseDetail: t('准备上传'),
+      localPathCount: localPaths.length,
+      createdAt,
+      updatedAt: createdAt,
+    };
+    updateSessionUploadQueue(sessionGroupId, (current) => [queueItem, ...current]);
+    const patchQueueItem = (patch: Record<string, unknown> | ((item: TransferQueueItem) => TransferQueueItem)) => {
       updateSessionUploadQueue(sessionGroupId, (current) => current.map((item: TransferQueueItem) => (
         item.id === queueId
           ? { ...item, ...(typeof patch === 'function' ? patch(item) : patch) }
@@ -464,24 +465,21 @@ export function useFileManagerTransfers(deps: ReturnType<typeof useFileManagerCo
       )));
     };
     const transferTaskRunner = getTransferTaskRunner(settings.maxTransferTasks);
-    let successCount = 0;
-    const failures: string[] = [];
-    await Promise.all(localPaths.map((localPath, index) => transferTaskRunner(async () => {
-      const queueId = queueSeed[index]?.id;
-      const name = queueSeed[index]?.name || localPath.split(/[\\/]/).filter(Boolean).pop() || t('文件');
-      if (!queueId || abortedUploadIdsRef.current.has(queueId)) {
+    let uploadSucceeded = false;
+    await transferTaskRunner(async () => {
+      if (abortedUploadIdsRef.current.has(queueId)) {
         return;
       }
-      patchQueueItem(queueId, { status: 'uploading', updatedAt: Date.now() });
+      patchQueueItem({ status: 'uploading', updatedAt: Date.now() });
       try {
         await window?.go?.wailsapp?.App?.UploadLocalPathsCompressed?.(
           sessionId,
           queueId,
           Math.max(1, settings.maxChunksPerFile),
-          [localPath],
+          localPaths,
           uploadTargetPath,
         );
-        patchQueueItem(queueId, {
+        patchQueueItem({
           status: 'completed',
           phase: 'completed',
           phaseProgress: 100,
@@ -490,10 +488,11 @@ export function useFileManagerTransfers(deps: ReturnType<typeof useFileManagerCo
           phaseDetail: t('已完成'),
           updatedAt: Date.now(),
         });
-        successCount += 1;
+        uploadSucceeded = true;
+        addToast?.(`${t('上传成功')}: ${displayName}`, 'success');
       } catch (err) {
         const isAborted = abortedUploadIdsRef.current.has(queueId) || String(err).toLowerCase().includes('context canceled');
-        patchQueueItem(queueId, {
+        patchQueueItem({
           status: 'failed',
           phase: 'failed',
           phaseDetail: isAborted ? t('已终止') : String(err),
@@ -501,16 +500,11 @@ export function useFileManagerTransfers(deps: ReturnType<typeof useFileManagerCo
           updatedAt: Date.now(),
         });
         if (!isAborted) {
-          failures.push(`${name}: ${err}`);
+          addToast?.(`${t('上传失败')}: ${displayName}: ${err}`, 'error');
         }
       }
-    })));
-    if (failures.length > 0) {
-      addToast?.(`${successCount > 0 ? t('上传完成') : t('上传失败')}: ${successCount}${t('项成功')}, ${failures.length}${t('项失败')} (${failures.slice(0, 3).join(', ')})`, 'error');
-    } else if (successCount > 0) {
-      addToast?.(`${t('上传成功')}: ${successCount}${t('项')}`, 'success');
-    }
-    if (successCount > 0) {
+    });
+    if (uploadSucceeded) {
       await refreshDirectoryAfterTransfer(uploadTargetPath);
     }
   }, [sessionId, sessionGroupId, currentPath, addToast, t, getTransferTaskRunner, getUploadSettings, openTransferQueueIfNeeded, normalizePath, refreshDirectoryAfterTransfer]);
