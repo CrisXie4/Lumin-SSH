@@ -53,7 +53,7 @@ export default function AppearanceTabPane({
   } = useProgramFonts({ addToast });
 
   const {
-    terminalFontSize, handleTerminalFontChange,
+    terminalFontSize, handleTerminalFontChange, handleTerminalFontReset,
     terminalLocalEcho, handleTerminalLocalEchoChange,
     terminalTimestamps, handleTerminalTimestampsChange,
     terminalCommandBlocks, handleTerminalCommandBlocksChange,
@@ -106,6 +106,7 @@ export default function AppearanceTabPane({
           programFontDeleting={programFontDeleting ? 'busy' : null}
           terminalFontSize={terminalFontSize}
           onTerminalFontSizeChange={handleTerminalFontChange}
+          onTerminalFontSizeReset={handleTerminalFontReset}
           terminalLocalEcho={terminalLocalEcho}
           onTerminalLocalEchoChange={handleTerminalLocalEchoChange}
           terminalTimestamps={terminalTimestamps}

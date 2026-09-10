@@ -1,4 +1,5 @@
 import React from 'react';
+import { RotateCcw } from 'lucide-react';
 import { t as $t, type I18nKey } from '../../i18n.ts';
 import { Switch } from '../ui';
 import { cn } from '../../utils/cn.ts';
@@ -98,6 +99,30 @@ interface SettingsDividerProps {
 
 export function SettingsDivider({ margin = '5px 0' }: SettingsDividerProps) {
   return <div className="border-t border-line" style={{ margin }} />;
+}
+
+interface ResetDefaultButtonProps {
+  /** 当前字段名，用于无障碍标签 */
+  label: string;
+  /** 默认值展示文本（如 `15%`、`13px`） */
+  defaultLabel: string;
+  onClick: () => void;
+}
+
+/** 偏离出厂默认时显示的一键重置徽标，与背景可见度保持一致的外观 */
+export function ResetDefaultButton({ label, defaultLabel, onClick }: ResetDefaultButtonProps) {
+  const title = `${$t('恢复默认')} ${defaultLabel}`;
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={`${label} ${title}`}
+      onClick={onClick}
+      className="w-5 h-5 inline-flex items-center justify-center rounded-[var(--radius-sm)] border border-accent-border bg-accent-dim text-accent hover:bg-hover cursor-pointer transition-colors duration-[80ms] shrink-0"
+    >
+      <RotateCcw size={10} strokeWidth={2.5} />
+    </button>
+  );
 }
 
 interface ToggleSwitchProps {

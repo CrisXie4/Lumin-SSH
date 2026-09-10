@@ -3,7 +3,7 @@ import { t as $t } from '../../i18n.ts';
 import { Sun, Monitor, Moon, MonitorUp, Bot, SunMoon } from 'lucide-react';
 import { cn } from '../../utils/cn.ts';
 import { Button } from '../ui';
-import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch } from './SharedComponents';
+import { SettingRow, SettingsDivider, SettingsPanel, SettingsSectionTitle, SettingsTabRoot, ToggleSwitch, ResetDefaultButton } from './SharedComponents';
 import { settings } from './settingDefinitions';
 import KeywordRulesPanel from './KeywordRulesPanel.tsx';
 import { type KeywordRule } from '../../utils/terminalKeywordHighlight.ts';
@@ -11,6 +11,7 @@ import type { ThemePackage } from '../../utils/theme.ts';
 import FontManagerPanel, { type ProgramFont } from './appearance/FontManagerPanel';
 import BackgroundPanel from './appearance/BackgroundPanel';
 import ThemePackagePalette from './appearance/ThemePackagePalette';
+import { DEFAULT_TERMINAL_FONT_SIZE } from './appearance/useTerminalPreferences.ts';
 
 /** 主题包设置（SettingsModal 传入的宽松形状） */
 interface ThemePackageSettings {
@@ -37,6 +38,7 @@ export interface AppearanceTabProps {
   activeProgramFontDropTarget: string | null;
   terminalFontSize: number;
   onTerminalFontSizeChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onTerminalFontSizeReset: () => void;
   terminalLocalEcho: boolean;
   onTerminalLocalEchoChange: (v: boolean) => void;
   terminalTimestamps: boolean;
@@ -108,7 +110,7 @@ export default function AppearanceTab({
   onProgramFontDrop,
   onProgramFontReset,
   activeProgramFontDropTarget,
-  terminalFontSize, onTerminalFontSizeChange,
+  terminalFontSize, onTerminalFontSizeChange, onTerminalFontSizeReset,
   terminalLocalEcho, onTerminalLocalEchoChange,
   terminalTimestamps, onTerminalTimestampsChange,
   terminalCommandBlocks, onTerminalCommandBlocksChange,
@@ -231,6 +233,13 @@ export default function AppearanceTab({
                   className="cursor-pointer"
                 />
                 <span className="text-base w-8 text-right text-primary">{terminalFontSize}px</span>
+                {terminalFontSize !== DEFAULT_TERMINAL_FONT_SIZE ? (
+                  <ResetDefaultButton
+                    label={$t('终端字体大小')}
+                    defaultLabel={`${DEFAULT_TERMINAL_FONT_SIZE}px`}
+                    onClick={onTerminalFontSizeReset}
+                  />
+                ) : null}
               </div>
             )}
           />

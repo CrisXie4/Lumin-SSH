@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { loadKeywordRulesFromStorage, saveKeywordRulesToStorage, resetKeywordRulesToDefault, setKeywordRules, type KeywordRule } from '../../../utils/terminalKeywordHighlight.ts';
 import { readEditorWordWrap, writeEditorWordWrap } from '../../../utils/editorWordWrap.ts';
 
+/** 终端字号出厂默认值（与初始化读取保持一致） */
+export const DEFAULT_TERMINAL_FONT_SIZE = 13;
+
 /** 终端显示偏好：字号、本地回显、时间戳、命令块、关键字高亮规则等（localStorage 直写型开关） */
 export function useTerminalPreferences() {
-  const [terminalFontSize, setTerminalFontSize] = useState(parseInt(localStorage.getItem('terminalFontSize') || '13', 10));
+  const [terminalFontSize, setTerminalFontSize] = useState(parseInt(localStorage.getItem('terminalFontSize') || String(DEFAULT_TERMINAL_FONT_SIZE), 10));
   const [terminalLocalEcho, setTerminalLocalEcho] = useState(localStorage.getItem('terminalLocalEcho') === 'true');
   const [terminalTimestamps, setTerminalTimestamps] = useState(localStorage.getItem('terminalTimestamps') === 'true');
   const [terminalCommandBlocks, setTerminalCommandBlocks] = useState(localStorage.getItem('terminalCommandBlocks') === 'true');
@@ -22,6 +25,12 @@ export function useTerminalPreferences() {
     setTerminalFontSize(size);
     localStorage.setItem('terminalFontSize', String(size));
     window.dispatchEvent(new CustomEvent('terminal-font-size-changed', { detail: size }));
+  };
+
+  const handleTerminalFontReset = () => {
+    setTerminalFontSize(DEFAULT_TERMINAL_FONT_SIZE);
+    localStorage.setItem('terminalFontSize', String(DEFAULT_TERMINAL_FONT_SIZE));
+    window.dispatchEvent(new CustomEvent('terminal-font-size-changed', { detail: DEFAULT_TERMINAL_FONT_SIZE }));
   };
 
   const handleTerminalLocalEchoChange = (enabled: boolean) => {
@@ -104,6 +113,7 @@ export function useTerminalPreferences() {
   return {
     terminalFontSize,
     handleTerminalFontChange,
+    handleTerminalFontReset,
     terminalLocalEcho,
     handleTerminalLocalEchoChange,
     terminalTimestamps,
