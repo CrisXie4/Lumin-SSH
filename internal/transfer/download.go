@@ -249,10 +249,21 @@ func copyReaderWithProgressContext(ctx context.Context, dst io.Writer, src io.Re
 	if copyErr != nil {
 		return copyErr
 	}
+	if err := ensureContextActive(ctx); err != nil {
+		return err
+	}
+	// 部分服务器对超长 READ 只回短数据甚至提前 EOF,pkg/sftp 的并发读会把它当
+	// 正常结束(io.Copy 返回 nil)。这里校验实际字节数,把静默截断变成显式失败,
+	// 让上层 cleanup 删除半成品而不是留下损坏文件(issue #334)。
+	if totalSize > 0 {
+		if copied := writer.copied.Load(); copied < totalSize {
+			return fmt.Errorf("download incomplete: received %d of %d bytes (remote returned short reads or early EOF)", copied, totalSize)
+		}
+	}
 	if onProgress != nil {
 		onProgress(writer.copied.Load(), totalSize)
 	}
-	return ensureContextActive(ctx)
+	return nil
 }
 
 func sanitizeDownloadArchiveName(name string) string {
