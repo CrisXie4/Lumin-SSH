@@ -904,7 +904,9 @@ func (m *SSHManager) ApplyTransferTuning(settings TransferTuningSettings) {
 
 func (m *SSHManager) newSharedSFTPClient(client *ssh.Client) (*sftp.Client, error) {
 	if m.transferService.Tuning().ApplyToSharedClient {
-		return m.transferService.NewSFTPClient(client)
+		// 共享 client 读方向固定 32KB 互操作安全长度,避免部分服务器对超长
+		// READ 返回短读/提前 EOF 造成下载静默截断(issue #334)。
+		return m.transferService.NewSharedSFTPClient(client)
 	}
 	return sftp.NewClient(client)
 }

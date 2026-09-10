@@ -411,10 +411,18 @@ func runMCPTransferCopy(ctx context.Context, dst io.Writer, src io.Reader, total
 			return readErr
 		}
 	}
+	if err := ensureContextActive(ctx); err != nil {
+		return err
+	}
+	// 与 copyReaderWithProgressContext 相同的截断守卫:远端流提前结束(io.EOF)
+	// 不代表传完了声明的大小,必须比对实际字节数(issue #334)。
+	if totalSize > 0 && copied < totalSize {
+		return fmt.Errorf("transfer incomplete: received %d of %d bytes (remote returned short reads or early EOF)", copied, totalSize)
+	}
 	if onProgress != nil {
 		onProgress(copied, totalSize)
 	}
-	return ensureContextActive(ctx)
+	return nil
 }
 
 func (s *Service) transferUploadFileContext(ctx context.Context, transferID string, sessionID string, localFullPath string, remoteFullPath string) (int64, error) {

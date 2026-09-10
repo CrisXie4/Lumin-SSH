@@ -69,10 +69,6 @@ func NewSFTPClient(sshClient *ssh.Client, tuning Tuning) (*sftp.Client, error) {
 	return sftp.NewClient(sshClient)
 }
 
-func (s *Service) NewSFTPClient(sshClient *ssh.Client) (*sftp.Client, error) {
-	return NewSFTPClient(sshClient, s.Tuning())
-}
-
 func newSFTPUploadPool(sshClient *ssh.Client, maxClients int, tuning Tuning) *sftpUploadPool {
 	if maxClients < 1 {
 		maxClients = 1

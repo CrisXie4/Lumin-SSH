@@ -243,6 +243,10 @@ func (m *SSHManager) copyWithProgress(dst io.Writer, src io.Reader, sessionId st
 	close(reporterDone)
 	<-reporterFinished
 	tracker.emit(writer.copied.Load())
+	if err == nil && totalSize > 0 && writer.copied.Load() < totalSize {
+		// 与 transfer 包下载路径相同的截断守卫(issue #334)
+		return fmt.Errorf("transfer incomplete: copied %d of %d bytes", writer.copied.Load(), totalSize)
+	}
 	return err
 }
 
