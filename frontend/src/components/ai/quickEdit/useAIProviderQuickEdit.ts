@@ -306,7 +306,7 @@ export function useAIProviderQuickEdit({
       setModelOptions(nextModels);
       return true;
     } catch (error) {
-      const fallbackPreset = getAIChannelPreset(channelPreset);
+      const fallbackPreset = matchAIChannelPresetByBaseUrl(trimmedBaseUrl);
       setModelOptions(fallbackPreset
         ? buildChannelPresetModelOptions(fallbackPreset)
         : buildInitialModelOptions(getAIProviderDefinition(trimmedProvider || draft.provider), selectedModel || draft.model));

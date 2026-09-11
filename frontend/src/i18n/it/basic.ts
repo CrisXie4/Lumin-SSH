@@ -4,7 +4,7 @@ export const LANGUAGE_LABEL = "Italiano";
 export default {
   "渠道预设": "Canali predefiniti",
   "已自动填充地址与模型，只需填写 API 密钥": "Indirizzo e modelli compilati automaticamente, inserisci solo la chiave API",
-  "获取密钥": "Ottieni chiave API",
+  "获取密钥": "Ottieni una chiave API",
   "本地终端 & 串口": "Terminale locale e porta seriale",
   "本地连接": "Connessione locale",
   "选择本地终端或串口": "Seleziona un terminale locale o una porta seriale",
