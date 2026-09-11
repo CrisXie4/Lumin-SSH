@@ -1,6 +1,6 @@
 module luminssh-go
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/UserExistsError/conpty v0.1.4
@@ -15,7 +15,7 @@ require (
 	github.com/studio-b12/gowebdav v0.13.0
 	github.com/wailsapp/wails/v2 v2.15.0
 	go.bug.st/serial v1.8.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/net v0.58.0
 	golang.org/x/text v0.41.0
 	modernc.org/sqlite v1.57.0
