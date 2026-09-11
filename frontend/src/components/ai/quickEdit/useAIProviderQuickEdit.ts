@@ -307,9 +307,15 @@ export function useAIProviderQuickEdit({
       return true;
     } catch (error) {
       const fallbackPreset = matchAIChannelPresetByBaseUrl(trimmedBaseUrl);
-      setModelOptions(fallbackPreset
-        ? buildChannelPresetModelOptions(fallbackPreset)
-        : buildInitialModelOptions(getAIProviderDefinition(trimmedProvider || draft.provider), selectedModel || draft.model));
+      const selectedModelId = selectedModel || draft.model;
+      if (fallbackPreset) {
+        const presetModels = buildChannelPresetModelOptions(fallbackPreset);
+        setModelOptions(selectedModelId && !presetModels.includes(selectedModelId)
+          ? [selectedModelId, ...presetModels]
+          : presetModels);
+      } else {
+        setModelOptions(buildInitialModelOptions(getAIProviderDefinition(trimmedProvider || draft.provider), selectedModelId));
+      }
       setModelRefreshError(error instanceof Error ? error.message : t('刷新模型失败'));
       return false;
     } finally {
@@ -499,7 +505,6 @@ export function useAIProviderQuickEdit({
     setModelQuery('');
     setProviderMenuOpen(false);
   };
-
   const handleChannelPresetSelect = (value: string) => {
     setChannelPresetMenuOpen(false);
     const preset = getAIChannelPreset(value);
@@ -508,6 +513,8 @@ export function useAIProviderQuickEdit({
       return;
     }
     setChannelPreset(preset.value);
+    const presetProviderDef = getAIProviderDefinition(preset.provider);
+    const presetCapability = presetProviderDef.getModelCapability(preset.defaultModel);
     setDraft((prev) => ({
       ...prev,
       name: !prev.name.trim() || isPresetDerivedName(prev.name) ? preset.label : prev.name,
@@ -515,6 +522,10 @@ export function useAIProviderQuickEdit({
       baseUrl: preset.baseUrl,
       model: preset.defaultModel,
       cacheStrategy: preset.cacheStrategy || (preset.provider === 'Responses' ? 'model' : '5m'),
+      reasoningEffort: presetCapability.reasoningEffort || 'disable',
+      enableReasoningEffort: presetCapability.requiredReasoningBudget || presetCapability.requiredReasoningEffort,
+      modelMaxTokens: presetCapability.maxTokens || DEFAULT_MAX_OUTPUT_TOKENS,
+      modelMaxThinkingTokens: presetCapability.maxThinkingTokens || DEFAULT_MAX_THINKING_TOKENS,
     }));
     setModelOptions(buildChannelPresetModelOptions(preset));
     setModelQuery('');
