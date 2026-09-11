@@ -80,11 +80,17 @@ type AIGlobalSettings struct {
 	AIRequestProxyID                     string                        `json:"aiRequestProxyId,omitempty"`
 	UpdatedAt                            int64                         `json:"updatedAt,omitempty"`
 	ProxyNodes                           []AIProxyNode                 `json:"proxyNodes,omitempty"`
+	AutoCondenseEnabled                  bool                          `json:"autoCondenseEnabled"`
+	AutoCondenseThresholdRatio           float64                       `json:"autoCondenseThresholdRatio,omitempty"`
 }
 
 const (
 	DefaultAIConversationAutoBackupRetentionCount = 30
 	MaxAIConversationAutoBackupRetentionCount     = 200
+	// DefaultAICondenseThresholdRatio 是自动压缩的默认触发阈值（上下文占模型窗口的比例）。
+	DefaultAICondenseThresholdRatio = 0.8
+	MinAICondenseThresholdRatio     = 0.3
+	MaxAICondenseThresholdRatio     = 0.95
 )
 
 func DefaultAIGlobalSettings() AIGlobalSettings {
@@ -105,6 +111,8 @@ func DefaultAIGlobalSettings() AIGlobalSettings {
 		ApprovalButtonOrder:                  "reject-approve",
 		CommandActionButtonOrder:             "terminate-continue",
 		ToolResultTokenThreshold:             350000,
+		AutoCondenseEnabled:                  false,
+		AutoCondenseThresholdRatio:           DefaultAICondenseThresholdRatio,
 	}
 }
 
@@ -397,6 +405,15 @@ func NormalizeAIGlobalSettings(settings AIGlobalSettings) AIGlobalSettings {
 	settings.AIRequestProxyID = NormalizeAIRequestProxyID(settings.AIRequestProxyID, settings.ProxyNodes)
 	if settings.ToolResultTokenThreshold <= 0 {
 		settings.ToolResultTokenThreshold = DefaultAIGlobalSettings().ToolResultTokenThreshold
+	}
+	if settings.AutoCondenseThresholdRatio <= 0 {
+		settings.AutoCondenseThresholdRatio = DefaultAICondenseThresholdRatio
+	}
+	if settings.AutoCondenseThresholdRatio < MinAICondenseThresholdRatio {
+		settings.AutoCondenseThresholdRatio = MinAICondenseThresholdRatio
+	}
+	if settings.AutoCondenseThresholdRatio > MaxAICondenseThresholdRatio {
+		settings.AutoCondenseThresholdRatio = MaxAICondenseThresholdRatio
 	}
 	if settings.ConversationAutoBackupRetentionCount <= 0 {
 		settings.ConversationAutoBackupRetentionCount = DefaultAIConversationAutoBackupRetentionCount

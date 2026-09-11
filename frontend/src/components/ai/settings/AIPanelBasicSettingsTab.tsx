@@ -19,6 +19,8 @@ export interface AIPanelBasicSettingsTabProps {
   terminalOutputLineLimit: number;
   onTerminalOutputLineLimitChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   toolResultTokenThreshold: number;
+  autoCondenseEnabled: boolean;
+  autoCondenseThresholdRatio: number;
   aiRequestProxyId: string;
   proxyNodes: Array<{ id?: string; name?: string; type?: string; host?: string; port?: string | number }>;
   tasksDir: string;
@@ -40,6 +42,8 @@ export default function AIPanelBasicSettingsTab({
   terminalOutputLineLimit,
   onTerminalOutputLineLimitChange,
   toolResultTokenThreshold,
+  autoCondenseEnabled,
+  autoCondenseThresholdRatio,
   aiRequestProxyId,
   proxyNodes,
   tasksDir,
@@ -117,6 +121,33 @@ export default function AIPanelBasicSettingsTab({
                 value={Math.round((Number.isFinite(Number(soundVolume)) ? Number(soundVolume) : 0.2) * 100)}
                 onChange={(event) => onSaveGlobalAISettings?.({ soundVolume: Math.max(0, Math.min(1, (parseInt(event.target.value, 10) || 0) / 100)) })}
                 className="w-full cursor-pointer"
+              />
+            </div>
+          </>
+        ) : null}
+        <div className="border-t border-line" />
+        <div className="flex justify-between items-center gap-4">
+          <div className="min-w-0">
+            <div className="text-primary text-base font-bold">{t('自动压缩上下文')}</div>
+            <div className="text-tertiary text-sm leading-[1.6]">{t('发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作')}</div>
+          </div>
+          <ToggleSwitchControl
+            checked={autoCondenseEnabled}
+            onChange={() => onSaveGlobalAISettings?.({ autoCondenseEnabled: !autoCondenseEnabled })}
+          />
+        </div>
+        {autoCondenseEnabled ? (
+          <>
+            <div className="border-t border-line" />
+            <div className="flex justify-between items-center gap-4">
+              <div className="min-w-0">
+                <div className="text-primary text-base font-bold">{t('压缩触发阈值')}</div>
+                <div className="text-tertiary text-sm leading-[1.6]">{t('上下文达到模型窗口的该比例时，发送前自动压缩')}</div>
+              </div>
+              <Select
+                value={String(autoCondenseThresholdRatio)}
+                onChange={(val) => onSaveGlobalAISettings?.({ autoCondenseThresholdRatio: Number(val) })}
+                options={[0.5, 0.6, 0.7, 0.8, 0.9].map((ratio) => ({ value: String(ratio), label: `${Math.round(ratio * 100)}%` }))}
               />
             </div>
           </>
