@@ -2,9 +2,13 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Nederlands";
 
 export default {
-  "渠道预设": "Kanaalvoorinstellingen",
+"渠道预设": "Kanaalvoorinstellingen",
   "已自动填充地址与模型，只需填写 API 密钥": "Adres en modellen zijn automatisch ingevuld, voer alleen je API-sleutel in",
   "获取密钥": "API-sleutel ophalen",
+"自动压缩上下文": "Context automatisch comprimeren",
+  "发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作": "Controleert het contextgebruik vóór verzending en comprimeert de geschiedenis automatisch bij het naderen van het modellenvenster, zonder handmatige actie",
+  "压缩触发阈值": "Comprimeertriggerdrempel",
+  "上下文达到模型窗口的该比例时，发送前自动压缩": "Comprimeert automatisch vóór verzending wanneer de context dit aandeel van het modellenvenster bereikt",
   "本地终端 & 串口": "Lokale terminal & seriële poort",
   "本地连接": "Lokale verbinding",
   "选择本地终端或串口": "Kies een lokale terminal of seriële poort",

@@ -2,9 +2,13 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Română";
 
 export default {
-  "渠道预设": "Canale predefinite",
+"渠道预设": "Canale predefinite",
   "已自动填充地址与模型，只需填写 API 密钥": "Adresa și modelele sunt completate automat, introduceți doar cheia API",
   "获取密钥": "Obțineți cheia API",
+"自动压缩上下文": "Compactare automată a contextului",
+  "发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作": "Verifică utilizarea contextului înainte de trimitere și compactează automat istoricul apropiindu-se de fereastra modelului, fără acțiune manuală",
+  "压缩触发阈值": "Prag de declanșare a compactării",
+  "上下文达到模型窗口的该比例时，发送前自动压缩": "Compactează automat înainte de trimitere când contextul atinge această proporție din fereastra modelului",
   "本地终端 & 串口": "Terminal local și port serial",
   "本地连接": "Conexiune locală",
   "选择本地终端或串口": "Selectați un terminal local sau un port serial",

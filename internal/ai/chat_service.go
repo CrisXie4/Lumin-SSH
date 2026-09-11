@@ -2939,6 +2939,12 @@ func (a *Service) runCompatibleAIChat(ctx context.Context, requestID string, pay
 		return
 	}
 
+	// 主动式上下文压缩：在首个请求发出前检查压力，超阈值时静默压缩历史并改用压缩后的消息。
+	if condensedMessages, condensed := a.maybeAutoCondenseAIChatContext(ctx, requestID, payload, profile); condensed {
+		payload.Messages = condensedMessages
+		requestMessages = condensedMessages
+	}
+
 	autoApprovalSettings := a.getAIAutoApprovalSettingsForConversation(payload.ConversationID)
 
 	a.emitAIChatEvent(map[string]interface{}{

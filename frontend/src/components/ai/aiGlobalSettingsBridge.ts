@@ -55,6 +55,8 @@ export type AIGlobalSettings = {
   conversationAutoBackupRetentionCount: number
   messageNavEnabled: boolean
   aiWorkspaceTabNumbersOnly: boolean
+  autoCondenseEnabled: boolean
+  autoCondenseThresholdRatio: number
   approvalButtonOrder: ApprovalButtonOrder
   commandActionButtonOrder: CommandActionButtonOrder
   toolResultTokenThreshold: number
@@ -99,6 +101,8 @@ const DEFAULT_AI_GLOBAL_SETTINGS: AIGlobalSettings = {
   conversationAutoBackupRetentionCount: DEFAULT_CONVERSATION_AUTO_BACKUP_RETENTION_COUNT,
   messageNavEnabled: true,
   aiWorkspaceTabNumbersOnly: false,
+  autoCondenseEnabled: false,
+  autoCondenseThresholdRatio: 0.8,
   approvalButtonOrder: 'reject-approve',
   commandActionButtonOrder: 'terminate-continue',
   toolResultTokenThreshold: 350000,
@@ -147,6 +151,15 @@ function normalizeApprovalButtonOrder(value: unknown): ApprovalButtonOrder {
 function normalizeCommandActionButtonOrder(value: unknown): CommandActionButtonOrder {
   const nextValue = typeof value === 'string' ? value.trim() : ''
   return (VALID_COMMAND_ACTION_BUTTON_ORDERS.has(nextValue) ? nextValue : 'terminate-continue') as CommandActionButtonOrder
+}
+
+/** 自动压缩触发阈值：非法或缺省回退 0.8，并夹取到 [0.3, 0.95]（与后端 NormalizeAIGlobalSettings 一致） */
+function normalizeAICondenseThresholdRatio(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0.8
+  }
+  return Math.min(0.95, Math.max(0.3, parsed))
 }
 
 function normalizeSoundVolume(value: unknown): number {
@@ -345,6 +358,8 @@ export function normalizeAIGlobalSettings(settings: unknown): AIGlobalSettings {
     conversationAutoBackupRetentionCount,
     messageNavEnabled: s.messageNavEnabled !== false,
     aiWorkspaceTabNumbersOnly: Boolean(s.aiWorkspaceTabNumbersOnly),
+    autoCondenseEnabled: Boolean(s.autoCondenseEnabled),
+    autoCondenseThresholdRatio: normalizeAICondenseThresholdRatio(s.autoCondenseThresholdRatio),
     approvalButtonOrder: normalizeApprovalButtonOrder(s.approvalButtonOrder),
     commandActionButtonOrder: normalizeCommandActionButtonOrder(s.commandActionButtonOrder),
     aiRequestProxyId,

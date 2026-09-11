@@ -2,9 +2,13 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Français";
 
 export default {
-  "渠道预设": "Canaux prédéfinis",
+"渠道预设": "Canaux prédéfinis",
   "已自动填充地址与模型，只需填写 API 密钥": "L'adresse et les modèles sont préremplis, saisissez simplement votre clé API",
   "获取密钥": "Obtenir une clé API",
+"自动压缩上下文": "Compression automatique du contexte",
+  "发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作": "Vérifie l'utilisation du contexte avant l'envoi et compresse automatiquement l'historique à l'approche de la fenêtre du modèle, sans action manuelle",
+  "压缩触发阈值": "Seuil de déclenchement de la compression",
+  "上下文达到模型窗口的该比例时，发送前自动压缩": "Compresse automatiquement avant l'envoi lorsque le contexte atteint cette part de la fenêtre du modèle",
   "本地终端 & 串口": "Terminal local et port série",
   "本地连接": "Connexion locale",
   "选择本地终端或串口": "Sélectionnez un terminal local ou un port série",

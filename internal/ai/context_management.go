@@ -7,6 +7,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	aiprovider "luminssh-go/internal/ai/provider"
+	"luminssh-go/internal/aitypes"
 )
 
 type AIConversationContextMetrics struct {
@@ -492,4 +495,94 @@ func (a *Service) CondenseAIConversationContext(conversationID string, sessionID
 		PrevContextTokens: prevContextTokens,
 		NewContextTokens:  newContextTokens,
 	}, nil
+}
+
+// aiConversationAutoCondenseMinRate 是自动压缩的最低收益要求：预览压缩率低于该值时不压缩，
+// 避免为一点点空间收益重写整个消息前缀（前缀重写会让 provider 端提示缓存全部失效）。
+const aiConversationAutoCondenseMinRate = 0.15
+
+// maybeAutoCondenseAIChatContext 在请求发出前做上下文压力检查：开启设置且上下文占用达到
+// 模型窗口阈值时，复用无损压缩管线在轮次边界静默压缩历史（主动式，对应失败恢复的被动式兜底）。
+// 任何前置条件不满足或中途出错都静默回退为原消息；返回压缩后的请求消息与是否发生了压缩。
+func (a *Service) maybeAutoCondenseAIChatContext(ctx context.Context, requestID string, payload AIChatRequestPayload, profile AIProviderProfile) ([]AIChatRequestMessage, bool) {
+	if a == nil || a.configManager == nil {
+		return nil, false
+	}
+	select {
+	case <-ctx.Done():
+		return nil, false
+	default:
+	}
+	settings := a.configManager.GetAIGlobalSettings()
+	if !settings.AutoCondenseEnabled {
+		return nil, false
+	}
+	conversationID := strings.TrimSpace(payload.ConversationID)
+	if conversationID == "" {
+		return nil, false
+	}
+	switch strings.TrimSpace(profile.Provider) {
+	case "Compatible", "Responses", "Messages":
+	default:
+		return nil, false
+	}
+	snapshot, err := a.configManager.GetAIConversation(conversationID)
+	if err != nil || len(snapshot.APIMessages) == 0 {
+		return nil, false
+	}
+	select {
+	case <-ctx.Done():
+		return nil, false
+	default:
+	}
+	// 前端先落库再发起请求；快照消息数必须与本次请求严格一致。
+	if len(snapshot.APIMessages) != len(normalizeAIChatRequestMessages(payload.Messages)) {
+		return nil, false
+	}
+	contextWindow := aiprovider.GetModelContextWindow(profile.Provider, profile.Model)
+	if contextWindow <= 0 {
+		return nil, false
+	}
+	thresholdRatio := settings.AutoCondenseThresholdRatio
+	if thresholdRatio <= 0 {
+		thresholdRatio = aitypes.DefaultAICondenseThresholdRatio
+	}
+	contextTokens, err := calculateAIConversationContextTokensWithProfile(conversationID, strings.TrimSpace(payload.SessionID), snapshot.APIMessages, profile)
+	if err != nil || contextTokens < int(float64(contextWindow)*thresholdRatio) {
+		return nil, false
+	}
+	preview, err := a.previewAIConversationContextCondenseFromSnapshot(snapshot, strings.TrimSpace(payload.SessionID))
+	if err != nil {
+		return nil, false
+	}
+	if calculateAIConversationCondenseRate(preview.PrevContextTokens, preview.NewContextTokens) < aiConversationAutoCondenseMinRate {
+		return nil, false
+	}
+	select {
+	case <-ctx.Done():
+		return nil, false
+	default:
+	}
+	result, err := a.CondenseAIConversationContext(conversationID, strings.TrimSpace(payload.SessionID))
+	if err != nil {
+		return nil, false
+	}
+	requestMessages := buildAIChatRequestMessagesFromConversationAPI(result.Snapshot.APIMessages)
+	if len(requestMessages) == 0 {
+		return nil, false
+	}
+	select {
+	case <-ctx.Done():
+		return nil, false
+	default:
+	}
+	a.emitAIChatEvent(map[string]interface{}{
+		"kind":              "context_auto_condensed",
+		"requestId":         strings.TrimSpace(requestID),
+		"snapshot":          result.Snapshot,
+		"summary":           result.Summary,
+		"prevContextTokens": result.PrevContextTokens,
+		"newContextTokens":  result.NewContextTokens,
+	})
+	return requestMessages, true
 }

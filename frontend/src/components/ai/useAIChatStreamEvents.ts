@@ -217,7 +217,7 @@ export function useAIChatStreamEvents({
         return
       }
 
-      if (payload.kind === 'collaboration_context_condensed' && payload.snapshot) {
+      if ((payload.kind === 'collaboration_context_condensed' || payload.kind === 'context_auto_condensed') && payload.snapshot) {
         const nextSnapshot = normalizeAIConversationSnapshot(payload.snapshot)
         setConversationList((prev) => upsertConversationSummary(prev, nextSnapshot))
         setPanelState(matchedPanelKey, (current) => {
@@ -1340,7 +1340,8 @@ export function useAIChatStreamEvents({
       disposed = true
       window.cancelAnimationFrame(frameId)
     }
-  }, [activeConversation, panelInstanceKey, panelState.activeAssistantMessageId, panelState.activeRequestId, panelState.collaborationPendingMode, panelState.collaborationPendingRequestId, panelState.messages, setPanelState, shouldLockAssistantCollaboration])  useEffect(() => {
+  }, [activeConversation, panelInstanceKey, panelState.activeAssistantMessageId, panelState.activeRequestId, panelState.collaborationPendingMode, panelState.collaborationPendingRequestId, panelState.messages, setPanelState, shouldLockAssistantCollaboration])
+  useEffect(() => {
     if (
       !shouldLockAssistantCollaboration
       || !activeConversation
@@ -1366,4 +1367,5 @@ export function useAIChatStreamEvents({
         collaborationLocked: true,
       }
     })
-  }, [activeConversation, panelInstanceKey, panelState.activeRequestId, panelState.collaborationInterruptedRequestId, panelState.collaborationLocked, panelState.requestPhase, setPanelState, shouldLockAssistantCollaboration])}
+  }, [activeConversation, panelInstanceKey, panelState.activeRequestId, panelState.collaborationInterruptedRequestId, panelState.collaborationLocked, panelState.requestPhase, setPanelState, shouldLockAssistantCollaboration])
+}

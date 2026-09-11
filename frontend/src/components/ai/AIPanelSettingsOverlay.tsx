@@ -15,6 +15,8 @@ interface GlobalAISettingsLike {
   approvalButtonOrder?: string;
   commandActionButtonOrder?: string;
   messageNavEnabled?: boolean;
+  autoCondenseEnabled?: boolean;
+  autoCondenseThresholdRatio?: number;
   aiWorkspaceTabNumbersOnly?: boolean;
   mcpEnabled?: boolean;
   mcpAllowBrowserCalls?: boolean;
@@ -241,6 +243,8 @@ export default function AIPanelSettingsOverlay({
   const approvalButtonOrder = globalAISettings?.approvalButtonOrder || 'reject-approve';
   const commandActionButtonOrder = globalAISettings?.commandActionButtonOrder || 'terminate-continue';
   const messageNavEnabled = globalAISettings?.messageNavEnabled !== false;
+  const autoCondenseEnabled = globalAISettings?.autoCondenseEnabled === true;
+  const autoCondenseThresholdRatio = globalAISettings?.autoCondenseThresholdRatio ?? 0.8;
   const aiWorkspaceTabNumbersOnly = globalAISettings?.aiWorkspaceTabNumbersOnly === true;
   const mcpEnabled = globalAISettings?.mcpEnabled !== false;
   const mcpAllowBrowserCalls = Boolean(globalAISettings?.mcpAllowBrowserCalls);
@@ -368,6 +372,8 @@ export default function AIPanelSettingsOverlay({
                 terminalOutputLineLimit={terminalOutputLineLimit}
                 onTerminalOutputLineLimitChange={onTerminalOutputLineLimitChange}
                 toolResultTokenThreshold={toolResultTokenThreshold}
+                autoCondenseEnabled={autoCondenseEnabled}
+                autoCondenseThresholdRatio={autoCondenseThresholdRatio}
                 aiRequestProxyId={aiRequestProxyId}
                 proxyNodes={proxyNodes}
                 tasksDir={tasksDir}

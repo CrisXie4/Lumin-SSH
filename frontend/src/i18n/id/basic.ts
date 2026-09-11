@@ -2,9 +2,13 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Bahasa Indonesia";
 
 export default {
-  "渠道预设": "Preset kanal",
+"渠道预设": "Preset kanal",
   "已自动填充地址与模型，只需填写 API 密钥": "Alamat dan model terisi otomatis, cukup masukkan kunci API",
   "获取密钥": "Dapatkan kunci API",
+"自动压缩上下文": "Kompres konteks otomatis",
+  "发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作": "Memeriksa penggunaan konteks sebelum mengirim dan secara otomatis memadatkan riwayat saat mendekati jendela model, tanpa tindakan manual",
+  "压缩触发阈值": "Ambang pemicu kompresi",
+  "上下文达到模型窗口的该比例时，发送前自动压缩": "Secara otomatis memadatkan sebelum mengirim saat konteks mencapai proporsi jendela model ini",
   "本地终端 & 串口": "Terminal lokal & port serial",
   "本地连接": "Koneksi lokal",
   "选择本地终端或串口": "Pilih terminal lokal atau port serial",

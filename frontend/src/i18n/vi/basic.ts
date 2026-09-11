@@ -2,9 +2,13 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Tiếng Việt";
 
 export default {
-  "渠道预设": "Cài đặt sẵn kênh",
+"渠道预设": "Cài đặt sẵn kênh",
   "已自动填充地址与模型，只需填写 API 密钥": "Địa chỉ và mô hình đã được điền tự động, chỉ cần nhập khóa API",
   "获取密钥": "Lấy khóa API",
+"自动压缩上下文": "Tự động nén ngữ cảnh",
+  "发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作": "Kiểm tra mức dùng ngữ cảnh trước khi gửi và tự động nén lịch sử khi gần tới cửa sổ mô hình, không cần thao tác thủ công",
+  "压缩触发阈值": "Ngưỡng kích hoạt nén",
+  "上下文达到模型窗口的该比例时，发送前自动压缩": "Tự động nén trước khi gửi khi ngữ cảnh đạt đến tỷ lệ này của cửa sổ mô hình",
   "本地终端 & 串口": "Thiết bị đầu cuối cục bộ & cổng nối tiếp",
   "本地连接": "Kết nối cục bộ",
   "选择本地终端或串口": "Chọn thiết bị đầu cuối cục bộ hoặc cổng nối tiếp",
