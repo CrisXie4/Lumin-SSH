@@ -2,6 +2,9 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Português (Brasil)";
 
 export default {
+  "渠道预设": "Canais predefinidos",
+  "已自动填充地址与模型，只需填写 API 密钥": "Endereço e modelos preenchidos automaticamente, basta inserir sua chave de API",
+  "获取密钥": "Obter chave de API",
   "本地终端 & 串口": "Terminal local e porta serial",
   "本地连接": "Conexão local",
   "选择本地终端或串口": "Selecione um terminal local ou uma porta serial",

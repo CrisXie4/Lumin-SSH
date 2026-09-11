@@ -2,6 +2,9 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Tiếng Việt";
 
 export default {
+  "渠道预设": "Cài đặt sẵn kênh",
+  "已自动填充地址与模型，只需填写 API 密钥": "Địa chỉ và mô hình đã được điền tự động, chỉ cần nhập khóa API",
+  "获取密钥": "Lấy khóa API",
   "本地终端 & 串口": "Thiết bị đầu cuối cục bộ & cổng nối tiếp",
   "本地连接": "Kết nối cục bộ",
   "选择本地终端或串口": "Chọn thiết bị đầu cuối cục bộ hoặc cổng nối tiếp",

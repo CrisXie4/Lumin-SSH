@@ -2,6 +2,9 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Bahasa Indonesia";
 
 export default {
+  "渠道预设": "Preset kanal",
+  "已自动填充地址与模型，只需填写 API 密钥": "Alamat dan model terisi otomatis, cukup masukkan kunci API",
+  "获取密钥": "Dapatkan kunci API",
   "本地终端 & 串口": "Terminal lokal & port serial",
   "本地连接": "Koneksi lokal",
   "选择本地终端或串口": "Pilih terminal lokal atau port serial",
