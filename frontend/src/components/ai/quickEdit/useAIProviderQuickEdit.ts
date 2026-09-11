@@ -295,6 +295,11 @@ export function useAIProviderQuickEdit({
         ? models.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim())
         : [];
 
+      // ponytail: race guard — 用户切换 preset/provider/baseUrl 后丢弃旧请求结果
+      if (refreshKey !== lastAutoRefreshKeyRef.current) {
+        return false;
+      }
+
       if (normalizedModels.length === 0) {
         throw new Error(t('未获取到任何模型'));
       }
@@ -306,6 +311,10 @@ export function useAIProviderQuickEdit({
       setModelOptions(nextModels);
       return true;
     } catch (error) {
+      // ponytail: race guard — 与 try 块对称，旧请求的失败也不应覆盖新状态
+      if (refreshKey !== lastAutoRefreshKeyRef.current) {
+        return false;
+      }
       const fallbackPreset = matchAIChannelPresetByBaseUrl(trimmedBaseUrl);
       const selectedModelId = selectedModel || draft.model;
       if (fallbackPreset) {
