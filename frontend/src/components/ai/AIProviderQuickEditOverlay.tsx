@@ -45,6 +45,13 @@ export default function AIProviderQuickEditOverlay({
     modelRefreshing,
     providerMenuOpen,
     setProviderMenuOpen,
+    channelPreset,
+    channelPresetOptions,
+    channelPresetMenuOpen,
+    setChannelPresetMenuOpen,
+    channelPresetFieldRef,
+    activeChannelPreset,
+    handleChannelPresetSelect,
     dedicatedProviderMenuOpen,
     setDedicatedProviderMenuOpen,
     dedicatedProviderSearch,
@@ -182,6 +189,13 @@ export default function AIProviderQuickEditOverlay({
             setProviderMenuOpen={setProviderMenuOpen}
             handleProviderSelect={handleProviderSelect}
             providerFieldRef={providerFieldRef}
+            channelPreset={channelPreset}
+            channelPresetOptions={channelPresetOptions}
+            channelPresetMenuOpen={channelPresetMenuOpen}
+            setChannelPresetMenuOpen={setChannelPresetMenuOpen}
+            channelPresetFieldRef={channelPresetFieldRef}
+            activeChannelPreset={activeChannelPreset}
+            handleChannelPresetSelect={handleChannelPresetSelect}
             supportsPromptCacheSettings={supportsPromptCacheSettings}
             providerDefinition={providerDefinition}
             usePromptCacheRetention={usePromptCacheRetention}

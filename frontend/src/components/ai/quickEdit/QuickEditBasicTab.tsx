@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useTranslation, type I18nKey } from '../../../i18n.ts';
 import { handleInputDragSelectAll } from '../inputDragSelect.ts';
+import type { AIChannelPreset } from '../providers/channelPresets.ts';
 import type { ModelCapabilityLike, ProviderDraft } from './quickEditTypes.ts';
 import { SelectMenu, StyledCheckbox, type SelectMenuOption } from './QuickEditWidgets.tsx';
 import QuickEditModelSection from './QuickEditModelSection.tsx';
@@ -16,6 +17,13 @@ export interface QuickEditBasicTabProps {
   setProviderMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleProviderSelect: (value: string) => void;
   providerFieldRef: React.RefObject<HTMLDivElement | null>;
+  channelPreset: string;
+  channelPresetOptions: SelectMenuOption[];
+  channelPresetMenuOpen: boolean;
+  setChannelPresetMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  channelPresetFieldRef: React.RefObject<HTMLDivElement | null>;
+  activeChannelPreset: AIChannelPreset | null;
+  handleChannelPresetSelect: (value: string) => void;
   supportsPromptCacheSettings: boolean;
   providerDefinition: { value: string; getModelCapability: (model: string) => Record<string, unknown> };
   usePromptCacheRetention: boolean;
@@ -69,6 +77,13 @@ export default function QuickEditBasicTab({
   setProviderMenuOpen,
   handleProviderSelect,
   providerFieldRef,
+  channelPreset,
+  channelPresetOptions,
+  channelPresetMenuOpen,
+  setChannelPresetMenuOpen,
+  channelPresetFieldRef,
+  activeChannelPreset,
+  handleChannelPresetSelect,
   supportsPromptCacheSettings,
   providerDefinition,
   usePromptCacheRetention,
@@ -116,6 +131,34 @@ export default function QuickEditBasicTab({
 
   return (
     <div className={`${active ? 'grid' : 'hidden'} gap-1`}>
+      <div className="grid gap-0.5">
+        <label id="ai-channel-preset-select-label" htmlFor="ai-channel-preset-select" className="text-sm font-semibold text-primary">{t('渠道预设')}</label>
+        <SelectMenu
+          id="ai-channel-preset-select"
+          aria-labelledby="ai-channel-preset-select-label"
+          value={channelPreset}
+          options={channelPresetOptions}
+          open={channelPresetMenuOpen}
+          onToggle={() => setChannelPresetMenuOpen((prev) => !prev)}
+          onSelect={handleChannelPresetSelect}
+          menuRef={channelPresetFieldRef}
+          showSelectedIcon={false}
+        />
+        {activeChannelPreset ? (
+          <div className="text-tertiary text-xs leading-[1.4] [overflow-wrap:anywhere]">
+            {t('已自动填充地址与模型，只需填写 API 密钥')}
+            {activeChannelPreset.keyUrl ? (
+              <>
+                {' · '}
+                <a href={activeChannelPreset.keyUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                  {t('获取密钥')}
+                </a>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
       <div className="grid grid-cols-2 gap-1.5">
         <div className="grid gap-0.5">
           <label htmlFor="ai-provider-config-name" className="text-sm font-semibold text-primary">{t('配置文件')}</label>

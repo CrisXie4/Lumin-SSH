@@ -2,6 +2,9 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Türkçe";
 
 export default {
+  "渠道预设": "Hazır kanallar",
+  "已自动填充地址与模型，只需填写 API 密钥": "Adres ve modeller otomatik dolduruldu, yalnızca API anahtarınızı girin",
+  "获取密钥": "API anahtarı al",
   "本地终端 & 串口": "Yerel terminal ve seri port",
   "本地连接": "Yerel bağlantı",
   "选择本地终端或串口": "Yerel terminal veya seri port seçin",

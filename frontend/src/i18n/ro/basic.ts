@@ -2,6 +2,9 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Română";
 
 export default {
+  "渠道预设": "Canale predefinite",
+  "已自动填充地址与模型，只需填写 API 密钥": "Adresa și modelele sunt completate automat, introduceți doar cheia API",
+  "获取密钥": "Obțineți cheia API",
   "本地终端 & 串口": "Terminal local și port serial",
   "本地连接": "Conexiune locală",
   "选择本地终端或串口": "Selectați un terminal local sau un port serial",

@@ -11,6 +11,13 @@ import {
   canUseDedicatedWebSearchCandidate,
   getAIProviderDefinition,
 } from '../providers/index.ts';
+import {
+  aiChannelPresets,
+  customChannelPresetValue,
+  getAIChannelPreset,
+  matchAIChannelPresetByBaseUrl,
+  type AIChannelPreset,
+} from '../providers/channelPresets.ts';
 import type { AIProviderLike } from '../AIProviderSelector.tsx';
 import {
   buildDisplayModelCapability,
@@ -37,6 +44,20 @@ export interface UseAIProviderQuickEditOptions {
   onSave?: (draft: Record<string, unknown>) => void | Promise<void>;
 }
 
+export function buildChannelPresetModelOptions(preset: AIChannelPreset): string[] {
+  const models = preset.models.filter((model) => typeof model === 'string' && model.trim());
+  const defaultModel = preset.defaultModel.trim();
+  if (defaultModel && !models.includes(defaultModel)) {
+    return [defaultModel, ...models];
+  }
+  return models;
+}
+
+export function isPresetDerivedName(name: unknown): boolean {
+  const nextName = typeof name === 'string' ? name.trim() : '';
+  return Boolean(nextName) && aiChannelPresets.some((preset) => preset.label === nextName);
+}
+
 export function useAIProviderQuickEdit({
   open,
   provider,
@@ -50,6 +71,8 @@ export function useAIProviderQuickEdit({
   const [modelRefreshError, setModelRefreshError] = useState('');
   const [modelRefreshing, setModelRefreshing] = useState(false);
   const [providerMenuOpen, setProviderMenuOpen] = useState(false);
+  const [channelPreset, setChannelPreset] = useState(customChannelPresetValue);
+  const [channelPresetMenuOpen, setChannelPresetMenuOpen] = useState(false);
   const [dedicatedProviderMenuOpen, setDedicatedProviderMenuOpen] = useState(false);
   const [dedicatedProviderSearch, setDedicatedProviderSearch] = useState('');
   const [validatingWebSearch, setValidatingWebSearch] = useState(false);
@@ -63,6 +86,7 @@ export function useAIProviderQuickEdit({
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
   const [modelPromptCachePolicy, setModelPromptCachePolicy] = useState<AIProviderPromptCachePolicy | null>(null);
   const providerFieldRef = useRef<HTMLDivElement | null>(null);
+  const channelPresetFieldRef = useRef<HTMLDivElement | null>(null);
   const dedicatedProviderFieldRef = useRef<HTMLDivElement | null>(null);
   const dedicatedProxyFieldRef = useRef<HTMLDivElement | null>(null);
   const autoRefreshTimerRef = useRef<number | null>(null);
@@ -79,6 +103,19 @@ export function useAIProviderQuickEdit({
       label: getProviderDisplayLabel(item, t),
     })),
     [t],
+  );
+
+  const channelPresetOptions = useMemo(
+    () => [
+      { value: customChannelPresetValue, label: t('自定义') },
+      ...aiChannelPresets.map((preset) => ({ value: preset.value, label: preset.label })),
+    ],
+    [t],
+  );
+
+  const activeChannelPreset = useMemo(
+    () => getAIChannelPreset(channelPreset),
+    [channelPreset],
   );
 
   const modelCapability = useMemo(() => {
@@ -269,7 +306,10 @@ export function useAIProviderQuickEdit({
       setModelOptions(nextModels);
       return true;
     } catch (error) {
-      setModelOptions(buildInitialModelOptions(getAIProviderDefinition(trimmedProvider || draft.provider), selectedModel || draft.model));
+      const fallbackPreset = getAIChannelPreset(channelPreset);
+      setModelOptions(fallbackPreset
+        ? buildChannelPresetModelOptions(fallbackPreset)
+        : buildInitialModelOptions(getAIProviderDefinition(trimmedProvider || draft.provider), selectedModel || draft.model));
       setModelRefreshError(error instanceof Error ? error.message : t('刷新模型失败'));
       return false;
     } finally {
@@ -289,6 +329,8 @@ export function useAIProviderQuickEdit({
     setModelRefreshing(false);
     setModelQuery('');
     setProviderMenuOpen(false);
+    setChannelPreset(matchAIChannelPresetByBaseUrl(initialDraft.baseUrl)?.value || customChannelPresetValue);
+    setChannelPresetMenuOpen(false);
     setDedicatedProviderMenuOpen(false);
     setDedicatedProviderSearch('');
     setProxyMenuOpen(false);
@@ -344,13 +386,25 @@ export function useAIProviderQuickEdit({
   }, [open]);
 
   useEffect(() => {
-    if (!providerMenuOpen && !dedicatedProviderMenuOpen && !proxyMenuOpen) {
+    if (!open) {
+      return undefined;
+    }
+    const matchedPreset = matchAIChannelPresetByBaseUrl(draft.baseUrl);
+    const matchedValue = matchedPreset?.value || customChannelPresetValue;
+    setChannelPreset((prev) => (getAIChannelPreset(prev) || customChannelPresetValue) === matchedValue ? prev : matchedValue);
+  }, [open, draft.baseUrl]);
+
+  useEffect(() => {
+    if (!providerMenuOpen && !channelPresetMenuOpen && !dedicatedProviderMenuOpen && !proxyMenuOpen) {
       return undefined;
     }
 
     const handlePointerDown = (event: MouseEvent) => {
       if (providerFieldRef.current && !providerFieldRef.current.contains(event.target as Node)) {
         setProviderMenuOpen(false);
+      }
+      if (channelPresetFieldRef.current && !channelPresetFieldRef.current.contains(event.target as Node)) {
+        setChannelPresetMenuOpen(false);
       }
       if (dedicatedProviderFieldRef.current && !dedicatedProviderFieldRef.current.contains(event.target as Node)) {
         setDedicatedProviderMenuOpen(false);
@@ -362,7 +416,7 @@ export function useAIProviderQuickEdit({
 
     window.addEventListener('pointerdown', handlePointerDown);
     return () => window.removeEventListener('pointerdown', handlePointerDown);
-  }, [providerMenuOpen, dedicatedProviderMenuOpen, proxyMenuOpen]);
+  }, [providerMenuOpen, channelPresetMenuOpen, dedicatedProviderMenuOpen, proxyMenuOpen]);
 
   useEffect(() => {
     setWebSearchValidationMessage('');
@@ -444,6 +498,27 @@ export function useAIProviderQuickEdit({
     setModelOptions(buildInitialModelOptions(nextProviderDefinition, typeof draft.model === 'string' ? draft.model.trim() : ''));
     setModelQuery('');
     setProviderMenuOpen(false);
+  };
+
+  const handleChannelPresetSelect = (value: string) => {
+    setChannelPresetMenuOpen(false);
+    const preset = getAIChannelPreset(value);
+    if (!preset) {
+      setChannelPreset(customChannelPresetValue);
+      return;
+    }
+    setChannelPreset(preset.value);
+    setDraft((prev) => ({
+      ...prev,
+      name: !prev.name.trim() || isPresetDerivedName(prev.name) ? preset.label : prev.name,
+      provider: preset.provider,
+      baseUrl: preset.baseUrl,
+      model: preset.defaultModel,
+      cacheStrategy: preset.cacheStrategy || (preset.provider === 'Responses' ? 'model' : '5m'),
+    }));
+    setModelOptions(buildChannelPresetModelOptions(preset));
+    setModelQuery('');
+    setModelRefreshError('');
   };
 
   const handleWebSearchProviderSelect = (nextProviderId: string) => {
@@ -630,6 +705,13 @@ export function useAIProviderQuickEdit({
     modelRefreshing,
     providerMenuOpen,
     setProviderMenuOpen,
+    channelPreset,
+    channelPresetOptions,
+    channelPresetMenuOpen,
+    setChannelPresetMenuOpen,
+    channelPresetFieldRef,
+    activeChannelPreset,
+    handleChannelPresetSelect,
     dedicatedProviderMenuOpen,
     setDedicatedProviderMenuOpen,
     dedicatedProviderSearch,

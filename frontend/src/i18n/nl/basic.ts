@@ -2,6 +2,9 @@ import type { I18nDict } from '../types.ts';
 export const LANGUAGE_LABEL = "Nederlands";
 
 export default {
+  "渠道预设": "Kanaalvoorinstellingen",
+  "已自动填充地址与模型，只需填写 API 密钥": "Adres en modellen zijn automatisch ingevuld, voer alleen je API-sleutel in",
+  "获取密钥": "API-sleutel ophalen",
   "本地终端 & 串口": "Lokale terminal & seriële poort",
   "本地连接": "Lokale verbinding",
   "选择本地终端或串口": "Kies een lokale terminal of seriële poort",
