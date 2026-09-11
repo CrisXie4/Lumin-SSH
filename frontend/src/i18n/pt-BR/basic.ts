@@ -9,7 +9,6 @@ export default {
   "发送前检测上下文占用，接近模型窗口时自动压缩历史消息，无需手动操作": "Verifica o uso do contexto antes de enviar e compacta automaticamente o histórico ao se aproximar da janela do modelo, sem ação manual",
   "压缩触发阈值": "Limiar de disparo da compactação",
   "上下文达到模型窗口的该比例时，发送前自动压缩": "Compacta automaticamente antes de enviar quando o contexto atinge esta proporção da janela do modelo",
->>>>>>> 2038c704 (feat(ai): 主动式自动上下文压缩，发送前按模型窗口阈值无损压缩历史)
   "本地终端 & 串口": "Terminal local e porta serial",
   "本地连接": "Conexão local",
   "选择本地终端或串口": "Selecione um terminal local ou uma porta serial",

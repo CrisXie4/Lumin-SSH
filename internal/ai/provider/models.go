@@ -534,6 +534,9 @@ var modelContextWindowRules = []aiProviderModelCapabilityRule{
 	{MatchContains: "codex", Capability: AIProviderModelCapability{ContextWindow: 400000}},
 	{MatchPrefix: "o3", Capability: AIProviderModelCapability{ContextWindow: 200000}},
 	{MatchPrefix: "o4", Capability: AIProviderModelCapability{ContextWindow: 200000}},
+	// OpenAI o1：o1-mini / o1-preview 实际窗口 128k；o1-pro 已停产 200k
+	{MatchPrefix: "o1-mini", Capability: AIProviderModelCapability{ContextWindow: 128000}},
+	{MatchPrefix: "o1-preview", Capability: AIProviderModelCapability{ContextWindow: 128000}},
 	{MatchPrefix: "o1", Capability: AIProviderModelCapability{ContextWindow: 200000}},
 	// Anthropic
 	{MatchContains: "claude", Capability: AIProviderModelCapability{ContextWindow: 200000}},
@@ -559,12 +562,8 @@ var modelContextWindowRules = []aiProviderModelCapabilityRule{
 }
 
 // GetModelContextWindow 返回模型上下文窗口的保守估计（token 数）。
-// 已知能力规则优先（便于将来在能力表内精确维护），其次按模型家族规则，未知模型取默认值。
+// 按模型家族规则依次匹配，未知模型取默认 128k；允许偏小，不允许偏大。
 func GetModelContextWindow(provider string, modelID string) int {
-	capability := ResolveModelCapability(provider, modelID)
-	if capability.Known && capability.ContextWindow > 0 {
-		return capability.ContextWindow
-	}
 	normalizedModelID := strings.ToLower(strings.TrimSpace(modelID))
 	if normalizedModelID != "" {
 		for _, rule := range modelContextWindowRules {
