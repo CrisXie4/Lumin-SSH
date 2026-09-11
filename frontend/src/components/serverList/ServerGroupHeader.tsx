@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, Folder, FolderOpen, Minus, Trash } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Folder, FolderOpen, Minus, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { useTranslation } from '../../i18n.ts';
 import { cn } from '../../utils/cn.ts';
@@ -72,7 +72,7 @@ export function ServerGroupHeader({
             className={cn('bg-transparent border-none cursor-pointer p-0.5 text-danger rounded-[var(--radius-sm)]', isTableView ? 'inline-flex' : 'flex')}
             aria-label={t('删除分组')}
           >
-            <Trash size={13} />
+            <Trash2 size={13} />
           </button>
         </Tiptop>
       )}
