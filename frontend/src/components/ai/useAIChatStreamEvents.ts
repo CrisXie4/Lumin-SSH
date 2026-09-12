@@ -347,6 +347,8 @@ export function useAIChatStreamEvents({
         setComposerInputValue('')
         setPanelState(matchedPanelKey, (current) => ({
           ...current,
+          // 协同任务收尾后关闭滞留的待批准/执行中工具卡片；fallback 追问随后才到场，不在此关闭
+          messages: closeAIStrandedInteractiveMessages(current.messages, '已终止', false),
           collaborationLocked: isFallbackFollowup ? false : current.collaborationLocked,
           collaborationActive: false,
           collaborationMode: '',
@@ -963,6 +965,7 @@ export function useAIChatStreamEvents({
             runtimePhase: 'ready',
             skipNextAutomaticRequest: false,
             conversation: nextConversation || current.conversation,
+            messages: nextConversation ? nextConversation.messages : current.messages,
             recoverableToolStopReason: '',
             collaborationLocked: shouldKeepCollaborationLock,
             collaborationActive: false,
