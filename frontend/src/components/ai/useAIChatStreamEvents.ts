@@ -3,7 +3,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime.js'
 import {
   buildAIUpstreamTokenUsage,
   normalizeAIUpstreamTokenValue,
-  AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_FOLLOWUP_CANCELLED_STATUS_KEY, AI_FOLLOWUP_PENDING_STATUS_KEY, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
+  AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_FOLLOWUP_PENDING_STATUS_KEY, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, closeAIStrandedInteractiveMessages, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
 } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, PanelState } from './aiChatLogic.ts'
 import { disableAIChatCollaboration, startAIChatCollaboration } from './aiChatBridge.ts'
@@ -829,12 +829,14 @@ export function useAIChatStreamEvents({
       if (payload.kind === 'tool_execution_terminated') {
         let nextConversation = null
         setPanelState(matchedPanelKey, (current) => {
+          // 终止工具后批次内其余待批准/滞留卡片随请求一并关闭
+          const sweptMessages = closeAIStrandedInteractiveMessages(current.messages, '已终止')
           nextConversation = current.conversation
             ? {
                 ...current.conversation,
                 updatedAt: Date.now(),
                 status: 'idle',
-                messages: Array.isArray(current.messages) ? [...current.messages] : [],
+                messages: sweptMessages,
                 apiMessages: Array.isArray(current.apiMessages) ? [...current.apiMessages] : [],
               }
             : null
@@ -849,7 +851,7 @@ export function useAIChatStreamEvents({
             skipNextAutomaticRequest: false,
             resumeAfterCancelRequestId: '',
             conversation: nextConversation || current.conversation,
-            messages: nextConversation ? nextConversation.messages : current.messages,
+            messages: nextConversation ? nextConversation.messages : sweptMessages,
             apiMessages: nextConversation ? nextConversation.apiMessages : current.apiMessages,
             recoverableToolStopReason: 'terminated',
             collaborationLocked: false,
@@ -940,12 +942,14 @@ export function useAIChatStreamEvents({
         let nextConversation = null
         setPanelState(matchedPanelKey, (current) => {
           const shouldKeepCollaborationLock = current.collaborationLocked && !current.collaborationAwaitingManualFollowup && Boolean(current.queuedSubmission)
+          // 跳过自动续跑后滞留的工具卡片关闭；待应答追问仍需保留（手动追问流程未结束）
+          const sweptMessages = closeAIStrandedInteractiveMessages(current.messages, '已终止', false)
           nextConversation = current.conversation
             ? {
                 ...current.conversation,
                 updatedAt: Date.now(),
                 status: 'idle',
-                messages: Array.isArray(current.messages) ? [...current.messages] : [],
+                messages: sweptMessages,
                 apiMessages: Array.isArray(current.apiMessages) ? [...current.apiMessages] : [],
               }
             : null
@@ -1063,7 +1067,7 @@ export function useAIChatStreamEvents({
         const upstreamTokenUsage = buildAIUpstreamTokenUsage(payload, matchedPanel.upstreamInputTokens, matchedPanel.upstreamOutputTokens)
         const reasoningDuration = buildReasoningDuration(payload)
         const shouldClearSummarySubtaskCollaboration = matchedPanel.collaborationMode === 'summary_subtask'
-        const nextMessages = matchedPanel.messages.map((message) => {
+        const nextMessages = closeAIStrandedInteractiveMessages(matchedPanel.messages.map((message) => {
           if (message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning') {
             return {
               ...message,
@@ -1088,7 +1092,7 @@ export function useAIChatStreamEvents({
               errorText: '',
             },
           }
-        })
+        }), '已终止')
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
@@ -1152,18 +1156,10 @@ export function useAIChatStreamEvents({
         const finalErrorText = payload.error || translate('请求失败')
         playAISound('progress')
 
-        const nextMessages = matchedPanel.messages
+        const nextMessages = closeAIStrandedInteractiveMessages(matchedPanel.messages
           .filter((message) => !(message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning'))
           .map((message) => {
             if (message.id !== assistantMessageId || message.kind !== 'assistant') {
-              // 请求已失败：待应答的追问不再可回答，标记关闭避免残留可交互的死卡片
-              if (message?.kind === 'followup' && normalizeAIMessageStatus(message.status) === AI_FOLLOWUP_PENDING_STATUS_KEY && typeof message.requestId === 'string' && message.requestId.trim() === requestId) {
-                return {
-                  ...message,
-                  status: AI_FOLLOWUP_CANCELLED_STATUS_KEY,
-                  requestId: '',
-                }
-              }
               return message
             }
             return {
@@ -1177,7 +1173,7 @@ export function useAIChatStreamEvents({
                 errorText: finalErrorText,
               },
             }
-          })
+          }), '已终止')
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
@@ -1216,7 +1212,7 @@ export function useAIChatStreamEvents({
 
       if (payload.kind === 'cancelled') {
         const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
-        const nextMessages = matchedPanel.messages.filter((message) => {
+        const nextMessages = closeAIStrandedInteractiveMessages(matchedPanel.messages.filter((message) => {
           if (message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning') {
             return false
           }
@@ -1224,17 +1220,7 @@ export function useAIChatStreamEvents({
             return false
           }
           return true
-        }).map((message) => {
-          // 请求已取消：后端会丢弃待处理追问批次，这里同步关闭消息，避免残留可交互的死卡片
-          if (message?.kind === 'followup' && normalizeAIMessageStatus(message.status) === AI_FOLLOWUP_PENDING_STATUS_KEY && typeof message.requestId === 'string' && message.requestId.trim() === requestId) {
-            return {
-              ...message,
-              status: AI_FOLLOWUP_CANCELLED_STATUS_KEY,
-              requestId: '',
-            }
-          }
-          return message
-        })
+        }), '已终止')
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
