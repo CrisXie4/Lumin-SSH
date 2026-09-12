@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type * as React from 'react'
 import { getAIProviderState, type AIProviderState } from './aiProviderBridge.ts'
 import type { AIProviderLike } from './AIProviderSelector.tsx'
-import { AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_CONVERSATION_DIFF_TOOL_NAMES, buildAIRequestModelMeta, computeAILastAssistantTurnState, createEmptyPanelState, deriveAIPendingToolApproval, extractAIConversationDiffPrimaryPath, normalizeAIMessageStatus } from './aiChatLogic.ts'
+import { AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_CONVERSATION_DIFF_TOOL_NAMES, buildAIRequestModelMeta, computeAILastAssistantTurnState, createEmptyPanelState, extractAIConversationDiffPrimaryPath, normalizeAIMessageStatus } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, AIPanelProps, ComposerEditState, PanelState, TokenLedger } from './aiChatLogic.ts'
 import { cancelAIChat } from './aiChatBridge.ts'
 import { deleteAIConversation, deleteTemporaryAIConversation, getAIConversation, getTemporaryAIConversation, listAIConversations, listTemporaryAIConversations as listTemporaryAIConversationsFromDisk, normalizeAIConversationTaskSettings, openAIConversationFolder, saveAIConversation, saveTemporaryAIConversation, subscribeAIConversationChanges, type AIConversationMessageSearchResult } from './aiConversationBridge.ts'
@@ -435,18 +435,16 @@ export function useAIConversationHome({ t, addToast, terminalId, sessionId, work
         providers: latestProviders,
       })
       setConversationList((prev) => upsertConversationSummary(prev, nextSnapshot))
-      // 返回面板/重开会话时，若仍有「待批准」工具卡片则恢复审批条（后端批次仍在等待批复）
-      const pendingToolApproval = deriveAIPendingToolApproval(nextSnapshot.messages)
       setPanelState(panelInstanceKey, {
         activeConversationId: nextSnapshot.id,
         conversation: nextSnapshot,
         messages: nextSnapshot.messages,
         apiMessages: nextSnapshot.apiMessages,
-        activeRequestId: pendingToolApproval?.requestId || '',
+        activeRequestId: '',
         activeAssistantMessageId: '',
         activeToolExecution: null,
-        toolApprovalMode: pendingToolApproval?.toolApprovalMode || '',
-        requestPhase: pendingToolApproval ? 'awaiting_tool_approval' : 'idle',
+        toolApprovalMode: '',
+        requestPhase: 'idle',
         runtimePhase: 'ready',
         queuedSubmission: null,
         isFlushingQueuedSubmission: false,

@@ -861,35 +861,6 @@ export function isAIBusinessTurnMessageKind(kind: unknown) {
   return Boolean(kind) && kind !== 'assistant' && kind !== 'reasoning' && kind !== 'user'
 }
 
-/**
- * 从会话消息里推导仍悬而未决的工具审批。
- * 重新打开会话/返回面板时面板态会被重置为 idle，而后端批次仍在等待批复，
- * 这里依据最后一张「待批准」卡片还原审批条所需的 requestId（续轮 turnId 形如
- * `${requestID}-cont-<纳秒>`，剥掉后缀即原始请求 ID）。
- */
-export function deriveAIPendingToolApproval(messages: unknown): { requestId: string; toolApprovalMode: string } | null {
-  const list = Array.isArray(messages) ? messages : []
-  for (let index = list.length - 1; index >= 0; index -= 1) {
-    const message = list[index]
-    const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
-    if (kind !== 'tool' && kind !== 'command' && kind !== 'mcp') {
-      continue
-    }
-    if (normalizeAIMessageStatus(message?.status) !== '待批准') {
-      continue
-    }
-    const turnId = typeof message?.turnId === 'string' ? message.turnId.trim() : ''
-    if (!turnId) {
-      continue
-    }
-    return {
-      requestId: turnId.replace(/-cont-\d+$/, ''),
-      toolApprovalMode: 'inline',
-    }
-  }
-  return null
-}
-
 export function updateAILastAssistantTurnState(currentState: Pick<PanelState, 'lastAssistantTurnId'>, message: AIMessage, fallbackTurnId = ''): Partial<Pick<PanelState, 'lastAssistantTurnId' | 'lastTurnBusinessMessageKind'>> {
   const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
   if (!kind) {
