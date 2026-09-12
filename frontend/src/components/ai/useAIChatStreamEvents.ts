@@ -3,7 +3,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime.js'
 import {
   buildAIUpstreamTokenUsage,
   normalizeAIUpstreamTokenValue,
-  AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_FOLLOWUP_PENDING_STATUS_KEY, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
+  AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_FOLLOWUP_CANCELLED_STATUS_KEY, AI_FOLLOWUP_PENDING_STATUS_KEY, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
 } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, PanelState } from './aiChatLogic.ts'
 import { disableAIChatCollaboration, startAIChatCollaboration } from './aiChatBridge.ts'
@@ -1156,6 +1156,14 @@ export function useAIChatStreamEvents({
           .filter((message) => !(message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning'))
           .map((message) => {
             if (message.id !== assistantMessageId || message.kind !== 'assistant') {
+              // 请求已失败：待应答的追问不再可回答，标记关闭避免残留可交互的死卡片
+              if (message?.kind === 'followup' && normalizeAIMessageStatus(message.status) === AI_FOLLOWUP_PENDING_STATUS_KEY && typeof message.requestId === 'string' && message.requestId.trim() === requestId) {
+                return {
+                  ...message,
+                  status: AI_FOLLOWUP_CANCELLED_STATUS_KEY,
+                  requestId: '',
+                }
+              }
               return message
             }
             return {
@@ -1198,6 +1206,8 @@ export function useAIChatStreamEvents({
           collaborationStreamBuffer: '',
           collaborationAwaitingManualFollowup: false,
           collaborationFollowupRequestId: '',
+          collaborationPendingMode: '',
+          collaborationPendingRequestId: '',
         })
 
         void saveConversationSnapshot(nextConversation, matchedPanelKey)
@@ -1214,6 +1224,16 @@ export function useAIChatStreamEvents({
             return false
           }
           return true
+        }).map((message) => {
+          // 请求已取消：后端会丢弃待处理追问批次，这里同步关闭消息，避免残留可交互的死卡片
+          if (message?.kind === 'followup' && normalizeAIMessageStatus(message.status) === AI_FOLLOWUP_PENDING_STATUS_KEY && typeof message.requestId === 'string' && message.requestId.trim() === requestId) {
+            return {
+              ...message,
+              status: AI_FOLLOWUP_CANCELLED_STATUS_KEY,
+              requestId: '',
+            }
+          }
+          return message
         })
         const nextConversation = {
           ...conversation,
@@ -1243,6 +1263,8 @@ export function useAIChatStreamEvents({
           collaborationStreamBuffer: '',
           collaborationAwaitingManualFollowup: false,
           collaborationFollowupRequestId: '',
+          collaborationPendingMode: '',
+          collaborationPendingRequestId: '',
         })
 
         void saveConversationSnapshot(nextConversation, matchedPanelKey)

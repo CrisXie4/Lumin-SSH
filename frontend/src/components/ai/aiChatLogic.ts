@@ -295,6 +295,7 @@ export function normalizeAIMessageStatus(value: unknown) {
 
 export const AI_FOLLOWUP_PENDING_STATUS_KEY = '等待处理'
 export const AI_FOLLOWUP_COMPLETED_STATUS_KEY = '已完成'
+export const AI_FOLLOWUP_CANCELLED_STATUS_KEY = '已取消'
 
 export function truncateConversationTitle(text: unknown) {
   const normalized = String(text || '').trim().replace(/\s+/g, ' ')
