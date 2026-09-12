@@ -286,7 +286,7 @@ func (a *Service) requestMessagesAIChatRound(ctx context.Context, requestID stri
 
 	result.Text = strings.TrimSpace(contentBuilder.String())
 	if result.Text == "" {
-		result.Text = "未返回内容"
+		result.Text = aiChatEmptyResponseText
 	}
 	if !firstTokenAt.IsZero() {
 		result.FirstTokenMs = firstTokenAt.Sub(startedAt).Milliseconds()

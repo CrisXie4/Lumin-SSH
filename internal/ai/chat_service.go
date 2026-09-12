@@ -94,6 +94,9 @@ const (
 	aiChatRequestMaxAttempts                           = 2
 	aiAssistantRetryMaxAttempts                        = 2
 	aiCollaborationRetryMaxAttempts                    = 2
+	// aiChatEmptyResponseText 是供应商轮在"流已正常结束但没有任何正文"时回填的兜底文案,
+	// 它不是模型的真实回复。展示层可以使用它,但重试/工具协议判断必须先把它当空处理。
+	aiChatEmptyResponseText = "未返回内容"
 )
 
 var aiSupportedToolNames = []string{
@@ -185,7 +188,11 @@ var (
 	// Models often wrap XML tools or leak stream end tokens; strip before protocol parse.
 	aiToolProtocolWrapperTagPattern = regexp.MustCompile(`(?is)</?\s*(?:tool_calls?|function_calls?|tool_reply|tools)\s*>`)
 	aiToolProtocolStreamJunkPattern = regexp.MustCompile(`(?is)(?:</\s*assistant\s*>|<\|(?:eos|end|endoftext|im_end|eot_id)\|>|</s>)+`)
-	aiBareToolOpenTagPattern        *regexp.Regexp
+	// aiToolProtocolDSMLMarker 是 DeepSeek 原生工具调用(DSML)标记的中间片段,
+	// 用于识别模型把原生工具调用泄漏进正文的情况。
+	// DSML 标记 = 全角竖线 x2 + "DSML" + 全角竖线 x2 (0xFF5C)。用码点构造,源码保持纯 ASCII。
+	aiToolProtocolDSMLMarker = string(rune(0xFF5C)) + string(rune(0xFF5C)) + "DSML" + string(rune(0xFF5C)) + string(rune(0xFF5C))
+	aiBareToolOpenTagPattern *regexp.Regexp
 )
 
 func init() {
@@ -1496,6 +1503,22 @@ func sanitizeAIAssistantToolProtocolText(content string) string {
 	if text == "" {
 		return ""
 	}
+	// 部分模型(如 DeepSeek)会把原生工具调用以 DSML 标记泄漏进正文。宿主无法执行这种格式,
+	// 残缺块(只剩闭合标签、参数内容丢失)更会污染后面的工具协议解析,所以直接丢弃标记及其
+	// 之后的整块内容,只保留标记之前的正文。若标记之前也没有正文,就返回空,
+	// 交给调用方的空响应重试去重新生成。
+	if index := strings.Index(text, aiToolProtocolDSMLMarker); index >= 0 {
+		cutIndex := index
+		// 标记前的 '<'(以及可能的 '/')属于同一个标签,必须一起丢弃,
+		// 否则会剩下一个孤立的尖括号,又变成被包成假答复的垃圾文本。
+		if openIndex := strings.LastIndex(text[:cutIndex], "<"); openIndex >= 0 {
+			cutIndex = openIndex
+		}
+		text = strings.TrimSpace(text[:cutIndex])
+		if text == "" {
+			return ""
+		}
+	}
 	text = aiToolProtocolStreamJunkPattern.ReplaceAllString(text, "")
 	text = aiToolProtocolWrapperTagPattern.ReplaceAllString(text, "")
 	text = fixAIBareToolOpenTags(text)
@@ -2629,10 +2652,20 @@ func (a *Service) runCompatibleAIChatLoop(ctx context.Context, requestID string,
 			return
 		}
 
+		// 供应商轮在"流正常结束但没有正文"时会回填兜底文案(aiChatEmptyResponseText),
+		// 它不是模型回复。必须在工具协议包装之前归一化为空:否则该文案会被包成
+		// attempt_completion 之类的"完成任务"结果,既把它伪装成了正常回复,
+		// 也让下方的空响应重试(只认空字符串)永远无法触发。
+		if strings.TrimSpace(roundResult.Text) == aiChatEmptyResponseText {
+			roundResult.Text = ""
+		}
+
 		isAssistantFirstReplyRound := shouldUseAIAssistantFirstReply(payload, requestMessages)
 
 		// Always sanitize known tool-protocol slips; pure-text→attempt_completion wrap stays first-round only.
-		if sanitized := sanitizeAIAssistantToolProtocolText(roundResult.Text); sanitized != "" && sanitized != strings.TrimSpace(roundResult.Text) {
+		// 注意:清洗结果为空时同样要生效 —— 整段都是协议垃圾(例如泄漏的 DSML 工具块)必须把正文清空,
+		// 否则垃圾会被包成 attempt_completion 之类的假答复,并让下方的空响应重试失效。
+		if sanitized := sanitizeAIAssistantToolProtocolText(roundResult.Text); sanitized != strings.TrimSpace(roundResult.Text) {
 			roundResult.Text = sanitized
 			if len(roundResult.NextRequestMessages) > 0 {
 				roundResult.NextRequestMessages = replaceAILatestAssistantMessageContent(roundResult.NextRequestMessages, sanitized)

@@ -455,7 +455,7 @@ func (a *Service) requestCompatibleAIChatRound(ctx context.Context, requestID st
 
 	result.Text = strings.TrimSpace(contentBuilder.String())
 	if result.Text == "" {
-		result.Text = "未返回内容"
+		result.Text = aiChatEmptyResponseText
 	}
 	if !firstTokenAt.IsZero() {
 		result.FirstTokenMs = firstTokenAt.Sub(startedAt).Milliseconds()
