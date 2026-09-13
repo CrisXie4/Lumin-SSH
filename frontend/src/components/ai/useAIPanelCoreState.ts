@@ -33,6 +33,9 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
   const panelMountedRef = useRef(true)
   const tokenLedgerRef = useRef<Map<string, TokenLedger>>(new Map())
   const sendPerfMetricsRef = useRef<Map<string, PerfRecord>>(new Map())
+  // 同一会话的快照保存串行链：流式 upsert 与终态清理的保存并发时，若旧快照后落盘
+  // 会把清理结果覆盖回去（滞留卡片复活），必须保证逻辑上最后一次保存最后写入。
+  const conversationSnapshotSaveQueuesRef = useRef<Map<string, Promise<AIConversationSnapshot | undefined>>>(new Map())
   const panelInstanceKey = `${sessionId || 'session'}::${terminalId || 'terminal'}`
   const clearRestorePreview = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -322,34 +325,46 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
     }
     const shouldHydrate = options?.hydrate === true
     const isTransientConversation = snapshot?.transient === true
-    const saved = isTransientConversation
-      ? await saveTemporaryAIConversation(snapshot)
-      : await saveAIConversation(snapshot)
-    if (isTransientConversation) upsertTemporaryAIConversation(saved)
-    setConversationList((prev) => upsertConversationSummary(prev, saved))
-    setPanelState(targetPanelKey, (current) => {
-      if (current.activeConversationId !== saved.id) {
-        return current
-      }
-      if (!shouldHydrate) {
+    const performSave = async () => {
+      const saved = isTransientConversation
+        ? await saveTemporaryAIConversation(snapshot)
+        : await saveAIConversation(snapshot)
+      if (isTransientConversation) upsertTemporaryAIConversation(saved)
+      setConversationList((prev) => upsertConversationSummary(prev, saved))
+      setPanelState(targetPanelKey, (current) => {
+        if (current.activeConversationId !== saved.id) {
+          return current
+        }
+        if (!shouldHydrate) {
+          return {
+            ...current,
+            conversation: {
+              ...saved,
+              messages: current.messages,
+              apiMessages: current.apiMessages,
+            },
+          }
+        }
         return {
           ...current,
-          conversation: {
-            ...saved,
-            messages: current.messages,
-            apiMessages: current.apiMessages,
-          },
+          conversation: saved,
+          messages: saved.messages || [],
+          apiMessages: saved.apiMessages || [],
         }
-      }
-      return {
-        ...current,
-        conversation: saved,
-        messages: saved.messages || [],
-        apiMessages: saved.apiMessages || [],
+      })
+      void refreshAIConversationContextTokens(saved, targetPanelKey)
+      return saved
+    }
+    const saveQueues = conversationSnapshotSaveQueuesRef.current
+    const previousSave = saveQueues.get(snapshot.id) || Promise.resolve(undefined)
+    const chainedSave = previousSave.catch(() => undefined).then(performSave)
+    saveQueues.set(snapshot.id, chainedSave)
+    void chainedSave.finally(() => {
+      if (saveQueues.get(snapshot.id) === chainedSave) {
+        saveQueues.delete(snapshot.id)
       }
     })
-    void refreshAIConversationContextTokens(saved, targetPanelKey)
-    return saved
+    return chainedSave
   }, [panelInstanceKey, refreshAIConversationContextTokens, setPanelState])
   useEffect(() => {
     if (terminalPanelsRef.current[panelInstanceKey]) {
