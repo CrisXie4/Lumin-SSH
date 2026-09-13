@@ -21,6 +21,7 @@ import { renderAIComposerSection, renderAISettingsOverlaySection } from './AICon
 import { AIWorkspaceTabProvider } from './aiWorkspaceTabContext.ts'
 import { subscribeAIWorkspaceTabGroups } from '../../utils/aiWorkspaceTabs.ts'
 import type { AIPanelProps } from './aiChatLogic.ts'
+import { hasStrandedAIInteractiveToolMessages } from './aiChatLogic.ts'
 import type { ConversationSummary } from './aiConversationSummary.ts'
 // ============================================================
 // AIConversationTabPanel：单个工作区标签页的对话面板（外壳见 ../../AIPanel.tsx）。
@@ -130,6 +131,9 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
     : t('当前子代理任务已归档,仅可摘要压缩创建新的子阶段任务')
   const collaborationFollowupInteractionLocked = collaborationLocked && collaborationActive && panelState.collaborationMode === 'followup'
   const showAssistantCollaborationActiveImage = !isConversationLoading && collaborationActive && Boolean(activeConversation)
+  // 滞留的中间态工具卡片（如回首页时未批复的「待批准」）表示回合被打断而非结束，
+  // 此时即使末回合业务消息是 completion/followup 也应提供「继续任务」入口。
+  const hasStrandedInteractiveToolCard = useMemo(() => hasStrandedAIInteractiveToolMessages(panelState.messages), [panelState.messages])
   const toolResumeAvailable = Boolean(activeConversation)
     && !isArchivedAgentConversation
     && panelState.requestPhase === 'idle'
@@ -138,7 +142,9 @@ export function AIConversationTabPanel({ width, side, terminalId = 'global', ses
     && !panelState.isFlushingQueuedSubmission
     && !collaborationActive
     && !panelState.isCondensingContext
-    && (!panelState.lastTurnBusinessMessageKind || (panelState.lastTurnBusinessMessageKind !== 'completion' && panelState.lastTurnBusinessMessageKind !== 'followup'))
+    && (hasStrandedInteractiveToolCard
+      || !panelState.lastTurnBusinessMessageKind
+      || (panelState.lastTurnBusinessMessageKind !== 'completion' && panelState.lastTurnBusinessMessageKind !== 'followup'))
 
   const {
     conversationOrganizer, conversationFilter, setConversationFilter,

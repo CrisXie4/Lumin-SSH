@@ -385,6 +385,34 @@ export function useAIPanelCoreState({ terminalId, sessionId, workspaceTabId, ini
           apiMessages: Array.isArray(panel.apiMessages) ? panel.apiMessages : (Array.isArray(conversation.apiMessages) ? conversation.apiMessages : []),
         }).catch(() => {})
       }
+      // 卸载前先解除请求绑定并复位请求相位再取消：cancelled 事件按 activeRequestId 匹配面板，
+      // 提前解绑可避免终态清理把可恢复的「待批准」卡片覆盖为已终止；相位复位则避免重新挂载时
+      // 渲染出指向已丢弃批次的死审批条（请求已取消，应走「继续任务」重新发起）。
+      // 会话数据保留在面板上：临时会话未经持久化，清空会在重进时丢失。
+      terminalPanelsRef.current = {
+        ...terminalPanelsRef.current,
+        [panelInstanceKey]: {
+          ...panel,
+          activeRequestId: '',
+          activeAssistantMessageId: '',
+          activeToolExecution: null,
+          toolApprovalMode: '',
+          requestPhase: 'idle',
+          runtimePhase: 'ready',
+          queuedSubmission: null,
+          isFlushingQueuedSubmission: false,
+          skipNextAutomaticRequest: false,
+          resumeAfterCancelRequestId: '',
+          recoverableToolStopReason: '',
+          isCondensingContext: false,
+          collaborationLocked: false,
+          collaborationActive: false,
+          collaborationMode: '',
+          collaborationStreamBuffer: '',
+          collaborationAwaitingManualFollowup: false,
+          collaborationFollowupRequestId: '',
+        },
+      }
       void cancelAIChat(requestId)
     }
   }, [panelInstanceKey])

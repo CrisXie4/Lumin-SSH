@@ -875,6 +875,21 @@ export function isAIBusinessTurnMessageKind(kind: unknown) {
   return Boolean(kind) && kind !== 'assistant' && kind !== 'reasoning' && kind !== 'user'
 }
 
+/**
+ * 会话里是否仍挂着中间态的工具/命令/MCP 卡片（例如回首页时未批复的「待批准」）。
+ * 这类卡片代表回合被打断而非自然结束，重新打开会话时应允许「继续任务」恢复。
+ */
+export function hasStrandedAIInteractiveToolMessages(messages: unknown): boolean {
+  const list = Array.isArray(messages) ? messages : []
+  return list.some((message) => {
+    const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
+    if (kind !== 'tool' && kind !== 'command' && kind !== 'mcp') {
+      return false
+    }
+    return AI_TOOL_INTERMEDIATE_STATUSES.includes(normalizeAIMessageStatus(message?.status))
+  })
+}
+
 export function updateAILastAssistantTurnState(currentState: Pick<PanelState, 'lastAssistantTurnId'>, message: AIMessage, fallbackTurnId = ''): Partial<Pick<PanelState, 'lastAssistantTurnId' | 'lastTurnBusinessMessageKind'>> {
   const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
   if (!kind) {
