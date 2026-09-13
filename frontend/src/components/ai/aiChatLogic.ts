@@ -827,33 +827,47 @@ export function upsertMessageBeforeAssistant(messages: unknown, requestId: unkno
 /** 请求结束后仍可能滞留在消息流里的工具中间态 */
 export const AI_TOOL_INTERMEDIATE_STATUSES = ['待批准', '执行中', '排队中, 等待终端空闲']
 
+/** 无实质执行结果的已终止工具卡片（空结果或仅剩"已终止"字样），一并视为可移除的滞留残留 */
+function isAIEmptyTerminatedToolMessage(message: AIMessage) {
+  if (normalizeAIMessageStatus(message?.status) !== '已终止') {
+    return false
+  }
+  const result = typeof message?.result === 'string' ? message.result.trim() : ''
+  const output = typeof message?.output === 'string' ? message.output.trim() : ''
+  return (!result || result === '已终止') && (!output || output === '已终止')
+}
+
 /**
- * 请求到达终态时，把滞留在中间态的工具卡片与待应答追问统一关闭，
- * 避免后端批次已丢弃而前端仍渲染可交互的死卡片。
+ * 请求到达终态时，把滞留在中间态的工具卡片与待应答追问统一清出会话：
+ * 从未获批执行的卡片没有记录价值，直接移除而非保留空壳；
+ * 待应答追问标记「已取消」并清空 requestId（渲染层按非待处理不再显示）。
  */
-export function closeAIStrandedInteractiveMessages(messages: unknown, toolStatus: string, closeFollowups = true): AIMessage[] {
+export function closeAIStrandedInteractiveMessages(messages: unknown, closeFollowups = true): AIMessage[] {
   const list = Array.isArray(messages) ? messages : []
   let changed = false
-  const nextMessages = list.map((message) => {
+  const nextMessages: AIMessage[] = []
+  for (const message of list) {
     const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
-    const status = normalizeAIMessageStatus(message?.status)
-    if ((kind === 'tool' || kind === 'command' || kind === 'mcp') && AI_TOOL_INTERMEDIATE_STATUSES.includes(status)) {
-      changed = true
-      return {
-        ...message,
-        status: toolStatus,
+    if (kind === 'tool' || kind === 'command' || kind === 'mcp') {
+      const status = normalizeAIMessageStatus(message?.status)
+      if (AI_TOOL_INTERMEDIATE_STATUSES.includes(status) || isAIEmptyTerminatedToolMessage(message)) {
+        changed = true
+        continue
       }
+      nextMessages.push(message)
+      continue
     }
-    if (closeFollowups && kind === 'followup' && status === AI_FOLLOWUP_PENDING_STATUS_KEY) {
+    if (closeFollowups && kind === 'followup' && normalizeAIMessageStatus(message?.status) === AI_FOLLOWUP_PENDING_STATUS_KEY) {
       changed = true
-      return {
+      nextMessages.push({
         ...message,
         status: AI_FOLLOWUP_CANCELLED_STATUS_KEY,
         requestId: '',
-      }
+      })
+      continue
     }
-    return message
-  })
+    nextMessages.push(message)
+  }
   return changed ? nextMessages : list
 }
 

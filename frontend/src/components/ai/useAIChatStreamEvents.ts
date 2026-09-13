@@ -348,7 +348,7 @@ export function useAIChatStreamEvents({
         setPanelState(matchedPanelKey, (current) => ({
           ...current,
           // 协同任务收尾后关闭滞留的待批准/执行中工具卡片；fallback 追问随后才到场，不在此关闭
-          messages: closeAIStrandedInteractiveMessages(current.messages, '已终止', false),
+          messages: closeAIStrandedInteractiveMessages(current.messages, false),
           collaborationLocked: isFallbackFollowup ? false : current.collaborationLocked,
           collaborationActive: false,
           collaborationMode: '',
@@ -832,7 +832,7 @@ export function useAIChatStreamEvents({
         let nextConversation = null
         setPanelState(matchedPanelKey, (current) => {
           // 终止工具后批次内其余待批准/滞留卡片随请求一并关闭
-          const sweptMessages = closeAIStrandedInteractiveMessages(current.messages, '已终止')
+          const sweptMessages = closeAIStrandedInteractiveMessages(current.messages)
           nextConversation = current.conversation
             ? {
                 ...current.conversation,
@@ -945,7 +945,7 @@ export function useAIChatStreamEvents({
         setPanelState(matchedPanelKey, (current) => {
           const shouldKeepCollaborationLock = current.collaborationLocked && !current.collaborationAwaitingManualFollowup && Boolean(current.queuedSubmission)
           // 跳过自动续跑后滞留的工具卡片关闭；待应答追问仍需保留（手动追问流程未结束）
-          const sweptMessages = closeAIStrandedInteractiveMessages(current.messages, '已终止', false)
+          const sweptMessages = closeAIStrandedInteractiveMessages(current.messages, false)
           nextConversation = current.conversation
             ? {
                 ...current.conversation,
@@ -1095,7 +1095,7 @@ export function useAIChatStreamEvents({
               errorText: '',
             },
           }
-        }), '已终止')
+        }))
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
@@ -1176,7 +1176,7 @@ export function useAIChatStreamEvents({
                 errorText: finalErrorText,
               },
             }
-          }), '已终止')
+          }))
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
@@ -1223,7 +1223,7 @@ export function useAIChatStreamEvents({
             return false
           }
           return true
-        }), '已终止')
+        }))
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
