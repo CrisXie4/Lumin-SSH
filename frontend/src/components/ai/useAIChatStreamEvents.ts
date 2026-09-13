@@ -3,7 +3,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime.js'
 import {
   buildAIUpstreamTokenUsage,
   normalizeAIUpstreamTokenValue,
-  AI_CONVERSATION_DIFF_SUCCESS_STATUSES, AI_FOLLOWUP_PENDING_STATUS_KEY, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, closeAIStrandedInteractiveMessages, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
+  AI_FOLLOWUP_PENDING_STATUS_KEY, AI_TOOL_INTERMEDIATE_STATUSES, buildAIQueuedSubmission, buildMetrics, buildReasoningDuration, closeAIStrandedInteractiveMessages, insertMessageBeforeAssistant, normalizeAICollaborationDecision, normalizeAICollaborationMode, normalizeAIContextTokensValue, normalizeAIMessageStatus, normalizeAIRuntimePhase, parseAICollaborationStreamBuffer, resolveAIEventSound, trimLatestAssistantAPIHistoryMessage, updateAILastAssistantTurnState, upsertAPIHistoryMessage, upsertMessageBeforeAssistant,
 } from './aiChatLogic.ts'
 import type { AIConversationSnapshot, AIMessage, PanelState } from './aiChatLogic.ts'
 import { disableAIChatCollaboration, startAIChatCollaboration } from './aiChatBridge.ts'
@@ -584,8 +584,16 @@ export function useAIChatStreamEvents({
               requestId: '',
             }
           }
+          // 拒绝路径补发的「已拒绝」卡片不再回插会话：拒绝即移除
+          const upsertKind = typeof normalizedMessage?.kind === 'string' ? normalizedMessage.kind.trim() : ''
+          if ((upsertKind === 'tool' || upsertKind === 'command' || upsertKind === 'mcp') && normalizeAIMessageStatus(normalizedMessage?.status) === '已拒绝') {
+            return null
+          }
           return normalizedMessage
         })()
+        if (!nextMessage) {
+          return
+        }
         setPanelState(matchedPanelKey, (current) => {
           const fallbackTurnId = current.activeAssistantMessageId || requestId
           return {
@@ -875,26 +883,26 @@ export function useAIChatStreamEvents({
         const shouldResumeAfterCancel = matchedPanel.resumeAfterCancelRequestId === requestId
         setPanelState(matchedPanelKey, (current) => {
           const assistantMessageId = current.activeAssistantMessageId || requestId
-          const nextMessages = current.messages.map((message) => {
-            if (message.id === assistantMessageId && message.kind === 'assistant') {
-              return {
-                ...message,
-                metrics: Array.isArray(message.metrics) ? message.metrics : [],
-                streaming: false,
-                extra: {
-                  ...(message.extra || {}),
-                  requestStatusLive: false,
-                },
+          // 拒绝即移除：未获批执行的卡片不留"已拒绝"空壳，拒绝结果经 API 历史告知模型即可
+          const nextMessages = current.messages
+            .filter((message) => !(
+              (message.kind === 'tool' || message.kind === 'command' || message.kind === 'mcp')
+              && AI_TOOL_INTERMEDIATE_STATUSES.includes(normalizeAIMessageStatus(message.status))
+            ))
+            .map((message) => {
+              if (message.id === assistantMessageId && message.kind === 'assistant') {
+                return {
+                  ...message,
+                  metrics: Array.isArray(message.metrics) ? message.metrics : [],
+                  streaming: false,
+                  extra: {
+                    ...(message.extra || {}),
+                    requestStatusLive: false,
+                  },
+                }
               }
-            }
-            if ((message.kind === 'tool' || message.kind === 'command') && AI_CONVERSATION_DIFF_SUCCESS_STATUSES.size >= 0 && ['待批准', '执行中', AI_FOLLOWUP_PENDING_STATUS_KEY, '排队中, 等待终端空闲'].includes(normalizeAIMessageStatus(message.status))) {
-              return {
-                ...message,
-                status: '已拒绝',
-              }
-            }
-            return message
-          })
+              return message
+            })
           nextConversation = current.conversation
             ? {
                 ...current.conversation,

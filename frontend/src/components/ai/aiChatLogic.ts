@@ -837,9 +837,18 @@ function isAIEmptyTerminatedToolMessage(message: AIMessage) {
   return (!result || result === '已终止') && (!output || output === '已终止')
 }
 
+/** 已拒绝的工具卡片从未真正执行（各拒绝路径只写占位文字），按「拒绝即移除」语义一并清理 */
+function isAIRejectedToolMessage(message: AIMessage) {
+  const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
+  if (kind !== 'tool' && kind !== 'command' && kind !== 'mcp') {
+    return false
+  }
+  return normalizeAIMessageStatus(message?.status) === '已拒绝'
+}
+
 /**
  * 请求到达终态时，把滞留在中间态的工具卡片与待应答追问统一清出会话：
- * 从未获批执行的卡片没有记录价值，直接移除而非保留空壳；
+ * 从未获批执行的卡片（中间态、空已终止壳、已拒绝）没有记录价值，直接移除而非保留空壳；
  * 待应答追问标记「已取消」并清空 requestId（渲染层按非待处理不再显示）。
  */
 export function closeAIStrandedInteractiveMessages(messages: unknown, closeFollowups = true): AIMessage[] {
@@ -850,7 +859,7 @@ export function closeAIStrandedInteractiveMessages(messages: unknown, closeFollo
     const kind = typeof message?.kind === 'string' ? message.kind.trim() : ''
     if (kind === 'tool' || kind === 'command' || kind === 'mcp') {
       const status = normalizeAIMessageStatus(message?.status)
-      if (AI_TOOL_INTERMEDIATE_STATUSES.includes(status) || isAIEmptyTerminatedToolMessage(message)) {
+      if (AI_TOOL_INTERMEDIATE_STATUSES.includes(status) || isAIEmptyTerminatedToolMessage(message) || isAIRejectedToolMessage(message)) {
         changed = true
         continue
       }

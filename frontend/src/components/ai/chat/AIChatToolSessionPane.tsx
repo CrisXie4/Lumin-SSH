@@ -49,6 +49,10 @@ interface AIChatToolSessionPaneProps extends AIChatToolSessionOptions {
 
 function renderToolItem(item: AIChatToolSessionItem, options: AIChatToolSessionOptions) {
   const { isLastAssistantTurn = false, hasSubsequentAssistantMessage = false, onSendUserMessage, onPreviewRestore, onPreviewDiffFetch, onApplyRestore, onRestoreToHere, onReapplyRestore, followupInteractionLocked = false } = options
+  // 拒绝即移除语义：被拒绝的工具调用从未执行、不留会话痕迹（含历史遗留的已拒绝卡片）
+  if ((item.kind === 'tool' || item.kind === 'command' || item.kind === 'mcp') && normalizeAIMessageStatus(item.status) === '已拒绝') {
+    return null
+  }
   switch (item.kind) {
     case 'tool':
       return <AIChatToolCard key={item.id} restoreArtifactPath={typeof item?.extra?.restoreArtifactPath === 'string' ? item.extra.restoreArtifactPath : ''} copyContent={typeof item?.extra?.copyContent === 'string' ? item.extra.copyContent : ''} actionLabel={item.actionLabel} title={item.title} summary={item.summary} code={item.code} result={item.result} status={item.status} remainingFileEdits={item.remainingFileEdits} extra={item.extra} isLast={isLastAssistantTurn} hasSubsequentAssistantMessage={hasSubsequentAssistantMessage} onPreviewRestore={onPreviewRestore as (path: string, targetTerminalId?: string) => void} onPreviewDiffFetch={onPreviewDiffFetch as (path: string, targetTerminalId?: string) => Promise<unknown>} onApplyRestore={onApplyRestore as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} onRestoreToHere={onRestoreToHere as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} onReapplyRestore={onReapplyRestore as (path: string, targetTerminalId?: string) => boolean | Promise<boolean | null | undefined>} />
