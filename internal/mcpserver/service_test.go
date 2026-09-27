@@ -7,10 +7,18 @@ import (
 
 type fakeSessionProvider struct {
 	descriptors []SessionDescriptor
+	// staleConnKeys 模拟宿主维护的「已关闭终端 id → 所属连接」映射。
+	staleConnKeys map[string]string
 }
 
 func (p fakeSessionProvider) ListConnectedSessions() ([]SessionDescriptor, error) {
 	return p.descriptors, nil
+}
+
+// StaleSessionConnKey implements mcpserver.StaleSessionGroupResolver.
+func (p fakeSessionProvider) StaleSessionConnKey(sessionID string) (string, bool) {
+	connKey, ok := p.staleConnKeys[sessionID]
+	return connKey, ok
 }
 
 // newMultiTerminalDescriptors 模拟同一服务器(connKey)上的三个终端:
@@ -64,6 +72,42 @@ func TestGetConnectedSessionStaleParentFallsBackToGroupLatest(t *testing.T) {
 	}
 	if session.SessionID != "term_child" {
 		t.Fatalf("stale root resolved to %q, want %q", session.SessionID, "term_child")
+	}
+}
+
+func TestGetConnectedSessionClosedChildFallsBackViaStaleMapping(t *testing.T) {
+	// 旧子终端 term_child1 已关闭,同组仅剩 term_child2(其 GroupSessionID 指向
+	// 父会话而非 term_child1):需经「关闭终端 → 连接」映射兜底解析。
+	service := NewService(fakeSessionProvider{
+		descriptors: []SessionDescriptor{
+			{SessionID: "session_root", ConnectionRef: "user@host:22", GroupSessionID: "", IsLatestTerminal: false},
+			{SessionID: "term_child2", ConnectionRef: "user@host:22", GroupSessionID: "session_root", IsLatestTerminal: true},
+		},
+		staleConnKeys: map[string]string{"term_child1": "user@host:22"},
+	})
+	service.SetFollowLatestTerminal(true)
+
+	session, err := service.GetConnectedSession("term_child1")
+	if err != nil {
+		t.Fatalf("GetConnectedSession(closed child) returned error: %v", err)
+	}
+	if session.SessionID != "term_child2" {
+		t.Fatalf("closed child resolved to %q, want %q", session.SessionID, "term_child2")
+	}
+}
+
+func TestGetConnectedSessionUnknownIDStaysUnresolved(t *testing.T) {
+	// 未被记录过关闭现场的未知 id 不得路由到任何连接分组。
+	service := NewService(fakeSessionProvider{
+		descriptors: []SessionDescriptor{
+			{SessionID: "session_root", ConnectionRef: "user@host:22", GroupSessionID: "", IsLatestTerminal: true},
+		},
+		staleConnKeys: map[string]string{},
+	})
+	service.SetFollowLatestTerminal(true)
+
+	if _, err := service.GetConnectedSession("term_never_existed"); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("unknown id should return ErrSessionNotFound, got %v", err)
 	}
 }
 

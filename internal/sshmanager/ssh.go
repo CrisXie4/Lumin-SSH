@@ -245,8 +245,12 @@ type SSHManager struct {
 	// 失败次数,每达阈值提醒用户。均由 mu 保护,详见 ssh_reconnect.go。
 	recentDisconnects    map[string]*DisconnectedSessionRecord
 	mcpReconnectFailures map[string]int
-	mu                   sync.RWMutex
-	pendingMu            sync.Mutex
+	// recentClosed 已关闭终端 id → 关闭现场记录(所属 connKey/时间),带 TTL 与容量
+	// 上限,由 mu 保护。供外部 MCP「终端跟随最新」把已关闭标签的失效 session_id
+	// 兜底解析到同服务器最新终端,未记录的 id 不会路由到任何连接。
+	recentClosed     map[string]closedTerminalRecord
+	mu               sync.RWMutex
+	pendingMu        sync.Mutex
 	// connectLocks 按 connKey 串行化 Connect 的拨号流程:防止前端手动/自动重连与
 	// MCP reconnect_server 并发对同一服务器各建一条 transport(重复连接泄漏)。
 	// connectLocksMu 保护 connectLocks 表本身;表随服务器数量增长,量级很小(数百以内)。
@@ -308,6 +312,7 @@ func NewSSHManager() *SSHManager {
 		connectLocks:     make(map[string]*sync.Mutex),
 		reconnectLocks:   make(map[string]*sync.Mutex),
 		portForwards:     make(map[string]*managedPortForward),
+		recentClosed:     make(map[string]closedTerminalRecord),
 		bufPool: sync.Pool{
 			New: func() any {
 				buf := make([]byte, 32768)
@@ -376,6 +381,58 @@ func (m *SSHManager) LatestTerminalIDsByConnKey() map[string]string {
 		}
 	}
 	return latest
+}
+
+const (
+	// recentClosedTerminalTTL 限制「已关闭终端 id → 连接」映射的有效期:
+	// 外部 AI 在终端被关闭后的短时间内仍可循此映射跟随到最新终端。
+	recentClosedTerminalTTL = time.Hour
+	// recentClosedTerminalCap 映射容量上限,超限淘汰最早关闭的记录。
+	recentClosedTerminalCap = 256
+)
+
+// closedTerminalRecord 是已关闭终端的关闭现场,供失效 session_id 反查所属连接。
+type closedTerminalRecord struct {
+	ConnKey  string
+	ClosedAt time.Time
+}
+
+// rememberClosedTerminal 在终端从 m.sessions 移除时登记其所属连接(需持有写锁)。
+func (m *SSHManager) rememberClosedTerminal(sessionId, connKey string) {
+	now := time.Now()
+	if m.recentClosed == nil {
+		m.recentClosed = make(map[string]closedTerminalRecord)
+	}
+	for id, rec := range m.recentClosed {
+		if now.Sub(rec.ClosedAt) > recentClosedTerminalTTL {
+			delete(m.recentClosed, id)
+		}
+	}
+	m.recentClosed[sessionId] = closedTerminalRecord{ConnKey: connKey, ClosedAt: now}
+	if len(m.recentClosed) > recentClosedTerminalCap {
+		oldestID := ""
+		var oldestAt time.Time
+		for id, rec := range m.recentClosed {
+			if oldestID == "" || rec.ClosedAt.Before(oldestAt) {
+				oldestID, oldestAt = id, rec.ClosedAt
+			}
+		}
+		if oldestID != "" {
+			delete(m.recentClosed, oldestID)
+		}
+	}
+}
+
+// RecentClosedTerminalConnKey 返回最近关闭(未过期)终端 id 所属的连接键。
+// 未记录或已过期的 id 返回 false,不会路由到任何连接。
+func (m *SSHManager) RecentClosedTerminalConnKey(sessionID string) (string, bool) {
+	m.mu.RLock()
+	rec, ok := m.recentClosed[sessionID]
+	m.mu.RUnlock()
+	if !ok || time.Since(rec.ClosedAt) > recentClosedTerminalTTL {
+		return "", false
+	}
+	return rec.ConnKey, true
 }
 
 func isTransientNetError(err error) bool {
@@ -733,6 +790,7 @@ func (m *SSHManager) Connect(sessionId string, conn Connection) error {
 				sd.Session.Close()
 			}
 			delete(m.sessions, sessionId)
+			m.rememberClosedTerminal(sessionId, connKey)
 		}
 		if terminals, ok := m.connTerminals[connKey]; ok {
 			next := terminals[:0]
@@ -1215,6 +1273,7 @@ func (m *SSHManager) disconnect(sessionId string, expected *SessionData) bool {
 	disconnected = true
 	connKey := s.ConnKey
 	delete(m.sessions, sessionId)
+	m.rememberClosedTerminal(sessionId, connKey)
 	isLocal := s.IsLocal
 	isSerial := s.IsSerial
 

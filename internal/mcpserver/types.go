@@ -31,6 +31,13 @@ type SessionProvider interface {
 	ListConnectedSessions() ([]SessionDescriptor, error)
 }
 
+// StaleSessionGroupResolver 由宿主实现：把已关闭终端的失效 session_id 映射回
+// 其所属连接分组(connKey),用于「终端跟随最新」的兜底解析。未记录的 id 必须
+// 返回 false,避免任意未知 id 被路由到无关连接。
+type StaleSessionGroupResolver interface {
+	StaleSessionConnKey(sessionID string) (string, bool)
+}
+
 // DisconnectedSessionInfo 描述一个已断开且可一键重连的会话,用于向 AI 返回可操作的错误信息。
 type DisconnectedSessionInfo struct {
 	// SessionID 是父会话 id,重连时复用。

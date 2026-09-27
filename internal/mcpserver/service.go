@@ -78,15 +78,23 @@ func (s *Service) GetConnectedSession(sessionID string) (ConnectedSession, error
 			return s.followLatestSession(sessions, session), nil
 		}
 	}
-	// 传入的 id 已不在存活列表(例如其终端标签被关闭):跟随模式下若它曾是
-	// 某组的父会话且同组仍有存活终端,则解析到该组最新终端而不是直接报错。
+	// 传入的 id 已不在存活列表(例如其终端标签被关闭):跟随模式下按分组兜底
+	// 解析到该组最新终端。两条反查路径:①它曾是某组父会话(存活子终端指向它);
+	// ②它是已关闭子终端,由宿主的「最近关闭终端 → 连接」映射还原分组。
+	// 均不命中时保留原报错,未知 id 不会路由到无关连接。
 	if s.followLatestTerminal {
 		for _, session := range sessions {
-			if session.GroupSessionID != trimmedSessionID {
-				continue
+			if session.GroupSessionID == trimmedSessionID {
+				if target, ok := latestSessionInGroup(sessions, groupKey(session), trimmedSessionID); ok {
+					return target, nil
+				}
 			}
-			if target, ok := latestSessionInGroup(sessions, groupKey(session), trimmedSessionID); ok {
-				return target, nil
+		}
+		if resolver, ok := s.sessionProvider.(StaleSessionGroupResolver); ok {
+			if connKey, known := resolver.StaleSessionConnKey(trimmedSessionID); known {
+				if target, ok := latestSessionInGroup(sessions, connKey, trimmedSessionID); ok {
+					return target, nil
+				}
 			}
 		}
 	}

@@ -113,7 +113,7 @@ func StartServer(host Host, settings ServiceSettings) {
 			Version:     "0.1.0",
 			Description: "MCP server for connected LumeTerm terminal sessions",
 		},
-		Instructions: "Call list_connected_sessions first and use the returned session_id for subsequent SSH-scoped tools. When a server has several terminal tabs, prefer the session marked is_latest_terminal: requests targeting an older terminal of the same server automatically run in its latest terminal. If a tool reports that the session's server is disconnected, call reconnect_server with that session_id to restore the connection, then retry.",
+		Instructions: buildServerInstructions(settings.FollowLatestTerminal),
 			Logger:       appendMCPLog,
 		},
 		catalog,
@@ -169,7 +169,7 @@ func GetServerInfo(host Host, settings ServiceSettings) map[string]interface{} {
 		URL:          server.URL(),
 		Transport:    "streamable-http",
 		Endpoint:     "/mcp",
-		Instructions: "Call list_connected_sessions first, then use the returned session_id for subsequent tools. When a server has several terminal tabs, prefer the session marked is_latest_terminal: requests targeting an older terminal of the same server automatically run in its latest terminal. If a tool reports that the session's server is disconnected, call reconnect_server with that session_id, then retry.",
+		Instructions: buildServerInstructions(settings.FollowLatestTerminal),
 		Logs:         getMCPLogText(),
 		Tools:        tools,
 	}
@@ -225,6 +225,17 @@ func buildMCPToolDefinitions(host Host) []map[string]interface{} {
 		})
 	}
 	return result
+}
+
+// buildServerInstructions 按「终端跟随最新」开关生成下发给 MCP 客户端的说明：
+// 仅在开关开启时声称旧终端请求会自动转向最新终端，避免误导客户端。
+func buildServerInstructions(followLatestTerminal bool) string {
+	instructions := "Call list_connected_sessions first and use the returned session_id for subsequent SSH-scoped tools."
+	if followLatestTerminal {
+		instructions += " When a server has several terminal tabs, prefer the session marked is_latest_terminal: requests targeting an older terminal of the same server automatically run in its latest terminal."
+	}
+	instructions += " If a tool reports that the session's server is disconnected, call reconnect_server with that session_id to restore the connection, then retry."
+	return instructions
 }
 
 func appendMCPLog(message string) {

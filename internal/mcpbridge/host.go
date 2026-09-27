@@ -84,6 +84,16 @@ func (h Host) LookupDisconnectedSession(sessionID string) (mcpserver.Disconnecte
 	}, true
 }
 
+// StaleSessionConnKey implements mcpserver.StaleSessionGroupResolver: it maps a
+// recently closed terminal's stale session_id back to its connection group so
+// follow-latest resolution can retarget to the group's newest live terminal.
+func (h Host) StaleSessionConnKey(sessionID string) (string, bool) {
+	if h.sshMgr == nil {
+		return "", false
+	}
+	return h.sshMgr.RecentClosedTerminalConnKey(sessionID)
+}
+
 // ReconnectDisconnectedSession implements mcpserver.ReconnectProvider.
 func (h Host) ReconnectDisconnectedSession(sessionID string) (mcpserver.ReconnectResult, error) {
 	if h.sshMgr == nil {
