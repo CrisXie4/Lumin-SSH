@@ -15,7 +15,7 @@ import (
 	"lumeterm/internal/mcpserver"
 )
 
-var luminExitCodePattern = regexp.MustCompile(`\[LumeTerm_EXIT_CODE_(\d+)\]`)
+var lumetermExitCodePattern = regexp.MustCompile(`\[LumeTerm_EXIT_CODE_(\d+)\]`)
 
 const maxInteractiveCapturedOutputBytes = 1 << 20
 const interactiveIdlePollInterval = 200 * time.Millisecond
@@ -495,8 +495,8 @@ func buildPowerShellInteractiveCommandWrapper(command string, cwd string, startM
 	encodedScript := base64.StdEncoding.EncodeToString([]byte(strings.Join(scriptLines, "\r\n")))
 	return strings.Join([]string{
 		"$__lumeterm_path = Join-Path $env:TEMP 'lumeterm_mcp_" + token + ".ps1'",
-		"$__lumin_bytes = [System.Convert]::FromBase64String('" + encodedScript + "')",
-		"[System.IO.File]::WriteAllBytes($__lumeterm_path, $__lumin_bytes)",
+		"$__lumeterm_bytes = [System.Convert]::FromBase64String('" + encodedScript + "')",
+		"[System.IO.File]::WriteAllBytes($__lumeterm_path, $__lumeterm_bytes)",
 		"& $__lumeterm_path",
 	}, "\r\n")
 }
@@ -512,8 +512,8 @@ func buildCmdInteractiveCommandWrapper(command string, cwd string, startMarker s
 	scriptLines = append(scriptLines,
 		"echo "+startMarker,
 		command,
-		`set "__LUMIN_EXIT=%ERRORLEVEL%"`,
-		`echo [LumeTerm_EXIT_CODE_%__LUMIN_EXIT%]`,
+		`set "__LUMETERM_EXIT=%ERRORLEVEL%"`,
+		`echo [LumeTerm_EXIT_CODE_%__LUMETERM_EXIT%]`,
 		"echo "+endMarker,
 		`(goto) 2>nul & del "%~f0"`,
 		`exit /b 0`,
@@ -548,7 +548,7 @@ func sanitizeInteractiveCommandOutput(output string, startMarker string, endMark
 	if endIndex := strings.Index(output, endMarker); endIndex >= 0 {
 		output = output[:endIndex]
 	}
-	output = luminExitCodePattern.ReplaceAllString(output, "")
+	output = lumetermExitCodePattern.ReplaceAllString(output, "")
 	output = strings.ReplaceAll(output, "\r\n", "\n")
 	output = strings.Trim(output, "\n\r\t ")
 	if output == "" {
@@ -558,7 +558,7 @@ func sanitizeInteractiveCommandOutput(output string, startMarker string, endMark
 }
 
 func extractInteractiveExitCode(output string) (int, bool) {
-	match := luminExitCodePattern.FindStringSubmatch(output)
+	match := lumetermExitCodePattern.FindStringSubmatch(output)
 	if len(match) != 2 {
 		return 0, false
 	}

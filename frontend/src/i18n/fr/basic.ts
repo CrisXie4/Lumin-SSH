@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Retrait...",
   "已撤销": "Révoqué",
   "撤销失败": "Échec de l'annulation",
-  "天青": "Bleu ciel",
+  "钴蓝": "Bleu cobalt",
   "晨雾": "Brume du matin",
   "丁香": "Lilas",
   "玫粉": "Rose",

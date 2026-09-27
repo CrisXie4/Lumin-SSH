@@ -12,8 +12,23 @@ import (
 
 const themePackageSchemaVersion = 1
 const ThemePackageSchemaVersion = themePackageSchemaVersion // 导出别名供 package main 引用
-const defaultLightThemePackageID = "lumin-light"
-const defaultDarkThemePackageID = "lumin-dark"
+const defaultLightThemePackageID = "cobalt-light"
+const defaultDarkThemePackageID = "cobalt-dark"
+// legacyDefaultLightThemePackageID / legacyDefaultDarkThemePackageID 是旧品牌时期的内置
+// 主题包 ID。老用户 app_settings.json 里存的仍是旧值，读取时映射为新 ID（写新读旧）；
+// 磁盘上的旧包文件由 ensureBuiltinThemePackagesDirectory 尽力清理。
+//
+// 退役计划：与 config.go legacyLumin2Prefix（保留至 v2.0）不同，这里的旧值是应用
+// 自己的配置而非用户长期资产，且读取即映射、前端启动会回写新值，故保留期更短。
+// 建议在 v1.6 之后（或下次内置主题包 ID 变更时）一并删除本组常量、
+// GetThemePackageSettings 中的映射分支，以及 ensureBuiltinThemePackagesDirectory
+// 里的旧文件清理。
+//
+// 注意：旧文件清理的退役节奏不跟版本号走。<exeDir>/themes/lumin-*.json 是磁盘文件，
+// 删除失败（如装在 Program Files 无管理员权限）就会一直残留，比配置里的旧值顽固得多。
+// 它的退役条件是确认安装目录可写，或接受主题列表里多出一份同名「钴蓝」。
+const legacyDefaultLightThemePackageID = "lumin-light"
+const legacyDefaultDarkThemePackageID = "lumin-dark"
 
 type ThemePackageSettings struct {
 	ThemeMode          string `json:"themeMode,omitempty"`
@@ -342,8 +357,8 @@ func buildBuiltinThemePackage(id string, name string, description string, modeHi
 func buildBuiltinThemePackages() []ThemePackageFile {
 	return []ThemePackageFile{
 		buildBuiltinThemePackage(
-			"lumin-dark",
-			"天青",
+			"cobalt-dark",
+			"钴蓝",
 			"默认蓝调深色",
 			"dark",
 			"#4d9eff",
@@ -399,8 +414,8 @@ func buildBuiltinThemePackages() []ThemePackageFile {
 			),
 		),
 		buildBuiltinThemePackage(
-			"lumin-light",
-			"天青",
+			"cobalt-light",
+			"钴蓝",
 			"默认蓝调浅色",
 			"light",
 			"#2563eb",
@@ -835,7 +850,7 @@ func defaultThemePackageForMode(modeHint string) ThemePackageFile {
 	return ThemePackageFile{
 		SchemaVersion: themePackageSchemaVersion,
 		ID:            defaultDarkThemePackageID,
-		Name:          "天青",
+		Name:          "钴蓝",
 		ModeHint:      "dark",
 		Tokens:        buildBaseThemeTokens("dark", "#4d9eff"),
 		Components: map[string]interface{}{
@@ -971,6 +986,11 @@ func (c *ConfigManager) ensureBuiltinThemePackagesDirectory() (string, error) {
 			return "", err
 		}
 	}
+	// 旧品牌时期的内置包已改 ID，残留文件会在主题列表里多出一份同名「钴蓝」。
+	// 尽力删除：安装在 Program Files 等只读目录时删除会失败，忽略即可（不影响新包选中）。
+	for _, legacyID := range []string{legacyDefaultLightThemePackageID, legacyDefaultDarkThemePackageID} {
+		_ = os.Remove(filepath.Join(targetDirectory, legacyID+".json"))
+	}
 	return targetDirectory, nil
 }
 
@@ -1104,6 +1124,14 @@ func (c *ConfigManager) GetThemePackageSettings() ThemePackageSettings {
 	current.ThemeMode = normalizeThemeModeSetting(current.ThemeMode)
 	current.LightThemePackageID = normalizeThemePackageID(current.LightThemePackageID)
 	current.DarkThemePackageID = normalizeThemePackageID(current.DarkThemePackageID)
+	// 旧品牌时期存下的内置包 ID 映射为新 ID（写新读旧）。这里只认两个旧内置 ID，
+	// 不改动用户自建包（如 lumin-copy-light），避免误伤。
+	if current.LightThemePackageID == legacyDefaultLightThemePackageID {
+		current.LightThemePackageID = defaultLightThemePackageID
+	}
+	if current.DarkThemePackageID == legacyDefaultDarkThemePackageID {
+		current.DarkThemePackageID = defaultDarkThemePackageID
+	}
 	if current.LightThemePackageID == "" {
 		current.LightThemePackageID = defaultLightThemePackageID
 	}

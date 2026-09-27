@@ -59,7 +59,7 @@ export function R2FormFields({ r2Form, setR2Field }: { r2Form: ProviderForm; set
       </div>
       <div className="form-group" data-settings-field-id={syncSettings.fields.r2Prefix.id}>
         <label htmlFor="sync-r2-prefix" className="form-label">{$t('前缀 (Prefix)')}</label>
-        <input id="sync-r2-prefix" name="sync-r2-prefix" className="input" autoComplete="off" value={r2Form.prefix} onChange={setR2Field('prefix')} placeholder="Lumin/" />
+        <input id="sync-r2-prefix" name="sync-r2-prefix" className="input" autoComplete="off" value={r2Form.prefix} onChange={setR2Field('prefix')} placeholder="LumeTerm/" />
       </div>
       <div className="form-group" data-settings-field-id={syncSettings.fields.r2MaxBackups.id}>
         <label htmlFor="sync-r2-max-backups" className="form-label">{$t('保留份数 (0=不限)')}</label>

@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Đang rút...",
   "已撤销": "Đã thu hồi",
   "撤销失败": "Hoàn tác không thành công",
-  "天青": "Xanh da trời",
+  "钴蓝": "Xanh coban",
   "晨雾": "Sương sớm",
   "丁香": "Tím lilac",
   "玫粉": "Hồng hoa hồng",

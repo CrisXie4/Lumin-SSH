@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Retirándose...",
   "已撤销": "Revocado",
   "撤销失败": "Error al deshacer",
-  "天青": "Azul cielo",
+  "钴蓝": "Azul cobalto",
   "晨雾": "Niebla matinal",
   "丁香": "Lila",
   "玫粉": "Rosa",

@@ -8,11 +8,14 @@ declare global {
 }
 
 const THEME_PACKAGE_SCHEMA_VERSION = 1;
-const DEFAULT_LIGHT_THEME_PACKAGE_ID = 'lumin-light';
-const DEFAULT_DARK_THEME_PACKAGE_ID = 'lumin-dark';
+const DEFAULT_LIGHT_THEME_PACKAGE_ID = 'cobalt-light';
+const DEFAULT_DARK_THEME_PACKAGE_ID = 'cobalt-dark';
 
 const LEGACY_THEME_PACKAGE_MAP: Record<string, { light: string; dark: string }> = {
-  lumin: { light: 'lumin-light', dark: 'lumin-dark' },
+  cobalt: { light: 'cobalt-light', dark: 'cobalt-dark' },
+  // lumin 是旧品牌时期写入 localStorage 的族名，必须保留别名：
+  // 老用户 terminalColorTheme 仍是 'lumin'，取不到映射时 mapped.light 会抛错。
+  lumin: { light: 'cobalt-light', dark: 'cobalt-dark' },
   'tokyo-night': { light: 'tokyo-night-light', dark: 'tokyo-night-dark' },
   catppuccin: { light: 'catppuccin-light', dark: 'catppuccin-dark' },
   dracula: { light: 'dracula-light', dark: 'dracula-dark' },
@@ -137,9 +140,9 @@ interface TerminalThemeFamilyMode {
 }
 
 const TERMINAL_THEME_FAMILIES: Record<string, Record<ThemeModeHint, TerminalThemeFamilyMode>> = {
-  lumin: {
+  cobalt: {
     dark: {
-      name: '天青',
+      name: '钴蓝',
       description: '默认蓝调深色',
       accent: '#4d9eff',
       xterm: {
@@ -169,7 +172,7 @@ const TERMINAL_THEME_FAMILIES: Record<string, Record<ThemeModeHint, TerminalThem
       },
     },
     light: {
-      name: '天青',
+      name: '钴蓝',
       description: '默认蓝调浅色',
       accent: '#2563eb',
       xterm: {

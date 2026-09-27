@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Intrekken...",
   "已撤销": "Ingetrokken",
   "撤销失败": "Ongedaan maken is mislukt",
-  "天青": "Hemelsblauw",
+  "钴蓝": "Kobaltblauw",
   "晨雾": "Ochtendmist",
   "丁香": "Lila",
   "玫粉": "Roze",

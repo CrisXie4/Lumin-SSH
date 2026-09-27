@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Ritiro...",
   "已撤销": "Revocato",
   "撤销失败": "Annullamento non riuscito",
-  "天青": "Azzurro cielo",
+  "钴蓝": "Blu cobalto",
   "晨雾": "Nebbia mattutina",
   "丁香": "Lillà",
   "玫粉": "Rosa",

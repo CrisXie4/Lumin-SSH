@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Geri çekiliyor...",
   "已撤销": "İptal edildi",
   "撤销失败": "Geri alma başarısız oldu",
-  "天青": "Gök mavisi",
+  "钴蓝": "Kobalt mavisi",
   "晨雾": "Sabah sisi",
   "丁香": "Leylak",
   "玫粉": "Gül pembesi",

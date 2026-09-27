@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Se retrag...",
   "已撤销": "Revocat",
   "撤销失败": "Anularea a eșuat",
-  "天青": "Albastru cer",
+  "钴蓝": "Albastru cobalt",
   "晨雾": "Ceață de dimineață",
   "丁香": "Liliac",
   "玫粉": "Roz trandafiriu",

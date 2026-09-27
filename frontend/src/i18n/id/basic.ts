@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Penarikan...",
   "已撤销": "Dicabut",
   "撤销失败": "Pembatalan gagal",
-  "天青": "Biru langit",
+  "钴蓝": "Biru kobalt",
   "晨雾": "Kabut pagi",
   "丁香": "Ungu lilac",
   "玫粉": "Merah muda mawar",

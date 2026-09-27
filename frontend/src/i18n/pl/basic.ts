@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Wycofywanie...",
   "已撤销": "Odwołany",
   "撤销失败": "Cofnięcie nie powiodło się",
-  "天青": "Błękit nieba",
+  "钴蓝": "Błękit kobaltowy",
   "晨雾": "Poranna mgła",
   "丁香": "Bez",
   "玫粉": "Róż",

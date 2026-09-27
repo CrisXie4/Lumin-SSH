@@ -1789,7 +1789,7 @@ export default {
   "正在撤销中...": "Odebírání...",
   "已撤销": "Odvoláno",
   "撤销失败": "Vrátit zpět se nezdařilo",
-  "天青": "Nebeská modř",
+  "钴蓝": "Kobaltová modř",
   "晨雾": "Ranní mlha",
   "丁香": "Šeřík",
   "玫粉": "Růžová",

@@ -9,17 +9,17 @@ import (
 
 func TestUniqueUserThemePackageID(t *testing.T) {
 	used := map[string]bool{
-		"lumin-light": true,
-		"lumin-dark":  true,
+		"cobalt-light": true,
+		"cobalt-dark":  true,
 	}
-	got := uniqueUserThemePackageID("lumin-dark", "light", used)
-	if got != "lumin-copy-light" {
-		t.Fatalf("want lumin-copy-light, got %s", got)
+	got := uniqueUserThemePackageID("cobalt-dark", "light", used)
+	if got != "cobalt-copy-light" {
+		t.Fatalf("want cobalt-copy-light, got %s", got)
 	}
 	used[got] = true
-	got2 := uniqueUserThemePackageID("lumin-dark", "light", used)
-	if got2 != "lumin-copy-light-2" {
-		t.Fatalf("want lumin-copy-light-2, got %s", got2)
+	got2 := uniqueUserThemePackageID("cobalt-dark", "light", used)
+	if got2 != "cobalt-copy-light-2" {
+		t.Fatalf("want cobalt-copy-light-2, got %s", got2)
 	}
 }
 
