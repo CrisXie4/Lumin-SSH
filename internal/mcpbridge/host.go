@@ -84,6 +84,16 @@ func (h Host) LookupDisconnectedSession(sessionID string) (mcpserver.Disconnecte
 	}, true
 }
 
+// StaleSessionConnKey implements mcpserver.StaleSessionGroupResolver: it maps a
+// recently closed terminal's stale session_id back to its connection group so
+// follow-latest resolution can retarget to the group's newest live terminal.
+func (h Host) StaleSessionConnKey(sessionID string) (string, bool) {
+	if h.sshMgr == nil {
+		return "", false
+	}
+	return h.sshMgr.RecentClosedTerminalConnKey(sessionID)
+}
+
 // ReconnectDisconnectedSession implements mcpserver.ReconnectProvider.
 func (h Host) ReconnectDisconnectedSession(sessionID string) (mcpserver.ReconnectResult, error) {
 	if h.sshMgr == nil {
@@ -119,6 +129,7 @@ func (h Host) ListSessionDescriptors() ([]mcpserver.SessionDescriptor, error) {
 		return []mcpserver.SessionDescriptor{}, nil
 	}
 	sessionMap, sftpAvail := h.sshMgr.SnapshotSessionsAndSftpAvailability()
+	latestTerminalByConnKey := h.sshMgr.LatestTerminalIDsByConnKey()
 
 	connectionMap := make(map[string]config.Connection)
 	if h.configMgr != nil {
@@ -140,6 +151,9 @@ func (h Host) ListSessionDescriptors() ([]mcpserver.SessionDescriptor, error) {
 			GroupSessionID: sessionData.GroupSessionId,
 			ConnectionRef:  sessionData.ConnKey,
 			ConnectionID:   sessionData.ConnKey,
+			// IsLatestTerminal 标记同服务器上最新打开的终端,外部 AI 优先使用它;
+			// 开启「终端跟随最新」后,指向旧终端的请求也会自动重定向到这里。
+			IsLatestTerminal: latestTerminalByConnKey[sessionData.ConnKey] == sessionID,
 		}
 		if sftpAvail[sessionData.ConnKey] {
 			descriptor.SFTPAvailable = true

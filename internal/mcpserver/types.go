@@ -9,6 +9,8 @@ type SessionDescriptor struct {
 	Address string
 	Tags []string
 	SFTPAvailable bool
+	// IsLatestTerminal 表示该会话是其所在服务器上最新打开且仍存活的终端。
+	IsLatestTerminal bool
 }
 
 type ConnectedSession struct {
@@ -21,10 +23,19 @@ type ConnectedSession struct {
 	Tags []string `json:"tags,omitempty"`
 	SFTPAvailable bool `json:"sftp_available"`
 	IsChildTerminal bool `json:"is_child_terminal"`
+	// IsLatestTerminal 表示该终端是同服务器上最新打开的，外部 AI 应优先使用。
+	IsLatestTerminal bool `json:"is_latest_terminal"`
 }
 
 type SessionProvider interface {
 	ListConnectedSessions() ([]SessionDescriptor, error)
+}
+
+// StaleSessionGroupResolver 由宿主实现：把已关闭终端的失效 session_id 映射回
+// 其所属连接分组(connKey),用于「终端跟随最新」的兜底解析。未记录的 id 必须
+// 返回 false,避免任意未知 id 被路由到无关连接。
+type StaleSessionGroupResolver interface {
+	StaleSessionConnKey(sessionID string) (string, bool)
 }
 
 // DisconnectedSessionInfo 描述一个已断开且可一键重连的会话,用于向 AI 返回可操作的错误信息。
