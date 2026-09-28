@@ -6,6 +6,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime.js';
 import { extractQuickCommandParams } from '../../utils/quickCommandParams.ts';
 import { buildWrappedMultiLineCommand, createGatedLineSender, getTextareaAutocompletePopupPosition, isInteractivePromptText } from '../../utils/terminalHelpers.ts';
 import { warnDev } from '../../utils/devLog';
+import { CMD_INPUT_BASE_HEIGHT_PX, CMD_INPUT_MAX_HEIGHT_PX } from './terminalTypes.ts';
 import {
   buildPathAutocompleteContext,
   buildStaticAutocompleteItems,
@@ -39,6 +40,8 @@ export function useTerminalCommandInput(deps: {
   awaitingPasswordRef: React.RefObject<boolean>;
   awaitingCommandFinishRef: React.RefObject<boolean>;
   termRef: React.RefObject<XTerm | null>;
+  /** 命令输入栏相对单行基准高度撑高的像素（供 useTerminalSession 换算 PTY 行数） */
+  inputBarGrowthRef: React.RefObject<number>;
   openQuickCmdConfirm: (item: FlattenedQuickCommand) => void;
   setShowHistory: React.Dispatch<React.SetStateAction<boolean>>;
   setHistoryPopupPos: React.Dispatch<React.SetStateAction<{ left: number; bottom: number } | null>>;
@@ -48,6 +51,7 @@ export function useTerminalCommandInput(deps: {
     sessionId, serverId, historyServerId, showHistory, showCommands,
     isConnected, isClosed, isError, multiLineWrapEnabled,
     prepareScreenScrollbackRef, awaitingPasswordRef, awaitingCommandFinishRef, termRef,
+    inputBarGrowthRef,
     openQuickCmdConfirm, setShowHistory, setHistoryPopupPos, t,
   } = deps;
 
@@ -97,21 +101,32 @@ export function useTerminalCommandInput(deps: {
   const commandAutocompleteListRef            = useRef<HTMLDivElement | null>(null);
   const [commandAutocompletePopupPos, setCommandAutocompletePopupPos] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
 
+  // 输入框高度自适应（单行 36px ↔ 最多 132px，超出后内部滚动）。
+  // 输入栏仍在 flex 流里，撑高会把终端容器挤矮 → 本地 xterm 跟着缩行（顶部内容仍能滚到），
+  // 但 PTY 行数要按「输入栏收起时」的高度算，否则远端 shell 会收到 SIGWINCH 并重绘提示行。
   const syncCommandInputHeight = useCallback(() => {
     const element = cmdInputRef.current
     if (!element) return
-    element.style.height = '36px'
+    // display:none 时（切到文件/AI 等内容标签页）元素没有布局：scrollHeight 为 0，
+    // 照常重算会把多行草稿压回基准高度并把撑高量一起清掉。此时保持原状，
+    // 回到可见状态后草稿与撑高量都还在。
+    if (element.getClientRects().length === 0) return
+    element.style.height = `${CMD_INPUT_BASE_HEIGHT_PX}px`
     element.style.overflowY = 'hidden'
     element.scrollTop = 0
-    if (!element.value) {
-      return
+    if (element.value) {
+      const scrollHeight = Math.max(element.scrollHeight, CMD_INPUT_BASE_HEIGHT_PX)
+      const nextHeight = Math.min(scrollHeight, CMD_INPUT_MAX_HEIGHT_PX)
+      element.style.height = `${nextHeight}px`
+      if (scrollHeight > CMD_INPUT_MAX_HEIGHT_PX) {
+        element.style.overflowY = 'auto'
+      }
     }
-    const scrollHeight = Math.max(element.scrollHeight, 36)
-    const nextHeight = Math.min(scrollHeight, 132)
-    element.style.height = `${nextHeight}px`
-    if (scrollHeight > 132) {
-      element.style.overflowY = 'auto'
-    }
+    // 把「输入栏相对单行基准高度撑高了多少像素」告诉 useTerminalSession：
+    // 输入栏在 flex 流里，撑高会把终端容器挤矮，本地 xterm 必须跟着缩行（顶部内容才滚得到），
+    // 但 PTY 行数要按「输入栏收起时」的高度算，否则远端 shell 收到 SIGWINCH 会重绘提示行、
+    // 擦掉「不以换行结束的最后一行」。
+    inputBarGrowthRef.current = Math.max(0, Math.round(element.getBoundingClientRect().height) - CMD_INPUT_BASE_HEIGHT_PX)
   }, [])
 
   const executeCommand = (directCmd?: string) => {

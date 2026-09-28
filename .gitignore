@@ -13,10 +13,12 @@
 /build/x86_64/
 /build/windows/installer/Output/
 /build/windows/installer/wails_tools.nsh
+/bin/
 
 # ── Wails 自动生成 ──
 /frontend/wailsjs/
 /frontend/package.json.md5
+/.task/
 
 # ── 前端 ──
 /frontend/node_modules/

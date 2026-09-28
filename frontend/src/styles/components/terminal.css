@@ -352,6 +352,8 @@
 
 .term-command-input {
   resize: none;
+  /* 与 terminalTypes.ts 的 CMD_INPUT_BASE_HEIGHT_PX / CMD_INPUT_MAX_HEIGHT_PX 保持一致：
+     JS 侧高度自适应与 PTY 行数补偿都以这对基准值换算，改一处漏一处会让补偿差整行 */
   min-height: 36px;
   max-height: 132px;
   overflow-x: hidden;

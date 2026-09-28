@@ -48,6 +48,12 @@ export default function Terminal({
   const wsRef          = useRef<WebSocket | null>(null);
   const serverIdRef    = useRef(serverId);
   serverIdRef.current  = serverId;
+  // 命令输入栏相对单行基准高度撑高了多少像素（由 useTerminalCommandInput 写入）。
+  // 输入栏在 flex 流里，撑高会把终端容器挤矮：本地 xterm 必须跟着缩行（否则顶部内容
+  // 永远滚不到），但 PTY 不能跟着缩（远端 shell 收到 SIGWINCH 会重绘提示行、擦掉
+  // 「不以换行结束的最后一行」）。useTerminalSession 用这个值把 PTY 行数换算回
+  // 「输入栏收起时」的高度，所以两个 hook 共享同一个 ref。
+  const inputBarGrowthRef = useRef(0);
 
   // ── 菜单 / 弹层 / 查找等跨 hook 共享状态 ──
   const [contextMenu, setContextMenu]         = useState<{ x: number; y: number; source: 'terminal' | 'input' } | null>(null);
@@ -127,6 +133,7 @@ export default function Terminal({
     ...tsApi, ...gutterApi, ...linkApi,
     sessionId, wsRebuildKey, status, isActive, t, T,
     containerRef, termRef, fitAddonRef, searchAddonRef, wsRef, serverIdRef,
+    inputBarGrowthRef,
     shortcutsRef, localEchoRef, timestampsEnabledRef, commandBlocksEnabledRef,
     alternateBufferActiveRef, setAlternateBufferActive,
     screenScrollbackRef, prepareScreenScrollbackRef,
@@ -167,6 +174,7 @@ export default function Terminal({
     sessionId, serverId, historyServerId, showHistory, showCommands,
     isConnected, isClosed, isError, multiLineWrapEnabled,
     prepareScreenScrollbackRef, awaitingPasswordRef, awaitingCommandFinishRef, termRef,
+    inputBarGrowthRef,
     openQuickCmdConfirm, setShowHistory, setHistoryPopupPos, t,
   });
 

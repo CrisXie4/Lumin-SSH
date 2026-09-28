@@ -8,6 +8,13 @@ declare global {
   }
 }
 
+/** 命令输入框单行基准高度（px）。
+ *  useTerminalCommandInput 的高度自适应与 useTerminalSession 的 PTY 行数补偿都以它为基准；
+ *  样式侧必须保持同高：TerminalInputBar 的 h-9 与 terminal.css 的 .term-command-input。 */
+export const CMD_INPUT_BASE_HEIGHT_PX = 36;
+/** 命令输入框最大高度（px），超过后改为内部滚动 */
+export const CMD_INPUT_MAX_HEIGHT_PX = 132;
+
 /** 时间戳 ring 条目 / 命令块状态 */
 export interface CommandBlockState {
   id: number;
