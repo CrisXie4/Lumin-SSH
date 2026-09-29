@@ -40,7 +40,7 @@ export default function AIChatCompletionCard({ title = completionTitleKey, summa
           color: 'var(--accent)',
         })
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
       <div className="flex items-center justify-between gap-3 text-sm">
         <div className="inline-flex min-w-0 items-center gap-1.5">
           <CheckCircle2 size={14} color={normalizedStatus === completionStatusKey ? 'var(--success)' : 'var(--accent)'} />

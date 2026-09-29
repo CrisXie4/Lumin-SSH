@@ -318,7 +318,7 @@ export default function AIChatCommandCard({ purpose, command, output, status = r
   }, [expanded, hasDisplayOutput, scrollOutputToBottom, stopOutputScroll])
 
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
       <div className="flex items-center justify-between gap-3 text-sm">
         <div className="inline-flex min-w-0 items-center gap-1.5">
           <TerminalSquare size={14} color="var(--text-secondary)" />

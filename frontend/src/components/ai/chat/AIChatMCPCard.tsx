@@ -41,13 +41,13 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
   }, [hasSubsequentAssistantMessage, response])
 
   return (
-    <div className="grid gap-2">
-      <div className="grid w-full gap-1.5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
+      <div className="grid w-full grid-cols-[minmax(0,1fr)] gap-1.5">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <Server size={14} color="var(--text-secondary)" />
-            <span className="font-bold text-primary">{serverName}</span>
-            {toolName ? <span className="font-mono text-xs text-tertiary">{toolName}</span> : null}
+            <span className="min-w-0 truncate font-bold text-primary">{serverName}</span>
+            {toolName ? <span className="min-w-0 truncate font-mono text-xs text-tertiary">{toolName}</span> : null}
           </span>
           <div className="inline-flex shrink-0 items-center gap-2">
             {response ? (
@@ -104,7 +104,7 @@ export default function AIChatMCPCard({ serverName, toolName, args, response, ex
               />
             </button>
             {isResponseExpanded ? (
-              <div className="grid gap-2.5 p-3">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-2.5 p-3">
                 <div className="max-h-[320px] overflow-x-auto overflow-y-auto overscroll-contain whitespace-pre-wrap rounded-lg border border-line-subtle bg-canvas px-3 py-2.5 text-base leading-[1.65] text-primary [word-break:break-word]">{response}</div>
               </div>
             ) : null}

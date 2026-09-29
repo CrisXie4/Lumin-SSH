@@ -201,7 +201,7 @@ export default function AIChatToolCard({
   };
 
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
       <div className="flex items-center justify-between gap-3 text-sm">
         <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
           <FileCode2 size={14} color="var(--text-secondary)" />

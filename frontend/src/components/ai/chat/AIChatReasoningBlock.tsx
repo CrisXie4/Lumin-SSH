@@ -92,7 +92,7 @@ export default function AIChatReasoningBlock({ text, duration = '', isStreaming 
   }
 
   return (
-    <div className="grid w-full gap-0">
+    <div className="grid w-full grid-cols-[minmax(0,1fr)] gap-0">
       <button
         type="button"
         onClick={handleToggle}

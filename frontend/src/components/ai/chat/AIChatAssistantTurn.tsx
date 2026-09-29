@@ -80,13 +80,13 @@ export default function AIChatAssistantTurn({ assistant, reasoning = [], tools =
   )
 
   return (
-    <div className="grid w-full gap-0">
-      <div className="grid w-full gap-0 rounded-[var(--radius-md)] border border-line bg-overlay px-3 pt-2.5 shadow-[inset_0_1px_0_var(--border-light)]">
+    <div className="grid w-full grid-cols-[minmax(0,1fr)] gap-0">
+      <div className="grid w-full grid-cols-[minmax(0,1fr)] gap-0 rounded-[var(--radius-md)] border border-line bg-overlay px-3 pt-2.5 shadow-[inset_0_1px_0_var(--border-light)]">
         {hasError ? <AIChatErrorBlock text={assistantErrorText} /> : null}
         {hasReasoning ? (
           <div
             className={cn(
-              'grid gap-2',
+              'grid grid-cols-[minmax(0,1fr)] gap-2',
               hasSectionBeforeReasoning && 'border-t border-t-line-subtle pt-2.5',
               (hasBody || hasTools) && 'border-b border-b-line-subtle pb-2.5',
             )}
