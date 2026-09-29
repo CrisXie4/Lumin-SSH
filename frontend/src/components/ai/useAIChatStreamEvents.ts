@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { EventsOn } from '../../../wailsjs/runtime/runtime.js'
 import {
   buildAIUpstreamTokenUsage,
@@ -13,6 +13,85 @@ import { upsertConversationSummary, type ConversationSummary } from './aiConvers
 import { loadThemePackages } from '../../utils/theme.ts'
 import { t as translate } from '../../i18n.ts'
 import type * as React from 'react'
+
+// 流式文本一次性追加到面板：delta / reasoning_delta 两个分支共用，
+// 由 useAIChatStreamEvents 内的 rAF 合并逻辑调用（见下方注释）。
+function applyAIContentDeltaToPanel(current: PanelState, requestId: string, text: string): PanelState {
+  const assistantMessageId = current.activeAssistantMessageId || requestId
+  const nowMs = Date.now()
+  return {
+    ...current,
+    messages: current.messages.map((message) => {
+      if (message.id !== assistantMessageId || message.kind !== 'assistant') {
+        return message
+      }
+      const baseText = typeof message.text === 'string' ? message.text.replace(/▍$/u, '') : ''
+      const previousFirstTokenAtMs = Number(message.extra?.firstTokenAtMs)
+      return {
+        ...message,
+        text: `${baseText}${text}▍`,
+        metrics: [],
+        streaming: true,
+        extra: {
+          ...(message.extra || {}),
+          requestStatusLive: true,
+          firstTokenAtMs: Number.isFinite(previousFirstTokenAtMs) && previousFirstTokenAtMs > 0 ? previousFirstTokenAtMs : nowMs,
+          errorText: '',
+        },
+      }
+    }),
+  }
+}
+
+function applyAIReasoningDeltaToPanel(current: PanelState, requestId: string, text: string): PanelState {
+  const assistantMessageId = current.activeAssistantMessageId || requestId
+  const reasoningId = `${assistantMessageId}-reasoning`
+  const currentMessages = Array.isArray(current.messages) ? current.messages : []
+  const reasoningIndex = currentMessages.findIndex((message) => message.id === reasoningId && message.kind === 'reasoning')
+  const nowMs = Date.now()
+
+  const markAssistantFirstOutput = (messages: AIMessage[]) => messages.map((message) => {
+    if (message.id !== assistantMessageId || message.kind !== 'assistant') {
+      return message
+    }
+    const previousFirstTokenAtMs = Number(message.extra?.firstTokenAtMs)
+    return {
+      ...message,
+      extra: {
+        ...(message.extra || {}),
+        requestStatusLive: true,
+        firstTokenAtMs: Number.isFinite(previousFirstTokenAtMs) && previousFirstTokenAtMs > 0 ? previousFirstTokenAtMs : nowMs,
+        errorText: '',
+      },
+    }
+  })
+
+  if (reasoningIndex >= 0) {
+    const nextMessages = [...currentMessages]
+    const previousText = typeof nextMessages[reasoningIndex].text === 'string' ? nextMessages[reasoningIndex].text : ''
+    nextMessages[reasoningIndex] = {
+      ...nextMessages[reasoningIndex],
+      turnId: assistantMessageId,
+      text: `${previousText}${text}`,
+      duration: '',
+    }
+    return {
+      ...current,
+      messages: markAssistantFirstOutput(nextMessages),
+    }
+  }
+
+  return {
+    ...current,
+    messages: markAssistantFirstOutput(insertMessageBeforeAssistant(currentMessages, assistantMessageId, {
+      id: reasoningId,
+      turnId: assistantMessageId,
+      kind: 'reasoning',
+      text,
+      duration: '',
+    })),
+  }
+}
 
 // ai-chat-stream 流式事件总入口（runtime_phase / collaboration_* / assistant_* /
 // tool_* / delta / done / error / cancelled 等分支）+ 协同 pending 卡片确认与
@@ -63,6 +142,55 @@ export function useAIChatStreamEvents({
   setComposerImages,
   setProviderBalanceRefreshSignal,
 }: AIChatStreamEventsDeps) {
+  // 流式文本兜底合并：后端已按 16ms 窗口合并事件，这里再把同一帧内到达的片段合成
+  // 一次状态更新，避免高速输出下每个片段都重建一次 messages 数组。
+  // 非 delta 事件到达前必须先冲刷，保证顺序与不丢字。
+  const pendingDeltaRef = useRef<Map<string, { requestId: string; kind: string; text: string }>>(new Map())
+  const pendingDeltaFrameRef = useRef<number | null>(null)
+  const flushPendingDeltas = useCallback(() => {
+    if (pendingDeltaFrameRef.current !== null) {
+      window.cancelAnimationFrame(pendingDeltaFrameRef.current)
+      pendingDeltaFrameRef.current = null
+    }
+    const pending = pendingDeltaRef.current
+    if (pending.size === 0) {
+      return
+    }
+    pendingDeltaRef.current = new Map()
+    pending.forEach((segment, panelKey) => {
+      setPanelState(panelKey, (current) => (
+        segment.kind === 'reasoning_delta'
+          ? applyAIReasoningDeltaToPanel(current, segment.requestId, segment.text)
+          : applyAIContentDeltaToPanel(current, segment.requestId, segment.text)
+      ))
+    })
+  }, [setPanelState])
+  const bufferAIDelta = useCallback((panelKey: string, requestId: string, kind: string, text: string) => {
+    if (!text) {
+      return
+    }
+    const pending = pendingDeltaRef.current
+    const existing = pending.get(panelKey)
+    if (existing && existing.kind !== kind) {
+      // 正文与思考文本交替：先冲刷前一种，保住到达顺序
+      flushPendingDeltas()
+    }
+    const after = pendingDeltaRef.current
+    const current = after.get(panelKey)
+    if (current && current.kind === kind && current.requestId === requestId) {
+      current.text += text
+    } else {
+      after.set(panelKey, { requestId, kind, text })
+    }
+    if (pendingDeltaFrameRef.current !== null) {
+      return
+    }
+    pendingDeltaFrameRef.current = window.requestAnimationFrame(() => {
+      pendingDeltaFrameRef.current = null
+      flushPendingDeltas()
+    })
+  }, [flushPendingDeltas])
+
   useEffect(() => {
     const unbind = EventsOn('ai-chat-stream', (payload) => {
       const requestId = payload?.requestId
@@ -77,7 +205,16 @@ export function useAIChatStreamEvents({
       }
 
       const [matchedPanelKey, matchedPanel] = matchedEntry
-      const conversation = matchedPanel.conversation
+
+      // 非 delta 事件处理前先冲刷合并中的流式文本，保证顺序与不丢字。
+      if (payload.kind !== 'delta' && payload.kind !== 'reasoning_delta') {
+        flushPendingDeltas()
+      }
+
+      // 冲刷可能刚写入新的流式文字：error / cancelled 等终态分支会用当前面板整体
+      // 覆盖状态，必须基于冲刷后的最新面板，否则刚冲进去的文字会被这次覆盖抹掉。
+      const freshPanel = terminalPanelsRef.current[matchedPanelKey] || matchedPanel
+      const conversation = freshPanel.conversation
       if (!conversation) {
         return
       }
@@ -961,85 +1098,12 @@ export function useAIChatStreamEvents({
       }
 
       if (payload.kind === 'reasoning_delta') {
-        setPanelState(matchedPanelKey, (current) => {
-          const assistantMessageId = current.activeAssistantMessageId || requestId
-          const reasoningId = `${assistantMessageId}-reasoning`
-          const currentMessages = Array.isArray(current.messages) ? current.messages : []
-          const reasoningIndex = currentMessages.findIndex((message) => message.id === reasoningId && message.kind === 'reasoning')
-          const nowMs = Date.now()
-
-          const markAssistantFirstOutput = (messages: AIMessage[]) => messages.map((message) => {
-            if (message.id !== assistantMessageId || message.kind !== 'assistant') {
-              return message
-            }
-            const previousFirstTokenAtMs = Number(message.extra?.firstTokenAtMs)
-            return {
-              ...message,
-              extra: {
-                ...(message.extra || {}),
-                requestStatusLive: true,
-                firstTokenAtMs: Number.isFinite(previousFirstTokenAtMs) && previousFirstTokenAtMs > 0 ? previousFirstTokenAtMs : nowMs,
-                errorText: '',
-              },
-            }
-          })
-
-          if (reasoningIndex >= 0) {
-            const nextMessages = [...currentMessages]
-            const previousText = typeof nextMessages[reasoningIndex].text === 'string' ? nextMessages[reasoningIndex].text : ''
-            nextMessages[reasoningIndex] = {
-              ...nextMessages[reasoningIndex],
-              turnId: assistantMessageId,
-              text: `${previousText}${payload.delta || ''}`,
-              duration: '',
-            }
-            return {
-              ...current,
-              messages: markAssistantFirstOutput(nextMessages),
-            }
-          }
-
-          return {
-            ...current,
-            messages: markAssistantFirstOutput(insertMessageBeforeAssistant(currentMessages, assistantMessageId, {
-              id: reasoningId,
-              turnId: assistantMessageId,
-              kind: 'reasoning',
-              text: payload.delta || '',
-              duration: '',
-            })),
-          }
-        })
+        bufferAIDelta(matchedPanelKey, requestId, 'reasoning_delta', typeof payload.delta === 'string' ? payload.delta : '')
         return
       }
 
       if (payload.kind === 'delta') {
-        setPanelState(matchedPanelKey, (current) => {
-          const assistantMessageId = current.activeAssistantMessageId || requestId
-          const nowMs = Date.now()
-          return {
-            ...current,
-            messages: current.messages.map((message) => {
-              if (message.id !== assistantMessageId || message.kind !== 'assistant') {
-                return message
-              }
-              const baseText = typeof message.text === 'string' ? message.text.replace(/▍$/u, '') : ''
-              const previousFirstTokenAtMs = Number(message.extra?.firstTokenAtMs)
-              return {
-                ...message,
-                text: `${baseText}${payload.delta || ''}▍`,
-                metrics: [],
-                streaming: true,
-                extra: {
-                  ...(message.extra || {}),
-                  requestStatusLive: true,
-                  firstTokenAtMs: Number.isFinite(previousFirstTokenAtMs) && previousFirstTokenAtMs > 0 ? previousFirstTokenAtMs : nowMs,
-                  errorText: '',
-                },
-              }
-            }),
-          }
-        })
+        bufferAIDelta(matchedPanelKey, requestId, 'delta', typeof payload.delta === 'string' ? payload.delta : '')
         return
       }
 
@@ -1048,11 +1112,11 @@ export function useAIChatStreamEvents({
       // 这里整段移除；如后端日后重新引入该事件，需连同相位复位一并实现。
 
       if (payload.kind === 'error') {
-        const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
+        const assistantMessageId = freshPanel.activeAssistantMessageId || requestId
         const finalErrorText = payload.error || translate('请求失败')
         playAISound('progress')
 
-        const nextMessages = matchedPanel.messages
+        const nextMessages = freshPanel.messages
           .filter((message) => !(message.id === `${assistantMessageId}-reasoning` && message.kind === 'reasoning'))
           .map((message) => {
             if (message.id !== assistantMessageId || message.kind !== 'assistant') {
@@ -1075,11 +1139,11 @@ export function useAIChatStreamEvents({
           updatedAt: Date.now(),
           status: 'error',
           messages: nextMessages,
-          apiMessages: matchedPanel.apiMessages,
+          apiMessages: freshPanel.apiMessages,
         }
 
         setPanelState(matchedPanelKey, {
-          ...matchedPanel,
+          ...freshPanel,
           activeRequestId: '',
           activeAssistantMessageId: '',
           activeToolExecution: null,
@@ -1090,7 +1154,7 @@ export function useAIChatStreamEvents({
           isCondensingContext: false,
           conversation: nextConversation,
           messages: nextMessages,
-          apiMessages: matchedPanel.apiMessages,
+          apiMessages: freshPanel.apiMessages,
           recoverableToolStopReason: '',
           collaborationLocked: false,
           collaborationActive: false,
@@ -1105,18 +1169,18 @@ export function useAIChatStreamEvents({
       }
 
       if (payload.kind === 'cancelled') {
-        const assistantMessageId = matchedPanel.activeAssistantMessageId || requestId
-        const nextMessages = dropAssistantTurnMessages(matchedPanel.messages, assistantMessageId)
+        const assistantMessageId = freshPanel.activeAssistantMessageId || requestId
+        const nextMessages = dropAssistantTurnMessages(freshPanel.messages, assistantMessageId)
         const nextConversation = {
           ...conversation,
           updatedAt: Date.now(),
           status: 'idle',
           messages: nextMessages,
-          apiMessages: matchedPanel.apiMessages,
+          apiMessages: freshPanel.apiMessages,
         }
 
         setPanelState(matchedPanelKey, {
-          ...matchedPanel,
+          ...freshPanel,
           activeRequestId: '',
           activeAssistantMessageId: '',
           activeToolExecution: null,
@@ -1127,7 +1191,7 @@ export function useAIChatStreamEvents({
           isCondensingContext: false,
           conversation: nextConversation,
           messages: nextMessages,
-          apiMessages: matchedPanel.apiMessages,
+          apiMessages: freshPanel.apiMessages,
           recoverableToolStopReason: '',
           collaborationLocked: false,
           collaborationActive: false,
@@ -1143,11 +1207,12 @@ export function useAIChatStreamEvents({
     })
 
     return () => {
+      flushPendingDeltas()
       if (unbind) {
         unbind()
       }
     }
-  }, [enrichAIChatCommandMessage, playAISound, rebuildAIConversationTokenLedger, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration])
+  }, [enrichAIChatCommandMessage, flushPendingDeltas, playAISound, rebuildAIConversationTokenLedger, saveConversationSnapshot, setPanelState, shouldLockAssistantCollaboration])
 
   // 「停止并恢复」：取消后，等请求真正收尾再自动恢复任务。
   // 不在具体终态事件里触发——取消可能以 cancelled / tool_execution_terminated /

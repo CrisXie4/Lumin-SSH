@@ -108,6 +108,8 @@ func (a *Service) SaveAIProviderState(jsonStr string) error {
 	if a == nil || a.configManager == nil {
 		return nil
 	}
+	// 供应商可指定专属代理，保存后缓存的 HTTP 客户端必须失效。
+	a.invalidateAIHTTPClients()
 	return a.configManager.SaveAIProviderState(state)
 }
 

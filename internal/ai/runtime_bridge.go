@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -59,6 +60,26 @@ type Service struct {
 	aiToolExecutions          map[string]*ToolExecutionState
 	aiSkipNextAutoReqMu       sync.Mutex
 	aiSkipNextAutomaticReqMap map[string]bool
+	aiDeltaBufMu              sync.Mutex
+	aiDeltaBuf                map[string]*aiDeltaBuffer
+	aiHTTPClientMu            sync.Mutex
+	aiHTTPClients             map[string]*http.Client
+}
+
+// aiDeltaChunk 是流式输出的一个待发片段。按到达顺序记录 kind，
+// 冲刷时才能还原 "content / reasoning 交替出现" 的原始顺序。
+type aiDeltaChunk struct {
+	kind string
+	text string
+}
+
+type aiDeltaBuffer struct {
+	chunks []aiDeltaChunk
+	runes  int
+	timer  *time.Timer
+	// started 标记该请求已发出过首个片段。只有首个片段立即发送（保首字延迟），
+	// 之后一律进入合并窗口；冲刷后必须保留该标记，否则每个片段都会被当成首片段。
+	started bool
 }
 
 type configBridge struct {
@@ -84,6 +105,8 @@ func NewService(ctx context.Context, configDir string, sessionProvider SessionPr
 		aiCollaborations:          make(map[string]*aiCollaborationState),
 		aiToolExecutions:          make(map[string]*ToolExecutionState),
 		aiSkipNextAutomaticReqMap: make(map[string]bool),
+		aiDeltaBuf:                make(map[string]*aiDeltaBuffer),
+		aiHTTPClients:             make(map[string]*http.Client),
 	}
 	setAIDebugLogEnabled(service.GetAIGlobalSettings().AIDebugLogEnabled)
 	return service

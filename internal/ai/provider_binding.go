@@ -9,63 +9,20 @@ import (
 	"time"
 
 	aiprovider "lumeterm/internal/ai/provider"
+	"lumeterm/internal/aitypes"
 )
 
+// ponytail: 归一化实现统一收敛到 internal/aitypes，避免两处同名逻辑各自漂移。
 func NormalizeAIProviderProtocolForBinding(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "compatible":
-		return "Compatible"
-	case "responses":
-		return "Responses"
-	case "messages":
-		return "Messages"
-	default:
-		return "Compatible"
-	}
+	return aitypes.NormalizeAIProviderProtocol(value)
 }
 
 func NormalizeAIProviderCacheStrategyForBinding(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "off":
-		return "off"
-	case "model":
-		return "model"
-	case "5m":
-		return "5m"
-	case "1h":
-		return "1h"
-	case "30m":
-		return "30m"
-	case "in_memory":
-		return "in_memory"
-	case "24h":
-		return "24h"
-	default:
-		return "model"
-	}
+	return aitypes.NormalizeAIProviderCacheStrategy(value)
 }
 
 func NormalizeAIProviderReasoningEffortForBinding(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "disable":
-		return "disable"
-	case "none":
-		return "none"
-	case "minimal":
-		return "minimal"
-	case "low":
-		return "low"
-	case "medium":
-		return "medium"
-	case "high":
-		return "high"
-	case "xhigh":
-		return "xhigh"
-	case "max":
-		return "max"
-	default:
-		return "disable"
-	}
+	return aitypes.NormalizeAIProviderReasoningEffort(value)
 }
 
 func NormalizeAIProviderProfilesForBinding(profiles []AIProviderProfile) []AIProviderProfile {

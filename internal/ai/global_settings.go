@@ -142,6 +142,8 @@ func (a *Service) SaveAIGlobalSettings(jsonStr string) error {
 	if err := a.configManager.SaveAIGlobalSettings(settings); err != nil {
 		return err
 	}
+	// 代理设置可能已变，缓存的 HTTP 客户端必须失效，否则会继续复用旧代理建连。
+	a.invalidateAIHTTPClients()
 	// AI 对话日志开关变更后立即生效,无需重启。
 	setAIDebugLogEnabled(settings.AIDebugLogEnabled)
 	return nil

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
 
 	"lumeterm/internal/mcpserver"
 
@@ -2075,11 +2076,144 @@ func (a *Service) SetAIChatSkipNextAutomaticRequest(requestID string, enabled bo
 	a.setAIChatSkipNextAutomaticRequest(requestID, enabled)
 }
 
+// ponytail: 流式 delta 合并窗口 16ms（≈60fps）。首片段立即发送，保证首字延迟不受合并影响；
+// 累计 256 rune 立即冲刷，避免长文本攒出肉眼可见的卡顿。
+const (
+	aiDeltaFlushWindow   = 16 * time.Millisecond
+	aiDeltaFlushMaxRunes = 256
+)
+
+func isAIChatDeltaEventKind(kind string) bool {
+	// 覆盖 delta / reasoning_delta 及协同前缀变体（collaboration_delta 等）
+	return strings.HasSuffix(strings.TrimSpace(kind), "delta")
+}
+
+// emitAIChatEventSink 是唯一的实际投递点，抽成变量仅为单测可替换（默认走 Wails 事件总线）。
+var emitAIChatEventSink = func(ctx context.Context, payload map[string]interface{}) {
+	runtime.EventsEmit(ctx, "ai-chat-stream", payload)
+}
+
+// emitAIChatEventRaw 是唯一真正发事件的地方；emitAIChatEvent 之外不要直接调用它，
+// 否则会绕过 delta 合并的冲刷保证。
+func (a *Service) emitAIChatEventRaw(payload map[string]interface{}) {
+	if a == nil || a.ctx == nil {
+		return
+	}
+	emitAIChatEventSink(a.ctx, payload)
+}
+
 func (a *Service) emitAIChatEvent(payload map[string]interface{}) {
 	if a == nil || a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, "ai-chat-stream", payload)
+	kind, _ := payload["kind"].(string)
+	requestID, _ := payload["requestId"].(string)
+	requestID = strings.TrimSpace(requestID)
+	if isAIChatDeltaEventKind(kind) {
+		delta, _ := payload["delta"].(string)
+		if requestID == "" || delta == "" {
+			// 无 requestId 的事件前端本就无法匹配面板，按原样发出以保持旧行为，不要静默丢弃。
+			a.emitAIChatEventRaw(payload)
+			return
+		}
+		a.bufferAIChatDelta(requestID, kind, delta)
+		return
+	}
+	// 非 delta 事件前必须先把该请求的待发 delta 冲掉：既保证事件顺序，也保证不丢字。
+	a.flushAIDeltaBuffer(requestID)
+	a.emitAIChatEventRaw(payload)
+}
+
+func (a *Service) bufferAIChatDelta(requestID string, kind string, delta string) {
+	if a == nil || requestID == "" || delta == "" {
+		return
+	}
+	a.aiDeltaBufMu.Lock()
+	if a.aiDeltaBuf == nil {
+		a.aiDeltaBuf = make(map[string]*aiDeltaBuffer)
+	}
+	buffer := a.aiDeltaBuf[requestID]
+	if buffer == nil {
+		buffer = &aiDeltaBuffer{}
+		a.aiDeltaBuf[requestID] = buffer
+	}
+	buffer.chunks = append(buffer.chunks, aiDeltaChunk{kind: kind, text: delta})
+	buffer.runes += utf8.RuneCountInString(delta)
+	switch {
+	case !buffer.started || buffer.runes >= aiDeltaFlushMaxRunes:
+		// 首片段或攒够一屏：立即冲刷，但保留缓冲槽位以记住 started
+		a.flushAIDeltaBufferLocked(requestID, false)
+	case buffer.timer == nil:
+		buffer.timer = time.AfterFunc(aiDeltaFlushWindow, func() {
+			a.flushAIDeltaBuffer(requestID)
+		})
+	}
+	a.aiDeltaBufMu.Unlock()
+}
+
+// flushAIDeltaBufferLocked 在持有 aiDeltaBufMu 时调用：取出待发片段并就地发送。
+// ponytail: 发送必须在锁内完成 —— 定时冲刷跑在独立 goroutine，若解锁后再发送，
+// 与 SSE 读取协程的「超长立即冲刷」会交错发出同一请求的片段，前端收到即文字错序。
+// dropBuffer 为真表示请求已收尾（下一个非 delta 事件到来），连同槽位一起删除；
+// 为假表示只是窗口/长度触发的冲刷，重置内容但保留 started 标记。
+func (a *Service) flushAIDeltaBufferLocked(requestID string, dropBuffer bool) {
+	buffer := a.aiDeltaBuf[requestID]
+	if buffer == nil {
+		return
+	}
+	chunks := buffer.chunks
+	if buffer.timer != nil {
+		buffer.timer.Stop()
+		buffer.timer = nil
+	}
+	if dropBuffer {
+		delete(a.aiDeltaBuf, requestID)
+	} else {
+		buffer.chunks = nil
+		buffer.runes = 0
+		buffer.started = true
+	}
+	a.emitAIDeltaChunks(requestID, chunks)
+}
+
+// flushAIDeltaBuffer 冲刷指定请求的待发 delta 并释放槽位。
+// requestID 为空或缓冲为空时直接返回，可安全地在任意收尾路径调用。
+func (a *Service) flushAIDeltaBuffer(requestID string) {
+	trimmedRequestID := strings.TrimSpace(requestID)
+	if a == nil || trimmedRequestID == "" {
+		return
+	}
+	a.aiDeltaBufMu.Lock()
+	defer a.aiDeltaBufMu.Unlock()
+	a.flushAIDeltaBufferLocked(trimmedRequestID, true)
+}
+
+func mergeAIDeltaChunks(chunks []aiDeltaChunk) []aiDeltaChunk {
+	// 相邻同 kind 的片段合并成一个事件，跨 kind 时切分，保持原始到达顺序
+	merged := make([]aiDeltaChunk, 0, len(chunks))
+	for index := 0; index < len(chunks); {
+		kind := chunks[index].kind
+		var builder strings.Builder
+		for index < len(chunks) && chunks[index].kind == kind {
+			builder.WriteString(chunks[index].text)
+			index++
+		}
+		merged = append(merged, aiDeltaChunk{kind: kind, text: builder.String()})
+	}
+	return merged
+}
+
+func (a *Service) emitAIDeltaChunks(requestID string, chunks []aiDeltaChunk) {
+	if a == nil || len(chunks) == 0 {
+		return
+	}
+	for _, chunk := range mergeAIDeltaChunks(chunks) {
+		a.emitAIChatEventRaw(map[string]interface{}{
+			"kind":      chunk.kind,
+			"requestId": requestID,
+			"delta":     chunk.text,
+		})
+	}
 }
 
 func (a *Service) emitAIChatRuntimePhase(requestID string, phase string) {

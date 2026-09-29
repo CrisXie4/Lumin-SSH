@@ -3,11 +3,13 @@ package ai
 import (
 	"bytes"
 	"encoding/base64"
+	"hash/fnv"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode"
@@ -48,6 +50,8 @@ var aiTokenEstimatorMultipliersMap = map[string]aiTokenEstimatorMultipliers{
 		Word: 1.02, Number: 1.55, CJK: 0.85, Symbol: 0.4, MathSymbol: 2.68, URLDelim: 1.0, AtSign: 2.0, Emoji: 2.12, Newline: 0.5, Space: 0.42, BasePad: 0,
 	},
 }
+
+const aiTokenEstimatorMathSymbolRunes = "∑∫∂√∞≤≥≠≈±×÷∈∉∋∌⊂⊃⊆⊇∪∩∧∨¬∀∃∄∅∆∇∝∟∠∡∢°′″‴⁺⁻⁼⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎²³¹⁴⁵⁶⁷⁸⁹⁰"
 
 const (
 	aiGenericImageTokenCost         = 520
@@ -182,12 +186,19 @@ func isAITokenEstimatorEmoji(r rune) bool {
 		(r >= 0x1FA00 && r <= 0x1FAFF)
 }
 
+var aiTokenEstimatorMathSymbolSet = buildAITokenEstimatorRuneSet(aiTokenEstimatorMathSymbolRunes)
+
+func buildAITokenEstimatorRuneSet(runes string) map[rune]struct{} {
+	set := make(map[rune]struct{}, len(runes))
+	for _, symbol := range runes {
+		set[symbol] = struct{}{}
+	}
+	return set
+}
+
 func isAITokenEstimatorMathSymbol(r rune) bool {
-	mathSymbols := "∑∫∂√∞≤≥≠≈±×÷∈∉∋∌⊂⊃⊆⊇∪∩∧∨¬∀∃∄∅∆∇∝∟∠∡∢°′″‴⁺⁻⁼⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎²³¹⁴⁵⁶⁷⁸⁹⁰"
-	for _, symbol := range mathSymbols {
-		if r == symbol {
-			return true
-		}
+	if _, ok := aiTokenEstimatorMathSymbolSet[r]; ok {
+		return true
 	}
 	return (r >= 0x2200 && r <= 0x22FF) ||
 		(r >= 0x2A00 && r <= 0x2AFF) ||
@@ -265,8 +276,62 @@ func estimateAIHeuristicTextTokens(text string, model string) int {
 	return int(math.Ceil(count)) + multipliers.BasePad
 }
 
+// ponytail: 文本 token 缓存。同一段正文会在「上下文统计 / 账本重建 / 压缩判定」里被反复估算，
+// 这里按 (模型, 文本指纹) 缓存结果。仅缓存 8KB 以内的文本，避免被超长工具输出撑爆；
+// 超过上限直接整体清空（简化淘汰策略，如需 LRU 命中率可换成 container/list + map 的 LRU）。
+const aiTextTokenCacheMaxEntries = 4096
+const aiTextTokenCacheMaxTextLen = 8192
+
+var (
+	aiTextTokenCacheMu sync.RWMutex
+	aiTextTokenCache   = map[string]int{}
+)
+
+func buildAITextTokenCacheKey(model string, text string) string {
+	digest := fnv.New64a()
+	// 分隔符不可出现在文本中，避免 "a|bc" 与 "ab|c" 碰撞
+	digest.Write([]byte(model))
+	digest.Write([]byte{0})
+	digest.Write([]byte(text))
+	return strconv.FormatUint(digest.Sum64(), 16)
+}
+
+func cachedAITextTokenCount(model string, text string) (int, bool) {
+	key := buildAITextTokenCacheKey(model, text)
+	aiTextTokenCacheMu.RLock()
+	defer aiTextTokenCacheMu.RUnlock()
+	value, ok := aiTextTokenCache[key]
+	return value, ok
+}
+
+func storeAITextTokenCount(model string, text string, tokens int) {
+	key := buildAITextTokenCacheKey(model, text)
+	aiTextTokenCacheMu.Lock()
+	defer aiTextTokenCacheMu.Unlock()
+	if len(aiTextTokenCache) >= aiTextTokenCacheMaxEntries {
+		aiTextTokenCache = map[string]int{}
+	}
+	aiTextTokenCache[key] = tokens
+}
+
 func estimateAITextTokensForProfile(text string, profile AIProviderProfile) int {
 	normalizedModel := normalizeAITokenEstimatorModel(profile.Model)
+	if strings.TrimSpace(text) == "" {
+		return 0
+	}
+	if len(text) <= aiTextTokenCacheMaxTextLen {
+		if cached, ok := cachedAITextTokenCount(normalizedModel, text); ok {
+			return cached
+		}
+	}
+	tokens := estimateAITextTokensUncached(text, normalizedModel)
+	if len(text) <= aiTextTokenCacheMaxTextLen {
+		storeAITextTokenCount(normalizedModel, text, tokens)
+	}
+	return tokens
+}
+
+func estimateAITextTokensUncached(text string, normalizedModel string) int {
 	if isAIOpenAICompatibleTokenizerModel(normalizedModel) {
 		if exactCount, ok := countAIExactTextTokensByModel(text, normalizedModel); ok {
 			return exactCount

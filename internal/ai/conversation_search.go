@@ -173,49 +173,133 @@ func extractAIConversationSearchRecord(message AIConversationMessage) (string, s
 	return messageID, role, body, true
 }
 
+// replaceAIConversationSearchRowsLocked 将会话的搜索索引与快照对齐（增量）。
+// 之前每次保存都全删全插：长会话每存一次要重写上千行（含 FTS 大文本），而流式
+// 过程中保存会被触发约 10 次。现在只删除消失的消息、重写内容变化的行、插入新增
+// 的行，未变化的行保持不动。变化判断包含 conversation_title —— 会话改名会让该
+// 会话全量重写一次（改名很少见，可接受）。
+// ponytail: updated_at 仍是「会话级」语义（与全量重写时代一致），时间戳变化时用
+// 一条 UPDATE 统一刷新该会话所有行，保证搜索排序结果与旧行为完全相同。
 func (c *configBridge) replaceAIConversationSearchRowsLocked(tx *sql.Tx, snapshot AIConversationSnapshot) error {
 	conversationID := strings.TrimSpace(snapshot.ID)
 	if conversationID == "" {
 		return fmt.Errorf("缺少对话 ID")
 	}
-	if _, err := tx.Exec(`DELETE FROM ai_conversation_message_index WHERE conversation_id = ?`, conversationID); err != nil {
-		return err
+	conversationTitle := strings.TrimSpace(snapshot.Title)
+
+	type aiConversationSearchRow struct {
+		title string
+		role  string
+		body  string
 	}
-	if _, err := tx.Exec(`DELETE FROM ai_conversation_message_fts WHERE conversation_id = ?`, conversationID); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(`DELETE FROM ai_conversation_search_state WHERE conversation_id = ?`, conversationID); err != nil {
-		return err
-	}
+	desired := make(map[string]aiConversationSearchRow, len(snapshot.Messages))
 	for _, message := range snapshot.Messages {
 		messageID, role, body, ok := extractAIConversationSearchRecord(message)
 		if !ok {
 			continue
 		}
-		if _, err := tx.Exec(
-			`INSERT INTO ai_conversation_message_index (message_id, conversation_id, conversation_title, role, body, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			messageID,
-			conversationID,
-			strings.TrimSpace(snapshot.Title),
-			role,
-			body,
-			snapshot.UpdatedAt,
-		); err != nil {
+		desired[messageID] = aiConversationSearchRow{title: conversationTitle, role: role, body: body}
+	}
+
+	rows, err := tx.Query(`SELECT message_id, conversation_title, role, body FROM ai_conversation_message_index WHERE conversation_id = ?`, conversationID)
+	if err != nil {
+		return err
+	}
+	existing := make(map[string]aiConversationSearchRow)
+	for rows.Next() {
+		var messageID, title, role, body string
+		if err := rows.Scan(&messageID, &title, &role, &body); err != nil {
+			rows.Close()
 			return err
 		}
-		if _, err := tx.Exec(
-			`INSERT INTO ai_conversation_message_fts (message_id, conversation_id, conversation_title, role, body) VALUES (?, ?, ?, ?, ?)`,
-			messageID,
-			conversationID,
-			strings.TrimSpace(snapshot.Title),
-			role,
-			body,
-		); err != nil {
+		existing[messageID] = aiConversationSearchRow{title: title, role: role, body: body}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	indexDeleteStmt, err := tx.Prepare(`DELETE FROM ai_conversation_message_index WHERE message_id = ?`)
+	if err != nil {
+		return err
+	}
+	defer indexDeleteStmt.Close()
+	ftsDeleteStmt, err := tx.Prepare(`DELETE FROM ai_conversation_message_fts WHERE message_id = ? AND conversation_id = ?`)
+	if err != nil {
+		return err
+	}
+	defer ftsDeleteStmt.Close()
+	// 索引表 message_id 是主键，变化行直接 OR REPLACE 覆盖，省一次显式删除
+	indexInsertStmt, err := tx.Prepare(`INSERT OR REPLACE INTO ai_conversation_message_index (message_id, conversation_id, conversation_title, role, body, updated_at) VALUES (?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer indexInsertStmt.Close()
+	ftsInsertStmt, err := tx.Prepare(`INSERT INTO ai_conversation_message_fts (message_id, conversation_id, conversation_title, role, body) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer ftsInsertStmt.Close()
+
+	// 消失的消息：两张表一起删
+	for messageID := range existing {
+		if _, ok := desired[messageID]; ok {
+			continue
+		}
+		if _, err := indexDeleteStmt.Exec(messageID); err != nil {
+			return err
+		}
+		if _, err := ftsDeleteStmt.Exec(messageID, conversationID); err != nil {
+			return err
+		}
+	}
+
+	// 新增或内容变化的消息：FTS 必须先删旧行再插入，否则编辑过的消息在全文索引里出现两条
+	for messageID, want := range desired {
+		had, ok := existing[messageID]
+		if ok && had == want {
+			continue
+		}
+		if ok {
+			if _, err := ftsDeleteStmt.Exec(messageID, conversationID); err != nil {
+				return err
+			}
+		}
+		if _, err := indexInsertStmt.Exec(messageID, conversationID, want.title, want.role, want.body, snapshot.UpdatedAt); err != nil {
+			return err
+		}
+		if _, err := ftsInsertStmt.Exec(messageID, conversationID, want.title, want.role, want.body); err != nil {
+			return err
+		}
+	}
+
+	// 与全量重写保持一致的时间戳语义：搜索结果按行上的 updated_at 排序，会话更新
+	// 时间变化时统一刷新该会话所有行。首次保存（无 state 行）不需要——所有行刚写入。
+	var stateUpdatedAt int64
+	hasState := false
+	stateRows, err := tx.Query(`SELECT updated_at FROM ai_conversation_search_state WHERE conversation_id = ?`, conversationID)
+	if err != nil {
+		return err
+	}
+	for stateRows.Next() {
+		if err := stateRows.Scan(&stateUpdatedAt); err != nil {
+			stateRows.Close()
+			return err
+		}
+		hasState = true
+	}
+	stateRows.Close()
+	if err := stateRows.Err(); err != nil {
+		return err
+	}
+	if hasState && stateUpdatedAt != snapshot.UpdatedAt {
+		if _, err := tx.Exec(`UPDATE ai_conversation_message_index SET updated_at = ? WHERE conversation_id = ?`, snapshot.UpdatedAt, conversationID); err != nil {
 			return err
 		}
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO ai_conversation_search_state (conversation_id, updated_at) VALUES (?, ?)`,
+		`INSERT OR REPLACE INTO ai_conversation_search_state (conversation_id, updated_at) VALUES (?, ?)`,
 		conversationID,
 		snapshot.UpdatedAt,
 	); err != nil {
@@ -315,16 +399,16 @@ func (c *configBridge) syncAIConversationSearchIndexLocked() error {
 			continue
 		}
 		snapshot := AIConversationSnapshot{
-			ID:                        summary.ID,
-			Title:                     summary.Title,
-			CreatedAt:                 summary.CreatedAt,
-			UpdatedAt:                 summary.UpdatedAt,
-			Status:                    summary.Status,
-			ToolProtocol:              summary.ToolProtocol,
+			ID:                         summary.ID,
+			Title:                      summary.Title,
+			CreatedAt:                  summary.CreatedAt,
+			UpdatedAt:                  summary.UpdatedAt,
+			Status:                     summary.Status,
+			ToolProtocol:               summary.ToolProtocol,
 			PromptCacheBypassTimestamp: summary.PromptCacheBypassTimestamp,
-			Messages:                  c.readAIConversationMessages(conversationID),
-			APIMessages:               []AIConversationAPIMessage{},
-			Settings:                  AIConversationTaskSettings{},
+			Messages:                   c.readAIConversationMessages(conversationID),
+			APIMessages:                []AIConversationAPIMessage{},
+			Settings:                   AIConversationTaskSettings{},
 		}
 		if err := c.replaceAIConversationSearchRowsLocked(tx, snapshot); err != nil {
 			return err

@@ -21,18 +21,20 @@ func cloneDefaultAIHTTPTransport() *http.Transport {
 	return configureAINeverTimeoutHTTPTransport(transport)
 }
 
+// Transport 现在按「代理节点 + 超时类别」缓存复用，只在首次或代理配置变更后重建，
+// 空闲连接由 IdleConnTimeout 回收；invalidateAIHTTPClients 会显式关闭闲置连接。
 func configureAINeverTimeoutHTTPTransport(transport *http.Transport) *http.Transport {
 	if transport == nil {
 		transport = &http.Transport{}
 	}
 	transport.DialContext = (&net.Dialer{
-		Timeout:   0,
+		// 流式请求整体不设超时，但连接阶段必须有上限：代理不可达时不能无限挂住。
+		Timeout:   10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}).DialContext
 	transport.ResponseHeaderTimeout = 0
-	transport.TLSHandshakeTimeout = 0
+	transport.TLSHandshakeTimeout = 10 * time.Second
 	transport.ExpectContinueTimeout = 0
-	// 每请求新建 Transport 且无人调 CloseIdleConnections，
 	// 空闲超时必须有限，否则连接与 Transport 永久滞留（仅作用于闲置连接，不影响进行中的流式请求）
 	transport.IdleConnTimeout = 90 * time.Second
 	return transport
@@ -138,7 +140,20 @@ func buildAISOCKS5DialContext(node AIProxyNode) (func(context.Context, string, s
 	}, nil
 }
 
-func (a *Service) newAIHTTPTransportForProfile(profile *AIProviderProfile) (*http.Transport, error) {
+// resolveAIProxyNodeIDForProfile 解析本次请求实际使用的代理节点 ID（无代理时返回空串）。
+// 只取 ID 不取 host/port/密码，避免敏感值与易变字段进入缓存 key。
+func (a *Service) resolveAIProxyNodeIDForProfile(profile *AIProviderProfile) (string, error) {
+	if a == nil || a.configManager == nil {
+		return "", nil
+	}
+	selectedProxy, err := resolveAIRequestProxyNode(a.configManager.GetAIGlobalSettings(), profile)
+	if err != nil || selectedProxy == nil {
+		return "", err
+	}
+	return strings.TrimSpace(selectedProxy.ID), nil
+}
+
+func (a *Service) buildAIHTTPTransportForProfile(profile *AIProviderProfile) (*http.Transport, error) {
 	transport := cloneDefaultAIHTTPTransport()
 	transport.Proxy = nil
 	if a == nil || a.configManager == nil {
@@ -170,15 +185,58 @@ func (a *Service) newAIHTTPTransportForProfile(profile *AIProviderProfile) (*htt
 	return transport, nil
 }
 
+func aiHTTPClientCacheKey(proxyNodeID string, timeout time.Duration) string {
+	return strings.TrimSpace(proxyNodeID) + "|" + timeout.String()
+}
+
+// newAIHTTPClientForProfile 按「代理节点 + 超时类别」缓存 http.Client。
+// 之前每次请求都新建 Transport，TCP/TLS 无法复用，每轮对话都要重新握手。
 func (a *Service) newAIHTTPClientForProfile(profile *AIProviderProfile, timeout time.Duration) (*http.Client, error) {
-	transport, err := a.newAIHTTPTransportForProfile(profile)
+	if a == nil {
+		return nil, fmt.Errorf("AI 服务不可用")
+	}
+	proxyNodeID, err := a.resolveAIProxyNodeIDForProfile(profile)
 	if err != nil {
 		return nil, err
 	}
-	return &http.Client{
+	cacheKey := aiHTTPClientCacheKey(proxyNodeID, timeout)
+	a.aiHTTPClientMu.Lock()
+	defer a.aiHTTPClientMu.Unlock()
+	if cached, ok := a.aiHTTPClients[cacheKey]; ok && cached != nil {
+		return cached, nil
+	}
+	transport, err := a.buildAIHTTPTransportForProfile(profile)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{
 		Transport: transport,
 		Timeout:   timeout,
-	}, nil
+	}
+	if a.aiHTTPClients == nil {
+		a.aiHTTPClients = make(map[string]*http.Client)
+	}
+	a.aiHTTPClients[cacheKey] = client
+	return client, nil
+}
+
+// invalidateAIHTTPClients 清空客户端缓存并关闭闲置连接。
+// 代理配置变更后必须调用，否则会继续复用旧代理建连。
+func (a *Service) invalidateAIHTTPClients() {
+	if a == nil {
+		return
+	}
+	a.aiHTTPClientMu.Lock()
+	defer a.aiHTTPClientMu.Unlock()
+	for _, client := range a.aiHTTPClients {
+		if client == nil {
+			continue
+		}
+		if transport, ok := client.Transport.(*http.Transport); ok && transport != nil {
+			transport.CloseIdleConnections()
+		}
+	}
+	a.aiHTTPClients = make(map[string]*http.Client)
 }
 
 func (a *Service) newAINeverTimeoutHTTPClientForProfile(profile *AIProviderProfile) (*http.Client, error) {
